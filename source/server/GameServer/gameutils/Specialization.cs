@@ -215,7 +215,13 @@ namespace DOL.GS
 				// /spawn Bonedancers have a real, point-funded build. The generic
 				// NPC 75% estimate hid their first subordinate summon even with
 				// 15+ points trained. Leave all other bots on their existing path.
-				int spellSpecLevel = bot.IsTemporaryGroupHelper && !bot.IsAutonomousWorldBot &&
+				// An 8v8 bot has a fixed, point-funded build, so its specialization lines give
+				// exactly the spells of the level it trained, as a player's do. The 75% estimate
+				// gave every level-50 bot the spells of 38 in every line whatever its spec: a
+				// 42 Enhancement Cleric had the level-30 Dex/Qui buff, a 4 Augmentation Healer the
+				// spells of 38 Augmentation (build audit, 2026-11-16).
+				int spellSpecLevel = bot.IsPvpBot ||
+					bot.IsTemporaryGroupHelper && !bot.IsAutonomousWorldBot &&
 					classId == (int)eCharacterClass.Bonedancer
 					? Math.Clamp(level, 1, Math.Max(1, (int)living.Level))
 					: Math.Max(1, living.Level - (living.Level >> 2));

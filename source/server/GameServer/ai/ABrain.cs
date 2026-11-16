@@ -15,7 +15,7 @@ namespace DOL.AI
         public virtual GameNPC Body { get; set; }
         public virtual int ThinkInterval { get; set; } = 2500;
         public bool IsActive => Body != null && Body.IsAlive && Body.ObjectState is GameObject.eObjectState.Active &&
-                                (Body is GameBot { IsAutonomousWorldBot: true } || AutonomousSummonActivity.IsVisibleOrAutonomousSummon(Body));
+                                (Body is GameBot { IsAutonomousWorldBot: true } or GameBot { IsPvpBot: true } || AutonomousSummonActivity.IsVisibleOrAutonomousSummon(Body));
         public long NextThinkTick { get; set; }
         protected virtual int ThinkOffsetOnStart => Util.Random(750, 3000);
 

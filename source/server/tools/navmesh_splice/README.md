@@ -45,3 +45,16 @@ copy roads.generated.json <runtime\server>\navmesh\roads.json
 Check routes with `UT_ZoneStepProbe` (its result line now ends with the navmesh query profile,
 including `Road=calls/ms`). Without `roads.json` everything behaves as before it existed.
 First built 2026-10-13: 63 zones of regions 1, 100, 200, 51, 151, 181; 99.6% of candidate legs proven.
+
+# Invisible-wall check (wallcheck.py)
+
+`wallcheck.py` samples every invisible wall of a zone (the client's `bound.csv`) and reports how
+much of it the installed navmesh lets bots walk across. A correct mesh has no walkable polygon on
+a wall line. Meshes built before the 0.35 builder fix carry only the first half of each wall.
+
+```
+python wallcheck.py <game folder>untime 214        # Emain Macha; several zone ids may follow
+```
+
+It reads the database read-only and exits 1 when a zone is more than 2% open. Measured
+2026-11-16 on a pre-0.35 mesh of Emain Macha: 7,021 of 11,560 samples walkable, 60.7% open.

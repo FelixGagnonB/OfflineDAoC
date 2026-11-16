@@ -1914,12 +1914,21 @@ namespace DOL.AI.Brain
                 GameLoop.GameLoopTime < _nextMaintenanceBuffTick)
                 return false;
 
+            // An 8v8 group shares one buff plan (BotBrain.PvpBuffs.cs). The planned buffs come
+            // first and are left out of the generic pass below.
+            if (bot.IsPvpBot && TryCastPlannedPvpBuff())
+            {
+                _nextMaintenanceBuffTick = GameLoop.GameLoopTime + 1_750;
+                return true;
+            }
+
             bool autonomousPetUpkeep = bot.CharacterClass != null &&
                 AutonomousPetSupport.OwnsPetUpkeep((eCharacterClass)bot.CharacterClass.ID);
             List<Spell> known = (bot.MiscSpells ?? [])
                 .Concat(bot.InstantMiscSpells ?? [])
                 .Where(spell => spell != null && !spell.IsHarmful && spell.Level <= bot.Level &&
                                 IsMaintainableClassBuff(spell) && !IsShortCombatShield(spell) &&
+                                !(bot.IsPvpBot && PvpBuffPlan.KindOf(spell.SpellType, spell.Target, spell.Concentration).HasValue) &&
                                 (!autonomousPetUpkeep ||
                                  spell.Target is not (eSpellTarget.PET or eSpellTarget.CONTROLLED)) &&
                                 (spell.Target is not (eSpellTarget.PET or eSpellTarget.CONTROLLED) ||

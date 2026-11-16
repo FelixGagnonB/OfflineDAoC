@@ -92,7 +92,11 @@ namespace DOL.GS.PropertyCalc
             else
                 livingToCheck = living;
 
-            if (livingToCheck is GameNPC && living is not NecromancerPet { Owner: GamePlayer or IGamePlayer })
+            // An 8v8 bot wears real, capped gear and takes its resists from it, as a player does.
+            // Every other NPC, other bots included, still gets none from items (build audit,
+            // 2026-11-16: a bot with 26% in every resist on its gear showed 0 to 5%).
+            if (livingToCheck is GameNPC and not GameBot { IsPvpBot: true } &&
+                living is not NecromancerPet { Owner: GamePlayer or IGamePlayer })
                 return 0;
 
             int itemBonus = livingToCheck.ItemBonus[property];
