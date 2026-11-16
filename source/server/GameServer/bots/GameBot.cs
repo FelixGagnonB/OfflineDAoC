@@ -2278,8 +2278,7 @@ namespace DOL.GS
             byte genderId = 0,
             bool temporaryGroupHelper = false,
             byte equipmentLevel = 0,
-            byte botLevel = 0,
-            BotSpec presetSpec = null)
+            byte botLevel = 0)
         {
             Owner = owner ?? throw new ArgumentNullException(nameof(owner));
             IsTemporaryGroupHelper = temporaryGroupHelper;
@@ -2304,10 +2303,7 @@ namespace DOL.GS
             // Stat and spec initialization — order matters
             InitializeBotStats();
             eCharacterClass temporaryClass = (eCharacterClass)ClassId;
-            // An 8v8 build (bots/pvp) names its lines exactly; everything else rolls a template.
-            BotSpec = presetSpec != null
-                ? presetSpec
-                : temporaryClass == eCharacterClass.Bonedancer
+            BotSpec = temporaryClass == eCharacterClass.Bonedancer
                 ? new BonedancerBotSpec(BotSpec.ChooseRandomSpecialization(temporaryClass), 0, false)
                 : temporaryClass == eCharacterClass.Sluaghbinder
                     ? new SluaghbinderBotSpec(BotSpec.ChooseRandomSpecialization(temporaryClass), 0, false)

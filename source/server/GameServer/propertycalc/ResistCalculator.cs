@@ -42,7 +42,8 @@ namespace DOL.GS.PropertyCalc
             result += (int) ((1 - result * 0.01) * abilityBonus); // Secondary resists.
 
             // Treat NPC resists from constitution buffs as another layer of resists for now.
-            if (living is GameNPC)
+            // Not for an 8v8 bot: it has real item resists and follows the player rules throughout.
+            if (living is GameNPC and not GameBot { IsPvpBot: true })
             {
                 double resistanceFromConstitution = StatCalculator.CalculateBuffContributionToAbsorbOrResist(living, eProperty.Constitution) / 8 * 100;
                 result += (int) ((1 - result * 0.01) * resistanceFromConstitution);
@@ -69,7 +70,7 @@ namespace DOL.GS.PropertyCalc
             // A bot-owned servant has the same cap as a player-owned servant.
             // Do not change ordinary NPC or other bot-class calculations here.
             bool playerOwnedServant = living is NecromancerPet { Owner: GamePlayer or IGamePlayer };
-            buff = livingToCheck is GameNPC && !playerOwnedServant ? buff : Math.Min(buff, BuffBonusCap);
+            buff = livingToCheck is GameNPC and not GameBot { IsPvpBot: true } && !playerOwnedServant ? buff : Math.Min(buff, BuffBonusCap);
             int debuff = Math.Abs(living.DebuffCategory[property]) + Math.Abs(living.SpecDebuffCategory[property]);
             buff -= debuff;
 

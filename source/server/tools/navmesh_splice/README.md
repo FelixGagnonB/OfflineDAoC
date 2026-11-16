@@ -53,7 +53,7 @@ much of it the installed navmesh lets bots walk across. A correct mesh has no wa
 a wall line. Meshes built before the 0.35 builder fix carry only the first half of each wall.
 
 ```
-python wallcheck.py <game folder>untime 214        # Emain Macha; several zone ids may follow
+python wallcheck.py <game folder>\runtime 214        # Emain Macha; several zone ids may follow
 ```
 
 It reads the database read-only and exits 1 when a zone is more than 2% open. Measured

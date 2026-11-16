@@ -1928,7 +1928,7 @@ namespace DOL.AI.Brain
                 .Concat(bot.InstantMiscSpells ?? [])
                 .Where(spell => spell != null && !spell.IsHarmful && spell.Level <= bot.Level &&
                                 IsMaintainableClassBuff(spell) && !IsShortCombatShield(spell) &&
-                                !(bot.IsPvpBot && PvpBuffPlan.KindOf(spell.SpellType, spell.Target, spell.Concentration).HasValue) &&
+                                !IsPlannedPvpBuff(spell) &&
                                 (!autonomousPetUpkeep ||
                                  spell.Target is not (eSpellTarget.PET or eSpellTarget.CONTROLLED)) &&
                                 (spell.Target is not (eSpellTarget.PET or eSpellTarget.CONTROLLED) ||
@@ -4128,6 +4128,9 @@ namespace DOL.AI.Brain
 
         protected bool CanCastDefensiveSpell(Spell spell)
         {
+            // An 8v8 group's planned buffs are cast only from its plan (BotBrain.PvpBuffs.cs).
+            // Through this generic path a weaker caster could buff a resurrected member first.
+            if (IsPlannedPvpBuff(spell)) return false;
             if (CompanionFollowPolicy.DeferBuff(BotBody, spell)) return false;
             if (spell == null || spell.IsHarmful || spell.Level > Body.Level ||
                 !BotBody.CanAffordConcentration(spell) ||

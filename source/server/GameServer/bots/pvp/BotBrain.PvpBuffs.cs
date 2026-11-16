@@ -35,6 +35,10 @@ namespace DOL.AI.Brain
                 .GroupBy(entry => entry.Kind.Value)
                 .ToDictionary(group => group.Key, group => group.OrderByDescending(entry => entry.Spell.Value).First().Spell);
 
+        /// <summary>True for a buff that only the group plan may cast: every generic buff path skips it.</summary>
+        private bool IsPlannedPvpBuff(Spell spell) => spell != null && BotBody?.IsPvpBot == true &&
+            PvpBuffPlan.KindOf(spell.SpellType, spell.Target, spell.Concentration).HasValue;
+
         private PvpGroupBuffPlan CurrentPvpBuffPlan()
         {
             object scope = (object)Body.Group ?? Body;
@@ -52,7 +56,13 @@ namespace DOL.AI.Brain
                 for (int id = 0; id < members.Count; id++)
                 {
                     GameLiving member = members[id];
-                    int classId = member is IGamePlayer { CharacterClass: { } characterClass } ? characterClass.ID : 0;
+                    // GamePlayer does not implement IGamePlayer, so a human member is read separately.
+                    int classId = member switch
+                    {
+                        GamePlayer { CharacterClass: { } playerClass } => playerClass.ID,
+                        IGamePlayer { CharacterClass: { } botClass } => botClass.ID,
+                        _ => 0,
+                    };
                     // Only 8v8 bots cast from the plan; a human member is buffed but never told what to cast.
                     GameBot caster = member as GameBot is { IsPvpBot: true } pvpBot ? pvpBot : null;
                     // Free concentration, not the maximum: what is already cast stays where it is.

@@ -39,6 +39,9 @@ namespace DOL.GS
         {
             _timer?.Dispose();
             _lastRequestId = string.Empty;
+            // A request written before this start belongs to the previous run.
+            try { File.Delete(RequestPath); }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { }
             _timer = new Timer(_ => Poll(), null, 2_000, PollIntervalMilliseconds);
         }
 
@@ -51,24 +54,37 @@ namespace DOL.GS
 
         private static void Poll()
         {
-            if (Volatile.Read(ref _busy) != 0 || !File.Exists(RequestPath))
-                return;
-            Request request;
+            // This runs on a timer thread: an exception that escapes here ends the server process.
             try
             {
-                using var stream = new FileStream(RequestPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-                request = JsonSerializer.Deserialize<Request>(stream, Json);
+                if (Volatile.Read(ref _busy) != 0 || !File.Exists(RequestPath))
+                    return;
+                Request request;
+                try
+                {
+                    using var stream = new FileStream(RequestPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                    request = JsonSerializer.Deserialize<Request>(stream, Json);
+                }
+                catch (Exception exception) when (exception is IOException or JsonException or UnauthorizedAccessException)
+                {
+                    return;   // half-written or briefly locked file: the next poll reads it whole
+                }
+                if (request == null || string.IsNullOrWhiteSpace(request.Id) || request.Id == _lastRequestId ||
+                    Interlocked.Exchange(ref _busy, 1) != 0)
+                    return;
+                _lastRequestId = request.Id;
+                // A request runs once. Left on disk it would run again after the next start
+                // (a leftover stop-server would end every start).
+                try { File.Delete(RequestPath); }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { }
+                // Bots are created and inspected on the game loop, like every other world change.
+                NpcService.Instance.Post(Execute, request);
             }
-            catch (Exception exception) when (exception is IOException or JsonException)
+            catch (Exception exception)
             {
-                return;   // half-written file: the next poll reads it whole
+                Volatile.Write(ref _busy, 0);
+                Log.Error("8v8 control request could not be read", exception);
             }
-            if (request == null || string.IsNullOrWhiteSpace(request.Id) || request.Id == _lastRequestId ||
-                Interlocked.Exchange(ref _busy, 1) != 0)
-                return;
-            _lastRequestId = request.Id;
-            // Bots are created and inspected on the game loop, like every other world change.
-            NpcService.Instance.Post(Execute, request);
         }
 
         private static void Execute(Request request)
@@ -87,7 +103,20 @@ namespace DOL.GS
             {
                 string temporary = ResultPath + ".tmp";
                 File.WriteAllText(temporary, JsonSerializer.Serialize(result, Json));
-                File.Move(temporary, ResultPath, true);
+                // The tool may have the previous answer open for a moment; the replace then
+                // fails on Windows. The work is already done, so keep trying to deliver it.
+                for (int attempt = 0; ; attempt++)
+                {
+                    try
+                    {
+                        File.Move(temporary, ResultPath, true);
+                        break;
+                    }
+                    catch (Exception exception) when (exception is IOException or UnauthorizedAccessException && attempt < 40)
+                    {
+                        Thread.Sleep(50);
+                    }
+                }
             }
             catch (Exception exception)
             {

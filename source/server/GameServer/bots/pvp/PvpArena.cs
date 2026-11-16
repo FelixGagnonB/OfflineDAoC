@@ -39,19 +39,7 @@ namespace DOL.GS
             for (int i = 0; i < template.BuildIds.Count; i++)
             {
                 PvpBuild build = PvpBuildCatalog.Find(template.BuildIds[i]);
-                eGender gender = i % 2 == 0 ? eGender.Male : eGender.Female;
-                AutonomousBotIdentityGenerator.Identity identity =
-                    AutonomousBotIdentityGenerator.GenerateForClass(template.Realm, gender, build.Class);
-                var bot = new GameBot(build, identity.Name, (byte)PvpBuildCatalog.RaceOf(build.Class), (byte)identity.Gender);
-                bot.SetPvpRealmLevel(realmLevel);
-
-                double angle = Math.PI * 2 * i / template.BuildIds.Count;
-                var desired = new Vector3(centre.X + (float)Math.Cos(angle) * 140, centre.Y + (float)Math.Sin(angle) * 140, centre.Z);
-                Vector3 spot = nav.GetMoveAlongSurface(zone, centre, desired, nav.DefaultFilters) ?? centre;
-                bot.X = (int)Math.Round(spot.X);
-                bot.Y = (int)Math.Round(spot.Y);
-                bot.Z = (int)Math.Round(spot.Z);
-                bot.CurrentRegionID = regionId;
+                GameBot bot = CreateBot(build, template.Realm, i, template.BuildIds.Count, zone, regionId, centre, 140, realmLevel);
                 if (!bot.AddToWorld())
                 {
                     bot.Delete();
@@ -69,6 +57,25 @@ namespace DOL.GS
             }
             SpawnBuffbot(template.Realm, spawned.Cast<GameLiving>().ToList(), regionId, centre);
             return spawned;
+        }
+
+        /// <summary>One 8v8 bot of a build, placed on a ring around a point but not yet in the world.</summary>
+        private static GameBot CreateBot(PvpBuild build, eRealm realm, int index, int count, Zone zone, ushort regionId,
+            Vector3 centre, int radius, int realmLevel)
+        {
+            var nav = PathfindingProvider.Instance;
+            eGender gender = index % 2 == 0 ? eGender.Male : eGender.Female;
+            string name = AutonomousBotIdentityGenerator.GenerateForClass(realm, gender, build.Class).Name;
+            var bot = new GameBot(build, name, (byte)PvpBuildCatalog.RaceOf(build.Class), (byte)gender);
+            bot.SetPvpRealmLevel(realmLevel);
+            double angle = Math.PI * 2 * index / count;
+            var desired = new Vector3(centre.X + (float)Math.Cos(angle) * radius, centre.Y + (float)Math.Sin(angle) * radius, centre.Z);
+            Vector3 spot = nav.GetMoveAlongSurface(zone, centre, desired, nav.DefaultFilters) ?? centre;
+            bot.X = (int)Math.Round(spot.X);
+            bot.Y = (int)Math.Round(spot.Y);
+            bot.Z = (int)Math.Round(spot.Z);
+            bot.CurrentRegionID = regionId;
+            return bot;
         }
 
         /// <summary>
@@ -95,18 +102,8 @@ namespace DOL.GS
             for (int i = 0; i < builds.Count; i++)
             {
                 PvpBuild build = PvpBuildCatalog.Find(builds[i]);
-                eGender gender = i % 2 == 0 ? eGender.Male : eGender.Female;
-                string name = AutonomousBotIdentityGenerator.GenerateForClass(player.Realm, gender, build.Class).Name;
-                var bot = new GameBot(build, name, (byte)PvpBuildCatalog.RaceOf(build.Class), (byte)gender);
-                bot.SetPvpRealmLevel(realmLevel);
-                double angle = Math.PI * 2 * i / builds.Count;
-                var desired = new Vector3(centre.X + (float)Math.Cos(angle) * 160, centre.Y + (float)Math.Sin(angle) * 160, centre.Z);
-                Vector3 spot = nav.GetMoveAlongSurface(player.CurrentZone, centre, desired, nav.DefaultFilters) ?? centre;
-                bot.X = (int)Math.Round(spot.X);
-                bot.Y = (int)Math.Round(spot.Y);
-                bot.Z = (int)Math.Round(spot.Z);
+                GameBot bot = CreateBot(build, player.Realm, i, builds.Count, player.CurrentZone, player.CurrentRegionID, centre, 160, realmLevel);
                 bot.Heading = player.Heading;
-                bot.CurrentRegionID = player.CurrentRegionID;
                 if (!bot.AddToWorld() || !player.Group.AddMember(bot))
                 {
                     bot.Delete();

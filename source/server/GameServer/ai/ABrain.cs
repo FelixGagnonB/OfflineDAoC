@@ -14,7 +14,8 @@ namespace DOL.AI
         public ServiceObjectId ServiceObjectId { get; } = new(ServiceObjectType.Brain);
         public virtual GameNPC Body { get; set; }
         public virtual int ThinkInterval { get; set; } = 2500;
-        public bool IsActive => Body != null && Body.IsAlive && Body.ObjectState is GameObject.eObjectState.Active &&
+        // A buffbot never thinks: it buffs once at spawn. A player seeing it restarts its brain, and this stops it again.
+        public bool IsActive => Body != null && Body is not GameBot { IsPvpBuffbot: true } && Body.IsAlive && Body.ObjectState is GameObject.eObjectState.Active &&
                                 (Body is GameBot { IsAutonomousWorldBot: true } or GameBot { IsPvpBot: true } || AutonomousSummonActivity.IsVisibleOrAutonomousSummon(Body));
         public long NextThinkTick { get; set; }
         protected virtual int ThinkOffsetOnStart => Util.Random(750, 3000);
