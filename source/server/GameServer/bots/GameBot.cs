@@ -47,6 +47,14 @@ namespace DOL.GS
         public bool IsAutonomousWorldBot { get; private set; }
         public bool IsTemporaryGroupHelper { get; private set; }
         public bool IsEndgameCompanion => TemporaryCompanionBalance.IsEndgame(IsTemporaryGroupHelper, Level);
+        /// <summary>The fixed 8v8 build this bot was created from (bots/pvp); null for every other bot.</summary>
+        public PvpBuild PvpBuild { get; private set; }
+        /// <summary>The gear template worked out for <see cref="PvpBuild"/>; null for every other bot.</summary>
+        public PvpTemplate PvpTemplate { get; private set; }
+        /// <summary>An ownerless, never-saved level-50 bot of the 8v8 mode.</summary>
+        public bool IsPvpBot => PvpBuild != null && Owner == null && PersistentRecord == null;
+        /// <summary>Specialization points left after training; 8v8 builds are checked to leave only a remainder.</summary>
+        public int UnspentSpecPoints => m_leftOverSpecPoints;
         private bool _endgameCompanionEquipped;
         public bool SuppressLootAndProgress => IsTemporaryGroupHelper;
         internal int EquipmentLevelFloor { get; private set; }
@@ -240,7 +248,20 @@ namespace DOL.GS
 
         public override int MaxMana => GetModified(eProperty.MaxMana);
 
-        public override int MaxConcentration => GetModified(eProperty.MaxConcentration);
+        /// <summary>
+        /// Gives an 8v8 bot a realm rank and the realm abilities that rank pays for. Realm level
+        /// is (rank - 1) * 10 + level: 0 is rank 1 level 0, 40 is rank 5 level 0.
+        /// </summary>
+        public void SetPvpRealmLevel(int realmLevel)
+        {
+            RealmLevel = Math.Clamp(realmLevel, 0, 130);
+            AutonomousBotRealmAbilities.Restore(this, AutonomousBotRealmAbilities.Points(Level, RealmLevel));
+        }
+
+        /// <summary>The stand-in for a buffbot that an 8v8 group gets at its spawn point: no limit on
+        /// concentration, and its buffs hold at any distance (as a buffbot's did in 1.65).</summary>
+        public bool IsPvpBuffbot { get; set; }
+        public override int MaxConcentration => IsPvpBuffbot ? 1_000_000 : GetModified(eProperty.MaxConcentration);
         public override int Concentration => MaxConcentration - (effectListComponent?.UsedConcentration ?? 0);
 
         // Bot buffs retain their real point budget, but not the human 20-effect cap.
@@ -2315,6 +2336,51 @@ namespace DOL.GS
             GameEventMgr.AddHandler(Owner, GamePlayerEvent.Quit, new DOLEventHandler(OnOwnerQuit));
             if (IsTemporaryGroupHelper)
                 GameEventMgr.AddHandler(Owner, GamePlayerEvent.RegionChanged, new DOLEventHandler(OnOwnerRegionChanged));
+        }
+
+        /// <summary>
+        /// Creates an ownerless level-50 bot of the 8v8 mode from a fixed catalogue build.
+        /// It has no owner, no saved record and none of the gamebot goals: the arena places it,
+        /// groups it and removes it. Its realm comes from its class.
+        /// </summary>
+        public GameBot(PvpBuild build, string name = null, byte raceId = 0, byte genderId = 0)
+        {
+            PvpBuild = build ?? throw new ArgumentNullException(nameof(build));
+            ClassId = (byte)build.Class;
+            RaceId = raceId;
+            GenderId = genderId;
+            ClassName = BotManager.GetClassNameById(ClassId);
+            InternalID = Guid.NewGuid().ToString();
+            _dummyClient = new BotDummyClient();
+            _dummyLib = new BotDummyPacketLib();
+            if (!SetCharacterClass(ClassId))
+                throw new InvalidOperationException($"Failed to set character class for 8v8 build {build.Id}.");
+            SetRaceAndRealm(null);
+            Level = PvpBuildBudget.MaxLevel;
+            _creationModel = Model;
+            Name = string.IsNullOrEmpty(name) ? ClassName : name;
+            MaxSpeedBase = PLAYER_BASE_SPEED;
+
+            InitializeBotStats();
+            BotSpec = build.ToBotSpec();
+            LoadClassSpecializations(false);
+            SpendSpecPoints(Level, 0);
+            RefreshSpecDependantSkills(false);
+            SetBotSpells();
+            SortStyles();
+            SortSpells();
+            // The generator picks the kind and look of each piece; the template then makes it
+            // level-51 crafted gear with the build's capped bonuses.
+            EquipBot(Level);
+            PvpTemplate = PvpTemplateOutfitter.Outfit(this);
+
+            Health = MaxHealth;
+            Endurance = MaxEndurance;
+            Mana = MaxMana;
+            RespawnInterval = -1;
+
+            SetOwnBrain(new DOL.AI.Brain.BotBrain { IsHealer = IsHealerClass() });
+            InitControlledBrainArray(1);
         }
 
         /// <summary>

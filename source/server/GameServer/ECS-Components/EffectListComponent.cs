@@ -110,7 +110,7 @@ namespace DOL.GS
                         ISpellHandler spellHandler = existingEffect.SpellHandler;
                         int radiusToCheck = EffectHelper.GetConcentrationEffectActivationRange(spellHandler.Spell.SpellType);
 
-                        if (!spellHandler.Caster.IsWithinRadius(effect.Owner, radiusToCheck))
+                        if (spellHandler.Caster is not GameBot { IsPvpBuffbot: true } && !spellHandler.Caster.IsWithinRadius(effect.Owner, radiusToCheck))
                             continue;
                     }
 
@@ -413,7 +413,7 @@ namespace DOL.GS
             lock (_effectsLock)
             {
                 // Check if the concentration buff needs to be enabled or disabled, based on its current state and the distance between the player and the caster.
-                if (caster.IsWithinRadius(effectOwner, radiusToCheck))
+                if (caster is GameBot { IsPvpBuffbot: true } || caster.IsWithinRadius(effectOwner, radiusToCheck))
                 {
                     if (spellEffect.IsDisabled)
                     {

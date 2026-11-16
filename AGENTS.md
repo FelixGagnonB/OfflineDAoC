@@ -20,6 +20,14 @@ From 0.37 on a version is a game patch (both editions) plus a new-client patch, 
 `source/tools/make_patch.py` against `source/tools/release-baselines/0.36/` and applied by
 `source/tools/OfflineDaoc.Patcher` (see [release-baselines/README.md](source/tools/release-baselines/README.md)).
 
+## Current focus: 8v8
+
+The owner of this fork plays 8v8 group PvP only (one player with seven companion bots against an
+enemy group of eight) and does no PvE. [docs/PVP-8V8-ROADMAP.md](docs/PVP-8V8-ROADMAP.md) is the
+plan and the progress tracker: read it before bot work, and tick its steps as they are finished.
+The 8v8 code lives in `source/server/GameServer/bots/pvp`. For that work the gameplay rules below
+(earned armor, economy, selling) do not apply; the data, deployment and honesty rules do.
+
 ## Layout
 
 | Path | What it is |

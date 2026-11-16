@@ -177,7 +177,8 @@ public static class AutonomousBotRealmAbilities
         return Plan(catalog.Available, catalog.Archetype, ClassOf(bot), points, (key, level) => catalog.ByKey[key].CostForUpgrade(level));
     }
 
-    private static bool Eligible(GameBot bot) => bot is { IsAutonomousWorldBot: true, IsTemporaryGroupHelper: false };
+    // Gamebots, and 8v8 bots (which get their rank set, not earned at a trainer).
+    private static bool Eligible(GameBot bot) => bot is { IsAutonomousWorldBot: true, IsTemporaryGroupHelper: false } or { IsPvpBot: true };
 
     /// <summary>Realm ability points already spent at a trainer (saved with the bot).</summary>
     public static int TrainedPoints(GameBot bot) => bot != null && States.TryGetValue(bot, out State state) ? state.TrainedPoints : 0;
