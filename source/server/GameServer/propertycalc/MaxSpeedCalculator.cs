@@ -139,7 +139,8 @@ namespace DOL.GS.PropertyCalc
 
                 double healthPercent = living.Health / (double) living.MaxHealth;
 
-                if (healthPercent < 0.33)
+                // Monsters limp when hurt; players, and 8v8 bots, do not.
+                if (healthPercent < 0.33 && !GameBot.UsesPlayerRules(living))
                     speedIncrease *= 0.2 + healthPercent * (0.8 / 0.33); // 33% HP = full speed, 0% HP = 20% speed
             }
 

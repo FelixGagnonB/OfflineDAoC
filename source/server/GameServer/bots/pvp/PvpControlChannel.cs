@@ -172,15 +172,30 @@ namespace DOL.GS
 
                 case "scrim-start":
                 {
-                    // Args: A and B (group ids, different realms), Matches, RealmRank.
-                    PvpGroupTemplate a = PvpBuildCatalog.FindGroup(Arg("A")) ?? throw new ArgumentException($"No group named '{Arg("A")}'.");
-                    PvpGroupTemplate b = PvpBuildCatalog.FindGroup(Arg("B")) ?? throw new ArgumentException($"No group named '{Arg("B")}'.");
-                    PvpScrim.Start(a, b, int.Parse(Arg("Matches") ?? "1"), (int.Parse(Arg("RealmRank") ?? "1") - 1) * 10,
+                    // Args: A and B (group ids, different realms), or Pairs for several series at once
+                    // ("alb-main:mid-main,mid-main:hib-main"); Matches, RealmRank, Limit.
+                    // Copies: how many lanes each pairing gets. Lanes=1 puts even a single series in a lane
+                    // (groups start 6,000 apart) instead of the whole arena. Versus=1: a comparison of two sets
+                    // of weights, pvp-weights.json (new) against pvp-weights-old.json; use Copies=2 with it.
+                    PvpGroupTemplate Group(string id) => PvpBuildCatalog.FindGroup(id) ?? throw new ArgumentException($"No group named '{id}'.");
+                    List<(PvpGroupTemplate, PvpGroupTemplate)> pairs = (Arg("Pairs") ?? $"{Arg("A")}:{Arg("B")}")
+                        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                        .Select(pair => pair.Split(':'))
+                        .Select(ids => ids.Length == 2 ? (Group(ids[0]), Group(ids[1])) : throw new ArgumentException("A pairing is written A:B."))
+                        .ToList();
+                    PvpScrim.Start(pairs, int.Parse(Arg("Matches") ?? "1"), (int.Parse(Arg("RealmRank") ?? "1") - 1) * 10,
                         int.Parse(Arg("Limit") ?? "300"),
                         // BrainA / BrainB: "squad" turns the squad brain on for that side; anything else is the old brain.
-                        Arg("BrainA") == "squad", Arg("BrainB") == "squad");
+                        Arg("BrainA") == "squad", Arg("BrainB") == "squad",
+                        int.Parse(Arg("Copies") ?? "1"), Arg("Lanes") == "1", Arg("Versus") == "1");
                     return PvpScrim.Status();
                 }
+
+                case "scrim-lanes":
+                    return PvpScrim.CheckLanes();
+
+                case "scrim-scan":
+                    return PvpScrim.ScanLanes(int.Parse(Arg("Distance") ?? "0"), int.Parse(Arg("Step") ?? "500"));
 
                 case "scrim-status":
                     return PvpScrim.Status();

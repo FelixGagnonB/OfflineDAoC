@@ -1269,6 +1269,8 @@ namespace DOL.GS
                     // Reduce endurance by half the style's cost if we missed or got evaded, parried, blocked.
                     if (ad.Style != null && playerOwner != null && weapon != null)
                         StyleProcessor.ApplyEnduranceCost(playerOwner, weapon, ad.Style, true);
+                    else if (ad.Style != null && weapon != null && owner is GameBot { IsPvpBot: true } botOwner)
+                        StyleProcessor.ApplyEnduranceCost(botOwner, weapon, ad.Style, true);
 
                     break;
                 }
@@ -1408,7 +1410,7 @@ namespace DOL.GS
 
             armorFactor = target.GetArmorAF(armorSlot);
 
-            if (target is GamePlayer or GameTrainingDummy)
+            if (target is GameTrainingDummy || GameBot.UsesPlayerRules(target))
                 armorFactor += target.Level * PLAYER_EXTRA_AF_PER_LEVEL;
 
             double absorbFactor = CalculateTargetAbsorbFactor(target, armorSlot);
@@ -1765,6 +1767,8 @@ namespace DOL.GS
             // Must be set before calling `GetMissChance`.
             if (playerTarget != null)
                 ad.ArmorHitLocation = playerTarget.CalculateArmorHitLocation(ad);
+            else if (ad.Target is GameBot { IsPvpBot: true } botTarget)
+                ad.ArmorHitLocation = botTarget.CalculateArmorHitLocation(ad);   // which piece of its armor was hit
 
             double missChance = Math.Min(1, GetMissChance(action, ad, lastAttackData, attackerWeapon) * 0.01);
             double fumbleChance = ad.IsMeleeAttack ? Math.Min(1, ad.Attacker.GetModified(eProperty.FumbleChance) * 0.001) : 0;
@@ -2192,10 +2196,10 @@ namespace DOL.GS
                     max = Math.Min(1.0, level * 0.25);
                 }
                 else
-                    max = ad.Target is GamePlayer ? 0.5 : 1.0;
+                    max = GameBot.UsesPlayerRules(ad.Target) ? 0.5 : 1.0;
             }
             else
-                max = ad.Target is GamePlayer ? 0.5 : 1.0;
+                max = GameBot.UsesPlayerRules(ad.Target) ? 0.5 : 1.0;
 
             double criticalMod = min + owner.GetPseudoDoubleIncl(RandomDeckEvent.CriticalVariance) * (max - min);
             return (int) (ad.Damage * criticalMod);
@@ -2211,7 +2215,9 @@ namespace DOL.GS
             double missChance = 18;
             missChance -= ad.Attacker.GetModified(eProperty.ToHitBonus);
 
-            if (owner is not GamePlayer || ad.Attacker is not GamePlayer)
+            bool playerRules = GameBot.UsesPlayerRules(owner) && GameBot.UsesPlayerRules(ad.Attacker);
+
+            if (!playerRules)
             {
                 // 1.33 per level difference.
                 missChance -= (ad.Attacker.EffectiveLevel - owner.EffectiveLevel) * (1 + 1 / 3.0);
@@ -2221,8 +2227,10 @@ namespace DOL.GS
             // Weapon and armor bonuses.
             int armorBonus = 0;
 
-            if (ad.Target is GamePlayer playerTarget)
+            if (GameBot.UsesPlayerRules(ad.Target))
             {
+                GameLiving playerTarget = ad.Target;
+
                 if (ad.Target.Inventory != null)
                 {
                     DbInventoryItem armor = ad.Target.Inventory.GetItem((eInventorySlot) ad.ArmorHitLocation);
@@ -2248,7 +2256,7 @@ namespace DOL.GS
                 armorBonus -= weaponBonus;
             }
 
-            if (ad.Target is GamePlayer && ad.Attacker is GamePlayer)
+            if (playerRules)
                 missChance += armorBonus;
             else
                 missChance += missChance * armorBonus / 100;

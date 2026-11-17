@@ -95,7 +95,7 @@ public static class AutonomousBotRealmAbilities
     /// points only ever extend the result.
     /// </summary>
     public static Dictionary<string, int> Plan(IReadOnlyDictionary<string, int> available, Archetype archetype, int classId,
-        int points, Func<string, int, int> cost)
+        int points, Func<string, int, int> cost, IReadOnlyList<Step> first = null)
     {
         var owned = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         int Owned(string key) => owned.TryGetValue(key, out int level) ? level : 0;
@@ -121,6 +121,14 @@ public static class AutonomousBotRealmAbilities
         {
             Archetype.Caster => CasterBuild, Archetype.Healer => HealerBuild, Archetype.Archer => ArcherBuild, _ => MeleeBuild,
         };
+        // Steps that come before the build are bought when they can be paid for and passed over
+        // when they cannot: the plan is worked out afresh from all the points each time, so they
+        // come first again as soon as the points are there.
+        foreach (Step step in first ?? [])
+        {
+            if (available.TryGetValue(step.Key, out int most) && !Redundant(step.Key) && Meets(step.Key))
+                Raise(step.Key, Math.Min(step.Level, most));
+        }
         foreach (Step step in build)
         {
             if (!available.TryGetValue(step.Key, out int max) || Redundant(step.Key) || !Meets(step.Key)) continue;
@@ -160,10 +168,19 @@ public static class AutonomousBotRealmAbilities
     private static readonly ConditionalWeakTable<GameBot, State> States = new();
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<int, Catalog> Catalogs = new();
 
-    private static Catalog CatalogFor(int classId) => Catalogs.GetOrAdd(classId, id =>
+    /// <summary>
+    /// What an 8v8 bot buys before anything else: the answer to being mezzed (owner, 2026-11-17).
+    /// A step the class lacks is skipped, so only the Druid gets Group Purge, and a class with the
+    /// cheaper Purge takes that one.
+    /// </summary>
+    public static readonly Step[] PvpFirst = [new(PvpPurge.GroupPurgeKey, 1), new(PurgeReduced, 1), new(Purge, 1)];
+
+    // An 8v8 bot's catalog is kept apart (negative key): it also holds Group Purge, which gamebots do not use.
+    private static Catalog CatalogFor(int classId, bool pvp = false) => Catalogs.GetOrAdd(pvp ? -classId : classId, _ =>
     {
-        var byKey = SkillBase.GetClassRealmAbilities(id)
-            .Where(ra => ra is not RR5RealmAbility && (ra is not TimedRealmAbility || UsableActives.Contains(ra.KeyName)))
+        var byKey = SkillBase.GetClassRealmAbilities(classId)
+            .Where(ra => ra is not RR5RealmAbility && (ra is not TimedRealmAbility || UsableActives.Contains(ra.KeyName) ||
+                         pvp && ra.KeyName == PvpPurge.GroupPurgeKey))
             .GroupBy(ra => ra.KeyName).ToDictionary(g => g.Key, g => g.First());
         var available = byKey.ToDictionary(pair => pair.Key, pair => pair.Value.MaxLevel);
         return new Catalog(byKey, available, ArchetypeOf(available.Keys));
@@ -173,8 +190,9 @@ public static class AutonomousBotRealmAbilities
 
     private static Dictionary<string, int> PlanFor(GameBot bot, int points)
     {
-        Catalog catalog = CatalogFor(ClassOf(bot));
-        return Plan(catalog.Available, catalog.Archetype, ClassOf(bot), points, (key, level) => catalog.ByKey[key].CostForUpgrade(level));
+        Catalog catalog = CatalogFor(ClassOf(bot), bot.IsPvpBot);
+        return Plan(catalog.Available, catalog.Archetype, ClassOf(bot), points, (key, level) => catalog.ByKey[key].CostForUpgrade(level),
+            bot.IsPvpBot ? PvpFirst : null);
     }
 
     // Gamebots, and 8v8 bots (which get their rank set, not earned at a trainer).
@@ -263,7 +281,9 @@ public static class AutonomousBotRealmAbilities
             gained.Add($"{key.Replace("AtlasOF_", "")}:{current?.Level ?? 0}->{level}");
         }
         State state = States.GetOrCreateValue(bot);
-        state.Actives = UsableActives.Select(key => bot.GetAbility(key) as TimedRealmAbility).Where(a => a != null).ToArray();
+        // Group Purge before Purge: when it fires, the Druid's own Purge is no longer needed.
+        state.Actives = (bot.IsPvpBot ? UsableActives.Prepend(PvpPurge.GroupPurgeKey) : UsableActives)
+            .Select(key => bot.GetAbility(key) as TimedRealmAbility).Where(a => a != null).ToArray();
         return gained;
     }
 
@@ -288,6 +308,8 @@ public static class AutonomousBotRealmAbilities
 
     private static bool Wanted(GameBot bot, string key) => key switch
     {
+        // An 8v8 bot weighs its Purge (bots/pvp/PvpPurge.cs).
+        Purge or PurgeReduced or PvpPurge.GroupPurgeKey when bot.IsPvpBot => PvpPurge.Wanted(bot, key),
         // Crowd control in a fight against other realms (or when it is going badly).
         Purge or PurgeReduced => (bot.IsMezzed || bot.IsStunned) && (bot.InCombat || bot.HealthPercent < 90) &&
             (AutonomousWorldBotController.IsBattleground(bot) || bot.HealthPercent < 60),

@@ -22,8 +22,13 @@ namespace DOL.GS
             get { lock (Bots) return Bots.ToList(); }
         }
 
-        /// <summary>Creates the eight bots of a group around a point and groups them.</summary>
-        public static IReadOnlyList<GameBot> SpawnGroup(PvpGroupTemplate template, ushort regionId, int x, int y, int realmLevel = 0)
+        /// <summary>
+        /// Creates the eight bots of a group around a point and groups them. <paramref name="all"/>,
+        /// when given, receives every bot put in the world, the buffbot too, so that one match can
+        /// later be removed without touching the others.
+        /// </summary>
+        public static IReadOnlyList<GameBot> SpawnGroup(PvpGroupTemplate template, ushort regionId, int x, int y, int realmLevel = 0,
+            ICollection<GameBot> all = null)
         {
             Region region = WorldMgr.GetRegion(regionId) ?? throw new ArgumentException($"No region {regionId}.");
             Zone zone = region.GetZone(x, y) ?? throw new ArgumentException($"No zone at {x},{y} in region {regionId}.");
@@ -53,9 +58,10 @@ namespace DOL.GS
                 }
                 group.AddMember(bot);
                 spawned.Add(bot);
+                all?.Add(bot);
                 lock (Bots) Bots.Add(bot);
             }
-            SpawnBuffbot(template.Realm, spawned.Cast<GameLiving>().ToList(), regionId, centre);
+            all?.Add(SpawnBuffbot(template.Realm, spawned.Cast<GameLiving>().ToList(), regionId, centre));
             return spawned;
         }
 
@@ -123,7 +129,7 @@ namespace DOL.GS
         /// Puts the group's buffbot at its spawn point and has it buff everyone at once. It is
         /// not in the group, never moves or fights, and its buffs hold at any distance.
         /// </summary>
-        private static void SpawnBuffbot(eRealm realm, IReadOnlyList<GameLiving> group, ushort regionId, Vector3 centre)
+        private static GameBot SpawnBuffbot(eRealm realm, IReadOnlyList<GameLiving> group, ushort regionId, Vector3 centre)
         {
             var buffbot = new GameBot(PvpBuildCatalog.BuffbotFor(realm), "Buffbot") { IsPvpBuffbot = true };
             buffbot.X = (int)Math.Round(centre.X);
@@ -150,6 +156,7 @@ namespace DOL.GS
                 foreach (Spell spell in buffs)
                     ScriptMgr.CreateSpellHandler(buffbot, spell, line)?.StartSpell(member);
             }
+            return buffbot;
         }
 
         /// <summary>Moves every 8v8 bot except the buffbots by an offset, onto the ground there. For range tests.</summary>
@@ -183,10 +190,16 @@ namespace DOL.GS
         {
             List<GameBot> all;
             lock (Bots)
-            {
                 all = Bots.ToList();
-                Bots.Clear();
-            }
+            return Remove(all);
+        }
+
+        /// <summary>Removes these 8v8 bots from the world: one match's, while others go on.</summary>
+        public static int Remove(IEnumerable<GameBot> bots)
+        {
+            List<GameBot> all = bots.ToList();
+            lock (Bots)
+                Bots.RemoveAll(all.Contains);
             foreach (GameBot bot in all)
             {
                 try

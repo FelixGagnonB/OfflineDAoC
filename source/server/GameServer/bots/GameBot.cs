@@ -207,10 +207,12 @@ namespace DOL.GS
 
         #region IGamePlayer — Stats (Explicit Interface — short vs int mismatch)
 
-        int IGamePlayer.Strength => Strength;
-        int IGamePlayer.Dexterity => Dexterity;
-        int IGamePlayer.Quickness => Quickness;
-        int IGamePlayer.Intelligence => Intelligence;
+        // A player's stats include items, buffs and debuffs; the NPC properties are the bare base
+        // stat. Swing speed reads Quickness from here, so buffs and gear did nothing for it.
+        int IGamePlayer.Strength => IsPvpBot ? GetModified(eProperty.Strength) : Strength;
+        int IGamePlayer.Dexterity => IsPvpBot ? GetModified(eProperty.Dexterity) : Dexterity;
+        int IGamePlayer.Quickness => IsPvpBot ? GetModified(eProperty.Quickness) : Quickness;
+        int IGamePlayer.Intelligence => IsPvpBot ? GetModified(eProperty.Intelligence) : Intelligence;
 
         #endregion
 
@@ -252,6 +254,93 @@ namespace DOL.GS
         /// Gives an 8v8 bot a realm rank and the realm abilities that rank pays for. Realm level
         /// is (rank - 1) * 10 + level: 0 is rank 1 level 0, 40 is rank 5 level 0.
         /// </summary>
+        /// <summary>
+        /// True for a living that is mezzed and stunned by the player rules: a real player, or an
+        /// 8v8 bot standing in for one (docs/PVP-8V8-ROADMAP.md, M4.1). A bot is an NPC type, and
+        /// by the NPC rules it resisted every mez below 75% health ("enraged") and got shrinking
+        /// repeat mezzes in place of the player's minute of immunity.
+        /// </summary>
+        public static bool UsesPlayerCrowdControlRules(GameLiving living) => UsesPlayerRules(living);
+
+        /// <summary>
+        /// True for a living the engine must treat as a player wherever it has one rule for players
+        /// and another for monsters: a real player, or an 8v8 bot standing in for one. The engine's
+        /// own test is "is GamePlayer", and a bot is an NPC type, so each such place has to ask this
+        /// instead (docs/PVP-8V8-ROADMAP.md, M4.1 lists the places changed).
+        /// </summary>
+        public static bool UsesPlayerRules(GameLiving living) => living is GamePlayer or GameBot { IsPvpBot: true };
+
+        /// <summary>
+        /// True when one of the two is an 8v8 bot (or its pet) and the other is part of the world:
+        /// a keep guard, a monster, anything that is neither a player nor an 8v8 bot nor a pet of
+        /// one. Such a pair leaves each other alone. The arena is in a frontier zone, and a keep's
+        /// Master Ranger was shooting Midgard bots for 7,600 a shot in recorded matches.
+        /// </summary>
+        public static bool IsWorldAgainstPvpBot(GameLiving first, GameLiving second)
+        {
+            static GameLiving Root(GameLiving living) =>
+                living is GameNPC { Brain: IControlledBrain brain } and not GameBot ? brain.GetLivingOwner() ?? living : living;
+            GameLiving a = Root(first), b = Root(second);
+            bool botA = a is GameBot { IsPvpBot: true }, botB = b is GameBot { IsPvpBot: true };
+            return botA && !botB && b is not GamePlayer || botB && !botA && a is not GamePlayer;
+        }
+
+        /// <summary>
+        /// An 8v8 bot casts through the shared "Mob Spells" line. This finds the line it learned
+        /// the spell in and the bot's trained level there, which is what a player's damage
+        /// variance, buff strength and heal variance depend on.
+        /// </summary>
+        public bool TryGetPvpSpellSpec(Spell spell, SpellLine supplied, out SpellLine line, out int spec)
+        {
+            line = IsPvpBot ? ResolvePowerSpellLine(spell, supplied) : null;
+            spec = 0;
+            if (line == null || line.KeyName == GlobalSpellsLines.Mob_Spells)
+                return false;
+            spec = GetModifiedSpecLevel(line.Spec);
+            return true;
+        }
+
+        // Armor as a player wears it (GamePlayer.GetArmorAF / GetArmorAbsorb): the piece that was
+        // hit decides, with the player caps. By the NPC formulas every bot, a cloth caster
+        // included, had the same level-based armor factor and 27% absorb raised by its buffs.
+        public override double GetArmorAF(eArmorSlot slot)
+        {
+            if (!IsPvpBot)
+                return base.GetArmorAF(slot);
+            if (slot is eArmorSlot.NOTSET || Inventory?.GetItem((eInventorySlot)slot) is not { } item)
+                return 0;
+            int playerCap = Level * 2;
+            int itemCap = (eObjectType)item.Object_Type is eObjectType.Cloth ? Level : playerCap;
+            double armorFactor = Math.Min(item.DPS_AF, itemCap);
+            armorFactor += BaseBuffBonusCategory[eProperty.ArmorFactor] / 5.0;
+            armorFactor *= item.Quality * 0.01 * item.ConditionPercent * 0.01;
+            armorFactor = Math.Min(armorFactor, playerCap);
+            armorFactor += GetModified(eProperty.ArmorFactor) / 5.0;
+            return Math.Max(0, armorFactor);
+        }
+
+        public override double GetArmorAbsorb(eArmorSlot slot)
+        {
+            if (!IsPvpBot)
+                return base.GetArmorAbsorb(slot);
+            if (slot is eArmorSlot.NOTSET || Inventory?.GetItem((eInventorySlot)slot) is not { } item)
+                return 0;
+            double absorb = item.SPD_ABS * 0.01 * (1 + GetModified(eProperty.ArmorAbsorption) * 0.01);
+            return Math.Clamp(absorb, 0, 1);
+        }
+
+        // A player is interrupted for the attacker's swing or the spell interrupt time; an NPC for
+        // 2.5 seconds more. A player that swings cannot cast for 3 seconds; an NPC for one swing.
+        public override void StartInterruptTimer(int duration, AttackData.eAttackType attackType, GameLiving attacker)
+        {
+            // Taken off here exactly when GameNPC is about to add it.
+            if (IsPvpBot && attacker != this && (Brain is not IControlledBrain controlled || controlled.GetPlayerOwner() == null))
+                duration -= 2500;
+            base.StartInterruptTimer(duration, attackType, attacker);
+        }
+
+        public override int SelfInterruptDurationOnMeleeAttack => IsPvpBot ? 3000 : base.SelfInterruptDurationOnMeleeAttack;
+
         public void SetPvpRealmLevel(int realmLevel)
         {
             RealmLevel = Math.Clamp(realmLevel, 0, 130);
@@ -261,6 +350,10 @@ namespace DOL.GS
         /// <summary>The stand-in for a buffbot that an 8v8 group gets at its spawn point: no limit on
         /// concentration, and its buffs hold at any distance (as a buffbot's did in 1.65).</summary>
         public bool IsPvpBuffbot { get; set; }
+
+        /// <summary>The weights this 8v8 bot's team fights with in a comparison of two sets; null for the usual ones.</summary>
+        public PvpWeights PvpWeightsSet { get; set; }
+
         public override int MaxConcentration => IsPvpBuffbot ? 1_000_000 : GetModified(eProperty.MaxConcentration);
         public override int Concentration => MaxConcentration - (effectListComponent?.UsedConcentration ?? 0);
 
@@ -1006,6 +1099,12 @@ namespace DOL.GS
                 _deathRecoveryTimer = null;
                 return 0;
             }
+
+            // An 8v8 bot stays down where it fell until a groupmate raises it or the match clears the
+            // arena. Released, it stood up alive at a bind point after 20 seconds: no group was ever
+            // wiped, and the survivors counted at the time limit were wrong (found 2026-11-17).
+            if (IsPvpBot)
+                return 3000;
 
             long deadFor = GameLoop.GameLoopTime - _deathTick;
             AutonomousBotGroupCoordinator.PveCorpseDisposition groupDisposition =
@@ -2626,7 +2725,7 @@ namespace DOL.GS
 
             if (spell == null || !CanAffordConcentration(spell) || Mana < BotSpellPower.Cost(this, spell, line) ||
                 castingComponent.HasPendingSkillRequests ||
-                BotSpellPower.IsOffensiveCaster(this) && castingComponent.IsCasting)
+                BotSpellPower.IsOffensiveCaster(this) && castingComponent.IsCasting && !(IsPvpBot && spell.IsInstantCast))
             {
                 CabalistRestDiagnostics.Attempt(this, spell, false);
                 return false;

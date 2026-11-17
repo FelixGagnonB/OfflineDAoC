@@ -35,6 +35,25 @@ namespace DOL.AI.Brain
                 .GroupBy(entry => entry.Kind.Value)
                 .ToDictionary(group => group.Key, group => group.OrderByDescending(entry => entry.Spell.Value).First().Spell);
 
+        /// <summary>
+        /// Set by the scrim from spawn until first contact (owner's rule, 2026-11-17): before the
+        /// fight the buffbot buffs the group, and a member casts only what is its own: buffs on
+        /// itself, its pet, and its songs or chants. Buffing others starts with the fight.
+        /// </summary>
+        public bool PvpSelfBuffsOnly { get; set; }
+
+        /// <summary>A buff on someone else, which a bot holds back while <see cref="PvpSelfBuffsOnly"/> is set.</summary>
+        public static bool IsBuffOnOthers(eSpellTarget target, int duration, int concentration, bool pulsing) =>
+            (duration > 0 || concentration > 0) && !pulsing &&
+            target is not (eSpellTarget.SELF or eSpellTarget.PET or eSpellTarget.CONTROLLED);
+
+        // Before the fight the buffbot has done it; during one, a damage add or resist buff on a
+        // member is not worth the turn or the power (the group plan's rebuff of a member who died
+        // is cast by its own path and is not held back by a fight).
+        private bool HoldsBackPvpBuff(Spell spell) => spell != null && !spell.IsHarmful &&
+            IsBuffOnOthers(spell.Target, spell.Duration, spell.Concentration, spell.IsPulsing) &&
+            (PvpSelfBuffsOnly || PvpFightIsOn());
+
         /// <summary>True for a buff that only the group plan may cast: every generic buff path skips it.</summary>
         private bool IsPlannedPvpBuff(Spell spell) => spell != null && BotBody?.IsPvpBot == true &&
             PvpBuffPlan.KindOf(spell.SpellType, spell.Target, spell.Concentration).HasValue;
@@ -91,6 +110,8 @@ namespace DOL.AI.Brain
         /// <summary>Casts this bot's next missing buff from the group plan. True when a cast started.</summary>
         private bool TryCastPlannedPvpBuff()
         {
+            if (PvpSelfBuffsOnly)
+                return false;
             PvpGroupBuffPlan plan = CurrentPvpBuffPlan();
             int me = plan.Members.IndexOf(Body);
             if (me < 0)

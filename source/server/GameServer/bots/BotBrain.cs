@@ -1930,7 +1930,7 @@ namespace DOL.AI.Brain
                 .Concat(bot.InstantMiscSpells ?? [])
                 .Where(spell => spell != null && !spell.IsHarmful && spell.Level <= bot.Level &&
                                 IsMaintainableClassBuff(spell) && !IsShortCombatShield(spell) &&
-                                !IsPlannedPvpBuff(spell) &&
+                                !IsPlannedPvpBuff(spell) && !HoldsBackPvpBuff(spell) &&
                                 (!autonomousPetUpkeep ||
                                  spell.Target is not (eSpellTarget.PET or eSpellTarget.CONTROLLED)) &&
                                 (spell.Target is not (eSpellTarget.PET or eSpellTarget.CONTROLLED) ||
@@ -2947,7 +2947,9 @@ namespace DOL.AI.Brain
                     if (!_brain.CheckHeals() && !_brain.TryPvpRotation())
                         _brain.AttackMostWanted();
                 }
-                else
+                // An 8v8 caster under a squad brain picks its cast from every enemy in reach, not
+                // only once it stands in range of an attack target of its own.
+                else if (!_brain.TryPvpRotation())
                     _brain.AttackMostWanted();
             }
         }
@@ -3584,7 +3586,7 @@ namespace DOL.AI.Brain
         {
             Body.StopAttack();
             if (!UsesDefensiveOnlyPet) Body.ControlledBrain?.Disengage();
-            if (Body.IsCasting && Body.castingComponent?.SpellHandler?.Spell?.IsHarmful == true)
+            if (Body.IsCasting && Body.castingComponent?.SpellHandler?.Spell?.IsHarmful == true && !PvpControlInFlight)
                 Body.StopCurrentSpellcast();
         }
 
@@ -3593,7 +3595,7 @@ namespace DOL.AI.Brain
             if (CompanionFollowPolicy.SendsDruidPet(BotBody))
                 TryCommandCompanionDruidPet(CalculateNextAttackTarget());
             HoldSupportCombat();
-            if (!CheckHeals() && !TryPvpCrowdControl()) CheckSpells(eCheckSpellType.Defensive);
+            if (!CheckHeals() && !TryPvpCrowdControl() && !TryPvpRotation()) CheckSpells(eCheckSpellType.Defensive);
             if (BotBody.IsPlayerLedGroup)
             {
                 if (!Body.IsCasting && Body.castingComponent?.HasPendingSkillRequests != true)
@@ -3854,6 +3856,11 @@ namespace DOL.AI.Brain
             {
                 if (TryPvpCrowdControl()) return true;
                 if (TryPvpRotation()) return true;
+                // A caster whose casts are scored does not fall back to the old random pick (it had the
+                // Sorcerer spend its power on stat debuffs): with nothing worth casting it keeps its power.
+                if (PvpEnemies != null && BotBody?.IsPvpBot == true &&
+                    PvpActionChoice.Covers((eCharacterClass)BotBody.CharacterClass.ID, PvpWeights.Of(BotBody)))
+                    return false;
                 if (TryBardPveAddMez()) return true;
                 if (TryShamanPveAddRoot()) return true;
                 if (TryShortCombatShield()) return true;
@@ -4140,7 +4147,7 @@ namespace DOL.AI.Brain
         {
             // An 8v8 group's planned buffs are cast only from its plan (BotBrain.PvpBuffs.cs).
             // Through this generic path a weaker caster could buff a resurrected member first.
-            if (IsPlannedPvpBuff(spell)) return false;
+            if (IsPlannedPvpBuff(spell) || HoldsBackPvpBuff(spell)) return false;
             if (CompanionFollowPolicy.DeferBuff(BotBody, spell)) return false;
             if (spell == null || spell.IsHarmful || spell.Level > Body.Level ||
                 !BotBody.CanAffordConcentration(spell) ||
@@ -5004,7 +5011,9 @@ namespace DOL.AI.Brain
             {
                 if (Body.Group != null)
                 {
-                    foreach (GameLiving member in Body.Group.GetMembersInTheGroup().OrderBy(member => member == AssistedPlayer ? 0 : 1))
+                    // An 8v8 healer wakes the member that matters most first: a healer, then a caster.
+                    foreach (GameLiving member in Body.Group.GetMembersInTheGroup().OrderBy(member => member == AssistedPlayer ? 0 : 1)
+                                 .ThenByDescending(PvpCureMezPriority))
                     {
                         if (member.IsMezzed && member != Body && InSupportReach(member) && CheckHealSpell(BotBody.CureMezz))
                         {
@@ -5095,6 +5104,10 @@ namespace DOL.AI.Brain
                     CheckHealSpell(BotBody.HealInstant) ? BotBody.HealInstant : null;
             if (spellToCast != null && spellTarget != null)
             {
+                // An 8v8 group's healers share out their patients (bots/pvp/PvpHealPlan.cs).
+                GameLiving pickedAlone = spellTarget;
+                if (PvpSquad != null && (spellTarget = PvpSquad.AssignHeal(BotBody, spellToCast, spellTarget)) == null)
+                    return isCastingHeal;
                 spellTarget = BotGroupSupport.ReserveHeal(BotBody, spellToCast, spellTarget);
                 if (spellTarget == null) return isCastingHeal;
                 if (!BotBody.IsWithinRadius(spellTarget, BotBody.castingComponent.CalculateSpellRange(spellToCast)))
@@ -5123,6 +5136,15 @@ namespace DOL.AI.Brain
                 }
                 else
                 {
+                    // Every heal and cure of an 8v8 bot is a recorded decision (M5.7).
+                    if (BotBody.IsPvpBot)
+                        PvpRecorder.Decision(BotBody, new
+                        {
+                            kind = spellToCast.SpellType == eSpellType.CureMezz ? "CureMez" : spellToCast.IsHealing ? "Heal" : "Cure",
+                            spell = spellToCast.Name, d = spellTarget.Name, hp = spellTarget.HealthPercent, score = 100 - spellTarget.HealthPercent,
+                            // Another healer's heal was already on its way to the one this healer had picked.
+                            moved = spellTarget != pickedAlone ? true : (bool?)null,
+                        }, [], null);
                     if (spellToCast.IsInstantCast)
                     {
                         BotBody.TargetObject = oldTarget;

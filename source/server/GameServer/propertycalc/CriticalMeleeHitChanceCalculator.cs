@@ -22,7 +22,7 @@ namespace DOL.GS.PropertyCalc
 
             int chance = living.OtherBonus[property] + living.AbilityBonus[property];
 
-            if (living is GamePlayer)
+            if (GameBot.UsesPlayerRules(living))
                 chance += 10;
             else if (living is NecromancerPet { Owner: GameBot botOwner })
             {

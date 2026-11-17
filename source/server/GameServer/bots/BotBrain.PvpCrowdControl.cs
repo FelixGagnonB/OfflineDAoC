@@ -9,10 +9,15 @@ namespace DOL.AI.Brain
         private long _nextPvpControl;
         private int _pvpControlSpellId;
         private long _pvpControlCastUntil;
+        // The enemy this bot's area mez is being cast at, until that cast is over.
+        private GameLiving _pvpAreaMezAim;
+        public bool IsPvpAreaMezAim(GameLiving target) => target != null && _pvpAreaMezAim == target && GameLoop.GameLoopTime < _pvpControlCastUntil;
         private bool PvpControlInFlight => Body.IsCasting && GameLoop.GameLoopTime<_pvpControlCastUntil &&
             Body.castingComponent?.SpellHandler?.Spell?.ID==_pvpControlSpellId;
         private bool TryPvpCrowdControl()
         {
+            // Under a squad brain the main mezzers choose their mez and stun by score (BotBrain.PvpRotation.cs).
+            if (PvpCrowdControlIsScored()) return false;
             if (BotBody?.CanCastCrowdControlSpells != true || Body.IsCasting || Body.IsIncapacitated ||
                 Body.castingComponent?.HasPendingSkillRequests == true || GameLoop.GameLoopTime < _nextPvpControl) return false;
             _nextPvpControl = GameLoop.GameLoopTime + 2000;

@@ -41,6 +41,8 @@ namespace DOL.GS.PropertyCalc
                 // Bot balance: a low power bar must not slow recovery further.
                 // This applies to both persistent bots and /spawn companions;
                 // real players still obey the configured classic penalty.
+                // An 8v8 bot stands in for a player and takes the same penalty.
+                GameBot { IsPvpBot: true } pvpBot => pvpBot.CharacterClass?.ClassType is eClassType.ListCaster && pvpBot.ManaPercent < 50,
                 GameBot => false,
                 _ => false,
             };

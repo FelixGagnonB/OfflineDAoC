@@ -1,0 +1,381 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Numerics;
+using DOL.AI.Brain;
+using DOL.GS.SkillHandler;
+using static DOL.GS.PvpScrim;
+
+namespace DOL.GS
+{
+    /// <summary>
+    /// The shared mind of one 8v8 group (docs/PVP-8V8-ROADMAP.md, M5.1): what the group as a whole
+    /// has decided, which its members then act on. It calls the kill target, hands out interrupt
+    /// duty, has the shield fighters guard and peel, and keeps the healers and casters apart.
+    /// It is ticked once a second on the game loop, before its members think. A scrim makes one
+    /// for each side; it holds nothing of the scrim, so the owner's own group can have one too.
+    /// </summary>
+    public sealed class PvpSquad
+    {
+        private readonly List<GameBot> _members;
+        // Shield fighters: whom each guards, what each was last recorded doing, and which of them
+        // are staying beside their ward with no enemy to go for.
+        private readonly Dictionary<GameBot, GameBot> Wards = new();
+        private readonly Dictionary<GameBot, (string Kind, GameBot Target)> LastPeel = new();
+        private readonly HashSet<GameBot> Holding = new();
+        // Interrupt duty: the enemy each interrupter has, kept so that the pairs hold from one second to the next.
+        private readonly Dictionary<GameBot, GameBot> Duties = new();
+        // When each healer or caster last took a step away from a groupmate.
+        private readonly Dictionary<GameBot, long> LastSpreadStep = new();
+
+        public PvpSquad(IEnumerable<GameBot> members)
+        {
+            _members = members.ToList();
+        }
+
+        public IReadOnlyList<GameBot> Members => _members;
+
+        /// <summary>The enemy the group is killing now; null when it has none.</summary>
+        public GameBot KillTarget { get; private set; }
+
+        /// <summary>Set once the first blow has fallen. Before it the group travels in formation and nothing is recorded as a fight decision.</summary>
+        public bool FightStarted { get; set; }
+
+        /// <summary>The healer or caster this shield fighter guards; null for anyone else.</summary>
+        public GameBot WardOf(GameBot bot) => Wards.GetValueOrDefault(bot);
+
+        /// <summary>True for a shield fighter that is staying beside its ward: it has chosen not to attack.</summary>
+        public bool IsHolding(GameBot bot) => Holding.Contains(bot);
+
+        // Heals being cast right now: healer, patient, spell, when it began and when it is surely over.
+        private readonly Dictionary<GameBot, (GameBot Target, Spell Spell, long Started, long Expires)> _heals = new();
+
+        /// <summary>
+        /// Whom a healer's heal goes to, given the heals the group's other healers are already
+        /// casting (bots/pvp/PvpHealPlan.cs): its own pick, a needier member, or null when the
+        /// others have everyone covered and the turn is free. Called from brain threads.
+        /// </summary>
+        public GameLiving AssignHeal(GameBot healer, Spell spell, GameLiving own)
+        {
+            // Only a single heal with a cast time is shared out: an instant lands at once, and a
+            // group heal or a heal over time is not for one patient.
+            if (own is not GameBot pick || !spell.IsHealing || spell.Target != eSpellTarget.REALM || spell.IsInstantCast || spell.Duration > 0)
+                return own;
+            PvpHealWeights weights = PvpWeights.Of(healer).Heal;
+            int range = healer.castingComponent.CalculateSpellRange(spell);
+            lock (_heals)
+            {
+                long now = GameLoop.GameLoopTime;
+                foreach (var entry in _heals.ToArray())
+                {
+                    // Over, or given up: half a second after it was announced the healer is casting something else.
+                    if (entry.Value.Expires <= now || !entry.Key.IsAlive ||
+                        now - entry.Value.Started > 500 && entry.Key.castingComponent.SpellHandler?.Spell != entry.Value.Spell)
+                        _heals.Remove(entry.Key);
+                }
+                _heals.Remove(healer);
+                List<GameBot> reach = _members.Where(member => member.IsAlive && (member == healer || healer.IsWithinRadius(member, range))).ToList();
+                // Its own pick is out of reach: it walks there, as before.
+                if (!reach.Contains(pick))
+                    return own;
+                List<PvpPatient> patients = reach.Select((member, id) => new PvpPatient(id, member.Health, member.MaxHealth,
+                    (int)_heals.Values.Where(heal => heal.Target == member).Sum(heal => Math.Max(0, GameBot.HealAmount(heal.Spell, member))),
+                    PvpBuffPlan.ArchetypeOf(member.PvpBuild.Class))).ToList();
+                int chosen = PvpHealPlan.Choose(patients, reach.IndexOf(pick), weights);
+                if (chosen < 0)
+                    return null;
+                _heals[healer] = (reach[chosen], spell, now, now + Math.Clamp(spell.CastTime + 500, 1_000, 15_000));
+                return reach[chosen];
+            }
+        }
+
+        /// <summary>An enemy is seen from this far, with open ground between (the range at which a group spots another).</summary>
+        public const int ViewRange = SpotRange;
+        /// <summary>An enemy that drops out of sight is still known for this long, where it was last seen.</summary>
+        public const int MemoryMilliseconds = 10_000;
+
+        // When each enemy was last seen by a member of the group.
+        private readonly Dictionary<GameBot, long> _lastSeen = new();
+        // The enemy each fighter on the kill was last recorded attacking.
+        private readonly Dictionary<GameBot, GameBot> _lastAim = new();
+
+        /// <summary>
+        /// The enemies the group knows about (M5.2): those a living member sees now, within
+        /// <see cref="ViewRange"/> and with open ground between, and those seen in the last ten
+        /// seconds. Everything the group decides, and every choice its members score, is about
+        /// these and no others. Stealth is not handled: the main groups have no stealther.
+        /// </summary>
+        public IReadOnlyList<GameBot> Known { get; private set; } = [];
+
+        private List<GameBot> Look(IReadOnlyList<GameBot> enemies)
+        {
+            var nav = PathfindingProvider.Instance;
+            long now = GameLoop.GameLoopTime;
+            List<GameBot> watchers = _members.Where(member => member.IsAlive).ToList();
+            var known = new List<GameBot>();
+            foreach (GameBot enemy in enemies)
+            {
+                if (!enemy.IsAlive || enemy.ObjectState != GameObject.eObjectState.Active)
+                    continue;
+                var there = new Vector3(enemy.X, enemy.Y, enemy.Z);
+                // Nearest first: the first member that sees it is enough.
+                bool seen = watchers.Where(member => member.IsWithinRadius(enemy, ViewRange))
+                    .OrderBy(member => member.GetDistanceTo(enemy))
+                    .Any(member => nav.HasLineOfSight(member.CurrentZone, new Vector3(member.X, member.Y, member.Z), there, nav.DefaultFilters));
+                if (seen)
+                    _lastSeen[enemy] = now;
+                if (_lastSeen.TryGetValue(enemy, out long last) && now - last <= MemoryMilliseconds)
+                    known.Add(enemy);
+            }
+            return known;
+        }
+
+        /// <summary>The group's decisions for this second: what it sees, kill target, interrupt duty, guard and peel.</summary>
+        public void Decide(IReadOnlyList<GameBot> enemies)
+        {
+            List<GameBot> known = Look(enemies);
+            Known = known;
+            KillTarget = CallTarget(_members, known, KillTarget is { IsAlive: true } current && known.Contains(current) ? current : null);
+        }
+
+        /// <summary>
+        /// One kill target for the group, given to everyone who is not a healer; interrupt duty;
+        /// guard and peel. Distance is measured from the middle of the group's damage dealers.
+        /// </summary>
+        private GameBot CallTarget(List<GameBot> team, List<GameBot> enemies, GameBot current)
+        {
+            List<GameBot> dealers = team.Where(bot => bot.IsAlive && PvpRoles.Of(bot.PvpBuild.Class) == PvpRole.Assist).ToList();
+            List<GameBot> alive = enemies.Where(enemy => enemy.IsAlive).ToList();
+            GameBot target = null;
+            if (dealers.Count > 0 && alive.Count > 0)
+            {
+                double x = dealers.Average(bot => bot.X), y = dealers.Average(bot => bot.Y);
+                var views = alive.Select((enemy, id) => new PvpTargetView(id, PvpBuffPlan.ArchetypeOf(enemy.PvpBuild.Class),
+                    enemy.HealthPercent, enemy.IsMezzed, (int)Math.Sqrt(Math.Pow(enemy.X - x, 2) + Math.Pow(enemy.Y - y, 2)))).ToList();
+                int chosen = PvpKillTarget.Choose(views, current != null ? alive.IndexOf(current) : -1);
+                target = chosen >= 0 ? alive[chosen] : null;
+                // The call is recorded when it changes, with what else could have been called.
+                if (target != current && target != null)
+                    PvpRecorder.Call(team[0], target, PvpKillTarget.Score(views[chosen]), current,
+                        views.OrderByDescending(PvpKillTarget.Score).Take(4).Select(view => (object)new
+                        {
+                            d = alive[view.Id].Name, score = PvpKillTarget.Score(view), view.HealthPercent, view.Mezzed, view.Distance,
+                        }));
+            }
+            var guarded = new HashSet<GameBot>();
+            Dictionary<GameBot, GameBot> duty = InterruptDuty(team, alive, target);
+            bool critical = target != null && target.HealthPercent <= PvpRoles.CriticalHealthPercent;
+            foreach (GameBot bot in team)
+            {
+                if (bot.Brain is not BotBrain brain)
+                    continue;
+                // By role: assist classes kill; the controller keeps its own crowd-control logic
+                // and has no target forced on it; a shield fighter guards and peels. Interrupt duty
+                // cuts across the roles: pets and fighters with duty go to their enemy and join
+                // the kill only once the target is nearly dead, while a spell caster keeps its
+                // target and gets the duty as a leaning in its scored choice.
+                PvpRole role = PvpRoles.Of(bot.PvpBuild.Class);
+                brain.PvpSquad = this;
+                brain.PvpEnemies = enemies;
+                brain.PvpKillTarget = target;
+                duty.TryGetValue(bot, out GameBot onDuty);
+                brain.PvpDutyTarget = onDuty;
+                PvpInterruptMeans means = PvpInterruptDuty.MeansOf(bot.PvpBuild.Class, PvpWeights.Of(bot).Interrupt);
+                GameBot aim = null;
+                if (onDuty != null && means is PvpInterruptMeans.Pets or PvpInterruptMeans.Melee && !critical && bot.IsAlive)
+                    aim = onDuty;
+                else if (target != null && PvpRoles.JoinsKill(role, target.HealthPercent))
+                    aim = target;
+                else if (role == PvpRole.Peel && bot.IsAlive)
+                    aim = Peel(bot, brain, team, alive, target, guarded);
+                brain.PvpAssignedTarget = aim;
+                // A fighter on the kill: its target is recorded when it changes (guards and
+                // interrupters record their own choices).
+                if (FightStarted && bot.IsAlive && role == PvpRole.Assist && onDuty == null &&
+                    PvpBuffPlan.ArchetypeOf(bot.PvpBuild.Class) == PvpBuffArchetype.Melee &&
+                    aim != null && _lastAim.GetValueOrDefault(bot) != aim)
+                {
+                    _lastAim[bot] = aim;
+                    PvpRecorder.Decision(bot, new { kind = "Attack", d = aim.Name, score = 0 }, [], null);
+                }
+                // A member still far behind (it stopped to cast while the group walked on) is not
+                // put in attack state: the brain does not walk a caster that far, so it would stand
+                // where it is for the whole fight. It keeps marching until it has caught up.
+                if (aim != null && bot.IsAlive && bot.IsWithinRadius(aim, EngageRange))
+                {
+                    brain.AddToAggroList(aim, 1);
+                    if (brain.FSM.GetCurrentState()?.StateType != eFSMStateType.AGGRO)
+                        brain.FSM.SetCurrentState(eFSMStateType.AGGRO);
+                }
+            }
+            return target;
+        }
+
+        /// <summary>
+        /// Pairs the team's interrupters with the enemy healers and casters that are neither the
+        /// kill target (the damage dealers interrupt that one) nor asleep (bots/pvp/PvpInterruptDuty.cs).
+        /// </summary>
+        private Dictionary<GameBot, GameBot> InterruptDuty(List<GameBot> team, List<GameBot> enemies, GameBot kill)
+        {
+            PvpInterruptWeights weights = PvpWeights.Of(team.FirstOrDefault()).Interrupt;
+            List<GameBot> interrupters = team.Where(bot => bot.IsAlive && bot.Brain is BotBrain &&
+                PvpInterruptDuty.MeansOf(bot.PvpBuild.Class, weights) != PvpInterruptMeans.None).ToList();
+            // Not one a mezzer of this team is putting to sleep right now either: the interrupter's
+            // first hit would wake it and leave it immune.
+            eRealm realm = team.Count > 0 ? team[0].Realm : eRealm.None;
+            List<GameBot> open = enemies.Where(enemy => enemy != kill && !enemy.IsMezzed &&
+                !BotPvpCrowdControl.Claimed(realm, enemy) &&
+                PvpBuffPlan.ArchetypeOf(enemy.PvpBuild.Class) != PvpBuffArchetype.Melee).ToList();
+            var pairs = new List<PvpDutyPair>();
+            for (int i = 0; i < interrupters.Count; i++)
+            {
+                Duties.TryGetValue(interrupters[i], out GameBot current);
+                for (int e = 0; e < open.Count; e++)
+                    pairs.Add(new PvpDutyPair(i, e, PvpBuffPlan.ArchetypeOf(open[e].PvpBuild.Class), open[e].IsCasting,
+                        !open[e].IsBeingInterrupted, open[e] == current, (int)interrupters[i].GetDistanceTo(open[e]),
+                        PvpActionChoice.IsController(open[e].PvpBuild.Class, PvpWeights.Of(interrupters[i]))));
+            }
+            Dictionary<int, int> assigned = PvpInterruptDuty.Assign(pairs, weights);
+            var duty = new Dictionary<GameBot, GameBot>();
+            for (int i = 0; i < interrupters.Count; i++)
+            {
+                GameBot bot = interrupters[i];
+                Duties.TryGetValue(bot, out GameBot before);
+                if (!assigned.TryGetValue(i, out int e))
+                {
+                    Duties.Remove(bot);
+                    continue;
+                }
+                duty[bot] = Duties[bot] = open[e];
+                // Recorded when it changes, not every second.
+                if (open[e] != before && FightStarted)
+                    PvpRecorder.Decision(bot, new
+                    {
+                        kind = "Duty", d = open[e].Name,
+                        score = Math.Round(PvpInterruptDuty.Score(pairs.First(pair => pair.Interrupter == i && pair.Enemy == e), weights), 1),
+                    }, [], null);
+            }
+            return duty;
+        }
+
+        /// <summary>
+        /// A shield fighter's turn (bots/pvp/PvpPeel.cs): it guards the healer or caster that
+        /// needs it most and goes for the enemy that scores best, which is first of all one in
+        /// melee on that groupmate. With nobody worth going for it stays beside its ward, where
+        /// guard works. Returns the enemy to attack, or null.
+        /// </summary>
+        private GameBot Peel(GameBot bot, BotBrain brain, List<GameBot> team, List<GameBot> enemies, GameBot kill, HashSet<GameBot> guarded)
+        {
+            PvpPeelWeights weights = PvpWeights.Of(bot).Peel;
+            Holding.Remove(bot);
+            List<GameBot> backline = team.Where(member => member.IsAlive && member != bot &&
+                PvpBuffPlan.ArchetypeOf(member.PvpBuild.Class) != PvpBuffArchetype.Melee).ToList();
+            Wards.TryGetValue(bot, out GameBot current);
+            if (backline.Count == 0)
+            {
+                // Nobody left to guard: one more fighter on the kill target.
+                if (current != null)
+                {
+                    foreach (GuardECSGameEffect guard in bot.effectListComponent.GetAbilityEffects(eEffect.Guard).OfType<GuardECSGameEffect>().Where(guard => guard.Source == bot))
+                        guard.End();
+                    Wards.Remove(bot);
+                }
+                return kill;
+            }
+
+            bool InMeleeOn(GameBot enemy, GameBot member) =>
+                !enemy.IsMezzed && enemy.TargetObject == member && enemy.IsWithinRadius(member, weights.MeleeReach) &&
+                (PvpBuffPlan.ArchetypeOf(enemy.PvpBuild.Class) == PvpBuffArchetype.Melee || enemy.attackComponent?.AttackState == true);
+
+            List<PvpWardView> wards = backline.Select((member, id) => new PvpWardView(id, PvpBuffPlan.ArchetypeOf(member.PvpBuild.Class),
+                enemies.Count(enemy => InMeleeOn(enemy, member)), member.HealthPercent, (int)bot.GetDistanceTo(member),
+                member == current, guarded.Contains(member))).ToList();
+            GameBot ward = backline[PvpPeel.ChooseWard(wards, weights)];
+            guarded.Add(ward);
+            if (ward != current)
+            {
+                Wards[bot] = ward;
+                GuardAbilityHandler.CheckExistingEffectsOnTarget(bot, ward, false, out _, out GuardECSGameEffect another);
+                bool set = bot.HasAbility(Abilities.Guard) && another == null;
+                if (set)
+                    GuardAbilityHandler.CancelOurEffectThenAddOnTarget(bot, ward);
+                PvpRecorder.Decision(bot, new
+                {
+                    kind = "Guard", d = ward.Name, score = Math.Round(PvpPeel.Score(wards[backline.IndexOf(ward)], weights), 1),
+                    set, attackers = wards[backline.IndexOf(ward)].Attackers,
+                }, [], null);
+            }
+
+            List<GameBot> near = enemies.Where(enemy => enemy.IsWithinRadius(ward, weights.ConsiderRange) || InMeleeOn(enemy, bot)).ToList();
+            List<PvpPeelView> views = near.Select((enemy, id) => new PvpPeelView(id, InMeleeOn(enemy, ward),
+                backline.Any(member => member != ward && InMeleeOn(enemy, member)), InMeleeOn(enemy, bot), enemy == kill,
+                !(enemy.IsStunned || enemy.effectListComponent.ContainsEffectForEffectType(eEffect.StunImmunity)),
+                enemy.IsMezzed, (int)ward.GetDistanceTo(enemy), enemy == brain.PvpAssignedTarget)).ToList();
+            int chosen = PvpPeel.ChooseTarget(views, weights, out double score);
+            GameBot aim = chosen >= 0 ? near[chosen] : null;
+            string kind = chosen >= 0 ? PvpPeel.Describe(views[chosen]) : "Hold";
+
+            // Recorded when it changes, not every second.
+            if (FightStarted && (!LastPeel.TryGetValue(bot, out var last) || last.Kind != kind || last.Target != aim))
+            {
+                LastPeel[bot] = (kind, aim);
+                // Enemies that are on nobody and are not the kill target have no score and are left out.
+                PvpRecorder.Decision(bot, new { kind, d = aim?.Name, ward = ward.Name, score = score > double.MinValue ? Math.Round(score, 1) : 0 },
+                    views.Where(view => PvpPeel.Score(view, weights) > double.MinValue)
+                        .OrderByDescending(view => PvpPeel.Score(view, weights)).Take(4).Select(view => (object)new
+                    {
+                        kind = PvpPeel.Describe(view), d = near[view.Id].Name, score = Math.Round(PvpPeel.Score(view, weights), 1),
+                        view.OnWard, view.OnBackline, view.OnSelf, view.IsKill, view.FromWard,
+                    }), null);
+            }
+
+            // Staying beside the ward. Before contact the group's formation places everybody.
+            if (aim == null && FightStarted && enemies.Any(enemy => bot.IsWithinRadius(enemy, EngageRange)))
+            {
+                Holding.Add(bot);
+                if (brain.HasAggro)
+                {
+                    brain.ClearAggroList();
+                    brain.FSM.SetCurrentState(eFSMStateType.IDLE);
+                }
+                if (!bot.IsWithinRadius(ward, weights.StayWithin) && !bot.IsCasting && !bot.IsIncapacitated)
+                    bot.PathTo(new Vector3(ward.X, ward.Y, ward.Z), bot.MaxSpeed);
+            }
+            return aim;
+        }
+
+        /// <summary>
+        /// Healers and casters keep apart once the enemy is in sight (bots/pvp/PvpSpacing.cs). A
+        /// member standing within mez radius of another takes a step away, on a turn it is not
+        /// using: one that is casting, walking or unable to act is left alone, and its brain can
+        /// stop the step at any moment to cast. Fighters are left out: they stack on the kill
+        /// target, and a shield fighter belongs beside its ward.
+        /// </summary>
+        public void KeepApart()
+        {
+            PvpSpreadWeights weights = PvpWeights.Of(_members.FirstOrDefault()).Spread;
+            List<GameBot> foes = Known.Where(enemy => enemy.IsAlive).ToList();
+            if (weights.MinSpacing <= 0 || foes.Count == 0)
+                return;
+            List<GameBot> backline = _members.Where(bot => bot.IsAlive &&
+                PvpBuffPlan.ArchetypeOf(bot.PvpBuild.Class) != PvpBuffArchetype.Melee).ToList();
+            var enemyCentre = new Vector2((float)foes.Average(enemy => enemy.X), (float)foes.Average(enemy => enemy.Y));
+            long now = GameLoop.GameLoopTime;
+            var nav = PathfindingProvider.Instance;
+            foreach (GameBot bot in backline)
+            {
+                if (bot.IsCasting || bot.IsMoving || bot.IsIncapacitated || bot.castingComponent?.HasPendingSkillRequests == true ||
+                    !foes.Any(enemy => bot.IsWithinRadius(enemy, SpotRange)) ||
+                    LastSpreadStep.TryGetValue(bot, out long last) && now - last < 2_000)
+                    continue;
+                List<Vector2> mates = backline.Where(member => member != bot).Select(member => new Vector2(member.X, member.Y)).ToList();
+                if (PvpSpacing.StepApart(new Vector2(bot.X, bot.Y), mates, enemyCentre, weights.MinSpacing, weights.Step) is not { } to)
+                    continue;
+                LastSpreadStep[bot] = now;
+                bot.PathTo(nav.GetFloorBeneath(bot.CurrentZone, new Vector3(to.X, to.Y, 20_000), 20_000, nav.DefaultFilters)
+                    is { } floor && floor.Z < 19_999 ? floor : new Vector3(to.X, to.Y, bot.Z), bot.MaxSpeed);
+                PvpRecorder.Decision(bot, new { kind = "Spread", score = 0 }, [], null);
+            }
+        }
+    }
+}

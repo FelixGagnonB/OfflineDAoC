@@ -27,6 +27,8 @@ namespace DOL.GS.PropertyCalc
                 if (player.CharacterClass.ClassType is eClassType.ListCaster)
                     chance += 10;
             }
+            else if (living is GameBot { IsPvpBot: true, CharacterClass.ClassType: eClassType.ListCaster })
+                chance += 10;
             else if (living is NecromancerPet necroPet)
             {
                 chance += 10;

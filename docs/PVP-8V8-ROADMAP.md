@@ -275,6 +275,40 @@ batch, then about 0.1 GB more per match; worth a look before long runs or parall
 Scrims are started through the control channel (`scrim-start`, `scrim-status`, `scrim-stop`); the
 in-game `/scrim` command waits with the rest of the human-side work. M2.5 is not built.
 
+*Correction, 2026-11-17: dead bots were releasing.* Every result recorded before this date is
+wrong in its winner and its survivor count. A dead 8v8 bot ran the ordinary bot release: after 20
+seconds (90 with a living healer in the group) it stood up alive at a bind point far from the
+arena, the same one for both teams, where released bots of the two teams fought again. So no team
+could be wiped, every match ran to the time limit, and "alive at the limit" counted released bots.
+One match recorded as an 8 to 8 draw was a wipe of Midgard 103 seconds in. Damage, heal and mez
+figures of those runs include the second fight at the bind point. Fixed: an 8v8 bot stays down
+where it fell until a groupmate raises it or the match clears the arena
+(`GameBot.HandleDeathRecovery`). The analyzer now counts bots raised per match and prints a
+warning when a dead bot stands up away from its corpse.
+
+*Ready check, 2026-11-17 (owner's request):* the fixed five seconds of buffing let groups walk
+into the fight still casting their own buffs, with casters at half power (the Shaman at 196 of
+396 at contact). A match now starts when both groups are ready: a member is ready once it has
+gone 8 seconds without casting a buff it had not cast yet (the same spell on the same target
+counts once, so a song or chant recast in a loop keeps nobody waiting); the wait is at least 5
+seconds and at most 120, and a timeout names who was still buffing. At the start everyone is set
+to full health, power and endurance, as a group that rested after buffing, and the match clock
+starts there, so buffing is not part of the match. The recorder writes a `ready` line and the
+analyzer shows buffing time and power at contact per match. First run, Midgard against Hibernia,
+two matches: buffing took 106 and 98 seconds, power at contact 100% (was about 75%), and deaths
+rose from 2 to 5 a match to 10 and 9, with one win each. Buffing took about 100 seconds because
+members buffed each other: group resist buffs (each Druid three times, overwriting the other's),
+damage add and damage shield on every member, haste, power regeneration.
+
+*Own buffs only before the fight, 2026-11-17 (owner's rule):* from spawn until first contact a
+member casts only what is its own: buffs on itself, its pet, its songs and chants. The buffbot
+does the rest; buffing others (the field rebuff included) starts with the fight
+(`BotBrain.PvpSelfBuffsOnly`). Buffing fell from about 100 seconds to 41, and a two-match check
+from about 13 minutes to 8. Not given before the fight any more, because the buffbot does not
+have them: group resist buffs, the Healer's haste and power regeneration, damage add and damage
+shield on others. Still open: the old brain casts these during the fight (damage shield 20 times
+by the two Druids in two matches).
+
 - [x] **M2.1** (S) Arena file: box bounds in Emain Macha, two spawn areas, patrol waypoints. Size
   is a setting. With its walls in place the Emain mesh splits into two large areas that do not
   connect (about 64% and 33% of the zone). The zone centre is in the smaller one; the two frontier
@@ -286,7 +320,74 @@ in-game `/scrim` command waits with the rest of the human-side work. M2.5 is not
   Done as control-channel commands; no in-game command yet.
 - [x] **M2.4** (S) Simple roaming along the waypoints with no knowledge of the enemy's position.
   Good enough to produce contact; M8 replaces it.
-- [ ] **M2.5** (M) Several arenas at once in different boxes, since game time cannot be sped up.
+- [x] **M2.5** (M) Several arenas at once in different boxes, since game time cannot be sped up.
+  Done 2026-11-17, see the note below.
+
+*Parallel arenas, 2026-11-17 (owner: four hours for a comparison base is far too long).* Measured
+first: of 203 seconds a match, 55 were buffing, 29 walking to contact and 118 fighting, and
+matches ran one at a time on a machine with 12 cores. Now:
+- `PvpScrim` is a manager and `PvpScrimRun` is one series; several run at once, each in its own
+  lane with its own recording (`PvpRecording`), and a match is removed without touching the
+  others. `scrim-start` takes `Pairs=a:b,c:d`, `Copies` and `Lanes=1`; `scrim-status` answers
+  with one entry per series.
+- Six lanes in the Emain box, each 6,000 units long, no two closer than 6,000 (nothing a bot
+  does reaches 4,500). They were chosen from a scan of the box (`scrim-scan`): three of the six
+  first drawn on paper crossed ground that is not open. Four run north to south on nearly level
+  ground (it varies by 48 to 123 units along them); two run west to east over hills (425 and
+  451) and are used only for a fifth and sixth series. `scrim-lanes` checks them before a run.
+- Groups start 6,000 apart, already in their travelling formation; contact comes after 6 to 9
+  seconds instead of 29.
+- `source/tools/pvp_batch.py` does a whole run: weights made explicit, server up, lanes
+  checked, all series, server down, analyzer on every batch. It replaces the runner scripts
+  that lived in a temporary folder.
+Measured: 12 matches (three pairings, four each) in 13.7 minutes where they took 40; 24 matches
+in six lanes in 13.3 minutes. No lane saw another (no damage from outside a match), no bot was
+left behind, no server error, server memory 5.7 to 5.8 GB. Results over those 36 matches agree
+with the single-arena runs before them: Albion 7 to 5 over Midgard, Hibernia 8 to 4 over
+Albion, Hibernia 10 to 2 over Midgard. Teams are no closer together at contact than in the big
+arena (average distance between members 876 against 684), but openings that put six or more to
+sleep were seen 7 times in 72 against 0 in 24; too few to say whether level ground helps the
+long-range mezzer or it is chance.
+*Owner, 2026-11-17:* an area mez catching five or more in about one opening in ten can be
+valid; it depends on the angle of contact and on whether the enemy group was aware of the
+contact. Accepted as it is. In a lane the two groups always meet head-on and both know: contact
+from the side or behind, and a group caught unaware, are not played yet (M7 and M8).
+*Owner, later the same day:* then, head-on and aware, one in ten is high: there is no reason for
+a team to get five to seven mezzed on contact.
+*Looked at mez by mez, 2026-11-17:* it never was one spell. "Asleep ten seconds after contact"
+adds up every mez of those ten seconds. In the 36 lane matches no area mez in the first ten
+seconds put more than two to sleep (87 casts: 65 caught one, 22 caught two); the same holds for
+the 12 big-arena matches with keeping apart (27 casts). Before keeping apart, 9 of 100 opening
+area mezzes caught three to five; the largest was five, so the earlier note that one mez caught
+all eight was wrong (that figure, too, was everybody asleep a moment later). The openings with
+five to eight asleep are five to eight separate mezzes landing one after another: a Bard got six
+off in ten seconds, the two Healers and the Skald seven, the Sorcerer and Minstrel six or
+seven, while nothing interrupted them and nobody was woken. So keeping apart does its job, and
+what is missing is the answer to a mezzer that is left to cast: its interrupter going to it
+first, and waking those it puts to sleep. The analyzer now prints, per team, the mezzes that
+landed in the first ten seconds and the most any one area mez caught.
+Quick buffing, tried and taken out again the same day: with a bot's own buffs taking a quarter
+of a second each during the ready check, every bot started with the same buffs (after a first
+version that ended the check too early was caught by the comparison), but the check took 57
+seconds instead of 60 to 67 for Albion and 37 instead of 40 for the others. The wait is the pace
+at which the old brain puts up buffs, chants and songs, one every few seconds, not their cast
+times. The "ready" line of a recording now lists every bot's buffs and pet; that was kept.
+Shortening the ready check (55 of about 175 seconds a match) is still open.
+
+*New against old in the same match, built 2026-11-17:* a second set of weights
+(`pvp-weights-old.json`, `PvpWeights.Reference`) can be given to one team of each match
+(`scrim-start Versus=1`, `GameBot.PvpWeightsSet`). With two lanes per pairing, the second with
+the sets the other way round, every realm fights with both sets against each opponent, and the
+count that is left is new against old. `pvp_batch.py --weights new.json --versus old.json` (or
+`builtin`) runs it and prints how many matches the new set won, so a change switched by a weight
+needs no base run of its own. First use: `Interrupt.OnController` (an interrupter goes to the
+enemy's mezzer first; 0 in the built-in weights until measured).
+Results, 24 matches each: the weight at 40 won 14 to 10; with a guard added (no interrupter for
+an enemy the team's own mezzer is putting to sleep, which wakes it and leaves it immune) it lost
+8 to 16; and a control run with the same weights on both sides came out 10 to 14. So a
+24-match comparison moves by four either way on chance alone, the weight shows no effect that
+size, and it stays at 0. A comparison needs about a hundred matches to show a difference of
+ten points of win rate, or a change large enough to see in 24.
 
 **Exit check:** 20 matches run unattended with no stuck bot, no leftover bot and no server error.
 Passed 2026-11-17 (four batches of five, see the progress note).
@@ -326,6 +427,71 @@ and the baseline batch of 30 matches per pairing (M3.6).
 **Exit check:** the baseline report exists, and one command compares two builds.
 
 ## M4. Fair fights
+
+*Found early, 2026-11-17 (part of M4.1):* 8v8 bots were mezzed and stunned by the NPC rules,
+because a bot is an NPC type: no minute of immunity afterwards (repeat mezzes that shrink
+instead), and every mez resisted below 75% health. They now follow the player rules
+(`GameBot.UsesPlayerCrowdControlRules`): immunity after a mez or stun, no second one while the
+first runs, no health-based resist. Albion against Midgard, two matches: Midgard mezzed 41% of
+the fight, from 62 to 73% before; the Sorcerer's mez casts that were accepted and never began
+(83 in one match) stopped. The recorder's "mezzed while immune" figure meant nothing before this.
+
+*Audit, 2026-11-17 (M4.1):* the engine has about 1,100 "is this a player?" tests in its combat
+code, and a bot, being an NPC type, falls on the monster side of each unless the code says
+otherwise. Three read-only audits (melee; spells; pools, effects and movement) went through them.
+One test now answers the question for 8v8 bots, `GameBot.UsesPlayerRules`, and these places use it
+or an equivalent. All were found by reading code; what a fight shows is noted under each run.
+Fixed, 8v8 bots only:
+- **Armor.** The piece that was hit decides armor factor and absorb, with the player caps and the
+  extra 20 armor factor; before, every bot had the same level-based armor and 27% absorb raised by
+  its buffs, a cloth caster included. Template armor now carries its class's absorb.
+- **Swing speed** reads Quickness with items, buffs and debuffs (it read the bare base stat).
+- **Interrupts** last as long as on a player (they lasted 2.5 seconds longer); after its own swing
+  a bot cannot cast for 3 seconds, as a player.
+- **Item +skill** counts, in weapon and magic lines (it counted for nothing).
+- **Dual wield** is recognised: the target's evade and block are halved.
+- **No limping** below a third of health.
+- **Miss chance** by the player formula; template gear carries the to-hit bonus on both sides.
+- **Critical hits:** 10% base chance in melee and for list casters; a critical on a bot adds at
+  most 50%.
+- **A missed, blocked, parried or evaded style** costs half its endurance.
+- **Control durations** (mez, stun, root, snare, nearsight) are shortened by the target's resists.
+- **Spell damage variance** comes from the bot's trained level in the spell's own line (it was the
+  monster 60 to 100%); the same for buff and debuff strength and for heal variance (bot heals
+  always landed at the maximum).
+- **A damage-over-time spell** interrupts once, not on every tick.
+- **Focus:** the caster staff focuses every line at 50 and the bot pays 80% of a spell's power
+  (it paid 120%).
+- **Resist debuffs** below zero are halved; **to-hit** uses the spell's level; **a non-damaging
+  debuff** no longer breaks mez; **bolts** take the in-combat penalty and hit a piece of armor;
+  **power regeneration** is halved under half power for list casters.
+Found and left for later:
+- Melee reach is 200 for a bot and 128 to 192 for a player (the follow distances depend on it).
+- Resurrection: a raised bot has no sickness, no five seconds of immunity, and comes back at full
+  health in most cases.
+- Sprint does nothing for a bot; Quickcast is off; a caster bot cannot fire an instant during a
+  cast; shared recast timers are not applied.
+- Player-led bots have a fast rest that an ownerless enemy group does not.
+- Savage multi-target styles hit one target; shield styles swing the main-hand weapon.
+- Guard, Intercept and Protect are not used by bots at all (M4.4, M6.3).
+- No line-of-sight check during a bot's cast (M4.2, M4.3); no facing check on a bot's swing.
+- Server properties in the live database were not read; the code defaults were assumed.
+
+*Keep guards in the fight, found 2026-11-17:* the arena is in a frontier zone with Albion keeps,
+and their guards shot at Midgard and Hibernia bots: a Master Ranger for about 7,600 a shot, up to
+53,000 damage in one two-match batch, and some guard damage in nearly every batch recorded that
+day. Results before this date between Albion and the other realms are not to be trusted. Guards
+and monsters now leave 8v8 bots alone and the reverse (`GameBot.IsWorldAgainstPvpBot`, in the
+attack-permission rule), and the analyzer prints a warning naming any damage from outside the two
+groups.
+*First clean run with the parity fixes, Albion against Midgard, two matches:* no outside damage;
+damage dealt and taken now add up between the teams. Albion won both on the time limit, 7 to 4 and
+8 to 5, with 9 and 11 deaths. Fighters now do the damage: Armsman 11,000, Berserker 8,600, Warrior
+8,100 over two matches (the Armsman did about 5,000 before). Midgard is mezzed 25% of the fight
+and Albion 10%. The match header records each bot's armor factor, absorb, Quickness, swing time
+and critical chances: cloth 50 and 0%, studded 19%, chain 27%, plate 34%, 10% melee critical for
+all and 10% spell critical for list casters. Still open: casts accepted and never begun (24 for
+the Sorcerer in this run), cause not found.
 
 - [ ] **M4.1** (L) Parity audit. `GameBot` is an NPC type, so compare a bot with a player of the
   same class, spec and gear: to-hit, defence, damage, resists, criticals, spell variance, control
@@ -396,23 +562,73 @@ next piece is a priority list per role (M6.4): mez and stun for Control, pets fo
   cast on it; after an interrupt it cannot cast for a few seconds (this server's setting is
   `SPELL_INTERRUPT_DURATION`, and the bot can read its own remaining time).
 
-- [ ] **M5.1** (M) A dedicated brain class for 8v8 bots and a squad object with a shared
+- [x] **M5.1** (M) A dedicated brain class for 8v8 bots and a squad object with a shared
   blackboard, ticked once per group before its members think.
-- [ ] **M5.2** (M) Perception: enemies are known only when in view range and in sight; stealth
+  Squad object done 2026-11-17 (`bots/pvp/PvpSquad.cs`): what the group has decided (kill
+  target, interrupt duty, guard and peel, keeping apart, heal assignment, what it sees) lives
+  there and no longer in the scrim loop, so the owner's own group can have one. A separate
+  brain class was not made: the 8v8 behaviour stays in partial files of `BotBrain` under
+  `bots/pvp`, switched on `IsPvpBot`. Splitting the class would mean opening most of its
+  private members for no change in behaviour; revisit if the two kinds of bot start to get in
+  each other's way.
+- [x] **M5.2** (M) Perception: enemies are known only when in view range and in sight; stealth
   respected; last known positions remembered and aged; enemy class and current cast visible.
-- [ ] **M5.3** (M) Roles from class and spec: main tank, peeler, assist damage, caster damage,
-  primary control, healer, speed and support.
+  First version 2026-11-17 (`PvpSquad.Known`): an enemy is known while a living member has it
+  within 4,500 units with open ground between, and for ten seconds after. The group decides,
+  and its members score, only about known enemies. Not done: stealth (the main groups have no
+  stealther) and acting on a last known position.
+- [x] **M5.3** (M) Roles from class and spec: main tank, peeler, assist damage, caster damage,
+  primary control, healer, speed and support. `PvpRoles` (assist, control, interrupt, heal,
+  peel) and the interrupt means per class in the weights.
 - [ ] **M5.4** (L) Class kits: a data table tagging each spell, style and ability with its
   function (area mez, stun, root, snare, disease, interrupt, guard and so on). Main-group classes
   first. Replaces the scattered class switches for 8v8 bots.
-- [ ] **M5.5** (M) Kill-target calling: one target per group, chosen by how killable it is, with
-  rules for when to swap.
-- [ ] **M5.6** (M) Heal assignment across the group's healers, on top of the existing triage, so
+  Partly there: spells are tagged by kind for the scored choice (`PvpActionKind`,
+  `IsPvpSpellOfKind`) and each class's leanings are data (`PvpWeights.ClassBase`). Styles and
+  abilities are not tagged, and the old brain's class switches still decide for fighters. The
+  rest is done with M6.4, when fighters get a scored choice and need it.
+- [x] **M5.5** (M) Kill-target calling: one target per group, chosen by how killable it is, with
+  rules for when to swap. `PvpKillTarget`; the call is recorded (line type `call`).
+- [x] **M5.6** (M) Heal assignment across the group's healers, on top of the existing triage, so
   two healers do not land on the same patient while another dies.
-- [ ] **M5.7** (S) Every decision written to the recorder with its options, scores and reason.
+  Done 2026-11-17 (`PvpHealPlan`, `PvpSquad.AssignHeal`): a heal already being cast on a member
+  counts as landed, so the next healer goes to whoever is then worst off, or has its turn free
+  when everyone is covered. Weights in `PvpWeights.Heal`.
+- [x] **M5.7** (S) Every decision written to the recorder with its options, scores and reason.
+  Recorded: caster spell choice, guard, peel, interrupt duty, steps apart, Purge, heals and
+  cures (with the patient's health and whether the heal was sent elsewhere), the kill-target
+  call, and the target of each fighter on the kill. Not recorded as decisions: the mezzes of the
+  classes still on the old crowd-control routine (Minstrel, Skald; their casts are recorded)
+  and the choice of melee style (the style used is in every hit).
 
-**Exit check:** wins at least 70% of mirrored matches against the M4 baseline; focus-fire
-coherence meets its target.
+**Exit check** (reworded 2026-11-17 with the owner: no base against the old brain is kept, so a
+win rate against it means nothing): every role decides through the squad or the scored choice
+and what it decides is recorded; a reference base with this build is on record (ten matches a
+pairing at rank 1 and at rank 5, no server error, no bot left behind, no damage from outside a
+match). Behaviour is then judged and tuned in M6, one question at a time, against that base.
+
+**Passed 2026-11-17.** *Reference base, M5 build* (`pvp_batch.py Matches=5 Copies=2`, six lanes,
+ten matches a pairing, built-in weights; 17.1 and 16.7 minutes; all 60 matches ended on a wipe
+after 71 to 178 seconds; no server error, no bot left behind, no damage from outside a match;
+3,193 automated tests pass on the build):
+| Pairing | Rank 1 | Rank 5 (Purge and Group Purge) |
+|---|---|---|
+| Albion against Midgard | Midgard 7 to 3 | Albion 6 to 4 |
+| Albion against Hibernia | Albion 6 to 4 | Albion 8 to 2 |
+| Midgard against Hibernia | Hibernia 8 to 2 | Hibernia 7 to 3 |
+Per team and match at rank 1: 1.7 to 4.7 members asleep ten seconds after contact, from 1.8 to
+4.9 mezzes; no area mez put more than two to sleep; teams mezzed 12 to 28% of the fight; 57 to
+90 attacks landing on healers and casters; 3.7 to 8.1 kill-target calls; 1.4 to 13.1 heals sent
+to another patient because one was already on its way (Midgard's Healers and Shaman most).
+At rank 5 nobody is asleep ten seconds after contact in 55 of 60 team openings although 2.5 to
+3.7 mezzes land: they are purged (every match starts with Purge ready, see M6). Teams are mezzed
+0 to 8% of the fight and 87 to 153 attacks a match land on healers and casters.
+Read with care: ten matches a pairing still moves by two or three on chance (a control run of
+24 matches with the same weights on both sides came out 10 to 14).
+
+*Owner, 2026-11-17, for M6:* it is still surprising that with the Pacification Healer's instant
+mez and the Bard's instant amnesia the Sorcerer wins the mez fight on first contact so often.
+To be looked at closely in M6.
 
 ## M6. Control, interrupts and protection
 
@@ -436,6 +652,189 @@ first-match list and is to become scored choices: each option gets a weight from
 (is a caster free and not nearsighted, is the kill target close to dead, how much power is left),
 and the weights are what the recorder and analyzer help tune.
 
+*Scored choice, 2026-11-17 (branch `pvp-8v8-m5`, `bots/pvp/PvpActionChoice.cs`, M6.4 and M5.7):*
+the fixed lists are gone. On its turn a covered caster (Shaman, Eldritch, Cabalist, Runemaster,
+Theurgist, Sorcerer, Enchanter, Wizard, Mentalist, Spiritmaster) scores every spell kind it has
+(nearsight, disease, damage, root, Theurgist pet) on every enemy within 3,500 units and takes the
+best. A score is a sum of weights: the class's leaning to that kind, then the situation (kill
+target, its missing health, target casting and not interrupted, nobody keeping it interrupted,
+already has the effect, mezzed, assigned target, the caster's power and the cast's cost, the walk
+needed to get in range). An option out of range can still win, and then the bot walks. Below a
+minimum score it casts nothing and keeps its power; covered casters no longer fall back to the
+old random pick. The weights are data (`PvpWeights`): a `pvp-weights.json` beside the server
+overrides any of them without a rebuild, and each match header records the weights it ran with.
+Each decision is recorded with its five best options and scores; a turn with no cast records
+what stood in the way (no such spell, no power, interrupted, recast timer, too far, score too
+low). The analyzer prints both per build.
+What the decision log found in its first three runs (Midgard against Hibernia, two matches each):
+- The Enchanter dealt nothing because it stopped to cast self-buffs while the group walked on,
+  was then given the kill target 8,000 units behind and stood there. A member farther than 3,500
+  from every enemy now keeps marching. Enchanter damage 0 to about 3,700 over two matches.
+- Casters sat out of range of a good option. With walking as part of the choice the Runemaster
+  went from 6 damage casts to 49 and the Eldritch now does nearsight, disease and damage (7, 24
+  and 20 casts; it had cast no damage before).
+- Power is now the limit. The Enchanter had no power for 69% of the fight, the Eldritch 57%, the
+  Shaman 55%; "no power" is the main reason for a turn without a cast. Causes to check next:
+  pools are about 400 at level 50 (compare with a player, M4.1), power is spent before contact on
+  self-buffs, and the old brain still recasts buffs in combat (damage add, resists, damage shield).
+- The Shaman still casts few diseases (10) against 40 heals, and is interrupted or out of power
+  for most of its free turns.
+Results did not move: Midgard won all six matches on the time limit, 2 to 5 deaths a match.
+
+*Mez and stun by score, 2026-11-17 (M6.1, first version):* for the main mezzers (Sorcerer, Bard,
+Healer of either spec) single mez, area mez and stun are now options in the same scored choice,
+recorded like the rest; other classes with a mez keep the old routine for now. An area mez
+scores by how many awake, non-immune enemies it catches; the kill target and enemies already
+asleep, immune or claimed by another mezzer are left out, and an area mez that also lands on the
+kill target loses points. A stun gains on the kill target. A Healer's attack spell is no longer
+cancelled by its support routine. Also: during a fight a member holds back buffs on others
+(damage add, damage shield, resists); the group plan's rebuff of a member who died is still cast.
+First run, Albion against Midgard, two matches: the Sorcerer, which used to cast stat debuffs,
+opened with an area mez that caught 7 of 8 and cast 19 mezzes; Midgard was mezzed 64% of the
+fight and Albion won both 8 to 5 (it had been 7 wins, 2 losses and 11 draws at one death or so).
+Open, from the decision log:
+- Midgard's Healers are the kill target and are interrupted on nearly every free turn (37 of 37
+  for the Pacification Healer), so they neither mez nor cure mez: this is what guard, peel and
+  interrupt duty (M6.2, M6.3) are for. Cure mez is still the old first-in-group-order routine.
+- A mez was picked several times within a second before a cast completed (the Sorcerer made 92
+  area-mez decisions for 19 finished mezzes over two matches). Two causes, both fixed: the match
+  loop ordered a member with no attack target to walk in the middle of its casts, and the engine
+  refused repeat mezzes under the NPC immunity rules (see M4). A decision now records when the
+  previous cast was lost; the Runemaster still loses about ten a match, cause not found.
+- Bots walk in as a clump, which is why one area mez catches seven (formation, M7.4).
+- The Paladin recast its endurance chant 141 times (old brain).
+
+*Starting point on the clean setup, 2026-11-17* (parity fixes in, guards out, two matches per
+pairing, 180-second limit, squad brain on both sides; every match ended on the time limit):
+| Pairing | Result | Deaths per match | Mezzed |
+|---|---|---|---|
+| Albion against Midgard | Albion 2 to 0 (7/4, 8/5) | 9, 11 | Albion 10%, Midgard 25% |
+| Midgard against Hibernia | 1 each (8/5, 6/8) | 9, 9 | Midgard 16%, Hibernia 18% |
+| Albion against Hibernia | 1 each (8/5, 3/8) | 9, 13 | Albion 11%, Hibernia 23% |
+Two matches are a small sample: three later runs of Albion against Midgard on nearly the same
+code gave 2 to 0, 1 each and 2 to 0.
+**These results are not valid** (dead bots were releasing, see the correction under M2). Counted
+from the death records instead, with a death as final: Albion against Midgard 1 each, then 2 to 0;
+Midgard against Hibernia 1 each; Albion against Hibernia 1 each; all eight matches were wipes, 92
+to 161 seconds after the ready check.
+
+*Ten matches per pairing, 2026-11-17* (same code plus area mez over a sleeper, 180-second limit,
+run before the release fix, so read from the death records with a death as final):
+| Pairing | Result | How |
+|---|---|---|
+| Albion against Midgard | Albion 10 to 0 | ten wipes, 103 to 133 seconds; Albion lost 0 to 3 a match |
+| Albion against Hibernia | Albion 10 to 0 | nine wipes, 102 to 151 seconds; one on losses at the limit |
+| Midgard against Hibernia | Midgard 4, Hibernia 5, 1 draw | nine wipes, 74 to 126 seconds |
+Albion's opponents were mezzed 23 to 31% of the fight and stunned 11%, Albion 4 to 9% and 1%.
+Nothing touches Albion's Sorcerer (damage taken 0 in most batches) while the Theurgist's pets and
+the Minstrel keep the other side's healers and casters interrupted on most of their free turns.
+Albion's fighters take almost no damage; nearly all of it goes to one Cleric, which the other
+Cleric keeps up. No damage from outside the groups, no server error, no bot left behind.
+The area mez over a sleeper produced no lost casts (Sorcerer, Bard and Pac Healer each cast about
+two area mezzes a match).
+
+*Cure mez by score, 2026-11-17:* for the Healer, Sorcerer and Bard, waking a mezzed member of the
+group is an option in the same choice (healer first, then caster, then fighter); the healing
+routine's cure mez uses the same order. The Sorcerer, which never cured mez, did it four to five
+times a run.
+
+*Casts accepted and never begun, cause found 2026-11-17:* the server refuses a bot any attack on
+an enemy that is asleep, or claimed by a groupmate for the mez it is casting, unless it is the
+bot's kill target (`BotPvpCrowdControl.Protected`, in the attack-permission rule). Casters kept
+choosing such targets: the Sorcerer aimed its area mez at a sleeping enemy 59 times in one run.
+These are no longer options, and the exception now covers the group's kill target for every
+member, not only for those assigned to it. Lost casts went from about 90 a run to 1. Note: this
+makes "leave a mezzed enemy asleep unless it is the kill target" a hard rule for casters for now;
+the owner's guidance is that it should be weighed, which at present happens only in the
+kill-target call.
+*Owner, 2026-11-17:* casting an area mez over an enemy that is already mezzed is no problem if it
+catches more enemies. An area mez may therefore be aimed at a sleeping or claimed enemy; it still
+scores only by the awake enemies it catches (`BotBrain.IsPvpAreaMezAim` lets that cast through the
+server rule). Measured in the ten-match runs below the starting-point table: no lost casts.
+
+*After the release fix, 2026-11-17:* three matches of Albion against Midgard ended on a wipe, 104
+to 134 seconds in, with 8, 6 and 8 of Albion standing; Midgard was mezzed 45% of the fight and
+took 94 attacks a match on its healers and casters, Albion 73. Nobody was raised: healers never
+get a resurrection off during a fight.
+
+*What the openings show (same recordings):* Albion gets the mezzes off. Its Sorcerer's area mez
+(350 units, three-second cast) goes out up to five times in the first eight seconds because
+nothing ever lands on the Sorcerer; the Minstrel's mez is an area spell in this database (250
+units); six of eight opponents are asleep ten seconds in. Midgard's Pacification Healer got its
+cast area mez off once in fifteen matches: it is interrupted from the first second by the
+Theurgist's pets, which are a third of everything that lands on the losing side's backline.
+
+*Guard and peel (M6.3), built 2026-11-17, `bots/pvp/PvpPeel.cs`:* the shield fighters (Paladin,
+Warrior, Hero; role `Peel`) no longer simply join the kill. Each second, by score: which healer or
+caster to guard (healer before caster, the one with enemies in melee on it first, guard does not
+hop between two in the same trouble) and which enemy to go for (one on the ward, then one on
+another healer or caster, then the kill target while it is near the ward, then one on itself).
+With nothing scoring enough it stays beside its ward, where guard works (256 units), and it
+travels beside the ward in the formation. Guard is the game's own ability; the engine already let
+a bot be the guard. All numbers are in `PvpWeights.Peel`. The recorder writes guard changes and
+peel choices as decisions and marks attacks taken on the shield (`guardFor`); the analyzer prints
+attacks landing on each team's healers and casters per match and what each guard took.
+
+*Interrupt duty (M6.2), built 2026-11-17, `bots/pvp/PvpInterruptDuty.cs`:* every enemy healer and
+caster that is neither the kill target nor asleep gets one interrupter of its own, best pair
+first, so interrupts are spread over the enemy backline. Who interrupts and how is a table in the
+weights (`PvpWeights.Interrupt.Means`, the owner's list of 2026-11-16): the Theurgist by pets,
+Skald and Minstrel by running to the enemy (they leave the kill for it and rejoin when the kill
+target is nearly dead), Shaman and the casters by spells: for them the duty is a leaning in the
+scored choice (nearsight, disease or root on the duty target, damage still on the kill target).
+This replaces the Theurgist-only rule (`PvpRoles.ChooseInterruptTarget`).
+
+*Guard and peel, then interrupt duty, measured 2026-11-17* (four matches per pairing, rank 1,
+300-second limit; all 24 matches ended on a wipe, no server error, no bot left behind):
+| Pairing | Before (ten matches) | Guard and peel | Plus interrupt duty |
+|---|---|---|---|
+| Albion against Midgard | Albion 10 to 0 | Albion 4 to 0 | Albion 4 to 0 |
+| Albion against Hibernia | Albion 10 to 0 | 2 each | Albion 3 to 1 |
+| Midgard against Hibernia | Midgard 4, Hibernia 5, 1 draw | Midgard 3 to 1 | Hibernia 3 to 1 |
+What the recordings say:
+- Guard works where the guard stands by the enemy's kill target: Albion's Paladin took 17 to 21
+  attacks a match on its shield for the Cleric against Midgard, and attacks landing on Albion's
+  healers and casters fell from 73 to 54 a match. The Warrior and the Hero took 5 to 9.
+- Interrupt duty put Midgard's Skald, Shaman and Runemaster on Albion's backline (52 duty
+  changes for the Skald in four matches, which is too many) and did not change that pairing.
+- The winner follows the opening, not these two features: in every batch the side with more
+  members asleep ten seconds after contact lost. Midgard against Hibernia swung from Hibernia
+  7.0 asleep (Midgard won 3 to 1) to Midgard 4.2 against 1.2 (Hibernia won 3 to 1) between two
+  runs of four. Four matches a pairing is too few to rank two versions that differ less than
+  the opening does.
+
+*Amnesia, built 2026-11-17 on the owner's question:* the Pacification Healer and the Bard do use
+their instant mezzes and stuns, about once a match each (ten-minute recast); the 300-unit
+instants need 47 or 48 in the line and the templates have 44 Pacification and 46 Music. Amnesia
+was never cast, in 30 matches: the old brain leaves it out on purpose and the scored choice had no
+such option. It is now a kind of its own (`PvpActionKind.Amnesia`) for the Bard (Superior
+Lullaby: instant, 2,300 range, 325 radius, ten-second recast), the Healer (Wake Oblivious) and
+the Sorcerer (Inflict Amnesia), the last two with a two-second cast. It scores by the enemies
+inside it that are casting right now and loses for each sleeper inside it, because in this
+engine amnesia breaks mez; with nobody casting it is not cast. On an 8v8 bot amnesia now only
+cancels the cast, as on a player; it used to be able to clear the bot's target list as well (the
+monster rule). Not yet measured in a match.
+
+*Owner, 2026-11-17, on the openings:* a Bard usually rushes in and fires its amnesia while it
+is casting its mez; a Healer has a hard time against a Sorcerer's mez range, so the idea is to
+rush in and put the single-target instant mez on the Sorcerer. Built the same day, as weights:
+- An instant is now an option of its own beside the cast-time spell of the same kind (before,
+  only the highest-level ready spell of a kind was offered, so the instant mez was used only when
+  the caster was being interrupted). An instant mez or stun loses a little for the ten minutes
+  it is then gone (`InstantSpent`) and gains when its target is casting, because it lands first
+  (`InstantOnCastingTarget`).
+- A mez or stun aimed at one of the enemy's own mezzers gains `ControlOnEnemyController`.
+- In the middle of a cast the scored choice is run again for instants only, so the Bard's
+  amnesia, an instant mez or a shout can go out during a cast, as a player's can. The engine
+  already handled an instant during a cast; two bot-only gates refused it.
+- "Rushing in" is the existing walk toward the best option that is out of reach. Mezzers still
+  travel in the back row of the formation; putting them in front is not done (M7).
+Not yet measured in a match.
+
+*"Cast lost" was over-counted, found 2026-11-17:* nearly all of the Runemaster's and Eldritch's
+lost casts were two-second nearsights that had finished in 1.2 to 1.4 seconds (dexterity
+shortens a cast to about 60%); the check now uses half the listed cast time.
+
 - [ ] **M6.1** (L) Control plan: an area mez opener, assignments per controller, immunity timers
   tracked, re-mez, stuns, roots and snares used on purpose, never breaking the group's own mez.
 - [ ] **M6.2** (M) Interrupt duty: each enemy healer and caster gets an assigned interrupter, using
@@ -451,6 +850,92 @@ and the weights are what the recorder and analyzer help tune.
 enemy-healer free-cast share meet their targets.
 
 ## M7. Movement and positioning
+
+*Owner, 2026-11-17:* eight humans who see another group spread out at once, and a healer may run
+off on the incoming and come back into range afterwards, so as not to be targeted or mezzed. An
+area mez that catches seven of eight on first contact is very rare between groups of equal
+skill (it takes a lucky angle, a hill, broken line of sight).
+*First version, 2026-11-17 (`PvpScrim.SpreadPlaces`):* groups travel in two rows across the line
+of march, fighters in front, casters and healers 700 behind, neighbours 450 apart (an area mez
+reaches about 350). Spreading only once the enemy was spotted did not work: two groups close the
+1,500 units between spotting and engaging in a second or two. Opening area mezzes went from
+catching 7 to catching 2 to 4. Still to do: travel tight and spread on sight as humans do, keep
+the spread once the fight is on, and healers stepping back out of range on the incoming.
+
+*Owner, 2026-11-17, on first contact:* the three realms behave differently on incoming because
+their crowd control differs. A Sorcerer's cast mez outranges what a Pacification Healer or a Bard
+has, and those two make up for it with other tools: instant mez, instant amnesia. A bot has to
+see the situation and react to it. And with everyone at realm rank 1 nobody has Purge; in 1.65 a
+Druid has Group Purge, which is a huge difference.
+
+*Checked the same day:* this server's 1.65 tables give Purge to every class (10 points, 4 on a
+cheaper variant some classes have; 30-minute reuse) and Group Purge to the Druid alone (14
+points, 30 minutes). At rank 1 level 0 a bot has one point and buys neither; Purge needs rank 2
+level 0, Group Purge rank 2 level 4. Bots buy Purge late, after several passives, use it only
+under conditions written for battlegrounds (or below 60% health), and never buy or use Group
+Purge. So every result so far is from a world without Purge, where the first area mez decides
+the fight. To do: 8v8 bots buy Purge first (the Druid Group Purge) and use it by score; every
+pairing is then run at two ranks, rank 1 and one where Purge exists.
+
+*Instants, amnesia and keeping apart, measured 2026-11-17* (four matches per pairing, rank 1; all
+24 ended on a wipe, no server error, no bot left behind):
+| Pairing | Guard, peel, duty | Plus instants and amnesia | Plus keeping apart |
+|---|---|---|---|
+| Albion against Midgard | Albion 4 to 0 (18 to 0 over all earlier matches) | 2 each | Albion 3 to 1 |
+| Albion against Hibernia | Albion 3 to 1 | Hibernia 3 to 1 | 2 each |
+| Midgard against Hibernia | Hibernia 3 to 1 | Hibernia 3 to 1 | Hibernia 4 to 0 |
+- The Pacification Healer now opens with its instant mez about a second before contact. Against
+  Albion, members asleep ten seconds after contact went from Albion 0.8 and Midgard 6.2 to
+  Albion 3.8 and Midgard 1.5, and Albion's Sorcerer got no area mez off in the first ten seconds
+  of any of those four matches.
+- The Bard casts amnesia 7 to 9 times a match and fires instants in the middle of its casts 3
+  to 5 times a match; Hibernia won 12 of its 16 matches in these two runs.
+- Keeping apart: 7 to 31 steps a match per team. Openings became even: with it, each side had
+  1 to 4 asleep at ten seconds in 23 of 24 cases (one 5); without it, four openings of 24 caught
+  5 to 7. Heals cast did not fall (Hibernia's rose).
+- Over the two runs together, eight matches a pairing: Albion 5 to 3 over Midgard, Hibernia 5 to
+  3 over Albion, Hibernia 7 to 1 over Midgard. Midgard is now the weakest of the three.
+The analyzer's "asleep ten seconds after contact" could count a bot twice; fixed, and the figures
+above are from the corrected count.
+
+*Purge by score, built 2026-11-17, `bots/pvp/PvpPurge.cs`:* an 8v8 bot now buys its answer to
+mez before anything else, as soon as its points allow: the Druid Group Purge, then everyone
+Purge (the cheaper variant where the class has it). What it cannot pay for yet does not stop it
+buying the rest, so rank 1 is unchanged. Both are used by score, only during a fight: Purge when
+the bot is mezzed (or a healer-mezzer stunned) with enough of the effect left, less when a
+groupmate's Group Purge is about to free it; Group Purge by how many members in its 1,500 units
+are mezzed or stunned, healers counting more (three asleep, or two with a healer among them).
+The Group Purge handler was written for players only and now serves an 8v8 bot. Weights in
+`PvpWeights.Purge`; both uses are recorded as decisions. Not yet deployed or measured; it needs
+a run at a rank where Purge exists (`RealmRank=5`).
+
+*Purge measured at rank 5, 2026-11-17* (four matches per pairing, all on a wipe, no server
+error, no bot left behind): Albion 3 to 1 over Hibernia, Albion 3 to 1 over Midgard, Midgard
+and Hibernia 2 each. Purge was used 3 to 7 times a match per team, Group Purge 0.2 to 0.5 times
+(members purge themselves before three are asleep, the Group Purge threshold). The first mez no
+longer decides anything: nobody was asleep ten seconds after contact in 11 of 12 matches, and
+teams were mezzed 1 to 4% of the fight (Midgard 14% against Albion) where rank 1 had 10 to 30%.
+Fights last longer (115 to 227 seconds) and twice as many attacks land on healers and casters
+(90 to 166 a match).
+Open point for the owner: every match starts with fresh bots, so Purge is always ready. In
+play it has a 30-minute timer and most fights are fought without it. A scrim should be able to
+start with Purge ready, spent, or ready for some members only.
+
+*Why the bots bunched up at contact, found 2026-11-17:* the two-row formation holds only while
+the group travels. A bot gets its target at 3,000 to 3,500 units, the formation orders stop for
+it, and it walks straight at that target; eight bots walking at the same few enemies converge,
+and gaps of 450 units are about 200 by the time they are in casting range. Ten seconds after
+contact five to seven of the losing side were asleep, against none or one of Albion.
+
+*Keeping apart, first version built 2026-11-17, `bots/pvp/PvpSpacing.cs`:* a healer or caster
+walking into range heads for the nearest place at that range that is not within mez radius of
+another healer or caster of its group (it slides along the circle of its range); and once the
+enemy is in sight, one standing within that radius of another takes a step away, never toward
+the enemy, on a turn it is not using. Fighters are left out: they stack on the kill target, and
+a shield fighter belongs beside its ward. `PvpWeights.Spread` holds the distance (400) and the
+step; 0 turns it off. The analyzer prints how many of each team are asleep ten seconds after
+contact. Still to do: mezzers of the instant-mez realms going in ahead of their group, the
+Sorcerer's group holding at range, healers stepping back on incoming.
 
 - [ ] **M7.1** (M) Range bands per role and a backline anchor: healers and casters hold distance
   from enemy melee while staying in range of their group.
@@ -480,6 +965,14 @@ enemy-healer free-cast share meet their targets.
 groups play correctly as well.
 
 ## M9. The owner's group
+
+*Owner, 2026-11-17:* "I am by no means an 8v8 expert; I am going from memory." Once the owner can
+play, every one of their fights is to be recorded, and the recordings and the analyzer used both
+to improve the bots and to give the owner insight into their own play. Needed for that: the
+recorder taking a human member (today a team is bots only), and a report written for the player
+(time spent mezzed or interrupted, what the group's scored choice would have done in the same
+spot, what the enemy did to them). The owner also remembers a captioned video explaining the
+basics of an 8v8 fight and will look for it: an outside reference to check the bots against.
 
 - [ ] **M9.1** (M) A lasting companion roster built around the owner's class, earning realm points
   with the owner.

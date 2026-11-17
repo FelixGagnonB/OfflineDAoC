@@ -128,8 +128,9 @@ namespace DOL.GS
 
             lock (_startSkillRequestsLock)
             {
+                // An 8v8 bot may add an instant to a cast in progress, as a player can.
                 if (Owner is GameBot bot && (_startSkillRequests.Count != 0 ||
-                    BotSpellPower.IsOffensiveCaster(bot) && IsCasting))
+                    BotSpellPower.IsOffensiveCaster(bot) && IsCasting && !(bot.IsPvpBot && spell.IsInstantCast)))
                     return false;
 
                 if (!_castSpellRequestPool.TryDequeue(out CastSpellRequest request))

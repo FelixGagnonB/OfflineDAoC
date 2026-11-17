@@ -2394,6 +2394,8 @@ namespace DOL.GS.Spells
 
 			if (m_spellLine.KeyName is GlobalSpellsLines.Item_Effects && m_spellItem != null)
 				spellLevel = m_spellItem.Template.LevelRequirement > 0 ? m_spellItem.Template.LevelRequirement : m_spellItem.Level;
+			else if (m_caster is GameBot { IsPvpBot: true })
+				spellLevel = Spell.Level; // As for a player: a low-level spell is resisted more often.
 			else if (m_spellLine.KeyName is GlobalSpellsLines.Realm_Spells or GlobalSpellsLines.Reserved_Spells || playerCaster == null)
 				spellLevel = m_caster.EffectiveLevel; // NPCs go there too.
 			else
@@ -2944,7 +2946,15 @@ namespace DOL.GS.Spells
 		{
 			GameLiving casterToUse = m_caster;
 
-			switch (m_spellLine.KeyName)
+			// An 8v8 bot casts through the "Mob Spells" line, whose fixed 60-100% would cost a
+			// specced caster a fifth of its damage. It gets the player's variance, from its
+			// trained level in the line the spell belongs to.
+			if (m_caster is GameBot { IsPvpBot: true } pvpCaster && pvpCaster.TryGetPvpSpellSpec(Spell, m_spellLine, out _, out int trained))
+			{
+				max = 1.0;
+				min = CalculateLowerVarianceBound(trained, target.Level);
+			}
+			else switch (m_spellLine.KeyName)
 			{
 				// Further research should be done on these.
 				// The variance range is tied to the base damage calculation.
@@ -3096,7 +3106,9 @@ namespace DOL.GS.Spells
 						if (botCaster.CharacterClass.ManaStat is not eStat.UNDEFINED)
 							stat = botCaster.GetModified((eProperty) botCaster.CharacterClass.ManaStat);
 
-						spec = modifiedCaster.GetModifiedFromItems(SkillBase.SpecToSkill(m_spellLine.Spec));
+						// The +skill of the line the spell belongs to, not of the shared line it is cast through.
+						SpellLine learnedLine = modifiedCaster is GameBot { IsPvpBot: true } pvpBot && pvpBot.TryGetPvpSpellSpec(Spell, m_spellLine, out SpellLine found, out _) ? found : m_spellLine;
+						spec = modifiedCaster.GetModifiedFromItems(SkillBase.SpecToSkill(learnedLine.Spec));
 						break;
 					}
 				}
@@ -3198,7 +3210,7 @@ namespace DOL.GS.Spells
 			if (Caster.Chance(RandomDeckEvent.CriticalChance, criticalChance))
 			{
 				double min = 0.1;
-				double max = ad.Target is GamePlayer ? 0.5 : 1.0;
+				double max = GameBot.UsesPlayerRules(ad.Target) ? 0.5 : 1.0;
 				double criticalMod = min + Caster.GetPseudoDoubleIncl(RandomDeckEvent.CriticalVariance) * (max - min);
 				criticalDamage = (int) (finalDamage * criticalMod);
 			}

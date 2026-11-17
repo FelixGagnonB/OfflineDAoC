@@ -55,6 +55,20 @@ namespace DOL.GS.RealmAbilities
         {
             if (CheckPreconditions(living, DEAD | SITTING)) return;
 
+            // An 8v8 bot stands in for a player: it purges the members of its group in range.
+            if (living is GameBot { IsPvpBot: true } bot)
+            {
+                bool removed = false;
+                foreach (GameLiving member in bot.Group?.GetMembersInTheGroup() ?? [bot])
+                {
+                    if (member.IsAlive && bot.IsWithinRadius(member, m_range))
+                        removed |= RemoveNegativeEffects(member, this, true);
+                }
+                if (removed)
+                    DisableSkill(living);
+                return;
+            }
+
             GamePlayer player = living as GamePlayer;
 
             if (player == null)

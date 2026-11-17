@@ -36,7 +36,8 @@ namespace DOL.GS.Spells
                 player.styleComponent.NextCombatStyle = null;
                 player.styleComponent.NextCombatBackupStyle = null;
             }
-            else if (target is GameNPC npc && npc.Brain is StandardMobBrain brain)
+            // A monster forgets whom it was fighting. An 8v8 bot stands in for a player and only loses its cast.
+            else if (!GameBot.UsesPlayerRules(target) && target is GameNPC npc && npc.Brain is StandardMobBrain brain)
             {
                 if (Util.Chance(Spell.AmnesiaChance) && npc.TargetObject is GameLiving living)
                 {
