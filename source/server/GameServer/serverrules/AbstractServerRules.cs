@@ -339,6 +339,10 @@ namespace DOL.GS.ServerRules
             if (!defender.IsAlive || !attacker.IsAlive)
                 return false;
 
+            // An 8v8 match is between the two groups: guards and monsters stay out of it.
+            if (GameBot.IsWorldAgainstPvpBot(attacker, defender))
+                return false;
+
             GamePlayer playerAttacker = attacker as GamePlayer;
             GamePlayer playerDefender = defender as GamePlayer;
 

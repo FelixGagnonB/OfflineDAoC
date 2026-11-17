@@ -358,6 +358,63 @@ first runs, no health-based resist. Albion against Midgard, two matches: Midgard
 the fight, from 62 to 73% before; the Sorcerer's mez casts that were accepted and never began
 (83 in one match) stopped. The recorder's "mezzed while immune" figure meant nothing before this.
 
+*Audit, 2026-11-17 (M4.1):* the engine has about 1,100 "is this a player?" tests in its combat
+code, and a bot, being an NPC type, falls on the monster side of each unless the code says
+otherwise. Three read-only audits (melee; spells; pools, effects and movement) went through them.
+One test now answers the question for 8v8 bots, `GameBot.UsesPlayerRules`, and these places use it
+or an equivalent. All were found by reading code; what a fight shows is noted under each run.
+Fixed, 8v8 bots only:
+- **Armor.** The piece that was hit decides armor factor and absorb, with the player caps and the
+  extra 20 armor factor; before, every bot had the same level-based armor and 27% absorb raised by
+  its buffs, a cloth caster included. Template armor now carries its class's absorb.
+- **Swing speed** reads Quickness with items, buffs and debuffs (it read the bare base stat).
+- **Interrupts** last as long as on a player (they lasted 2.5 seconds longer); after its own swing
+  a bot cannot cast for 3 seconds, as a player.
+- **Item +skill** counts, in weapon and magic lines (it counted for nothing).
+- **Dual wield** is recognised: the target's evade and block are halved.
+- **No limping** below a third of health.
+- **Miss chance** by the player formula; template gear carries the to-hit bonus on both sides.
+- **Critical hits:** 10% base chance in melee and for list casters; a critical on a bot adds at
+  most 50%.
+- **A missed, blocked, parried or evaded style** costs half its endurance.
+- **Control durations** (mez, stun, root, snare, nearsight) are shortened by the target's resists.
+- **Spell damage variance** comes from the bot's trained level in the spell's own line (it was the
+  monster 60 to 100%); the same for buff and debuff strength and for heal variance (bot heals
+  always landed at the maximum).
+- **A damage-over-time spell** interrupts once, not on every tick.
+- **Focus:** the caster staff focuses every line at 50 and the bot pays 80% of a spell's power
+  (it paid 120%).
+- **Resist debuffs** below zero are halved; **to-hit** uses the spell's level; **a non-damaging
+  debuff** no longer breaks mez; **bolts** take the in-combat penalty and hit a piece of armor;
+  **power regeneration** is halved under half power for list casters.
+Found and left for later:
+- Melee reach is 200 for a bot and 128 to 192 for a player (the follow distances depend on it).
+- Resurrection: a raised bot has no sickness, no five seconds of immunity, and comes back at full
+  health in most cases.
+- Sprint does nothing for a bot; Quickcast is off; a caster bot cannot fire an instant during a
+  cast; shared recast timers are not applied.
+- Player-led bots have a fast rest that an ownerless enemy group does not.
+- Savage multi-target styles hit one target; shield styles swing the main-hand weapon.
+- Guard, Intercept and Protect are not used by bots at all (M4.4, M6.3).
+- No line-of-sight check during a bot's cast (M4.2, M4.3); no facing check on a bot's swing.
+- Server properties in the live database were not read; the code defaults were assumed.
+
+*Keep guards in the fight, found 2026-11-17:* the arena is in a frontier zone with Albion keeps,
+and their guards shot at Midgard and Hibernia bots: a Master Ranger for about 7,600 a shot, up to
+53,000 damage in one two-match batch, and some guard damage in nearly every batch recorded that
+day. Results before this date between Albion and the other realms are not to be trusted. Guards
+and monsters now leave 8v8 bots alone and the reverse (`GameBot.IsWorldAgainstPvpBot`, in the
+attack-permission rule), and the analyzer prints a warning naming any damage from outside the two
+groups.
+*First clean run with the parity fixes, Albion against Midgard, two matches:* no outside damage;
+damage dealt and taken now add up between the teams. Albion won both on the time limit, 7 to 4 and
+8 to 5, with 9 and 11 deaths. Fighters now do the damage: Armsman 11,000, Berserker 8,600, Warrior
+8,100 over two matches (the Armsman did about 5,000 before). Midgard is mezzed 25% of the fight
+and Albion 10%. The match header records each bot's armor factor, absorb, Quickness, swing time
+and critical chances: cloth 50 and 0%, studded 19%, chain 27%, plate 34%, 10% melee critical for
+all and 10% spell critical for list casters. Still open: casts accepted and never begun (24 for
+the Sorcerer in this run), cause not found.
+
 - [ ] **M4.1** (L) Parity audit. `GameBot` is an NPC type, so compare a bot with a player of the
   same class, spec and gear: to-hit, defence, damage, resists, criticals, spell variance, control
   durations and immunity timers. Fix every difference. *Done when* parity unit tests pass.
@@ -520,6 +577,35 @@ Open, from the decision log:
   previous cast was lost; the Runemaster still loses about ten a match, cause not found.
 - Bots walk in as a clump, which is why one area mez catches seven (formation, M7.4).
 - The Paladin recast its endurance chant 141 times (old brain).
+
+*Starting point on the clean setup, 2026-11-17* (parity fixes in, guards out, two matches per
+pairing, 180-second limit, squad brain on both sides; every match ended on the time limit):
+| Pairing | Result | Deaths per match | Mezzed |
+|---|---|---|---|
+| Albion against Midgard | Albion 2 to 0 (7/4, 8/5) | 9, 11 | Albion 10%, Midgard 25% |
+| Midgard against Hibernia | 1 each (8/5, 6/8) | 9, 9 | Midgard 16%, Hibernia 18% |
+| Albion against Hibernia | 1 each (8/5, 3/8) | 9, 13 | Albion 11%, Hibernia 23% |
+Two matches are a small sample: three later runs of Albion against Midgard on nearly the same
+code gave 2 to 0, 1 each and 2 to 0.
+
+*Cure mez by score, 2026-11-17:* for the Healer, Sorcerer and Bard, waking a mezzed member of the
+group is an option in the same choice (healer first, then caster, then fighter); the healing
+routine's cure mez uses the same order. The Sorcerer, which never cured mez, did it four to five
+times a run.
+
+*Casts accepted and never begun, cause found 2026-11-17:* the server refuses a bot any attack on
+an enemy that is asleep, or claimed by a groupmate for the mez it is casting, unless it is the
+bot's kill target (`BotPvpCrowdControl.Protected`, in the attack-permission rule). Casters kept
+choosing such targets: the Sorcerer aimed its area mez at a sleeping enemy 59 times in one run.
+These are no longer options, and the exception now covers the group's kill target for every
+member, not only for those assigned to it. Lost casts went from about 90 a run to 1. Note: this
+makes "leave a mezzed enemy asleep unless it is the kill target" a hard rule for casters for now;
+the owner's guidance is that it should be weighed, which at present happens only in the
+kill-target call.
+*Owner, 2026-11-17:* casting an area mez over an enemy that is already mezzed is no problem if it
+catches more enemies. An area mez may therefore be aimed at a sleeping or claimed enemy; it still
+scores only by the awake enemies it catches (`BotBrain.IsPvpAreaMezAim` lets that cast through the
+server rule). Not yet measured in a match.
 
 - [ ] **M6.1** (L) Control plan: an area mez opener, assignments per controller, immunity timers
   tracked, re-mez, stuns, roots and snares used on purpose, never breaking the group's own mez.

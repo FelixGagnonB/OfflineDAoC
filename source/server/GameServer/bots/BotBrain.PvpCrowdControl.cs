@@ -9,6 +9,9 @@ namespace DOL.AI.Brain
         private long _nextPvpControl;
         private int _pvpControlSpellId;
         private long _pvpControlCastUntil;
+        // The enemy this bot's area mez is being cast at, until that cast is over.
+        private GameLiving _pvpAreaMezAim;
+        public bool IsPvpAreaMezAim(GameLiving target) => target != null && _pvpAreaMezAim == target && GameLoop.GameLoopTime < _pvpControlCastUntil;
         private bool PvpControlInFlight => Body.IsCasting && GameLoop.GameLoopTime<_pvpControlCastUntil &&
             Body.castingComponent?.SpellHandler?.Spell?.ID==_pvpControlSpellId;
         private bool TryPvpCrowdControl()

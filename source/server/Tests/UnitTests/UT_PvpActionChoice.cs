@@ -131,6 +131,19 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void AMezzedHealerIsWokenBeforeAFighter_AndCureMezComesBeforeANewMez()
+        {
+            (PvpOption option, _) = Best(eCharacterClass.Healer,
+                Option(PvpActionKind.CureMez, 8, PvpBuffArchetype.Melee, mezzed: true),
+                Option(PvpActionKind.CureMez, 9, PvpBuffArchetype.Healer, mezzed: true),
+                Option(PvpActionKind.Mez, 1, PvpBuffArchetype.Melee));
+            Assert.That(option.Kind, Is.EqualTo(PvpActionKind.CureMez));
+            Assert.That(option.TargetId, Is.EqualTo(9));
+            // A friend that is awake is not an option.
+            Assert.That(PvpActionChoice.Rank(eCharacterClass.Healer, [Option(PvpActionKind.CureMez, 9, PvpBuffArchetype.Healer)], Weights), Is.Empty);
+        }
+
+        [Test]
         public void PowerGetsDearerAsItRunsOut()
         {
             int full = Best(eCharacterClass.Shaman, Option(PvpActionKind.Disease, 1, PvpBuffArchetype.Melee, cost: 8)).Score;

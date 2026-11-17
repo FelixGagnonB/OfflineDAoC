@@ -20,12 +20,22 @@ namespace DOL.GS.PropertyCalc
 
         public override int CalcValue(GameLiving living, eProperty property)
         {
-            if (living is GamePlayer player)
+            // An 8v8 bot's focus staff counts as a player's does; without it the bot paid 120% of
+            // a spell's power where the player pays 80%.
+            ICharacterClass characterClass = living switch
             {
+                GamePlayer gamePlayer => gamePlayer.CharacterClass,
+                GameBot { IsPvpBot: true } bot => bot.CharacterClass,
+                _ => null,
+            };
+
+            if (characterClass != null)
+            {
+                GameLiving player = living;
                 int itemBonus = player.ItemBonus[property];
                 int focusLevel = player.BaseBuffBonusCategory[property];
 
-                if (SkillBase.CheckPropertyType(property, ePropertyType.Focus) && player.CharacterClass.IsFocusCaster)
+                if (SkillBase.CheckPropertyType(property, ePropertyType.Focus) && characterClass.IsFocusCaster)
                 {
                     focusLevel += player.BaseBuffBonusCategory[eProperty.AllFocusLevels];
                     itemBonus = Math.Max(itemBonus, player.ItemBonus[eProperty.AllFocusLevels]);

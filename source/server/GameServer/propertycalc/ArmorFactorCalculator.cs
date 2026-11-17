@@ -22,6 +22,7 @@ namespace DOL.GS.PropertyCalc
             {
                 case GamePlayer:
                 case GameTrainingDummy:
+                case GameBot { IsPvpBot: true }:
                     return CalculatePlayerArmorFactor(living, property);
                 case GameKeepDoor:
                 case GameKeepComponent:

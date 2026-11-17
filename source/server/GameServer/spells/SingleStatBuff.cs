@@ -32,6 +32,8 @@ namespace DOL.GS.Spells
 
                 if (playerCaster != null)
                     effectiveness = CalculateEffectivenessFromSpec(playerCaster.GetModifiedSpecLevel(m_spellLine.Spec), Spell.Level);
+                else if (Caster is GameBot { IsPvpBot: true } pvpCaster && pvpCaster.TryGetPvpSpellSpec(Spell, m_spellLine, out _, out int trained))
+                    effectiveness = CalculateEffectivenessFromSpec(trained, Spell.Level);   // as a player's buffs and debuffs scale
                 else
                     effectiveness = 1.0; // NPC (necromancer pet excluded).
             }

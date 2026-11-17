@@ -67,6 +67,10 @@ namespace DOL.GS
                 {
                     n = bot.Name, team = _teams[bot], build = bot.PvpBuild.Id, cls = ((eCharacterClass)bot.ClassId).ToString(),
                     hp = bot.MaxHealth, pow = bot.MaxMana,
+                    // What its gear and buffs come to, to check a bot against a player of the same build.
+                    af = (int)bot.GetArmorAF(eArmorSlot.TORSO), abs = (int)Math.Round(bot.GetArmorAbsorb(eArmorSlot.TORSO) * 100),
+                    qui = bot.GetModified(eProperty.Quickness), swing = bot.AttackSpeed(bot.ActiveWeapon),
+                    crit = bot.GetModified(eProperty.CriticalMeleeHitChance), spellCrit = bot.GetModified(eProperty.CriticalSpellHitChance),
                 }),
             });
         }
@@ -122,6 +126,7 @@ namespace DOL.GS
             if (_teams.TryGetValue(living, out string team))
                 return (living.Name, team, null);
             GameLiving owner = living is GameNPC { Brain: IControlledBrain brain } ? brain.GetLivingOwner() : null;
+            // Anything else (a keep guard, a monster) keeps its own name and no team; the analyzer reports it as outside damage.
             return owner != null && _teams.TryGetValue(owner, out team) ? (owner.Name, team, living.Name) : (living.Name, null, null);
         }
 

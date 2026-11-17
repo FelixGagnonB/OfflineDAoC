@@ -21,7 +21,9 @@ namespace DOL.GS
             // A real player's explicit attack remains authoritative.
             if (bot.Owner is GamePlayer player && player.IsAttacking && player.TargetObject == target) return false;
             // The group's called kill target is attacked even when mezzed: the squad chose to wake it.
-            if (bot.Brain is BotBrain { PvpAssignedTarget: { } called } && called == target) return false;
+            if (bot.Brain is BotBrain squad && (squad.PvpAssignedTarget == target || squad.PvpKillTarget == target)) return false;
+            // An area mez may be aimed at an enemy that is already asleep, to catch the ones around it (owner, 2026-11-17).
+            if (bot.Brain is BotBrain mezzer && mezzer.IsPvpAreaMezAim(target)) return false;
             if (target.IsMezzed) return true;
             if (!Claims.TryGetValue(target, out Claim claim)) return false;
             lock (claim) return claim.Realm == bot.Realm && claim.Until > GameLoop.GameLoopTime &&

@@ -59,7 +59,14 @@ namespace DOL.GS
 
         public static eAttackType GetAttackType(DbInventoryItem weapon, bool dualWield, GameLiving attacker)
         {
-            if (dualWield && (attacker is not GamePlayer playerAttacker || (eCharacterClass) playerAttacker.CharacterClass.ID is not eCharacterClass.Savage))
+            int attackerClass = attacker switch
+            {
+                GamePlayer playerAttacker => playerAttacker.CharacterClass.ID,
+                GameBot { IsPvpBot: true } botAttacker => botAttacker.CharacterClass?.ID ?? 0,
+                _ => 0,
+            };
+
+            if (dualWield && (eCharacterClass) attackerClass is not eCharacterClass.Savage)
                 return eAttackType.MeleeDualWield;
             else if (weapon == null)
                 return eAttackType.MeleeOneHand;

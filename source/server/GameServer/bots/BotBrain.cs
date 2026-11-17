@@ -5011,7 +5011,9 @@ namespace DOL.AI.Brain
             {
                 if (Body.Group != null)
                 {
-                    foreach (GameLiving member in Body.Group.GetMembersInTheGroup().OrderBy(member => member == AssistedPlayer ? 0 : 1))
+                    // An 8v8 healer wakes the member that matters most first: a healer, then a caster.
+                    foreach (GameLiving member in Body.Group.GetMembersInTheGroup().OrderBy(member => member == AssistedPlayer ? 0 : 1)
+                                 .ThenByDescending(PvpCureMezPriority))
                     {
                         if (member.IsMezzed && member != Body && InSupportReach(member) && CheckHealSpell(BotBody.CureMezz))
                         {

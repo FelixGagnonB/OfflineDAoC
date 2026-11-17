@@ -67,6 +67,8 @@ namespace DOL.GS.Spells
                 // This is normally set in 'AttackComponent.CalculateEnemyAttackResult', but we don't call it.
                 if (ad.Target is GamePlayer playerTarget)
                     ad.ArmorHitLocation = playerTarget.CalculateArmorHitLocation(ad);
+                else if (ad.Target is GameBot { IsPvpBot: true } botTarget)
+                    ad.ArmorHitLocation = botTarget.CalculateArmorHitLocation(ad);
 
                 // We need a fake weapon skill for the target's armor to have something to be compared with.
                 // Since 'damage' is already modified by intelligence, power relics, spell variance, and everything else; we can use a constant only modified by the caster's level.
@@ -88,7 +90,7 @@ namespace DOL.GS.Spells
         {
             double hitChance = base.CalculateToHitChance(target);
 
-            if (Caster is GamePlayer && target is GamePlayer && target.InCombat)
+            if (GameBot.UsesPlayerRules(Caster) && GameBot.UsesPlayerRules(target) && target.InCombat)
             {
                 // 200 unit range restriction added in 1.84.
                 // Kept for OpenDAoC to make bolts a little friendlier.

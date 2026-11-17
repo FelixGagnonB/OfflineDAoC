@@ -1799,7 +1799,7 @@ namespace DOL.GS
 					// Non-damaging spells that always break mez.
 					removeMez = true;
 				}
-				else if ((ad.IsSpellResisted || this is GameNPC) && ad.SpellHandler is not MesmerizeSpellHandler)
+				else if ((ad.IsSpellResisted || this is GameNPC && !GameBot.UsesPlayerRules(this)) && ad.SpellHandler is not MesmerizeSpellHandler)
 					removeMez = true;
 			}
 

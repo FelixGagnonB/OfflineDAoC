@@ -18,20 +18,27 @@ namespace DOL.GS.PropertyCalc
 
         public override int CalcValue(GameLiving living, eProperty property)
         {
-            if (living is not GamePlayer player)
+            // An 8v8 bot's +skill items count as a player's do (they counted for nothing).
+            int realmLevel;
+            if (living is GamePlayer player)
+                realmLevel = player.RealmLevel;
+            else if (living is GameBot { IsPvpBot: true } bot)
+                realmLevel = bot.RealmLevel;
+            else
                 return 0;
 
             int itemBonus = CalcValueFromItems(living, property);
-            int buffBonus = player.BaseBuffBonusCategory[property];
-            int realmBonus = player.RealmLevel / 10;
+            int buffBonus = living.BaseBuffBonusCategory[property];
+            int realmBonus = realmLevel / 10;
             return itemBonus + buffBonus + realmBonus;
         }
 
         public override int CalcValueFromItems(GameLiving living, eProperty property)
         {
-            if (living is not GamePlayer player)
+            if (!GameBot.UsesPlayerRules(living))
                 return 0;
 
+            GameLiving player = living;
             int itemCap = player.Level / 5 + 1;
             int itemBonus = player.ItemBonus[property];
 

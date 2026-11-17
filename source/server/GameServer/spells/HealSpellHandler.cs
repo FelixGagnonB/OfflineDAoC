@@ -269,6 +269,14 @@ namespace DOL.GS.Spells
                         min = 1.25;
                 }
             }
+            else if (Caster is GameBot { IsPvpBot: true } pvpCaster && pvpCaster.TryGetPvpSpellSpec(Spell, m_spellLine, out _, out int trained))
+            {
+                // A player's heal varies with its level in the line; an NPC's always lands at the maximum.
+                min = 0.25;
+
+                if (Spell.Level > 0)
+                    min = Math.Min(1.25, min + (Math.Max(1, trained) - 1.0) / Spell.Level);
+            }
             else
                 min = 1.25;
 

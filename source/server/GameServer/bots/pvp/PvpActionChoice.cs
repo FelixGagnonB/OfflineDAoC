@@ -22,6 +22,8 @@ namespace DOL.GS
         /// <summary>A mez on everyone around the target, or around the caster.</summary>
         MezArea,
         Stun,
+        /// <summary>Waking a mezzed member of the caster's own group. The target is a friend, not an enemy.</summary>
+        CureMez,
     }
 
     /// <summary>One thing the caster could do now: this kind of spell on this enemy, and what is known about the enemy.</summary>
@@ -69,9 +71,11 @@ namespace DOL.GS
             ["Theurgist"] = new() { ["Pet"] = 70, ["Damage"] = 30, ["Root"] = 30 },
             // Main mezzers (owner, 2026-11-16): Sorcerer, Bard, Pacification Healer. The Healer's entry
             // serves both its specs: the Mending Healer simply has fewer of the spells.
-            ["Sorcerer"] = new() { ["Mez"] = 120, ["MezArea"] = 120, ["Damage"] = -10, ["Root"] = 35 },
-            ["Bard"] = new() { ["Mez"] = 120, ["MezArea"] = 120, ["Damage"] = 40 },
-            ["Healer"] = new() { ["Mez"] = 110, ["MezArea"] = 110, ["Stun"] = 70 },
+            // Cure mez (owner, 2026-11-16): Midgard's two Healers, Albion's Sorcerer and Minstrel. A class
+            // without the spell simply never has the option.
+            ["Sorcerer"] = new() { ["Mez"] = 120, ["MezArea"] = 120, ["CureMez"] = 130, ["Damage"] = -10, ["Root"] = 35 },
+            ["Bard"] = new() { ["Mez"] = 120, ["MezArea"] = 120, ["CureMez"] = 130, ["Damage"] = 40 },
+            ["Healer"] = new() { ["Mez"] = 110, ["MezArea"] = 110, ["CureMez"] = 140, ["Stun"] = 70 },
             ["Enchanter"] = new() { ["Damage"] = 60 },
             ["Wizard"] = new() { ["Damage"] = 60 },
             ["Mentalist"] = new() { ["Damage"] = 60 },
@@ -95,6 +99,9 @@ namespace DOL.GS
         /// <summary>An area mez that also lands on the kill target: the group's own damage wakes it and it comes out immune.</summary>
         public int MezCatchesKillTarget { get; set; } = -60;
         public int StunOnKillTarget { get; set; } = 40;
+        /// <summary>Waking a healer is worth the most: it then heals and, in Midgard, cures the others.</summary>
+        public int CureMezOnHealer { get; set; } = 40;
+        public int CureMezOnCaster { get; set; } = 20;
         /// <summary>The target is a healer or caster that nobody is keeping interrupted.</summary>
         public int TargetIsFree { get; set; } = 15;
         public int RootAlreadyOnTarget { get; set; } = -25;
@@ -162,6 +169,7 @@ namespace DOL.GS
             PvpActionKind.Mez => !option.HasEffect && !option.IsKill,
             PvpActionKind.MezArea => option.Caught > 0,
             PvpActionKind.Stun => !option.HasEffect,
+            PvpActionKind.CureMez => option.Mezzed,
             _ => true,
         };
 
@@ -170,6 +178,14 @@ namespace DOL.GS
             bool soft = option.Archetype != PvpBuffArchetype.Melee;
             double score = weights.ClassBase.TryGetValue(characterClass.ToString(), out Dictionary<string, int> kinds) &&
                            kinds.TryGetValue(option.Kind.ToString(), out int lean) ? lean : 0;
+            if (option.Kind == PvpActionKind.CureMez)
+            {
+                // The target is a friend: none of the terms about enemies below apply.
+                score += option.Archetype switch { PvpBuffArchetype.Healer => weights.CureMezOnHealer, PvpBuffArchetype.Caster => weights.CureMezOnCaster, _ => 0 };
+                score -= weights.PowerScarcity * option.CostPercent * (100 - option.PowerPercent) / 100.0;
+                score -= weights.PerHundredUnitsShort * option.Short / 100.0;
+                return (int)Math.Round(score);
+            }
             switch (option.Kind)
             {
                 case PvpActionKind.Nearsight:

@@ -53,6 +53,7 @@ def analyze(match):
     stats = {n: collections.Counter() for n in bots}
     spells = {n: collections.Counter() for n in bots}
     contact = next((s["t"] for s in match["snaps"] if s["combat"]), None)
+    outside = collections.Counter()
     for s in match["snaps"]:
         if contact is None or s["t"] < contact or s["n"] not in stats:
             continue
@@ -82,6 +83,9 @@ def analyze(match):
                 a["friendly_fire"] += 1
         if h.get("dt") and h["d"] in stats:
             stats[h["d"]]["taken"] += dmg
+            # Damage from something that is in neither group: a keep guard, a monster.
+            if not h.get("at") and dmg > 0:
+                outside[h["a"]] += dmg
     for c in match["casts"]:
         if c["n"] not in stats:
             continue
@@ -116,11 +120,11 @@ def analyze(match):
             for reason, detail in (d.get("blocked") or {}).items():
                 if reason == "previous cast lost":
                     continue
-                named = reason in ("too far", "best score too low", "cast refused")
+                named = reason in ("too far", "best score too low", "cast refused", "asleep or claimed")
                 blocks[d["n"]][reason if named else f"{reason}: {detail}"] += 1
     return {"head": head, "bots": bots, "stats": stats, "spells": spells, "contact": contact,
             "picks": picks, "scores": scores, "blocks": blocks, "ready": match["ready"],
-            "start_power": start_power,
+            "start_power": start_power, "outside": outside,
             "end": match["end"], "deaths": match["deaths"], "file": match["file"]}
 
 
@@ -148,6 +152,11 @@ def report(results):
         if ready and ready["timedOut"]:
             print(f"      ready check timed out; still buffing: {', '.join(r['bots'][n]['build'] for n in ready['notReady'] if n in r['bots'])}")
     print("\nwins:", dict(wins))
+    outside = collections.Counter()
+    for r in results:
+        outside.update(r["outside"])
+    if outside:
+        print("WARNING, damage from outside the two groups (guards, monsters): " + ", ".join(f"{k} {v}" for k, v in outside.most_common(6)))
 
     # Per build, summed over the batch (two Clerics of different builds stay apart; two Blademasters merge).
     total = collections.defaultdict(collections.Counter)

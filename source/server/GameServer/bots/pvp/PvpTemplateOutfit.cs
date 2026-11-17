@@ -121,9 +121,17 @@ namespace DOL.GS
                 item.Object_Type is not ((int)eObjectType.Shield or (int)eObjectType.Instrument);
             // The same level formulas the item generator uses (GeneratedUniqueItem).
             if (armour)
+            {
                 item.DPS_AF = item.Object_Type == (int)eObjectType.Cloth ? item.Level : item.Level * 2;
+                // The absorb of its armor class, which is what the hit piece gives a player.
+                item.SPD_ABS = AbsorbOf((eObjectType)item.Object_Type);
+            }
             else if (weapon)
                 item.DPS_AF = (int)((item.Level * 0.3 + 1.2) * 10);
+            // The to-hit bonus of top-quality level 51 gear, on armor and weapons alike, so the two
+            // cancel in the miss chance as they do between equally equipped players.
+            if (armour || weapon)
+                item.Bonus = 35;
 
             item.ProcSpellID = item.ProcSpellID1 = 0;
             item.SpellID = item.SpellID1 = 0;
@@ -133,13 +141,24 @@ namespace DOL.GS
             (item.Bonus2, item.Bonus2Type) = At(plan, 1);
             (item.Bonus3, item.Bonus3Type) = At(plan, 2);
             (item.Bonus4, item.Bonus4Type) = At(plan, 3);
-            item.Bonus5 = item.Bonus5Type = 0;
+            // A caster's staff focuses every line at 50, as a crafted focus staff does.
+            bool staff = item.Object_Type == (int)eObjectType.Staff;
+            (item.Bonus5, item.Bonus5Type) = staff ? (50, (int)eProperty.AllFocusLevels) : (0, 0);
             item.Bonus6 = item.Bonus6Type = 0;
             item.Bonus7 = item.Bonus7Type = 0;
             item.Bonus8 = item.Bonus8Type = 0;
             item.Bonus9 = item.Bonus9Type = 0;
             item.Bonus10 = item.Bonus10Type = 0;
         }
+
+        public static int AbsorbOf(eObjectType armor) => armor switch
+        {
+            eObjectType.Leather => 10,
+            eObjectType.Studded or eObjectType.Reinforced => 19,
+            eObjectType.Chain or eObjectType.Scale => 27,
+            eObjectType.Plate => 34,
+            _ => 0,   // cloth
+        };
 
         private static (int Value, int Type) At(PvpTemplateItem plan, int index) =>
             index < plan.Bonuses.Count ? (plan.Bonuses[index].Value, (int)plan.Bonuses[index].Property) : (0, 0);

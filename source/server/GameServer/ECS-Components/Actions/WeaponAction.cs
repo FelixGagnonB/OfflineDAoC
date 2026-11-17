@@ -262,7 +262,8 @@ namespace DOL.GS
             if (leftWeapon == null || (eObjectType) leftWeapon.Object_Type is eObjectType.Shield)
                 return false;
 
-            if (attacker is GamePlayer)
+            // An 8v8 bot with two weapons is a dual wielder as a player is: its target's evade and block are halved.
+            if (GameBot.UsesPlayerRules(attacker))
             {
                 // The two handed checks shouldn't be necessary.
                 return (eObjectType) mainWeapon.Object_Type is not eObjectType.HandToHand &&
