@@ -18,7 +18,9 @@ namespace DOL.GS
                 ? bot.Inventory.GetItem(eInventorySlot.LeftHandWeapon) : bot.ActiveWeapon;
 
         public static bool Usable(GameBot bot, Style style, AttackData lastAttack) =>
-            IsEligible(style) && style.Level <= bot.Level &&
+            // 8v8 bots: no taunts, stuns only where they land, and positional styles allowed.
+            (bot.IsPvpBot ? style != null && !style.StealthRequirement && PvpStylePolicy.Allows(bot, style) : IsEligible(style)) &&
+            style.Level <= bot.Level &&
             MatchesWeapon(style, bot.ActiveWeapon, bot.Inventory.GetItem(eInventorySlot.LeftHandWeapon), bot.ActiveWeaponSlot) &&
             StyleProcessor.CheckEnduranceCost(bot, Weapon(bot, style), style) &&
             bot.CheckStyleStun(style) &&

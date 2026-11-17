@@ -14,6 +14,16 @@ Bots first. Everything that needs a human at the keyboard waits until the bots f
 path now is M2 (arena and match loop), M3 (recorder, analyzer, baseline), then M4 to M8, each
 measured by scrims. M1 counts as finished for that purpose.
 
+## Measuring progress (owner, 2026-11-16)
+
+No baseline against the old brain. The squad brain replaces it, so the old brain's numbers are not
+a target worth chasing. Progress is measured by squad brain versions against each other: each new
+version fights the previous one (same groups, ends swapped), and the recorder and analyzer show
+which behaviours changed. The two matches recorded on 2026-11-16 stay as the only record of the
+old brain. This replaces M3.6 and the "90% against the baseline" test in the definition of done;
+the equivalent test is that each version beats the one before it, until the owner finds the fights
+challenging.
+
 ## How to use this file
 
 - Every step has an ID (`M3.2`) and a checkbox. Tick it when its "done when" line is true.
@@ -241,21 +251,64 @@ rank, and the cap tests pass for all 20 main-group classes.
 
 ## M2. Arena and scrim loop
 
-- [ ] **M2.1** (S) Arena file: box bounds in Emain Macha, two spawn areas, patrol waypoints. Size
+*Progress 2026-11-16 (branch `pvp-8v8-m2`, `bots/pvp/PvpScrim.cs`):* the arena is the south-east
+basin of Emain Macha, open ground about 26,000 by 18,000 units inside the playable part of the
+mesh, spawns 21,500 apart (M2.1). `scrim-start A=alb-main B=mid-main Matches=N` spawns both groups
+with their buffbots, marches each on the other, has every idle bot attack the nearest enemy it
+sees within 3,000 units, ends a match on a wipe or after 600 seconds, clears and starts the next,
+swapping ends each match (M2.2 to M2.4, baseline version). First run, Albion against Midgard:
+contact after 37 seconds, a real fight (damage, heals, stuns, snares), and no death in five
+minutes: 11 to 15 of the 16 bots are mesmerized at any moment, nobody attacks a mesmerized
+target, and the healers undo the rest. That stalemate is the baseline the recorder has to show.
+Still to do: a complete batch to the time limit, parallel arenas (M2.5), the 20-match exit check.
+
+*Progress 2026-11-17:* groups no longer walk at each other's position. Each patrols a route (arena
+middle, far end, middle, own end) and goes for enemies only once a member sees one within 3,000
+units (M2.4). The first 20-match run met nobody: the waypoints had no ground height, so no path
+was found; they now take their height from the navmesh floor. Exit check, Albion against Midgard,
+squad brain on both, 180-second limit, run as four batches of five with a server restart between
+batches: 20 of 20 matches completed, contact at 32 to 35 seconds in every one, no server error, no
+bot left in the world. Results: Albion 7, Midgard 2, 11 draws, every match on the time limit with
+at most three deaths (a brain problem, M5 and M6). The earlier no-contact run also completed 20
+matches in one server without error. Server memory: 5.1 to 5.4 GB after the first match of a
+batch, then about 0.1 GB more per match; worth a look before long runs or parallel arenas.
+Scrims are started through the control channel (`scrim-start`, `scrim-status`, `scrim-stop`); the
+in-game `/scrim` command waits with the rest of the human-side work. M2.5 is not built.
+
+- [x] **M2.1** (S) Arena file: box bounds in Emain Macha, two spawn areas, patrol waypoints. Size
   is a setting. With its walls in place the Emain mesh splits into two large areas that do not
   connect (about 64% and 33% of the zone). The zone centre is in the smaller one; the two frontier
   arrival points first proposed as lane ends are in the other. The box, both spawns and every
   waypoint must sit in one area: pick it from the map and prove it with a path check.
-- [ ] **M2.2** (M) Match lifecycle: spawn both groups, buff, roam, contact, end on wipe or timeout,
+- [x] **M2.2** (M) Match lifecycle: spawn both groups, buff, roam, contact, end on wipe or timeout,
   clean up, repeat.
-- [ ] **M2.3** (S) `/scrim` command: start N matches between two named groups, show status, stop.
-- [ ] **M2.4** (S) Simple roaming along the waypoints with no knowledge of the enemy's position.
+- [x] **M2.3** (S) `/scrim` command: start N matches between two named groups, show status, stop.
+  Done as control-channel commands; no in-game command yet.
+- [x] **M2.4** (S) Simple roaming along the waypoints with no knowledge of the enemy's position.
   Good enough to produce contact; M8 replaces it.
 - [ ] **M2.5** (M) Several arenas at once in different boxes, since game time cannot be sped up.
 
 **Exit check:** 20 matches run unattended with no stuck bot, no leftover bot and no server error.
+Passed 2026-11-17 (four batches of five, see the progress note).
 
 ## M3. Recorder, analyzer and baseline
+
+*Progress 2026-11-16:* the recorder (`bots/pvp/PvpRecorder.cs`) writes one JSON-lines file per
+match under `runtime/server/logs/scrims`: a header, every attack (result, damage, spell or
+style), every finished cast (spell, type, power, target), deaths, and a once-a-second snapshot of
+each bot (position, health, power, mezzed, stunned, immunities, casting, target, brain state).
+The analyzer (`source/tools/pvp_analyze.py`) reports per batch how matches ended and, per build,
+damage dealt and taken, share of the fight spent mezzed, stunned, idle, casting or out of power,
+power left, and the spell types cast. Match limit is now a setting (default 300 seconds).
+First recorded batch, Albion against Midgard at rank 1, two matches of 180 seconds: both draws,
+no death, each side dealt about 14,800 damage in total over the two fights (about 50 a second
+for a whole group). Midgard spent 34% of the fight mezzed, Albion 11%; nobody was mezzed while
+holding mez immunity. Fighters dealt 12 a second or less; the Clerics were idle 35 to 38% of the
+fight and cast resist and regeneration buffs during it; the Paladin recast its endurance chant
+146 times; the Cabalist and Theurgist had no power for half the fight.
+Not yet recorded: the reason behind each decision (the legacy brain does not expose it; the squad
+brain of M5 will), heals as amounts, mez breaks. Still to do: M3.5's build-to-build comparison,
+and the baseline batch of 30 matches per pairing (M3.6).
 
 - [ ] **M3.1** (S) Trace format, versioned: match header (groups, builds, ranks, code version),
   events, decisions, snapshots.
@@ -290,6 +343,59 @@ rank, and the cap tests pass for all 20 main-group classes.
 
 ## M5. Squad brain: sight, roles, focus fire
 
+*Started 2026-11-16 with melee styles* (`bots/pvp/PvpStylePolicy.cs`): 8v8 bots never use taunt or
+detaunt styles, use a stun style only on a target that is neither stunned nor immune, may use
+positional styles, and tanks no longer spend turns on protective taunts. One recorded match
+confirms the styles changed (Armsman from Distract to Crippling Blow, Savage from Wild Call to
+Kelgor's Bane, back styles on the Paladin and Minstrel). It did not raise damage: fighters still
+swing 12 to 25 times in 145 seconds because they are mezzed, stunned or chasing a new target.
+Damage check: the attack code already uses the player damage formula for bots
+(`AttackComponent.CalculatePlayerDamage`), so per-hit damage was not changed.
+
+*Kill target, first version, 2026-11-16* (`bots/pvp/PvpKillTarget.cs`, M5.5): one enemy per group
+for every non-healer to attack, chosen by score (healers, then casters; wounded first; mezzed ones
+left asleep; near before far) and kept until something scores clearly higher. A called target may
+be attacked while mezzed, and the group's own mezzers leave it alone. `scrim-start` takes
+`BrainA=squad` / `BrainB=squad`, so one side can run it against the other without.
+First run, Albion with it against Midgard without, two matches of 240 seconds: the first deaths
+(one, then two, all Midgard), Albion ahead 8 to 7 at the time limit both times. Albion's damage
+landed on its called targets (the Mending Healer took 9,352, the Pacification Healer 6,165);
+Midgard's was spread. Problems seen: Albion's Theurgist dealt no damage and its Sorcerer cast no
+mez at all with a target assigned, and both stood idle about 30% of the fight, so the called
+target is stalling the casters. Fix that next, then heal-through: nobody dies inside the limit.
+
+*Roles, first version, 2026-11-16* (`bots/pvp/PvpRoles.cs`, M5.3). Owner's rule: the Sorcerer is
+the main crowd controller and interrupter, the Theurgist keeps its pets on enemy healers and
+casters, and both assist only when it is critical. Four roles by class: Assist (kills the called
+target), Control (Sorcerer, Bard: no target forced, own crowd-control logic), Interrupt
+(Theurgist: pointed at an unmezzed enemy healer or caster that is not the kill target, one casting
+right now first), Heal. Control and Interrupt join the kill once the target is at 35% health or
+less. Run after the change (Albion with squad brain, two matches): the stall is gone (Sorcerer
+idle 4%, was 28%; Theurgist idle 5% and dealing damage again), results a draw and 8 to 7.
+Still wrong: what they cast. The Sorcerer cast 27 stat debuffs and 5 mezzes and was out of power
+67% of the fight; the Theurgist cast 18 snares. Spell choice is still the old random pick, so the
+next piece is a priority list per role (M6.4): mez and stun for Control, pets for Interrupt.
+
+*Owner's guidance, 2026-11-16, for the next version:*
+- **No fixed thresholds.** When a controller joins the kill, or whether to wake a mezzed enemy,
+  depends on the whole situation (who is interrupted, who is free, positions, immunities), not on
+  one number such as 35% health. Decisions are to be weighed, not switched.
+- **Mezzers.** Main: Sorcerer, Bard, Pacification Healer. Backup: Minstrel, the Mending Healer,
+  and any other class with a mez (Spiritmaster arguable).
+- **Interrupters.** Any caster can fill it, the Shaman included. Spamming a root at an enemy that
+  is root-immune is still right when the point is to interrupt and lock it down.
+- **"Do not break mez" is too strict.** Usually leave a mezzed enemy alone, but a mezzed healer
+  that is out of position and can be killed by the assist train should be killed.
+- **Interrupters, added.** The Skald is Midgard's prime interrupter, the Theurgist's equivalent:
+  three instant spells made for it, runs between casters and swings as needed. The Minstrel is
+  the same for Albion: two instant direct-damage shouts and a stun, a pet to park on a caster,
+  and a mez.
+- **Shaman: disease first.** It should be spamming disease, not only root: disease also halves
+  the healing its target receives, on top of interrupting.
+- **"Interrupted" means** the caster is busy running or kiting, or was hit, nuked or had a spell
+  cast on it; after an interrupt it cannot cast for a few seconds (this server's setting is
+  `SPELL_INTERRUPT_DURATION`, and the bot can read its own remaining time).
+
 - [ ] **M5.1** (M) A dedicated brain class for 8v8 bots and a squad object with a shared
   blackboard, ticked once per group before its members think.
 - [ ] **M5.2** (M) Perception: enemies are known only when in view range and in sight; stealth
@@ -309,6 +415,26 @@ rank, and the cap tests pass for all 20 main-group classes.
 coherence meets its target.
 
 ## M6. Control, interrupts and protection
+
+*Rotations, first version, 2026-11-16* (`bots/pvp/PvpRotation.cs`, M6.4): an ordered list per
+caster class replaces the random spell pick when the squad brain is on. Owner's orders: Shaman
+disease on everything then root as an interrupt (cast even on an immune target); Eldritch
+nearsight on casters, disease, direct damage, and round again; Cabalist disease then damage on the
+kill target (pet still to do); Theurgist pets on the enemy it keeps interrupted; Runemaster
+nearsight then damage; other casters damage on the kill target.
+First run, Midgard against Hibernia, squad brain on both, two matches of 240 seconds: seven
+deaths in each (the earlier fights had none to three), Midgard ahead 8 to 3 and 8 to 2 at the
+limit. The Runemaster followed its order (66 direct-damage casts, 10 nearsights). The Shaman cast
+disease only 6 times against 46 heals. Hibernia's casters did not work: the Eldritch cast three
+nearsights and no damage or disease, the Enchanter no damage at all and was in combat for 22
+seconds of a 240-second match. Find out why before reading anything into the result.
+
+*Owner, 2026-11-16: these orders are weighted tendencies, not hard rules.* On the incoming an
+Eldritch will most probably nearsight, then maybe disease; after that it is mostly direct damage
+on the called target, then back to nearsight, and so on. The first version above is a fixed
+first-match list and is to become scored choices: each option gets a weight from the situation
+(is a caster free and not nearsighted, is the kill target close to dead, how much power is left),
+and the weights are what the recorder and analyzer help tune.
 
 - [ ] **M6.1** (L) Control plan: an area mez opener, assignments per controller, immunity timers
   tracked, re-mez, stuns, roots and snares used on purpose, never breaking the group's own mez.

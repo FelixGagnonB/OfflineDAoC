@@ -170,6 +170,25 @@ namespace DOL.GS
                 case "arena-clear":
                     return new { Removed = PvpArena.Clear() };
 
+                case "scrim-start":
+                {
+                    // Args: A and B (group ids, different realms), Matches, RealmRank.
+                    PvpGroupTemplate a = PvpBuildCatalog.FindGroup(Arg("A")) ?? throw new ArgumentException($"No group named '{Arg("A")}'.");
+                    PvpGroupTemplate b = PvpBuildCatalog.FindGroup(Arg("B")) ?? throw new ArgumentException($"No group named '{Arg("B")}'.");
+                    PvpScrim.Start(a, b, int.Parse(Arg("Matches") ?? "1"), (int.Parse(Arg("RealmRank") ?? "1") - 1) * 10,
+                        int.Parse(Arg("Limit") ?? "300"),
+                        // BrainA / BrainB: "squad" turns the squad brain on for that side; anything else is the old brain.
+                        Arg("BrainA") == "squad", Arg("BrainB") == "squad");
+                    return PvpScrim.Status();
+                }
+
+                case "scrim-status":
+                    return PvpScrim.Status();
+
+                case "scrim-stop":
+                    PvpScrim.Stop();
+                    return PvpScrim.Status();
+
                 case "stop-server":
                     // The same orderly stop as typing "exit" in the server console. It runs after
                     // this answer is written, off the game loop the stop is about to end.

@@ -579,6 +579,8 @@ namespace DOL.AI.Brain
         #region Brain Core
 
         public bool IsHealer;
+        /// <summary>The kill target this bot's 8v8 group has called (bots/pvp/PvpKillTarget.cs); null without a squad brain.</summary>
+        public GameLiving PvpAssignedTarget { get; set; }
         public bool AlreadyCheckedHeals;
         private long _nextPriorityTauntTick;
         private long _nextDeployablePetTick;
@@ -2940,7 +2942,9 @@ namespace DOL.AI.Brain
                 }
                 else if (_brain.IsHealer)
                 {
-                    if (!_brain.CheckHeals())
+                    // A healing 8v8 caster with nobody to heal works its rotation (a Shaman's
+                    // disease) without first needing an attack target of its own.
+                    if (!_brain.CheckHeals() && !_brain.TryPvpRotation())
                         _brain.AttackMostWanted();
                 }
                 else
@@ -3040,7 +3044,9 @@ namespace DOL.AI.Brain
             // protecting a group member. Generic aggro may still contain the
             // previous pull and used to make archers/casters repeatedly switch
             // away from the fight their pet had already started.
-            Body.TargetObject = protectionTarget ?? directAttacker ?? activePetTarget ?? CalculateNextAttackTarget();
+            // An 8v8 group with a squad brain attacks its kill target and nothing else.
+            GameLiving killTarget = PvpAssignedTarget is { IsAlive: true, ObjectState: GameObject.eObjectState.Active } assigned ? assigned : null;
+            Body.TargetObject = killTarget ?? protectionTarget ?? directAttacker ?? activePetTarget ?? CalculateNextAttackTarget();
             // A tethered boss outside its tether is immune: stop hitting it and lead it home (AutonomousTetherReset).
             if (Body.TargetObject is GameNPC tetheredBoss && AutonomousTetherReset.TryHandle(BotBody, tetheredBoss))
                 return;
@@ -3695,6 +3701,9 @@ namespace DOL.AI.Brain
 
         private bool TryPriorityTaunt(GameLiving target)
         {
+            // A taunt does nothing to a player-like enemy, so an 8v8 tank never spends a turn on one.
+            if (BotBody?.IsPvpBot == true)
+                return false;
             if (!IsTankClass || target?.TargetObject is not GameLiving victim || Body.Group == null ||
                 victim.Group != Body.Group || !Body.Group.IsInTheGroup(victim) ||
                 victim.CurrentRegionID != Body.CurrentRegionID ||
@@ -3844,6 +3853,7 @@ namespace DOL.AI.Brain
             else if (!casted && type == eCheckSpellType.Offensive)
             {
                 if (TryPvpCrowdControl()) return true;
+                if (TryPvpRotation()) return true;
                 if (TryBardPveAddMez()) return true;
                 if (TryShamanPveAddRoot()) return true;
                 if (TryShortCombatShield()) return true;

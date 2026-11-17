@@ -20,6 +20,8 @@ namespace DOL.GS
             if (CompanionPvpEngagement.Focused(attacker, target) || CompanionPvpEngagement.Defending(attacker, target)) return false;
             // A real player's explicit attack remains authoritative.
             if (bot.Owner is GamePlayer player && player.IsAttacking && player.TargetObject == target) return false;
+            // The group's called kill target is attacked even when mezzed: the squad chose to wake it.
+            if (bot.Brain is BotBrain { PvpAssignedTarget: { } called } && called == target) return false;
             if (target.IsMezzed) return true;
             if (!Claims.TryGetValue(target, out Claim claim)) return false;
             lock (claim) return claim.Realm == bot.Realm && claim.Until > GameLoop.GameLoopTime &&
