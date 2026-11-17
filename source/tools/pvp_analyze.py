@@ -16,6 +16,9 @@ import sys
 
 DAMAGE_RESULTS = {"HitUnstyled", "HitStyle"}
 HEAL_TYPES = {"Heal", "CombatHeal", "HealOverTime", "SpreadHeal", "FatigueConsumingHeal", "InstantHeal"}
+# Classes whose casting the other side wants to stop: the healers and the casters.
+BACKLINE = {"Cleric", "Friar", "Druid", "Bard", "Healer", "Shaman", "Sorcerer", "Theurgist", "Cabalist", "Wizard",
+            "Runemaster", "Spiritmaster", "Eldritch", "Enchanter", "Mentalist"}
 CONTROL_TYPES = {"Mesmerize", "Mez", "Stun", "SpeedDecrease", "StyleStun", "Nearsight", "Amnesia", "Disease", "Confusion"}
 
 
@@ -54,6 +57,20 @@ def analyze(match):
     spells = {n: collections.Counter() for n in bots}
     contact = next((s["t"] for s in match["snaps"] if s["combat"]), None)
     outside = collections.Counter()
+    # Bots that were dead and are alive again: raised beside their corpse, or (a fault) stood up
+    # somewhere else, which is the old release to a bind point.
+    corpse, raised, released = {}, 0, 0
+    for s in match["snaps"]:
+        if s["n"] not in stats:
+            continue
+        if not s["alive"]:
+            corpse[s["n"]] = (s["x"], s["y"])
+        elif s["n"] in corpse:
+            x, y = corpse.pop(s["n"])
+            if abs(s["x"] - x) + abs(s["y"] - y) > 3000:
+                released += 1
+            else:
+                raised += 1
     for s in match["snaps"]:
         if contact is None or s["t"] < contact or s["n"] not in stats:
             continue
@@ -71,8 +88,27 @@ def analyze(match):
         c["idle"] += not (s["mez"] or s["stun"] or s["casting"] or s["moving"] or s["target"])
         c["no_power"] += bool(bots[s["n"]]["pow"] and s["pow"] < 0.1 * bots[s["n"]]["pow"])
         c["end_pow"] = s["pow"]
+    # The opening: how many of each team are mezzed ten seconds after contact.
+    asleep10 = collections.Counter()
+    if contact is not None:
+        seen = set()
+        for s in match["snaps"]:
+            # The first snapshot of each bot in that second; two can fall inside it.
+            if contact + 10000 <= s["t"] < contact + 11000 and s["n"] in bots and s["n"] not in seen:
+                seen.add(s["n"])
+                if s["alive"] and s["mez"]:
+                    asleep10[bots[s["n"]]["team"]] += 1
+    # Attacks that landed on each team's healers and casters (each one interrupts), and attacks a
+    # guard took on its shield for somebody else.
+    pressure = collections.Counter()
+    guards = collections.Counter()
     for h in match["hits"]:
         dmg = (h["dmg"] or 0) + (h["crit"] or 0)
+        if h.get("guardFor") and h["d"] in bots and h["guardFor"] in bots:
+            guards[(bots[h["d"]]["team"], bots[h["d"]]["build"], bots[h["guardFor"]]["build"])] += 1
+        elif (h.get("at") and h.get("dt") and h["at"] != h["dt"] and not h.get("dpet") and h["d"] in bots
+              and bots[h["d"]]["cls"] in BACKLINE and h["res"] in DAMAGE_RESULTS):
+            pressure[h["dt"]] += 1
         if h.get("at") and h["a"] in stats:
             a = stats[h["a"]]
             a["attacks"] += 1
@@ -124,7 +160,8 @@ def analyze(match):
                 blocks[d["n"]][reason if named else f"{reason}: {detail}"] += 1
     return {"head": head, "bots": bots, "stats": stats, "spells": spells, "contact": contact,
             "picks": picks, "scores": scores, "blocks": blocks, "ready": match["ready"],
-            "start_power": start_power, "outside": outside,
+            "start_power": start_power, "outside": outside, "raised": raised, "released": released,
+            "pressure": pressure, "guards": guards, "asleep10": asleep10,
             "end": match["end"], "deaths": match["deaths"], "file": match["file"]}
 
 
@@ -138,7 +175,7 @@ def report(results):
         return {}
     head = results[0]["head"]
     print(f"Batch {head['batch']}: {head['a']} (A) against {head['b']} (B), realm level {head['realmLevel']}, {len(results)} matches\n")
-    print(f"{'match':>5} {'winner':10} {'ended by':11} {'length':>6} {'buffing':>8} {'contact':>7} {'alive A/B':>9} {'deaths':>6} {'power at contact':>16}")
+    print(f"{'match':>5} {'winner':10} {'ended by':11} {'length':>6} {'buffing':>8} {'contact':>7} {'alive A/B':>9} {'deaths':>6} {'raised':>6} {'power at contact':>16}")
     wins = collections.Counter()
     for r in results:
         e = r["end"] or {}
@@ -148,10 +185,14 @@ def report(results):
         had = sum(r["start_power"].get(n, 0) for n, b in r["bots"].items() if b["pow"])
         could = sum(b["pow"] for b in r["bots"].values() if b["pow"])
         print(f"{r['head']['number']:>5} {e.get('Winner', 'unfinished'):10} {e.get('End', '-'):11} {e.get('Seconds', 0):>5}s {buffing:>8} "
-              f"{e.get('SecondsToContact', -1):>6}s {str(e.get('AliveA', '-')) + '/' + str(e.get('AliveB', '-')):>9} {len(r['deaths']):>6} {pct(had, could):>16}")
+              f"{e.get('SecondsToContact', -1):>6}s {str(e.get('AliveA', '-')) + '/' + str(e.get('AliveB', '-')):>9} {len(r['deaths']):>6} {r['raised']:>6} {pct(had, could):>16}")
         if ready and ready["timedOut"]:
             print(f"      ready check timed out; still buffing: {', '.join(r['bots'][n]['build'] for n in ready['notReady'] if n in r['bots'])}")
     print("\nwins:", dict(wins))
+    released = sum(r["released"] for r in results)
+    if released:
+        print(f"WARNING, {released} dead bots stood up away from their corpse (released to a bind point): "
+              "winners, survivors and every figure below are not to be trusted.")
     outside = collections.Counter()
     for r in results:
         outside.update(r["outside"])
@@ -207,6 +248,15 @@ def report(results):
         print(f"\nteam {team}: dealt {t['dealt']}, taken {t['taken']}, mezzed {pct(t['mez'], t['alive']).strip()} of the fight, "
               f"stunned {pct(t['stun'], t['alive']).strip()}, idle {pct(t['idle'], t['alive']).strip()}, "
               f"mezzed while holding mez immunity {t['mez_while_immune']}s, hits on own side {t['friendly_fire']}")
+        landed = sum(r["pressure"][team] for r in results)
+        print(f"        attacks landing on its healers and casters: {landed / len(results):.0f} a match")
+        asleep = [r["asleep10"][team] for r in results]
+        print(f"        asleep ten seconds after contact: {sum(asleep) / len(results):.1f} a match ({', '.join(str(a) for a in asleep)})")
+        guards = collections.Counter()
+        for r in results:
+            guards.update({k: v for k, v in r["guards"].items() if k[0] == team})
+        for (_, guard, ward), count in guards.most_common(4):
+            print(f"        guard: {guard} took {count / len(results):.1f} attacks a match meant for {ward}")
     return {"batch": head["batch"], "matches": len(results), "wins": dict(wins), "builds": summary}
 
 

@@ -24,6 +24,8 @@ namespace DOL.GS
         Stun,
         /// <summary>Waking a mezzed member of the caster's own group. The target is a friend, not an enemy.</summary>
         CureMez,
+        /// <summary>Makes every enemy around the target lose the spell it is casting (Bard's Lullaby, Healer, Sorcerer).</summary>
+        Amnesia,
     }
 
     /// <summary>One thing the caster could do now: this kind of spell on this enemy, and what is known about the enemy.</summary>
@@ -42,7 +44,10 @@ namespace DOL.GS
         int CostPercent = 0,  // what this cast takes, as a share of the caster's whole pool
         int Short = 0,        // how far the caster must still walk before it can cast this; 0 = castable now
         int Caught = 1,       // area mez: how many awake enemies it puts to sleep, the kill target not counted
-        bool CatchesKill = false); // area mez: the kill target is inside it
+        bool CatchesKill = false, // area mez: the kill target is inside it
+        int Wakes = 0,        // amnesia: mezzed enemies inside it, the kill target not counted; it wakes them
+        bool Instant = false, // an instant spell: it lands now and cannot be interrupted, but mezzes and stuns of this sort come back after ten minutes
+        bool OnController = false); // the target is one of the enemy's mezzers
 
     /// <summary>
     /// The numbers behind the choice. Every one is a weight added to an option's score, so none is
@@ -73,9 +78,10 @@ namespace DOL.GS
             // serves both its specs: the Mending Healer simply has fewer of the spells.
             // Cure mez (owner, 2026-11-16): Midgard's two Healers, Albion's Sorcerer and Minstrel. A class
             // without the spell simply never has the option.
-            ["Sorcerer"] = new() { ["Mez"] = 120, ["MezArea"] = 120, ["CureMez"] = 130, ["Damage"] = -10, ["Root"] = 35 },
-            ["Bard"] = new() { ["Mez"] = 120, ["MezArea"] = 120, ["CureMez"] = 130, ["Damage"] = 40 },
-            ["Healer"] = new() { ["Mez"] = 110, ["MezArea"] = 110, ["CureMez"] = 140, ["Stun"] = 70 },
+            // Amnesia (owner, 2026-11-17): the Bard's is instant with a ten-second recast, the other two take a two-second cast.
+            ["Sorcerer"] = new() { ["Mez"] = 120, ["MezArea"] = 120, ["CureMez"] = 130, ["Damage"] = -10, ["Root"] = 35, ["Amnesia"] = 45 },
+            ["Bard"] = new() { ["Mez"] = 120, ["MezArea"] = 120, ["CureMez"] = 130, ["Damage"] = 40, ["Amnesia"] = 60 },
+            ["Healer"] = new() { ["Mez"] = 110, ["MezArea"] = 110, ["CureMez"] = 140, ["Stun"] = 70, ["Amnesia"] = 45 },
             ["Enchanter"] = new() { ["Damage"] = 60 },
             ["Wizard"] = new() { ["Damage"] = 60 },
             ["Mentalist"] = new() { ["Damage"] = 60 },
@@ -99,6 +105,19 @@ namespace DOL.GS
         /// <summary>An area mez that also lands on the kill target: the group's own damage wakes it and it comes out immune.</summary>
         public int MezCatchesKillTarget { get; set; } = -60;
         public int StunOnKillTarget { get; set; } = 40;
+        /// <summary>
+        /// A mez or stun on one of the enemy's own mezzers: asleep, it mezzes nobody. The owner, 2026-11-17:
+        /// a Healer has a hard time against a Sorcerer's mez range, so it goes in and puts its instant mez on the Sorcerer.
+        /// </summary>
+        public int ControlOnEnemyController { get; set; } = 40;
+        /// <summary>An instant mez or stun on a target that is casting: it lands before that cast does, a spell with a cast time would not.</summary>
+        public int InstantOnCastingTarget { get; set; } = 40;
+        /// <summary>An instant mez or stun is gone for ten minutes once used, so the cast-time spell is taken when nothing presses.</summary>
+        public int InstantSpent { get; set; } = -10;
+        /// <summary>For each enemy inside an amnesia that is casting right now: it loses that spell.</summary>
+        public int AmnesiaPerCastStopped { get; set; } = 45;
+        /// <summary>For each mezzed enemy inside it: amnesia breaks mez.</summary>
+        public int AmnesiaPerSleeperWoken { get; set; } = -80;
         /// <summary>Waking a healer is worth the most: it then heals and, in Midgard, cures the others.</summary>
         public int CureMezOnHealer { get; set; } = 40;
         public int CureMezOnCaster { get; set; } = 20;
@@ -119,6 +138,18 @@ namespace DOL.GS
         public double PerHundredUnitsShort { get; set; } = 2;
         /// <summary>Enemies farther than this are not considered at all.</summary>
         public int ConsiderRange { get; set; } = 3_500;
+
+        /// <summary>What a shield fighter weighs when it picks whom to guard and whom to go for.</summary>
+        public PvpPeelWeights Peel { get; set; } = new();
+
+        /// <summary>Who has interrupt duty, by what means, and how interrupters are paired with enemy healers and casters.</summary>
+        public PvpInterruptWeights Interrupt { get; set; } = new();
+
+        /// <summary>How far apart the group's healers and casters keep.</summary>
+        public PvpSpreadWeights Spread { get; set; } = new();
+
+        /// <summary>When Purge and Group Purge are worth using.</summary>
+        public PvpPurgeWeights Purge { get; set; } = new();
 
         public static PvpWeights Current { get; private set; } = new();
 
@@ -160,6 +191,10 @@ namespace DOL.GS
                 ? Enum.GetValues<PvpActionKind>().Where(kind => kinds.ContainsKey(kind.ToString()))
                 : [];
 
+        /// <summary>True for a class that mezzes for its group: one with an area mez among its leanings.</summary>
+        public static bool IsController(eCharacterClass characterClass, PvpWeights weights) =>
+            weights.ClassBase.TryGetValue(characterClass.ToString(), out Dictionary<string, int> kinds) && kinds.ContainsKey(nameof(PvpActionKind.MezArea));
+
         /// <summary>False for an option that does nothing: a second nearsight or disease, or nearsight on a fighter.</summary>
         public static bool Useful(PvpOption option) => option.Kind switch
         {
@@ -170,6 +205,8 @@ namespace DOL.GS
             PvpActionKind.MezArea => option.Caught > 0,
             PvpActionKind.Stun => !option.HasEffect,
             PvpActionKind.CureMez => option.Mezzed,
+            // Worth a turn only while somebody inside it is casting.
+            PvpActionKind.Amnesia => option.Caught > 0,
             _ => true,
         };
 
@@ -213,9 +250,18 @@ namespace DOL.GS
                 case PvpActionKind.Stun:
                     score += option.IsKill ? weights.StunOnKillTarget : 0;
                     break;
+                case PvpActionKind.Amnesia:
+                    score += weights.AmnesiaPerCastStopped * option.Caught + weights.AmnesiaPerSleeperWoken * option.Wakes;
+                    break;
                 case PvpActionKind.Pet:
                     score += soft ? weights.PetOnCasterOrHealer : weights.PetOnMelee;
                     break;
+            }
+            if (option.Kind is PvpActionKind.Mez or PvpActionKind.MezArea or PvpActionKind.Stun)
+            {
+                score += option.OnController ? weights.ControlOnEnemyController : 0;
+                if (option.Instant)
+                    score += weights.InstantSpent + (option.Casting ? weights.InstantOnCastingTarget : 0);
             }
             score -= weights.PowerScarcity * option.CostPercent * (100 - option.PowerPercent) / 100.0;
             score -= weights.PerHundredUnitsShort * option.Short / 100.0;

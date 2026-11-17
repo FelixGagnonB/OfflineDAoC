@@ -144,6 +144,8 @@ namespace DOL.GS
                 res = ad.AttackResult.ToString(), type = ad.AttackType.ToString(), dmg = ad.Damage, crit = ad.CriticalDamage,
                 resisted = ad.Modifier, spell = ad.SpellHandler?.Spell?.Name, st = ad.SpellHandler?.Spell?.SpellType.ToString(),
                 style = ad.Style?.Name,
+                // A guarded attack lands on the guard's shield: who it was meant for.
+                guardFor = ad.OriginalTarget != null && ad.OriginalTarget != ad.Target ? Who(ad.OriginalTarget).Name : null,
             });
         }
 

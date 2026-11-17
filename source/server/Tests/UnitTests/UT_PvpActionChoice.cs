@@ -12,8 +12,10 @@ namespace DOL.UnitTests
 
         private static PvpOption Option(PvpActionKind kind, int id, PvpBuffArchetype archetype = PvpBuffArchetype.Caster, bool kill = false,
             bool assigned = false, int health = 100, bool hasEffect = false, bool casting = false, bool interrupted = false,
-            bool mezzed = false, int power = 100, int cost = 0, int walk = 0, int caught = 1, bool catchesKill = false) =>
-            new(kind, id, archetype, kill, assigned, health, hasEffect, casting, interrupted, mezzed, power, cost, walk, caught, catchesKill);
+            bool mezzed = false, int power = 100, int cost = 0, int walk = 0, int caught = 1, bool catchesKill = false, int wakes = 0,
+            bool instant = false, bool controller = false) =>
+            new(kind, id, archetype, kill, assigned, health, hasEffect, casting, interrupted, mezzed, power, cost, walk, caught, catchesKill, wakes,
+                instant, controller);
 
         private static (PvpOption Option, int Score) Best(eCharacterClass characterClass, params PvpOption[] options) =>
             PvpActionChoice.Rank(characterClass, options, Weights).First();
@@ -150,6 +152,57 @@ namespace DOL.UnitTests
             int low = Best(eCharacterClass.Shaman, Option(PvpActionKind.Disease, 1, PvpBuffArchetype.Melee, power: 20, cost: 8)).Score;
             Assert.That(full, Is.EqualTo(90));
             Assert.That(low, Is.EqualTo(90 - 19));
+        }
+
+        [Test]
+        public void AmnesiaIsCastOnlyWhileSomebodyInsideItIsCasting()
+        {
+            Assert.That(PvpActionChoice.Rank(eCharacterClass.Bard, [Option(PvpActionKind.Amnesia, 1, caught: 0)], Weights), Is.Empty);
+            // One enemy casting: 60 for the Bard, 45 for the cast it stops, 15 and 30 because that enemy is free and casting.
+            Assert.That(Best(eCharacterClass.Bard, Option(PvpActionKind.Amnesia, 1, casting: true)).Score, Is.EqualTo(150));
+            Assert.That(Best(eCharacterClass.Bard, Option(PvpActionKind.Amnesia, 1, casting: true, caught: 3)).Score, Is.EqualTo(240));
+        }
+
+        [Test]
+        public void AmnesiaThatWouldWakeSleepersLosesToOneThatWouldNot()
+        {
+            (PvpOption option, _) = Best(eCharacterClass.Healer,
+                Option(PvpActionKind.Amnesia, 1, casting: true, caught: 2, wakes: 2),
+                Option(PvpActionKind.Amnesia, 2, casting: true, caught: 1));
+            Assert.That(option.TargetId, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void TheBardStillMezzesBeforeItUsesAmnesia()
+        {
+            (PvpOption option, _) = Best(eCharacterClass.Bard,
+                Option(PvpActionKind.Amnesia, 1, casting: true),
+                Option(PvpActionKind.MezArea, 2, caught: 3));
+            Assert.That(option.Kind, Is.EqualTo(PvpActionKind.MezArea));
+        }
+
+        [Test]
+        public void TheHealerPutsItsInstantMezOnTheEnemyMezzerThatIsCasting()
+        {
+            // The Sorcerer has begun its area mez. The Healer could cast its own area mez on three
+            // enemies (too late), its cast-time mez on the Sorcerer (too late), or the instant.
+            (PvpOption option, _) = Best(eCharacterClass.Healer,
+                Option(PvpActionKind.MezArea, 1, PvpBuffArchetype.Melee, caught: 3),
+                Option(PvpActionKind.Mez, 2, casting: true, controller: true),
+                Option(PvpActionKind.Mez, 2, casting: true, controller: true, instant: true));
+            Assert.That(option.Instant, Is.True);
+            Assert.That(option.TargetId, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void TheInstantIsKeptWhenNothingPresses()
+        {
+            (PvpOption option, _) = Best(eCharacterClass.Healer,
+                Option(PvpActionKind.Mez, 2, controller: true, instant: true),
+                Option(PvpActionKind.Mez, 2, controller: true));
+            Assert.That(option.Instant, Is.False, "the target is not casting: the ten-minute instant is saved");
+            Assert.That(PvpActionChoice.IsController(eCharacterClass.Sorcerer, Weights), Is.True);
+            Assert.That(PvpActionChoice.IsController(eCharacterClass.Cleric, Weights), Is.False);
         }
 
         [Test]

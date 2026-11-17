@@ -15,6 +15,9 @@ namespace DOL.UnitTests
         [TestCase(eCharacterClass.Armsman, PvpRole.Assist)]
         [TestCase(eCharacterClass.Cabalist, PvpRole.Assist)]
         [TestCase(eCharacterClass.Minstrel, PvpRole.Assist)]
+        [TestCase(eCharacterClass.Paladin, PvpRole.Peel)]
+        [TestCase(eCharacterClass.Warrior, PvpRole.Peel)]
+        [TestCase(eCharacterClass.Hero, PvpRole.Peel)]
         public void RoleByClass(eCharacterClass characterClass, PvpRole expected)
         {
             Assert.That(PvpRoles.Of(characterClass), Is.EqualTo(expected));
@@ -26,25 +29,10 @@ namespace DOL.UnitTests
         [TestCase(PvpRole.Interrupt, 35, true)]
         [TestCase(PvpRole.Control, 10, true)]
         [TestCase(PvpRole.Heal, 5, false)]
+        [TestCase(PvpRole.Peel, 5, false)]
         public void ControllersAndInterruptersAssistOnlyWhenItIsCritical(PvpRole role, int health, bool expected)
         {
             Assert.That(PvpRoles.JoinsKill(role, health), Is.EqualTo(expected));
-        }
-
-        [Test]
-        public void TheInterrupterWorksOnACastingHealerThatIsNotTheKillTarget()
-        {
-            List<PvpInterruptView> enemies =
-            [
-                new(0, PvpBuffArchetype.Healer, Casting: true, Mezzed: false, Distance: 900),   // the kill target
-                new(1, PvpBuffArchetype.Melee, Casting: false, Mezzed: false, Distance: 300),
-                new(2, PvpBuffArchetype.Caster, Casting: true, Mezzed: false, Distance: 1200),
-                new(3, PvpBuffArchetype.Healer, Casting: false, Mezzed: false, Distance: 800),
-                new(4, PvpBuffArchetype.Healer, Casting: true, Mezzed: true, Distance: 500),
-            ];
-            Assert.That(PvpRoles.ChooseInterruptTarget(enemies, 0), Is.EqualTo(2), "casting now beats idle");
-            Assert.That(PvpRoles.ChooseInterruptTarget([enemies[0], enemies[1], enemies[3], enemies[4]], 0), Is.EqualTo(3));
-            Assert.That(PvpRoles.ChooseInterruptTarget([enemies[0], enemies[1], enemies[4]], 0), Is.EqualTo(-1), "a mezzed healer is left asleep");
         }
     }
 }

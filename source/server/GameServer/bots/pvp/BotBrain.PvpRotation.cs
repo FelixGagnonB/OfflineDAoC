@@ -19,6 +19,9 @@ namespace DOL.AI.Brain
         /// <summary>The group's called kill target, for every member (an interrupter's own aim is PvpAssignedTarget).</summary>
         public GameLiving PvpKillTarget { get; set; }
 
+        /// <summary>The enemy healer or caster this bot is to keep from casting (bots/pvp/PvpInterruptDuty.cs); null without one.</summary>
+        public GameLiving PvpDutyTarget { get; set; }
+
         private long _pvpNoActionRecordedTick, _pvpApproachTick;
         // The last cast this routine started, to notice one that was accepted and then never began.
         private Spell _pvpLastCast;
@@ -38,6 +41,7 @@ namespace DOL.AI.Brain
             PvpActionKind.MezArea => spell.SpellType == eSpellType.Mesmerize && spell.Radius > 0,
             PvpActionKind.Stun => spell.SpellType == eSpellType.Stun,
             PvpActionKind.CureMez => spell.SpellType == eSpellType.CureMezz,
+            PvpActionKind.Amnesia => spell.SpellType == eSpellType.Amnesia,
             _ => false,
         };
 
@@ -70,11 +74,40 @@ namespace DOL.AI.Brain
         private bool PvpFightIsOn() => PvpEnemies != null &&
             PvpEnemies.Any(enemy => enemy.IsAlive && Body.IsWithinRadius(enemy, PvpScrim.EngageRange));
 
+        /// <summary>
+        /// Walks into casting range of <paramref name="aim"/>, to a place apart from the group's
+        /// other healers and casters (bots/pvp/PvpSpacing.cs): everybody heading straight for the
+        /// same enemy is what put eight bots inside one area mez.
+        /// </summary>
+        private void PvpWalkIntoRange(GameLiving aim, Spell spell)
+        {
+            PvpSpreadWeights spread = PvpWeights.Current.Spread;
+            int range = (spell.Target == eSpellTarget.SELF || spell.Range <= 0 ? spell.Radius : spell.CalculateEffectiveRange(Body)) - spread.RangeMargin;
+            // In range already, so the trouble is something in the way; or spreading is off: straight at it.
+            if (spread.MinSpacing <= 0 || range <= 0 || Body.IsWithinRadius(aim, range))
+            {
+                Body.PathTo(new Vector3(aim.X, aim.Y, aim.Z), Body.MaxSpeed);
+                return;
+            }
+            List<Vector2> mates = Body.Group?.GetMembersInTheGroup()
+                .Where(member => member != Body && member.IsAlive && member is GameBot { PvpBuild: { } build } &&
+                                 PvpBuffPlan.ArchetypeOf(build.Class) != PvpBuffArchetype.Melee)
+                .Select(member => new Vector2(member.X, member.Y)).ToList() ?? [];
+            Vector2 point = PvpSpacing.ApproachPoint(new Vector2(Body.X, Body.Y), new Vector2(aim.X, aim.Y), range, mates, spread.MinSpacing);
+            var nav = PathfindingProvider.Instance;
+            // The place needs a height the navmesh knows, or no path is found.
+            Body.PathTo(nav.GetFloorBeneath(Body.CurrentZone, new Vector3(point.X, point.Y, 20_000), 20_000, nav.DefaultFilters)
+                is { } floor && floor.Z < 19_999 ? floor : new Vector3(point.X, point.Y, Body.Z), Body.MaxSpeed);
+        }
+
         private bool TryPvpRotation()
         {
-            if (PvpEnemies == null || BotBody?.IsPvpBot != true || Body.IsCasting || Body.IsIncapacitated ||
+            if (PvpEnemies == null || BotBody?.IsPvpBot != true || Body.IsIncapacitated ||
                 Body.castingComponent?.HasPendingSkillRequests == true)
                 return false;
+            // In the middle of a cast only an instant can be added, as a player does (owner, 2026-11-17:
+            // a Bard fires its amnesia while it casts its mez).
+            bool midCast = Body.IsCasting;
             var characterClass = (eCharacterClass)BotBody.CharacterClass.ID;
             PvpWeights weights = PvpWeights.Current;
             if (!PvpActionChoice.Covers(characterClass, weights))
@@ -84,7 +117,9 @@ namespace DOL.AI.Brain
             var blocked = new Dictionary<string, string>();
 
             // Choosing again while the last cast should still be running means it never began or was cut.
-            if (_pvpLastCast is { CastTime: > 0 } lost && GameLoop.GameLoopTime - _pvpLastCastTick < Math.Min(lost.CastTime, 1_500))
+            // Half the listed cast time: dexterity shortens a cast to about 60% of it, and the two-second
+            // nearsights that finished in 1.2 to 1.4 seconds were being counted as lost (2026-11-17).
+            if (!midCast && _pvpLastCast is { CastTime: > 0 } lost && GameLoop.GameLoopTime - _pvpLastCastTick < Math.Min(lost.CastTime / 2, 1_500))
             {
                 GameLiving aimed = _pvpLastCastTarget;
                 int reach = lost.Target == eSpellTarget.SELF || lost.Range <= 0 ? lost.Radius : lost.CalculateEffectiveRange(Body);
@@ -97,24 +132,32 @@ namespace DOL.AI.Brain
                     $"may attack {aimed != null && GameServer.ServerRules.IsAllowedToAttack(Body, aimed, true)}, " +
                     $"in front {aimed != null && Body.IsObjectInFront(aimed, 180)}";
             }
-            _pvpLastCast = null;
+            if (!midCast)
+                _pvpLastCast = null;
 
-            // The best castable spell of each kind this class uses.
+            // The best castable spell of each kind this class uses, and the best instant: an instant
+            // is an option of its own, because it can do what a spell with a cast time cannot.
             List<Spell> known = (Body.HarmfulSpells ?? []).Concat(Body.InstantHarmfulSpells ?? [])
                 .Concat(BotBody.CrowdControlSpells ?? []).Concat(BotBody.InstantCrowdControlSpells ?? [])
                 .Append(BotBody.CureMezz)
+                // The old brain leaves amnesia out of its lists on purpose (it does nothing to a monster's cast).
+                .Concat(Body.Spells?.Where(spell => spell?.SpellType == eSpellType.Amnesia) ?? [])
                 .Where(spell => spell != null).DistinctBy(spell => spell.ID).ToList();
             var spells = new Dictionary<PvpActionKind, Spell>();
+            var instants = new Dictionary<PvpActionKind, Spell>();
             foreach (PvpActionKind kind in PvpActionChoice.KindsFor(characterClass, weights))
             {
                 List<Spell> ofKind = known.Where(spell => IsPvpSpellOfKind(spell, kind) && spell.Level <= Body.Level)
                     .OrderByDescending(spell => spell.Level).ToList();
-                Spell ready = ofKind.FirstOrDefault(spell => Body.GetSkillDisabledDuration(spell) == 0 &&
-                    Body.Mana >= BotBody.PowerCost(spell) &&
-                    (spell.CastTime == 0 || spell.Uninterruptible || !Body.IsBeingInterrupted));
-                if (ready != null)
-                    spells[kind] = ready;
-                else
+                bool Ready(Spell spell) => Body.GetSkillDisabledDuration(spell) == 0 && Body.Mana >= BotBody.PowerCost(spell);
+                Spell cast = midCast ? null : ofKind.FirstOrDefault(spell => spell.CastTime > 0 && Ready(spell) &&
+                    (spell.Uninterruptible || !Body.IsBeingInterrupted));
+                Spell instant = ofKind.FirstOrDefault(spell => spell.CastTime == 0 && Ready(spell));
+                if (cast != null)
+                    spells[kind] = cast;
+                if (instant != null)
+                    instants[kind] = instant;
+                if (cast == null && instant == null)
                     blocked[kind.ToString()] = ofKind.Count == 0 ? "no such spell"
                         : ofKind.All(spell => Body.Mana < BotBody.PowerCost(spell)) ? "no power"
                         : Body.IsBeingInterrupted ? "interrupted" : "recast timer";
@@ -128,12 +171,13 @@ namespace DOL.AI.Brain
             var options = new List<PvpOption>();
             var sight = new Dictionary<GameBot, bool>();
             // Whom each area mez would put to sleep, by option (kind and primary target).
-            var caughtBy = new Dictionary<(PvpActionKind, int), List<GameBot>>();
+            var caughtBy = new Dictionary<(PvpActionKind, int, bool), List<GameBot>>();
             // Enemies first, then the mezzed members of this bot's own group (for cure mez); an option's target is an index here.
             List<GameLiving> friends = Body.Group?.GetMembersInTheGroup()
                 .Where(member => member != Body && member.IsAlive && member.IsMezzed).ToList() ?? [];
             List<GameLiving> targets = enemies.Cast<GameLiving>().Concat(friends).ToList();
-            foreach ((PvpActionKind kind, Spell spell) in spells)
+            foreach ((PvpActionKind kind, Spell spell, bool instant) in spells.Select(pair => (pair.Key, pair.Value, false))
+                         .Concat(instants.Select(pair => (pair.Key, pair.Value, true))))
             {
                 bool mez = kind is PvpActionKind.Mez or PvpActionKind.MezArea;
                 // A spell centred on the caster reaches as far as its radius.
@@ -155,7 +199,7 @@ namespace DOL.AI.Brain
                         };
                         options.Add(new PvpOption(kind, enemies.Count + friend, PvpBuffPlan.ArchetypeOf((eCharacterClass)classId), false, false,
                             member.HealthPercent, false, false, false, true, Body.ManaPercent, cost,
-                            Math.Max(away > range ? away - range + 50 : 0, visible ? 0 : 300)));
+                            Math.Max(away > range ? away - range + 50 : 0, visible ? 0 : 300)) { Instant = instant });
                     }
                     continue;
                 }
@@ -198,13 +242,22 @@ namespace DOL.AI.Brain
                         GameObject centre = aroundCaster ? Body : enemy;
                         List<GameBot> inside = enemies.Where(other => other.IsWithinRadius(centre, spell.Radius)).ToList();
                         List<GameBot> asleep = inside.Where(other => other != kill && !PvpMezzedOrImmune(other) && !BotPvpCrowdControl.Protected(Body, other)).ToList();
-                        caughtBy[(kind, id)] = asleep;
+                        caughtBy[(kind, id, instant)] = asleep;
                         caught = asleep.Count;
                         catchesKill = kill != null && inside.Contains(kill) && !PvpMezzedOrImmune(kill);
                     }
+                    int wakes = 0;
+                    if (kind == PvpActionKind.Amnesia)
+                    {
+                        // Counted: the enemies in it that would lose a cast, and the sleepers it would wake.
+                        List<GameBot> inside = spell.Radius > 0 ? enemies.Where(other => other.IsWithinRadius(enemy, spell.Radius)).ToList() : [enemy];
+                        caught = inside.Count(other => !other.IsMezzed && other.IsCasting && other.CurrentSpellHandler?.Spell.InstrumentRequirement == 0);
+                        wakes = inside.Count(other => other.IsMezzed && other != kill);
+                    }
                     options.Add(new PvpOption(kind, id, PvpBuffPlan.ArchetypeOf(enemy.PvpBuild.Class), enemy == kill,
-                        enemy == PvpAssignedTarget, enemy.HealthPercent, hasEffect,
-                        enemy.IsCasting, enemy.IsBeingInterrupted, !mez && enemy.IsMezzed, Body.ManaPercent, cost, walk, caught, catchesKill));
+                        enemy == PvpAssignedTarget || enemy == PvpDutyTarget, enemy.HealthPercent, hasEffect,
+                        enemy.IsCasting, enemy.IsBeingInterrupted, !mez && enemy.IsMezzed, Body.ManaPercent, cost, walk, caught, catchesKill, wakes,
+                        instant, PvpActionChoice.IsController(enemy.PvpBuild.Class, weights)));
                 }
             }
             if (tooFar > 0)
@@ -221,8 +274,11 @@ namespace DOL.AI.Brain
 
             foreach ((PvpOption Option, int Score) scored in ranked.TakeWhile(scored => scored.Score >= weights.MinScore))
             {
-                Spell spell = spells[scored.Option.Kind];
+                Spell spell = (scored.Option.Instant ? instants : spells)[scored.Option.Kind];
                 GameLiving aim = targets[scored.Option.TargetId];
+                // No walking in the middle of a cast: it would end the cast.
+                if (midCast && scored.Option.Short > 0)
+                    continue;
                 if (scored.Option.Short > 0)
                 {
                     // The best thing to do is out of reach: walk toward it. The order is renewed
@@ -230,7 +286,7 @@ namespace DOL.AI.Brain
                     if (GameLoop.GameLoopTime - _pvpApproachTick >= 1_000 || !Body.IsMoving)
                     {
                         _pvpApproachTick = GameLoop.GameLoopTime;
-                        Body.PathTo(new Vector3(aim.X, aim.Y, aim.Z), Body.MaxSpeed);
+                        PvpWalkIntoRange(aim, spell);
                         PvpRecorder.Decision(BotBody, new { kind = "Approach", spell = spell.Name, d = aim.Name, score = scored.Score },
                             ranked.Take(5).Select(Describe), blocked.Count > 0 ? blocked : null);
                     }
@@ -257,11 +313,19 @@ namespace DOL.AI.Brain
                 }
                 if (Body.CastSpell(spell, m_mobSpellLine))
                 {
-                    (_pvpLastCast, _pvpLastCastTarget, _pvpLastCastTick) = (spell, aim, GameLoop.GameLoopTime);
-                    // A healer's attack spell is otherwise stopped by its support routine.
-                    _pvpControlSpellId = spell.ID;
-                    _pvpControlCastUntil = GameLoop.GameLoopTime + spell.CastTime + 2_000;
-                    if (caughtBy.TryGetValue((scored.Option.Kind, scored.Option.TargetId), out List<GameBot> asleep))
+                    if (midCast)
+                    {
+                        // The running cast keeps its own target and its own record.
+                        Body.TargetObject = previous;
+                    }
+                    else
+                    {
+                        (_pvpLastCast, _pvpLastCastTarget, _pvpLastCastTick) = (spell, aim, GameLoop.GameLoopTime);
+                        // A healer's attack spell is otherwise stopped by its support routine.
+                        _pvpControlSpellId = spell.ID;
+                        _pvpControlCastUntil = GameLoop.GameLoopTime + spell.CastTime + 2_000;
+                    }
+                    if (caughtBy.TryGetValue((scored.Option.Kind, scored.Option.TargetId, scored.Option.Instant), out List<GameBot> asleep))
                     {
                         foreach (GameBot other in asleep)
                             BotPvpCrowdControl.Reserve(BotBody, other, spell.CastTime + 2_000);
@@ -270,6 +334,7 @@ namespace DOL.AI.Brain
                         {
                             kind = scored.Option.Kind.ToString(), spell = spell.Name, d = aim.Name, score = scored.Score,
                             caught = scored.Option.Kind == PvpActionKind.MezArea ? scored.Option.Caught : (int?)null,
+                            instant = scored.Option.Instant ? true : (bool?)null, midCast = midCast ? true : (bool?)null,
                         },
                         ranked.Take(5).Select(Describe), blocked.Count > 0 ? blocked : null);
                     return true;
@@ -282,8 +347,8 @@ namespace DOL.AI.Brain
                 blocked["cast refused"] = spell.Name;
             }
 
-            // Nothing cast. Say why, but not on every think tick.
-            if (GameLoop.GameLoopTime - _pvpNoActionRecordedTick >= 2_000)
+            // Nothing cast. Say why, but not on every think tick, and not for a look taken in the middle of a cast.
+            if (!midCast && GameLoop.GameLoopTime - _pvpNoActionRecordedTick >= 2_000)
             {
                 _pvpNoActionRecordedTick = GameLoop.GameLoopTime;
                 if (ranked.Count > 0 && ranked[0].Score < weights.MinScore)

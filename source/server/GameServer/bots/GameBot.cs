@@ -1096,6 +1096,12 @@ namespace DOL.GS
                 return 0;
             }
 
+            // An 8v8 bot stays down where it fell until a groupmate raises it or the match clears the
+            // arena. Released, it stood up alive at a bind point after 20 seconds: no group was ever
+            // wiped, and the survivors counted at the time limit were wrong (found 2026-11-17).
+            if (IsPvpBot)
+                return 3000;
+
             long deadFor = GameLoop.GameLoopTime - _deathTick;
             AutonomousBotGroupCoordinator.PveCorpseDisposition groupDisposition =
                 AutonomousBotGroupCoordinator.PveCorpseRecovery(this);
@@ -2715,7 +2721,7 @@ namespace DOL.GS
 
             if (spell == null || !CanAffordConcentration(spell) || Mana < BotSpellPower.Cost(this, spell, line) ||
                 castingComponent.HasPendingSkillRequests ||
-                BotSpellPower.IsOffensiveCaster(this) && castingComponent.IsCasting)
+                BotSpellPower.IsOffensiveCaster(this) && castingComponent.IsCasting && !(IsPvpBot && spell.IsInstantCast))
             {
                 CabalistRestDiagnostics.Attempt(this, spell, false);
                 return false;

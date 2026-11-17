@@ -14,9 +14,9 @@ namespace DOL.GS
         Interrupt,
         /// <summary>Keeps the group alive.</summary>
         Heal,
+        /// <summary>A shield fighter: guards a healer or caster and goes for the enemies on them (bots/pvp/PvpPeel.cs).</summary>
+        Peel,
     }
-
-    public readonly record struct PvpInterruptView(int Id, PvpBuffArchetype Archetype, bool Casting, bool Mezzed, int Distance);
 
     /// <summary>
     /// Roles by class, and what the two non-assist roles aim at. The owner's rule (2026-11-16):
@@ -27,7 +27,6 @@ namespace DOL.GS
     {
         /// <summary>A controller or interrupter joins the kill when the called target is this low.</summary>
         public const int CriticalHealthPercent = 35;
-        public const int InterruptRange = 2_500;
 
         public static PvpRole Of(eCharacterClass characterClass) => characterClass switch
         {
@@ -35,24 +34,13 @@ namespace DOL.GS
                 eCharacterClass.Friar => PvpRole.Heal,
             eCharacterClass.Sorcerer or eCharacterClass.Bard => PvpRole.Control,
             eCharacterClass.Theurgist => PvpRole.Interrupt,
+            // The groups' shield fighters. An Armsman with a polearm carries no shield and assists.
+            eCharacterClass.Paladin or eCharacterClass.Warrior or eCharacterClass.Hero => PvpRole.Peel,
             _ => PvpRole.Assist,
         };
 
         /// <summary>True when a controller or interrupter should drop its own job and help kill.</summary>
         public static bool JoinsKill(PvpRole role, int killTargetHealthPercent) =>
             role == PvpRole.Assist || role is PvpRole.Control or PvpRole.Interrupt && killTargetHealthPercent <= CriticalHealthPercent;
-
-        /// <summary>
-        /// Whom an interrupter works on: a healer or caster that is not the kill target and not
-        /// mezzed (its pets would wake it). One that is casting right now comes first, healers
-        /// before casters, near before far. -1 when there is nobody.
-        /// </summary>
-        public static int ChooseInterruptTarget(IReadOnlyList<PvpInterruptView> enemies, int killTargetId) =>
-            enemies.Where(enemy => enemy.Id != killTargetId && !enemy.Mezzed && enemy.Distance <= InterruptRange &&
-                                   enemy.Archetype != PvpBuffArchetype.Melee)
-                .OrderByDescending(enemy => enemy.Casting)
-                .ThenByDescending(enemy => enemy.Archetype == PvpBuffArchetype.Healer)
-                .ThenBy(enemy => enemy.Distance)
-                .Select(enemy => enemy.Id).DefaultIfEmpty(-1).First();
     }
 }
