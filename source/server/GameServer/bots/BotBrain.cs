@@ -3859,7 +3859,7 @@ namespace DOL.AI.Brain
                 // A caster whose casts are scored does not fall back to the old random pick (it had the
                 // Sorcerer spend its power on stat debuffs): with nothing worth casting it keeps its power.
                 if (PvpEnemies != null && BotBody?.IsPvpBot == true &&
-                    PvpActionChoice.Covers((eCharacterClass)BotBody.CharacterClass.ID, PvpWeights.Current))
+                    PvpActionChoice.Covers((eCharacterClass)BotBody.CharacterClass.ID, PvpWeights.Of(BotBody)))
                     return false;
                 if (TryBardPveAddMez()) return true;
                 if (TryShamanPveAddRoot()) return true;
@@ -5104,6 +5104,10 @@ namespace DOL.AI.Brain
                     CheckHealSpell(BotBody.HealInstant) ? BotBody.HealInstant : null;
             if (spellToCast != null && spellTarget != null)
             {
+                // An 8v8 group's healers share out their patients (bots/pvp/PvpHealPlan.cs).
+                GameLiving pickedAlone = spellTarget;
+                if (PvpSquad != null && (spellTarget = PvpSquad.AssignHeal(BotBody, spellToCast, spellTarget)) == null)
+                    return isCastingHeal;
                 spellTarget = BotGroupSupport.ReserveHeal(BotBody, spellToCast, spellTarget);
                 if (spellTarget == null) return isCastingHeal;
                 if (!BotBody.IsWithinRadius(spellTarget, BotBody.castingComponent.CalculateSpellRange(spellToCast)))
@@ -5132,6 +5136,15 @@ namespace DOL.AI.Brain
                 }
                 else
                 {
+                    // Every heal and cure of an 8v8 bot is a recorded decision (M5.7).
+                    if (BotBody.IsPvpBot)
+                        PvpRecorder.Decision(BotBody, new
+                        {
+                            kind = spellToCast.SpellType == eSpellType.CureMezz ? "CureMez" : spellToCast.IsHealing ? "Heal" : "Cure",
+                            spell = spellToCast.Name, d = spellTarget.Name, hp = spellTarget.HealthPercent, score = 100 - spellTarget.HealthPercent,
+                            // Another healer's heal was already on its way to the one this healer had picked.
+                            moved = spellTarget != pickedAlone ? true : (bool?)null,
+                        }, [], null);
                     if (spellToCast.IsInstantCast)
                     {
                         BotBody.TargetObject = oldTarget;

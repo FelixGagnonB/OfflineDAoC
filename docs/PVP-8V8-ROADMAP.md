@@ -320,7 +320,74 @@ by the two Druids in two matches).
   Done as control-channel commands; no in-game command yet.
 - [x] **M2.4** (S) Simple roaming along the waypoints with no knowledge of the enemy's position.
   Good enough to produce contact; M8 replaces it.
-- [ ] **M2.5** (M) Several arenas at once in different boxes, since game time cannot be sped up.
+- [x] **M2.5** (M) Several arenas at once in different boxes, since game time cannot be sped up.
+  Done 2026-11-17, see the note below.
+
+*Parallel arenas, 2026-11-17 (owner: four hours for a comparison base is far too long).* Measured
+first: of 203 seconds a match, 55 were buffing, 29 walking to contact and 118 fighting, and
+matches ran one at a time on a machine with 12 cores. Now:
+- `PvpScrim` is a manager and `PvpScrimRun` is one series; several run at once, each in its own
+  lane with its own recording (`PvpRecording`), and a match is removed without touching the
+  others. `scrim-start` takes `Pairs=a:b,c:d`, `Copies` and `Lanes=1`; `scrim-status` answers
+  with one entry per series.
+- Six lanes in the Emain box, each 6,000 units long, no two closer than 6,000 (nothing a bot
+  does reaches 4,500). They were chosen from a scan of the box (`scrim-scan`): three of the six
+  first drawn on paper crossed ground that is not open. Four run north to south on nearly level
+  ground (it varies by 48 to 123 units along them); two run west to east over hills (425 and
+  451) and are used only for a fifth and sixth series. `scrim-lanes` checks them before a run.
+- Groups start 6,000 apart, already in their travelling formation; contact comes after 6 to 9
+  seconds instead of 29.
+- `source/tools/pvp_batch.py` does a whole run: weights made explicit, server up, lanes
+  checked, all series, server down, analyzer on every batch. It replaces the runner scripts
+  that lived in a temporary folder.
+Measured: 12 matches (three pairings, four each) in 13.7 minutes where they took 40; 24 matches
+in six lanes in 13.3 minutes. No lane saw another (no damage from outside a match), no bot was
+left behind, no server error, server memory 5.7 to 5.8 GB. Results over those 36 matches agree
+with the single-arena runs before them: Albion 7 to 5 over Midgard, Hibernia 8 to 4 over
+Albion, Hibernia 10 to 2 over Midgard. Teams are no closer together at contact than in the big
+arena (average distance between members 876 against 684), but openings that put six or more to
+sleep were seen 7 times in 72 against 0 in 24; too few to say whether level ground helps the
+long-range mezzer or it is chance.
+*Owner, 2026-11-17:* an area mez catching five or more in about one opening in ten can be
+valid; it depends on the angle of contact and on whether the enemy group was aware of the
+contact. Accepted as it is. In a lane the two groups always meet head-on and both know: contact
+from the side or behind, and a group caught unaware, are not played yet (M7 and M8).
+*Owner, later the same day:* then, head-on and aware, one in ten is high: there is no reason for
+a team to get five to seven mezzed on contact.
+*Looked at mez by mez, 2026-11-17:* it never was one spell. "Asleep ten seconds after contact"
+adds up every mez of those ten seconds. In the 36 lane matches no area mez in the first ten
+seconds put more than two to sleep (87 casts: 65 caught one, 22 caught two); the same holds for
+the 12 big-arena matches with keeping apart (27 casts). Before keeping apart, 9 of 100 opening
+area mezzes caught three to five; the largest was five, so the earlier note that one mez caught
+all eight was wrong (that figure, too, was everybody asleep a moment later). The openings with
+five to eight asleep are five to eight separate mezzes landing one after another: a Bard got six
+off in ten seconds, the two Healers and the Skald seven, the Sorcerer and Minstrel six or
+seven, while nothing interrupted them and nobody was woken. So keeping apart does its job, and
+what is missing is the answer to a mezzer that is left to cast: its interrupter going to it
+first, and waking those it puts to sleep. The analyzer now prints, per team, the mezzes that
+landed in the first ten seconds and the most any one area mez caught.
+Quick buffing, tried and taken out again the same day: with a bot's own buffs taking a quarter
+of a second each during the ready check, every bot started with the same buffs (after a first
+version that ended the check too early was caught by the comparison), but the check took 57
+seconds instead of 60 to 67 for Albion and 37 instead of 40 for the others. The wait is the pace
+at which the old brain puts up buffs, chants and songs, one every few seconds, not their cast
+times. The "ready" line of a recording now lists every bot's buffs and pet; that was kept.
+Shortening the ready check (55 of about 175 seconds a match) is still open.
+
+*New against old in the same match, built 2026-11-17:* a second set of weights
+(`pvp-weights-old.json`, `PvpWeights.Reference`) can be given to one team of each match
+(`scrim-start Versus=1`, `GameBot.PvpWeightsSet`). With two lanes per pairing, the second with
+the sets the other way round, every realm fights with both sets against each opponent, and the
+count that is left is new against old. `pvp_batch.py --weights new.json --versus old.json` (or
+`builtin`) runs it and prints how many matches the new set won, so a change switched by a weight
+needs no base run of its own. First use: `Interrupt.OnController` (an interrupter goes to the
+enemy's mezzer first; 0 in the built-in weights until measured).
+Results, 24 matches each: the weight at 40 won 14 to 10; with a guard added (no interrupter for
+an enemy the team's own mezzer is putting to sleep, which wakes it and leaves it immune) it lost
+8 to 16; and a control run with the same weights on both sides came out 10 to 14. So a
+24-match comparison moves by four either way on chance alone, the weight shows no effect that
+size, and it stays at 0. A comparison needs about a hundred matches to show a difference of
+ten points of win rate, or a change large enough to see in 24.
 
 **Exit check:** 20 matches run unattended with no stuck bot, no leftover bot and no server error.
 Passed 2026-11-17 (four batches of five, see the progress note).
@@ -495,25 +562,73 @@ next piece is a priority list per role (M6.4): mez and stun for Control, pets fo
   cast on it; after an interrupt it cannot cast for a few seconds (this server's setting is
   `SPELL_INTERRUPT_DURATION`, and the bot can read its own remaining time).
 
-- [ ] **M5.1** (M) A dedicated brain class for 8v8 bots and a squad object with a shared
+- [x] **M5.1** (M) A dedicated brain class for 8v8 bots and a squad object with a shared
   blackboard, ticked once per group before its members think.
-- [ ] **M5.2** (M) Perception: enemies are known only when in view range and in sight; stealth
+  Squad object done 2026-11-17 (`bots/pvp/PvpSquad.cs`): what the group has decided (kill
+  target, interrupt duty, guard and peel, keeping apart, heal assignment, what it sees) lives
+  there and no longer in the scrim loop, so the owner's own group can have one. A separate
+  brain class was not made: the 8v8 behaviour stays in partial files of `BotBrain` under
+  `bots/pvp`, switched on `IsPvpBot`. Splitting the class would mean opening most of its
+  private members for no change in behaviour; revisit if the two kinds of bot start to get in
+  each other's way.
+- [x] **M5.2** (M) Perception: enemies are known only when in view range and in sight; stealth
   respected; last known positions remembered and aged; enemy class and current cast visible.
-- [ ] **M5.3** (M) Roles from class and spec: main tank, peeler, assist damage, caster damage,
-  primary control, healer, speed and support.
+  First version 2026-11-17 (`PvpSquad.Known`): an enemy is known while a living member has it
+  within 4,500 units with open ground between, and for ten seconds after. The group decides,
+  and its members score, only about known enemies. Not done: stealth (the main groups have no
+  stealther) and acting on a last known position.
+- [x] **M5.3** (M) Roles from class and spec: main tank, peeler, assist damage, caster damage,
+  primary control, healer, speed and support. `PvpRoles` (assist, control, interrupt, heal,
+  peel) and the interrupt means per class in the weights.
 - [ ] **M5.4** (L) Class kits: a data table tagging each spell, style and ability with its
   function (area mez, stun, root, snare, disease, interrupt, guard and so on). Main-group classes
   first. Replaces the scattered class switches for 8v8 bots.
-- [ ] **M5.5** (M) Kill-target calling: one target per group, chosen by how killable it is, with
-  rules for when to swap.
-- [ ] **M5.6** (M) Heal assignment across the group's healers, on top of the existing triage, so
+  Partly there: spells are tagged by kind for the scored choice (`PvpActionKind`,
+  `IsPvpSpellOfKind`) and each class's leanings are data (`PvpWeights.ClassBase`). Styles and
+  abilities are not tagged, and the old brain's class switches still decide for fighters. The
+  rest is done with M6.4, when fighters get a scored choice and need it.
+- [x] **M5.5** (M) Kill-target calling: one target per group, chosen by how killable it is, with
+  rules for when to swap. `PvpKillTarget`; the call is recorded (line type `call`).
+- [x] **M5.6** (M) Heal assignment across the group's healers, on top of the existing triage, so
   two healers do not land on the same patient while another dies.
-- [ ] **M5.7** (S) Every decision written to the recorder with its options, scores and reason.
-  Done for caster spell choice (2026-11-17, recorder format 2, line type `dec`); the kill-target
-  call, crowd control, heals and melee are not recorded as decisions yet.
+  Done 2026-11-17 (`PvpHealPlan`, `PvpSquad.AssignHeal`): a heal already being cast on a member
+  counts as landed, so the next healer goes to whoever is then worst off, or has its turn free
+  when everyone is covered. Weights in `PvpWeights.Heal`.
+- [x] **M5.7** (S) Every decision written to the recorder with its options, scores and reason.
+  Recorded: caster spell choice, guard, peel, interrupt duty, steps apart, Purge, heals and
+  cures (with the patient's health and whether the heal was sent elsewhere), the kill-target
+  call, and the target of each fighter on the kill. Not recorded as decisions: the mezzes of the
+  classes still on the old crowd-control routine (Minstrel, Skald; their casts are recorded)
+  and the choice of melee style (the style used is in every hit).
 
-**Exit check:** wins at least 70% of mirrored matches against the M4 baseline; focus-fire
-coherence meets its target.
+**Exit check** (reworded 2026-11-17 with the owner: no base against the old brain is kept, so a
+win rate against it means nothing): every role decides through the squad or the scored choice
+and what it decides is recorded; a reference base with this build is on record (ten matches a
+pairing at rank 1 and at rank 5, no server error, no bot left behind, no damage from outside a
+match). Behaviour is then judged and tuned in M6, one question at a time, against that base.
+
+**Passed 2026-11-17.** *Reference base, M5 build* (`pvp_batch.py Matches=5 Copies=2`, six lanes,
+ten matches a pairing, built-in weights; 17.1 and 16.7 minutes; all 60 matches ended on a wipe
+after 71 to 178 seconds; no server error, no bot left behind, no damage from outside a match;
+3,193 automated tests pass on the build):
+| Pairing | Rank 1 | Rank 5 (Purge and Group Purge) |
+|---|---|---|
+| Albion against Midgard | Midgard 7 to 3 | Albion 6 to 4 |
+| Albion against Hibernia | Albion 6 to 4 | Albion 8 to 2 |
+| Midgard against Hibernia | Hibernia 8 to 2 | Hibernia 7 to 3 |
+Per team and match at rank 1: 1.7 to 4.7 members asleep ten seconds after contact, from 1.8 to
+4.9 mezzes; no area mez put more than two to sleep; teams mezzed 12 to 28% of the fight; 57 to
+90 attacks landing on healers and casters; 3.7 to 8.1 kill-target calls; 1.4 to 13.1 heals sent
+to another patient because one was already on its way (Midgard's Healers and Shaman most).
+At rank 5 nobody is asleep ten seconds after contact in 55 of 60 team openings although 2.5 to
+3.7 mezzes land: they are purged (every match starts with Purge ready, see M6). Teams are mezzed
+0 to 8% of the fight and 87 to 153 attacks a match land on healers and casters.
+Read with care: ten matches a pairing still moves by two or three on chance (a control run of
+24 matches with the same weights on both sides came out 10 to 14).
+
+*Owner, 2026-11-17, for M6:* it is still surprising that with the Pacification Healer's instant
+mez and the Bard's instant amnesia the Sorcerer wins the mez fight on first contact so often.
+To be looked at closely in M6.
 
 ## M6. Control, interrupts and protection
 
@@ -794,6 +909,18 @@ The Group Purge handler was written for players only and now serves an 8v8 bot. 
 `PvpWeights.Purge`; both uses are recorded as decisions. Not yet deployed or measured; it needs
 a run at a rank where Purge exists (`RealmRank=5`).
 
+*Purge measured at rank 5, 2026-11-17* (four matches per pairing, all on a wipe, no server
+error, no bot left behind): Albion 3 to 1 over Hibernia, Albion 3 to 1 over Midgard, Midgard
+and Hibernia 2 each. Purge was used 3 to 7 times a match per team, Group Purge 0.2 to 0.5 times
+(members purge themselves before three are asleep, the Group Purge threshold). The first mez no
+longer decides anything: nobody was asleep ten seconds after contact in 11 of 12 matches, and
+teams were mezzed 1 to 4% of the fight (Midgard 14% against Albion) where rank 1 had 10 to 30%.
+Fights last longer (115 to 227 seconds) and twice as many attacks land on healers and casters
+(90 to 166 a match).
+Open point for the owner: every match starts with fresh bots, so Purge is always ready. In
+play it has a 30-minute timer and most fights are fought without it. A scrim should be able to
+start with Purge ready, spent, or ready for some members only.
+
 *Why the bots bunched up at contact, found 2026-11-17:* the two-row formation holds only while
 the group travels. A bot gets its target at 3,000 to 3,500 units, the formation orders stop for
 it, and it walks straight at that target; eight bots walking at the same few enemies converge,
@@ -838,6 +965,14 @@ Sorcerer's group holding at range, healers stepping back on incoming.
 groups play correctly as well.
 
 ## M9. The owner's group
+
+*Owner, 2026-11-17:* "I am by no means an 8v8 expert; I am going from memory." Once the owner can
+play, every one of their fights is to be recorded, and the recordings and the analyzer used both
+to improve the bots and to give the owner insight into their own play. Needed for that: the
+recorder taking a human member (today a team is bots only), and a report written for the player
+(time spent mezzed or interrupted, what the group's scored choice would have done in the same
+spot, what the enemy did to them). The owner also remembers a captioned video explaining the
+basics of an 8v8 fight and will look for it: an outside reference to check the bots against.
 
 - [ ] **M9.1** (M) A lasting companion roster built around the owner's class, earning realm points
   with the owner.

@@ -84,7 +84,7 @@ namespace DOL.GS
                 : (eCharacterClass)((member as IGamePlayer)?.CharacterClass?.ID ?? 0);
             return new PvpPurgeView(member.IsMezzed, member.IsStunned,
                 member.effectListComponent.ContainsEffectForEffectType(eEffect.Nearsight), (int)(left / 1000),
-                PvpBuffPlan.ArchetypeOf(characterClass), PvpActionChoice.IsController(characterClass, PvpWeights.Current));
+                PvpBuffPlan.ArchetypeOf(characterClass), PvpActionChoice.IsController(characterClass, PvpWeights.Of(member as GameBot)));
         }
 
         private static List<GameLiving> InReach(GameBot bot, int range) =>
@@ -99,7 +99,7 @@ namespace DOL.GS
             if (bot.Brain is not AI.Brain.BotBrain { PvpEnemies: { } enemies } ||
                 !enemies.Any(enemy => enemy.IsAlive && bot.IsWithinRadius(enemy, PvpScrim.EngageRange)))
                 return false;
-            PvpPurgeWeights weights = PvpWeights.Current.Purge;
+            PvpPurgeWeights weights = PvpWeights.Of(bot).Purge;
             int score, needed;
             if (key == GroupPurgeKey)
             {

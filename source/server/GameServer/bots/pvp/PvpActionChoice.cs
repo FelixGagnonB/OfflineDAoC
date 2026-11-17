@@ -151,30 +151,54 @@ namespace DOL.GS
         /// <summary>When Purge and Group Purge are worth using.</summary>
         public PvpPurgeWeights Purge { get; set; } = new();
 
+        /// <summary>How the group's healers share out their patients.</summary>
+        public PvpHealWeights Heal { get; set; } = new();
+
+        public const string ReferenceFileName = "pvp-weights-old.json";
+
         public static PvpWeights Current { get; private set; } = new();
 
-        /// <summary>Reads the weights file beside the server, if there is one. Returns what was loaded, or why not.</summary>
+        /// <summary>
+        /// The set to measure <see cref="Current"/> against, from <c>pvp-weights-old.json</c> beside
+        /// the server; null without that file. In a comparison one team of a match fights with
+        /// each set, so every match is a direct result of new against old.
+        /// </summary>
+        public static PvpWeights Reference { get; private set; }
+
+        /// <summary>The weights a bot fights with: its team's set in a comparison, otherwise <see cref="Current"/>.</summary>
+        public static PvpWeights Of(GameBot bot) => bot?.PvpWeightsSet ?? Current;
+
+        /// <summary>Reads the weights files beside the server, if there are any. Returns what was loaded, or why not.</summary>
         public static string Reload(string folder)
         {
-            string path = Path.Combine(folder, FileName);
-            if (!File.Exists(path))
+            (PvpWeights current, string first) = Read(Path.Combine(folder, FileName));
+            Current = current ?? new PvpWeights();
+            string old = Path.Combine(folder, ReferenceFileName);
+            if (!File.Exists(old))
             {
-                Current = new PvpWeights();
-                return "defaults";
+                Reference = null;
+                return first;
             }
+            (PvpWeights reference, string second) = Read(old);
+            Reference = reference;
+            return $"{first}; compared against {second}";
+        }
+
+        private static (PvpWeights Weights, string Source) Read(string path)
+        {
+            if (!File.Exists(path))
+                return (null, "defaults");
             try
             {
-                PvpWeights loaded = JsonSerializer.Deserialize<PvpWeights>(File.ReadAllText(path));
+                PvpWeights loaded = JsonSerializer.Deserialize<PvpWeights>(File.ReadAllText(path)) ?? new PvpWeights();
                 // A class the file does not mention keeps its built-in leaning.
                 foreach ((string name, Dictionary<string, int> kinds) in new PvpWeights().ClassBase)
                     loaded.ClassBase.TryAdd(name, kinds);
-                Current = loaded;
-                return path;
+                return (loaded, path);
             }
             catch (Exception exception)
             {
-                Current = new PvpWeights();
-                return $"defaults ({FileName} could not be read: {exception.Message})";
+                return (null, $"defaults ({Path.GetFileName(path)} could not be read: {exception.Message})");
             }
         }
     }

@@ -19,6 +19,9 @@ namespace DOL.AI.Brain
         /// <summary>The group's called kill target, for every member (an interrupter's own aim is PvpAssignedTarget).</summary>
         public GameLiving PvpKillTarget { get; set; }
 
+        /// <summary>The squad this bot belongs to (bots/pvp/PvpSquad.cs); null without a squad brain.</summary>
+        public PvpSquad PvpSquad { get; set; }
+
         /// <summary>The enemy healer or caster this bot is to keep from casting (bots/pvp/PvpInterruptDuty.cs); null without one.</summary>
         public GameLiving PvpDutyTarget { get; set; }
 
@@ -53,7 +56,7 @@ namespace DOL.AI.Brain
 
         /// <summary>True when this class's mez and stun are chosen by score here, not by the old crowd-control routine.</summary>
         private bool PvpCrowdControlIsScored() => PvpEnemies != null && BotBody?.IsPvpBot == true &&
-            PvpActionChoice.KindsFor((eCharacterClass)BotBody.CharacterClass.ID, PvpWeights.Current)
+            PvpActionChoice.KindsFor((eCharacterClass)BotBody.CharacterClass.ID, PvpWeights.Of(BotBody))
                 .Any(kind => kind is PvpActionKind.Mez or PvpActionKind.MezArea or PvpActionKind.Stun);
 
         /// <summary>Whom to wake first, for the healing routine's cure mez; 0 for everyone outside an 8v8 group.</summary>
@@ -61,7 +64,7 @@ namespace DOL.AI.Brain
         {
             if (BotBody?.IsPvpBot != true || member is not GameBot { PvpBuild: { } build })
                 return 0;
-            PvpWeights weights = PvpWeights.Current;
+            PvpWeights weights = PvpWeights.Of(BotBody);
             return PvpBuffPlan.ArchetypeOf(build.Class) switch
             {
                 PvpBuffArchetype.Healer => weights.CureMezOnHealer,
@@ -81,7 +84,7 @@ namespace DOL.AI.Brain
         /// </summary>
         private void PvpWalkIntoRange(GameLiving aim, Spell spell)
         {
-            PvpSpreadWeights spread = PvpWeights.Current.Spread;
+            PvpSpreadWeights spread = PvpWeights.Of(BotBody).Spread;
             int range = (spell.Target == eSpellTarget.SELF || spell.Range <= 0 ? spell.Radius : spell.CalculateEffectiveRange(Body)) - spread.RangeMargin;
             // In range already, so the trouble is something in the way; or spreading is off: straight at it.
             if (spread.MinSpacing <= 0 || range <= 0 || Body.IsWithinRadius(aim, range))
@@ -109,7 +112,7 @@ namespace DOL.AI.Brain
             // a Bard fires its amnesia while it casts its mez).
             bool midCast = Body.IsCasting;
             var characterClass = (eCharacterClass)BotBody.CharacterClass.ID;
-            PvpWeights weights = PvpWeights.Current;
+            PvpWeights weights = PvpWeights.Of(BotBody);
             if (!PvpActionChoice.Covers(characterClass, weights))
                 return false;
 

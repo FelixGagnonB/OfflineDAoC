@@ -29,6 +29,13 @@ namespace DOL.GS
             lock (claim) return claim.Realm == bot.Realm && claim.Until > GameLoop.GameLoopTime &&
                 claim.Caster != null && claim.Caster.TryGetTarget(out GameBot caster) && caster.IsAlive && caster != bot;
         }
+        /// <summary>True while a mezzer of this realm has claimed the target for the mez it is casting.</summary>
+        public static bool Claimed(eRealm realm, GameLiving target)
+        {
+            if (!Claims.TryGetValue(target, out Claim claim)) return false;
+            lock (claim) return claim.Realm == realm && claim.Until > GameLoop.GameLoopTime &&
+                claim.Caster != null && claim.Caster.TryGetTarget(out GameBot caster) && caster.IsAlive;
+        }
         public static bool Reserve(GameBot caster, GameLiving target, int duration)
         {
             Claim claim = Claims.GetOrCreateValue(target);

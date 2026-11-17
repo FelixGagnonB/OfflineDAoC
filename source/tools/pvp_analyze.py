@@ -23,7 +23,7 @@ CONTROL_TYPES = {"Mesmerize", "Mez", "Stun", "SpeedDecrease", "StyleStun", "Near
 
 
 def load(path):
-    match = {"file": os.path.basename(path), "snaps": [], "hits": [], "casts": [], "deaths": [], "decs": [], "end": None, "head": None, "ready": None}
+    match = {"file": os.path.basename(path), "snaps": [], "hits": [], "casts": [], "deaths": [], "decs": [], "calls": [], "end": None, "head": None, "ready": None}
     with open(path, encoding="utf-8") as handle:
         for line in handle:
             line = line.strip()
@@ -43,6 +43,8 @@ def load(path):
                 match["ready"] = row
             elif kind == "dec":
                 match["decs"].append(row)
+            elif kind == "call":
+                match["calls"].append(row)
             elif kind == "death":
                 match["deaths"].append(row)
             elif kind == "end":
@@ -98,6 +100,22 @@ def analyze(match):
                 seen.add(s["n"])
                 if s["alive"] and s["mez"]:
                     asleep10[bots[s["n"]]["team"]] += 1
+    # The opening, mez by mez: how many mezzes landed on each team in the first ten seconds, and
+    # the most enemies any one area mez put to sleep. "Asleep after ten seconds" adds up every mez
+    # of those ten seconds; five or more asleep has so far never been one spell.
+    area = {c["spell"] for c in match["casts"] if c["st"] in ("Mesmerize", "Mez") and c["radius"]}
+    opening_mez = collections.Counter()
+    caught = collections.defaultdict(set)
+    if contact is not None:
+        for h in match["hits"]:
+            if (h.get("st") in ("Mesmerize", "Mez") and h.get("at") and h.get("dt") and h["at"] != h["dt"] and not h.get("dpet")
+                    and h["res"] not in ("Missed", "Resisted") and h["t"] <= contact + 10000):
+                opening_mez[h["dt"]] += 1
+                if h["spell"] in area:
+                    caught[(h["dt"], h["t"] // 400, h["a"], h["spell"])].add(h["d"])
+    largest_catch = collections.Counter()
+    for (team, _, _, _), victims in caught.items():
+        largest_catch[team] = max(largest_catch[team], len(victims))
     # Attacks that landed on each team's healers and casters (each one interrupts), and attacks a
     # guard took on its shield for somebody else.
     pressure = collections.Counter()
@@ -162,6 +180,9 @@ def analyze(match):
             "picks": picks, "scores": scores, "blocks": blocks, "ready": match["ready"],
             "start_power": start_power, "outside": outside, "raised": raised, "released": released,
             "pressure": pressure, "guards": guards, "asleep10": asleep10,
+            "opening_mez": opening_mez, "largest_catch": largest_catch,
+            "calls": collections.Counter(c["team"] for c in match["calls"]),
+            "moved_heals": collections.Counter(d["team"] for d in match["decs"] if (d.get("pick") or {}).get("moved")),
             "end": match["end"], "deaths": match["deaths"], "file": match["file"]}
 
 
@@ -252,6 +273,14 @@ def report(results):
         print(f"        attacks landing on its healers and casters: {landed / len(results):.0f} a match")
         asleep = [r["asleep10"][team] for r in results]
         print(f"        asleep ten seconds after contact: {sum(asleep) / len(results):.1f} a match ({', '.join(str(a) for a in asleep)})")
+        landed = [r["opening_mez"][team] for r in results]
+        catches = [r["largest_catch"][team] for r in results]
+        print(f"        mezzes landing on it in those ten seconds: {sum(landed) / len(results):.1f} a match; "
+              f"most caught by one area mez: {max(catches)} ({', '.join(str(c) for c in catches)})")
+        calls = sum(r["calls"][team] for r in results)
+        moved = sum(r["moved_heals"][team] for r in results)
+        if calls or moved:
+            print(f"        kill-target calls: {calls / len(results):.1f} a match; heals sent to another patient because one was already on its way: {moved / len(results):.1f} a match")
         guards = collections.Counter()
         for r in results:
             guards.update({k: v for k, v in r["guards"].items() if k[0] == team})

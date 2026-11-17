@@ -18,8 +18,9 @@ namespace DOL.GS
     /// <summary>One interrupter and one enemy healer or caster it could be given.</summary>
     /// <param name="Free">Nothing is stopping the enemy from casting right now.</param>
     /// <param name="IsCurrent">This interrupter has that enemy already.</param>
+    /// <param name="IsController">The enemy is one of the other group's mezzers.</param>
     public readonly record struct PvpDutyPair(int Interrupter, int Enemy, PvpBuffArchetype Archetype, bool Casting, bool Free,
-        bool IsCurrent, int Distance);
+        bool IsCurrent, int Distance, bool IsController = false);
 
     /// <summary>Part of <see cref="PvpWeights"/>: who interrupts, by what means, and how the pairs are weighed.</summary>
     public sealed class PvpInterruptWeights
@@ -45,6 +46,12 @@ namespace DOL.GS
 
         public int OnHealer { get; set; } = 40;
         public int OnCaster { get; set; } = 30;
+        /// <summary>
+        /// The enemy is one of the other group's mezzers. Left alone, a mezzer got six or seven
+        /// mezzes off in the first ten seconds (recordings of 2026-11-17). 0 until a comparison
+        /// against the weights without it says what it is worth.
+        /// </summary>
+        public int OnController { get; set; } = 0;
         public int Casting { get; set; } = 30;
         public int Free { get; set; } = 15;
         /// <summary>Keeps an interrupter on the enemy it has, so the pairs do not reshuffle every second.</summary>
@@ -70,6 +77,7 @@ namespace DOL.GS
 
         public static double Score(PvpDutyPair pair, PvpInterruptWeights weights) =>
             (pair.Archetype == PvpBuffArchetype.Healer ? weights.OnHealer : weights.OnCaster)
+            + (pair.IsController ? weights.OnController : 0)
             + (pair.Casting ? weights.Casting : 0)
             + (pair.Free ? weights.Free : 0)
             + (pair.IsCurrent ? weights.IsCurrent : 0)

@@ -55,6 +55,18 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void TheEnemyMezzerComesFirstOnceTheWeightSaysSo()
+        {
+            List<PvpDutyPair> pairs =
+            [
+                Pair(0, 0, PvpBuffArchetype.Healer),
+                new PvpDutyPair(0, 1, PvpBuffArchetype.Caster, false, true, false, 1_000, IsController: true),
+            ];
+            Assert.That(PvpInterruptDuty.Assign(pairs, Weights)[0], Is.EqualTo(0), "the built-in weights do not single the mezzer out");
+            Assert.That(PvpInterruptDuty.Assign(pairs, new PvpInterruptWeights { OnController = 40 })[0], Is.EqualTo(1));
+        }
+
+        [Test]
         public void AnEnemyOutOfReachIsNotGiven()
         {
             Assert.That(PvpInterruptDuty.Assign([Pair(0, 0, distance: 2_600)], Weights), Is.Empty);

@@ -350,6 +350,10 @@ namespace DOL.GS
         /// <summary>The stand-in for a buffbot that an 8v8 group gets at its spawn point: no limit on
         /// concentration, and its buffs hold at any distance (as a buffbot's did in 1.65).</summary>
         public bool IsPvpBuffbot { get; set; }
+
+        /// <summary>The weights this 8v8 bot's team fights with in a comparison of two sets; null for the usual ones.</summary>
+        public PvpWeights PvpWeightsSet { get; set; }
+
         public override int MaxConcentration => IsPvpBuffbot ? 1_000_000 : GetModified(eProperty.MaxConcentration);
         public override int Concentration => MaxConcentration - (effectListComponent?.UsedConcentration ?? 0);
 

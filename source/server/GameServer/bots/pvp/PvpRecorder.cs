@@ -11,37 +11,33 @@ using DOL.Logging;
 namespace DOL.GS
 {
     /// <summary>
-    /// Records a scrim match as one JSON-lines file (docs/PVP-8V8-ROADMAP.md, M3): a header, then
-    /// what happened (attacks, finished casts, deaths) and a once-a-second snapshot of every bot,
-    /// then the result. <c>source/tools/pvp_analyze.py</c> turns a folder of these into a report.
+    /// Records scrim matches, each as one JSON-lines file (docs/PVP-8V8-ROADMAP.md, M3): a header,
+    /// then what happened (attacks, finished casts, deaths) and a once-a-second snapshot of every
+    /// bot, then the result. <c>source/tools/pvp_analyze.py</c> turns a folder of these into a report.
     ///
-    /// Line types ("k"): match, snap, ready, hit, cast, death, dec, end. Times ("t") are milliseconds since
+    /// Line types ("k"): match, snap, ready, hit, cast, death, dec, call, end. Times ("t") are milliseconds since
     /// the match started. Format version 2 added "dec" (a squad-brain decision: what was picked,
     /// the best-scoring options, and what stood in the way) and the weights in the header.
     ///
+    /// Several matches can be recorded at once (parallel arenas, M2.5): each has its own
+    /// <see cref="PvpRecording"/>, and an event goes to the recording its bots belong to.
     /// Events arrive from game threads that run in parallel, so they are queued and written by
-    /// the scrim's own tick; nothing here blocks a brain.
+    /// the match's own tick; nothing here blocks a brain.
     /// </summary>
     public static class PvpRecorder
     {
         public const int FormatVersion = 2;
 
-        private static readonly Logger Log = LoggerManager.Create(typeof(PvpRecorder));
-        private static readonly ConcurrentQueue<string> Pending = new();
-        private static readonly object WriteLock = new();
-        private static StreamWriter _writer;
-        private static volatile bool _recording;
-        private static long _startTick;
-        private static Dictionary<GameLiving, string> _teams = [];
+        internal static readonly Logger Log = LoggerManager.Create(typeof(PvpRecorder));
+        // Every bot of every match being recorded, and its recording.
+        private static readonly ConcurrentDictionary<GameLiving, PvpRecording> ByBot = new();
         private static bool _hooked;
 
         public static string Folder => Path.Combine(AppContext.BaseDirectory, "logs", "scrims");
-        public static string CurrentFile { get; private set; }
 
-        public static void Begin(int number, PvpGroupTemplate groupA, PvpGroupTemplate groupB,
+        public static PvpRecording Begin(int number, PvpGroupTemplate groupA, PvpGroupTemplate groupB,
             IReadOnlyList<GameBot> teamA, IReadOnlyList<GameBot> teamB, int realmLevel, string batch)
         {
-            End(null);
             if (!_hooked)
             {
                 GameEventMgr.AddHandler(GameLivingEvent.AttackedByEnemy, OnAttacked);
@@ -50,22 +46,19 @@ namespace DOL.GS
                 _hooked = true;
             }
             Directory.CreateDirectory(Folder);
-            CurrentFile = Path.Combine(Folder, $"{batch}-match-{number:000}.jsonl");
-            lock (WriteLock)
-                _writer = new StreamWriter(CurrentFile, false) { AutoFlush = false };
-            _teams = teamA.ToDictionary(bot => (GameLiving)bot, _ => "A")
-                .Concat(teamB.ToDictionary(bot => (GameLiving)bot, _ => "B"))
-                .ToDictionary(pair => pair.Key, pair => pair.Value);
-            _startTick = GameLoop.GameLoopTime;
-            while (Pending.TryDequeue(out _)) { }
-            _recording = true;
-            Line(new
+            var recording = new PvpRecording(Path.Combine(Folder, $"{batch}-match-{number:000}.jsonl"), teamA, teamB);
+            foreach (GameBot bot in teamA.Concat(teamB))
+                ByBot[bot] = recording;
+            recording.Line(new
             {
                 k = "match", v = FormatVersion, batch, number, utc = DateTime.UtcNow, realmLevel,
-                a = groupA.Id, b = groupB.Id, weights = PvpWeights.Current,
+                a = groupA.Id, b = groupB.Id,
+                // In a comparison of two sets of weights the teams fight with different ones.
+                weights = PvpWeights.Of(teamA[0]), weightsB = PvpWeights.Of(teamB[0]) == PvpWeights.Of(teamA[0]) ? null : PvpWeights.Of(teamB[0]),
+                setA = SetName(teamA[0]), setB = SetName(teamB[0]),
                 bots = teamA.Concat(teamB).Select(bot => new
                 {
-                    n = bot.Name, team = _teams[bot], build = bot.PvpBuild.Id, cls = ((eCharacterClass)bot.ClassId).ToString(),
+                    n = bot.Name, team = recording.Teams[bot], build = bot.PvpBuild.Id, cls = ((eCharacterClass)bot.ClassId).ToString(),
                     hp = bot.MaxHealth, pow = bot.MaxMana,
                     // What its gear and buffs come to, to check a bot against a player of the same build.
                     af = (int)bot.GetArmorAF(eArmorSlot.TORSO), abs = (int)Math.Round(bot.GetArmorAbsorb(eArmorSlot.TORSO) * 100),
@@ -73,14 +66,144 @@ namespace DOL.GS
                     crit = bot.GetModified(eProperty.CriticalMeleeHitChance), spellCrit = bot.GetModified(eProperty.CriticalSpellHitChance),
                 }),
             });
+            return recording;
         }
 
-        /// <summary>Once a second from the scrim tick: every bot's state, then everything queued since.</summary>
-        public static void Snapshot()
+        /// <summary>"new" or "old" for a team in a comparison of two sets of weights, null otherwise.</summary>
+        internal static string SetName(GameBot bot) =>
+            PvpWeights.Reference == null || bot == null ? null : bot.PvpWeightsSet == PvpWeights.Reference ? "old" : "new";
+
+        internal static void Forget(PvpRecording recording)
         {
-            if (!_recording)
+            foreach (GameLiving bot in recording.Teams.Keys)
+                ByBot.TryRemove(new KeyValuePair<GameLiving, PvpRecording>(bot, recording));
+        }
+
+        /// <summary>The recording a living belongs to: a bot's own, or its owner's for a pet.</summary>
+        private static PvpRecording Of(GameLiving living)
+        {
+            if (living == null)
+                return null;
+            if (ByBot.TryGetValue(living, out PvpRecording recording))
+                return recording;
+            GameLiving owner = living is GameNPC { Brain: IControlledBrain brain } ? brain.GetLivingOwner() : null;
+            return owner != null && ByBot.TryGetValue(owner, out recording) ? recording : null;
+        }
+
+        private static void OnAttacked(DOLEvent e, object sender, EventArgs args)
+        {
+            if (args is not AttackedByEnemyEventArgs { AttackData: { } ad })
                 return;
-            foreach ((GameLiving living, string team) in _teams)
+            // Either end of the attack may be the one in a match: a guard or a monster is in none.
+            PvpRecording recording = Of(ad.Attacker) ?? Of(ad.Target);
+            if (recording == null)
+                return;
+            var (attacker, attackerTeam, pet) = recording.Who(ad.Attacker);
+            var (target, targetTeam, targetPet) = recording.Who(ad.Target);
+            if (attackerTeam == null && targetTeam == null)
+                return;
+            recording.Line(new
+            {
+                k = "hit", t = recording.Now, a = attacker, at = attackerTeam, pet, d = target, dt = targetTeam, dpet = targetPet,
+                res = ad.AttackResult.ToString(), type = ad.AttackType.ToString(), dmg = ad.Damage, crit = ad.CriticalDamage,
+                resisted = ad.Modifier, spell = ad.SpellHandler?.Spell?.Name, st = ad.SpellHandler?.Spell?.SpellType.ToString(),
+                style = ad.Style?.Name,
+                // A guarded attack lands on the guard's shield: who it was meant for.
+                guardFor = ad.OriginalTarget != null && ad.OriginalTarget != ad.Target ? recording.Who(ad.OriginalTarget).Name : null,
+            });
+        }
+
+        private static void OnCastFinished(DOLEvent e, object sender, EventArgs args)
+        {
+            if (sender is not GameLiving caster || args is not CastingEventArgs { SpellHandler: { Spell: { } spell } } cast ||
+                Of(caster) is not { } recording)
+                return;
+            var (name, team, pet) = recording.Who(caster);
+            if (team == null)
+                return;
+            var (target, targetTeam, _) = recording.Who(cast.Target);
+            recording.Line(new
+            {
+                k = "cast", t = recording.Now, n = name, team, pet, spell = spell.Name, st = spell.SpellType.ToString(),
+                lvl = spell.Level, val = spell.Value, dmg = spell.Damage, pow = spell.Power, castTime = spell.CastTime,
+                radius = spell.Radius, d = target, dt = targetTeam,
+            });
+        }
+
+        private static void OnDying(DOLEvent e, object sender, EventArgs args)
+        {
+            if (sender is not GameLiving victim || !ByBot.TryGetValue(victim, out PvpRecording recording) ||
+                !recording.Teams.TryGetValue(victim, out string team))
+                return;
+            var (killer, killerTeam, pet) = recording.Who((args as DyingEventArgs)?.Killer as GameLiving);
+            recording.Line(new { k = "death", t = recording.Now, n = victim.Name, team, by = killer, byTeam = killerTeam, pet });
+        }
+
+        /// <summary>
+        /// A group's kill-target call (line type "call"): whom it now kills, whom it was killing,
+        /// and the best-scoring enemies it chose from.
+        /// </summary>
+        public static void Call(GameBot member, GameBot target, int score, GameBot previous, IEnumerable<object> options)
+        {
+            if (!ByBot.TryGetValue(member, out PvpRecording recording) || !recording.Teams.TryGetValue(member, out string team))
+                return;
+            recording.Line(new { k = "call", t = recording.Now, team, d = target.Name, score, was = previous?.Name, opts = options.ToList() });
+        }
+
+        /// <summary>
+        /// A squad-brain decision, called from brain threads. <paramref name="pick"/> is null when
+        /// the bot found nothing worth casting; <paramref name="blocked"/> then says why.
+        /// </summary>
+        public static void Decision(GameBot bot, object pick, IEnumerable<object> options, object blocked)
+        {
+            if (!ByBot.TryGetValue(bot, out PvpRecording recording) || !recording.Teams.TryGetValue(bot, out string team))
+                return;
+            recording.Line(new { k = "dec", t = recording.Now, n = bot.Name, team, pick, opts = options.ToList(), blocked });
+        }
+    }
+
+    /// <summary>One match being recorded: its file, its two teams and the lines waiting to be written.</summary>
+    public sealed class PvpRecording
+    {
+        private readonly ConcurrentQueue<string> _pending = new();
+        private readonly object _writeLock = new();
+        private readonly long _startTick = GameLoop.GameLoopTime;
+        private StreamWriter _writer;
+        private volatile bool _open = true;
+
+        public string File { get; }
+        internal Dictionary<GameLiving, string> Teams { get; }
+
+        internal PvpRecording(string file, IReadOnlyList<GameBot> teamA, IReadOnlyList<GameBot> teamB)
+        {
+            File = file;
+            _writer = new StreamWriter(file, false) { AutoFlush = false };
+            Teams = teamA.ToDictionary(bot => (GameLiving)bot, _ => "A")
+                .Concat(teamB.ToDictionary(bot => (GameLiving)bot, _ => "B"))
+                .ToDictionary(pair => pair.Key, pair => pair.Value);
+        }
+
+        internal long Now => GameLoop.GameLoopTime - _startTick;
+
+        // The owner of a pet counts as the actor, so a Theurgist's pets are the Theurgist's damage.
+        internal (string Name, string Team, string Pet) Who(GameLiving living)
+        {
+            if (living == null)
+                return (null, null, null);
+            if (Teams.TryGetValue(living, out string team))
+                return (living.Name, team, null);
+            GameLiving owner = living is GameNPC { Brain: IControlledBrain brain } ? brain.GetLivingOwner() : null;
+            // Anything else (a keep guard, a monster, a bot of another match) keeps its own name and
+            // no team; the analyzer reports it as outside damage.
+            return owner != null && Teams.TryGetValue(owner, out team) ? (owner.Name, team, living.Name) : (living.Name, null, null);
+        }
+
+        /// <summary>Once a second from the match's tick: every bot's state, then everything queued since.</summary>
+        public void Snapshot()
+        {
+            if (!_open)
+                return;
+            foreach ((GameLiving living, string _) in Teams)
             {
                 var bot = (GameBot)living;
                 Line(new
@@ -101,113 +224,62 @@ namespace DOL.GS
             Drain();
         }
 
-        public static void End(PvpMatchResult result)
+        /// <summary>
+        /// The ready check ended and the match proper starts: how long buffing took, who was still
+        /// at it, and the buffs each bot starts the match with (to check that a change to the
+        /// ready check leaves every bot as it was).
+        /// </summary>
+        public void Ready(int seconds, IReadOnlyList<GameBot> notReady) =>
+            Line(new
+            {
+                k = "ready", t = Now, seconds, timedOut = notReady.Count > 0, notReady = notReady.Select(bot => bot.Name).ToList(),
+                buffs = Teams.Keys.Select(bot => new
+                {
+                    n = bot.Name,
+                    b = bot.effectListComponent.GetSpellEffects().Where(effect => effect?.SpellHandler?.Spell != null && !effect.IsDisabled)
+                        .Select(effect => $"{effect.SpellHandler.Spell.SpellType} {effect.SpellHandler.Spell.Value:0.#}").OrderBy(text => text).ToList(),
+                    pet = (bot as GameLiving)?.ControlledBrain?.Body?.Name,
+                }).ToList(),
+            });
+
+        /// <summary>Closes the file; with a result, the result is its last line.</summary>
+        public void End(PvpMatchResult result)
         {
-            if (!_recording)
+            if (!_open)
                 return;
             if (result != null)
                 Line(new { k = "end", t = Now, result.Winner, result.End, result.Seconds, result.SecondsToContact, result.AliveA, result.AliveB });
-            _recording = false;
+            _open = false;
+            PvpRecorder.Forget(this);
             Drain();
-            lock (WriteLock)
+            lock (_writeLock)
             {
                 _writer?.Dispose();
                 _writer = null;
             }
         }
 
-        private static long Now => GameLoop.GameLoopTime - _startTick;
-
-        // The owner of a pet counts as the actor, so a Theurgist's pets are the Theurgist's damage.
-        private static (string Name, string Team, string Pet) Who(GameLiving living)
+        internal void Line(object value)
         {
-            if (living == null)
-                return (null, null, null);
-            if (_teams.TryGetValue(living, out string team))
-                return (living.Name, team, null);
-            GameLiving owner = living is GameNPC { Brain: IControlledBrain brain } ? brain.GetLivingOwner() : null;
-            // Anything else (a keep guard, a monster) keeps its own name and no team; the analyzer reports it as outside damage.
-            return owner != null && _teams.TryGetValue(owner, out team) ? (owner.Name, team, living.Name) : (living.Name, null, null);
+            if (_open)
+                _pending.Enqueue(JsonSerializer.Serialize(value));
         }
 
-        private static void OnAttacked(DOLEvent e, object sender, EventArgs args)
+        private void Drain()
         {
-            if (!_recording || args is not AttackedByEnemyEventArgs { AttackData: { } ad })
-                return;
-            var (attacker, attackerTeam, pet) = Who(ad.Attacker);
-            var (target, targetTeam, targetPet) = Who(ad.Target);
-            if (attackerTeam == null && targetTeam == null)
-                return;
-            Line(new
-            {
-                k = "hit", t = Now, a = attacker, at = attackerTeam, pet, d = target, dt = targetTeam, dpet = targetPet,
-                res = ad.AttackResult.ToString(), type = ad.AttackType.ToString(), dmg = ad.Damage, crit = ad.CriticalDamage,
-                resisted = ad.Modifier, spell = ad.SpellHandler?.Spell?.Name, st = ad.SpellHandler?.Spell?.SpellType.ToString(),
-                style = ad.Style?.Name,
-                // A guarded attack lands on the guard's shield: who it was meant for.
-                guardFor = ad.OriginalTarget != null && ad.OriginalTarget != ad.Target ? Who(ad.OriginalTarget).Name : null,
-            });
-        }
-
-        private static void OnCastFinished(DOLEvent e, object sender, EventArgs args)
-        {
-            if (!_recording || sender is not GameLiving caster || args is not CastingEventArgs { SpellHandler: { Spell: { } spell } } cast)
-                return;
-            var (name, team, pet) = Who(caster);
-            if (team == null)
-                return;
-            var (target, targetTeam, _) = Who(cast.Target);
-            Line(new
-            {
-                k = "cast", t = Now, n = name, team, pet, spell = spell.Name, st = spell.SpellType.ToString(),
-                lvl = spell.Level, val = spell.Value, dmg = spell.Damage, pow = spell.Power, castTime = spell.CastTime,
-                radius = spell.Radius, d = target, dt = targetTeam,
-            });
-        }
-
-        private static void OnDying(DOLEvent e, object sender, EventArgs args)
-        {
-            if (!_recording || sender is not GameLiving victim || !_teams.TryGetValue(victim, out string team))
-                return;
-            var (killer, killerTeam, pet) = Who((args as DyingEventArgs)?.Killer as GameLiving);
-            Line(new { k = "death", t = Now, n = victim.Name, team, by = killer, byTeam = killerTeam, pet });
-        }
-
-        /// <summary>The ready check ended and the match proper starts: how long buffing took and who was still at it.</summary>
-        public static void Ready(int seconds, IReadOnlyList<GameBot> notReady)
-        {
-            if (_recording)
-                Line(new { k = "ready", t = Now, seconds, timedOut = notReady.Count > 0, notReady = notReady.Select(bot => bot.Name).ToList() });
-        }
-
-        /// <summary>
-        /// A squad-brain decision, called from brain threads. <paramref name="pick"/> is null when
-        /// the bot found nothing worth casting; <paramref name="blocked"/> then says why.
-        /// </summary>
-        public static void Decision(GameBot bot, object pick, IEnumerable<object> options, object blocked)
-        {
-            if (!_recording || !_teams.TryGetValue(bot, out string team))
-                return;
-            Line(new { k = "dec", t = Now, n = bot.Name, team, pick, opts = options.ToList(), blocked });
-        }
-
-        private static void Line(object value) => Pending.Enqueue(JsonSerializer.Serialize(value));
-
-        private static void Drain()
-        {
-            lock (WriteLock)
+            lock (_writeLock)
             {
                 if (_writer == null)
                     return;
                 try
                 {
-                    while (Pending.TryDequeue(out string line))
+                    while (_pending.TryDequeue(out string line))
                         _writer.WriteLine(line);
                     _writer.Flush();
                 }
                 catch (Exception exception)
                 {
-                    Log.Error("8v8 recorder could not write", exception);
+                    PvpRecorder.Log.Error("8v8 recorder could not write", exception);
                 }
             }
         }
