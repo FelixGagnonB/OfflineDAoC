@@ -252,6 +252,14 @@ namespace DOL.GS
         /// Gives an 8v8 bot a realm rank and the realm abilities that rank pays for. Realm level
         /// is (rank - 1) * 10 + level: 0 is rank 1 level 0, 40 is rank 5 level 0.
         /// </summary>
+        /// <summary>
+        /// True for a living that is mezzed and stunned by the player rules: a real player, or an
+        /// 8v8 bot standing in for one (docs/PVP-8V8-ROADMAP.md, M4.1). A bot is an NPC type, and
+        /// by the NPC rules it resisted every mez below 75% health ("enraged") and got shrinking
+        /// repeat mezzes in place of the player's minute of immunity.
+        /// </summary>
+        public static bool UsesPlayerCrowdControlRules(GameLiving living) => living is GamePlayer or GameBot { IsPvpBot: true };
+
         public void SetPvpRealmLevel(int realmLevel)
         {
             RealmLevel = Math.Clamp(realmLevel, 0, 130);

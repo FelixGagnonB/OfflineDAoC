@@ -30,7 +30,7 @@ namespace DOL.GS
         public virtual string Name => "Default Effect Name";
         public virtual string OwnerName => Owner != null ? Owner.Name : string.Empty;
         public virtual bool HasPositiveEffect => false;
-        public ImmunityType AppliedImmunityType => !TriggersImmunity ? ImmunityType.None : (Owner is GamePlayer ? ImmunityType.Player : ImmunityType.Npc);
+        public ImmunityType AppliedImmunityType => !TriggersImmunity ? ImmunityType.None : (GameBot.UsesPlayerCrowdControlRules(Owner) ? ImmunityType.Player : ImmunityType.Npc);
         public bool TriggersImmunity { get; set; }
         public int ImmunityDuration { get; protected set; } = 60000;
         public bool IsBeingReplaced { get; set; } // Used externally to force an effect to be silent (no message, no immunity) when being refreshed.

@@ -163,7 +163,7 @@ namespace DOL.GS.Spells
                 isImmune = true;
             else
             {
-                if (target is GamePlayer)
+                if (GameBot.UsesPlayerCrowdControlRules(target))
                     isImmune = target.effectListComponent.ContainsEffectForEffectType(eEffect.Mez);
                 else if (EffectListService.GetEffectOnTarget(target, eEffect.NPCMezImmunity) is NpcMezImmunityEffect immunityEffect)
                     isImmune = !immunityEffect.CanApplyNewEffect(base.CalculateEffectDuration(target));
@@ -171,7 +171,7 @@ namespace DOL.GS.Spells
 
             if (isImmune)
                 message = "Your target is immune to this effect!";
-            else if (target is GameNPC && target.HealthPercent < 75)
+            else if (target is GameNPC && !GameBot.UsesPlayerCrowdControlRules(target) && target.HealthPercent < 75)
             {
                 message = "Your target is enraged and resists the spell!";
                 isImmune = true;
@@ -277,7 +277,7 @@ namespace DOL.GS.Spells
                 isImmune = true;
             else
             {
-                if (target is GamePlayer)
+                if (GameBot.UsesPlayerCrowdControlRules(target))
                     isImmune = target.effectListComponent.ContainsEffectForEffectType(eEffect.Stun);
                 else if (EffectListService.GetEffectOnTarget(target, eEffect.NPCStunImmunity) is NpcStunImmunityEffect immunityEffect)
                     isImmune = !immunityEffect.CanApplyNewEffect(base.CalculateEffectDuration(target));

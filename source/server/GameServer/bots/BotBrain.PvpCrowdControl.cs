@@ -13,6 +13,8 @@ namespace DOL.AI.Brain
             Body.castingComponent?.SpellHandler?.Spell?.ID==_pvpControlSpellId;
         private bool TryPvpCrowdControl()
         {
+            // Under a squad brain the main mezzers choose their mez and stun by score (BotBrain.PvpRotation.cs).
+            if (PvpCrowdControlIsScored()) return false;
             if (BotBody?.CanCastCrowdControlSpells != true || Body.IsCasting || Body.IsIncapacitated ||
                 Body.castingComponent?.HasPendingSkillRequests == true || GameLoop.GameLoopTime < _nextPvpControl) return false;
             _nextPvpControl = GameLoop.GameLoopTime + 2000;

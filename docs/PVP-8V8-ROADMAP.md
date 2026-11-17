@@ -275,6 +275,29 @@ batch, then about 0.1 GB more per match; worth a look before long runs or parall
 Scrims are started through the control channel (`scrim-start`, `scrim-status`, `scrim-stop`); the
 in-game `/scrim` command waits with the rest of the human-side work. M2.5 is not built.
 
+*Ready check, 2026-11-17 (owner's request):* the fixed five seconds of buffing let groups walk
+into the fight still casting their own buffs, with casters at half power (the Shaman at 196 of
+396 at contact). A match now starts when both groups are ready: a member is ready once it has
+gone 8 seconds without casting a buff it had not cast yet (the same spell on the same target
+counts once, so a song or chant recast in a loop keeps nobody waiting); the wait is at least 5
+seconds and at most 120, and a timeout names who was still buffing. At the start everyone is set
+to full health, power and endurance, as a group that rested after buffing, and the match clock
+starts there, so buffing is not part of the match. The recorder writes a `ready` line and the
+analyzer shows buffing time and power at contact per match. First run, Midgard against Hibernia,
+two matches: buffing took 106 and 98 seconds, power at contact 100% (was about 75%), and deaths
+rose from 2 to 5 a match to 10 and 9, with one win each. Buffing took about 100 seconds because
+members buffed each other: group resist buffs (each Druid three times, overwriting the other's),
+damage add and damage shield on every member, haste, power regeneration.
+
+*Own buffs only before the fight, 2026-11-17 (owner's rule):* from spawn until first contact a
+member casts only what is its own: buffs on itself, its pet, its songs and chants. The buffbot
+does the rest; buffing others (the field rebuff included) starts with the fight
+(`BotBrain.PvpSelfBuffsOnly`). Buffing fell from about 100 seconds to 41, and a two-match check
+from about 13 minutes to 8. Not given before the fight any more, because the buffbot does not
+have them: group resist buffs, the Healer's haste and power regeneration, damage add and damage
+shield on others. Still open: the old brain casts these during the fight (damage shield 20 times
+by the two Druids in two matches).
+
 - [x] **M2.1** (S) Arena file: box bounds in Emain Macha, two spawn areas, patrol waypoints. Size
   is a setting. With its walls in place the Emain mesh splits into two large areas that do not
   connect (about 64% and 33% of the zone). The zone centre is in the smaller one; the two frontier
@@ -326,6 +349,14 @@ and the baseline batch of 30 matches per pairing (M3.6).
 **Exit check:** the baseline report exists, and one command compares two builds.
 
 ## M4. Fair fights
+
+*Found early, 2026-11-17 (part of M4.1):* 8v8 bots were mezzed and stunned by the NPC rules,
+because a bot is an NPC type: no minute of immunity afterwards (repeat mezzes that shrink
+instead), and every mez resisted below 75% health. They now follow the player rules
+(`GameBot.UsesPlayerCrowdControlRules`): immunity after a mez or stun, no second one while the
+first runs, no health-based resist. Albion against Midgard, two matches: Midgard mezzed 41% of
+the fight, from 62 to 73% before; the Sorcerer's mez casts that were accepted and never began
+(83 in one match) stopped. The recorder's "mezzed while immune" figure meant nothing before this.
 
 - [ ] **M4.1** (L) Parity audit. `GameBot` is an NPC type, so compare a bot with a player of the
   same class, spec and gear: to-hit, defence, damage, resists, criticals, spell variance, control
@@ -410,6 +441,8 @@ next piece is a priority list per role (M6.4): mez and stun for Control, pets fo
 - [ ] **M5.6** (M) Heal assignment across the group's healers, on top of the existing triage, so
   two healers do not land on the same patient while another dies.
 - [ ] **M5.7** (S) Every decision written to the recorder with its options, scores and reason.
+  Done for caster spell choice (2026-11-17, recorder format 2, line type `dec`); the kill-target
+  call, crowd control, heals and melee are not recorded as decisions yet.
 
 **Exit check:** wins at least 70% of mirrored matches against the M4 baseline; focus-fire
 coherence meets its target.
@@ -436,6 +469,58 @@ first-match list and is to become scored choices: each option gets a weight from
 (is a caster free and not nearsighted, is the kill target close to dead, how much power is left),
 and the weights are what the recorder and analyzer help tune.
 
+*Scored choice, 2026-11-17 (branch `pvp-8v8-m5`, `bots/pvp/PvpActionChoice.cs`, M6.4 and M5.7):*
+the fixed lists are gone. On its turn a covered caster (Shaman, Eldritch, Cabalist, Runemaster,
+Theurgist, Sorcerer, Enchanter, Wizard, Mentalist, Spiritmaster) scores every spell kind it has
+(nearsight, disease, damage, root, Theurgist pet) on every enemy within 3,500 units and takes the
+best. A score is a sum of weights: the class's leaning to that kind, then the situation (kill
+target, its missing health, target casting and not interrupted, nobody keeping it interrupted,
+already has the effect, mezzed, assigned target, the caster's power and the cast's cost, the walk
+needed to get in range). An option out of range can still win, and then the bot walks. Below a
+minimum score it casts nothing and keeps its power; covered casters no longer fall back to the
+old random pick. The weights are data (`PvpWeights`): a `pvp-weights.json` beside the server
+overrides any of them without a rebuild, and each match header records the weights it ran with.
+Each decision is recorded with its five best options and scores; a turn with no cast records
+what stood in the way (no such spell, no power, interrupted, recast timer, too far, score too
+low). The analyzer prints both per build.
+What the decision log found in its first three runs (Midgard against Hibernia, two matches each):
+- The Enchanter dealt nothing because it stopped to cast self-buffs while the group walked on,
+  was then given the kill target 8,000 units behind and stood there. A member farther than 3,500
+  from every enemy now keeps marching. Enchanter damage 0 to about 3,700 over two matches.
+- Casters sat out of range of a good option. With walking as part of the choice the Runemaster
+  went from 6 damage casts to 49 and the Eldritch now does nearsight, disease and damage (7, 24
+  and 20 casts; it had cast no damage before).
+- Power is now the limit. The Enchanter had no power for 69% of the fight, the Eldritch 57%, the
+  Shaman 55%; "no power" is the main reason for a turn without a cast. Causes to check next:
+  pools are about 400 at level 50 (compare with a player, M4.1), power is spent before contact on
+  self-buffs, and the old brain still recasts buffs in combat (damage add, resists, damage shield).
+- The Shaman still casts few diseases (10) against 40 heals, and is interrupted or out of power
+  for most of its free turns.
+Results did not move: Midgard won all six matches on the time limit, 2 to 5 deaths a match.
+
+*Mez and stun by score, 2026-11-17 (M6.1, first version):* for the main mezzers (Sorcerer, Bard,
+Healer of either spec) single mez, area mez and stun are now options in the same scored choice,
+recorded like the rest; other classes with a mez keep the old routine for now. An area mez
+scores by how many awake, non-immune enemies it catches; the kill target and enemies already
+asleep, immune or claimed by another mezzer are left out, and an area mez that also lands on the
+kill target loses points. A stun gains on the kill target. A Healer's attack spell is no longer
+cancelled by its support routine. Also: during a fight a member holds back buffs on others
+(damage add, damage shield, resists); the group plan's rebuff of a member who died is still cast.
+First run, Albion against Midgard, two matches: the Sorcerer, which used to cast stat debuffs,
+opened with an area mez that caught 7 of 8 and cast 19 mezzes; Midgard was mezzed 64% of the
+fight and Albion won both 8 to 5 (it had been 7 wins, 2 losses and 11 draws at one death or so).
+Open, from the decision log:
+- Midgard's Healers are the kill target and are interrupted on nearly every free turn (37 of 37
+  for the Pacification Healer), so they neither mez nor cure mez: this is what guard, peel and
+  interrupt duty (M6.2, M6.3) are for. Cure mez is still the old first-in-group-order routine.
+- A mez was picked several times within a second before a cast completed (the Sorcerer made 92
+  area-mez decisions for 19 finished mezzes over two matches). Two causes, both fixed: the match
+  loop ordered a member with no attack target to walk in the middle of its casts, and the engine
+  refused repeat mezzes under the NPC immunity rules (see M4). A decision now records when the
+  previous cast was lost; the Runemaster still loses about ten a match, cause not found.
+- Bots walk in as a clump, which is why one area mez catches seven (formation, M7.4).
+- The Paladin recast its endurance chant 141 times (old brain).
+
 - [ ] **M6.1** (L) Control plan: an area mez opener, assignments per controller, immunity timers
   tracked, re-mez, stuns, roots and snares used on purpose, never breaking the group's own mez.
 - [ ] **M6.2** (M) Interrupt duty: each enemy healer and caster gets an assigned interrupter, using
@@ -451,6 +536,17 @@ and the weights are what the recorder and analyzer help tune.
 enemy-healer free-cast share meet their targets.
 
 ## M7. Movement and positioning
+
+*Owner, 2026-11-17:* eight humans who see another group spread out at once, and a healer may run
+off on the incoming and come back into range afterwards, so as not to be targeted or mezzed. An
+area mez that catches seven of eight on first contact is very rare between groups of equal
+skill (it takes a lucky angle, a hill, broken line of sight).
+*First version, 2026-11-17 (`PvpScrim.SpreadPlaces`):* groups travel in two rows across the line
+of march, fighters in front, casters and healers 700 behind, neighbours 450 apart (an area mez
+reaches about 350). Spreading only once the enemy was spotted did not work: two groups close the
+1,500 units between spotting and engaging in a second or two. Opening area mezzes went from
+catching 7 to catching 2 to 4. Still to do: travel tight and spread on sight as humans do, keep
+the spread once the fight is on, and healers stepping back out of range on the incoming.
 
 - [ ] **M7.1** (M) Range bands per role and a backline anchor: healers and casters hold distance
   from enemy melee while staying in range of their group.

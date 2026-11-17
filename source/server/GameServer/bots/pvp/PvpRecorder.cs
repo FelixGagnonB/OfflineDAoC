@@ -15,15 +15,16 @@ namespace DOL.GS
     /// what happened (attacks, finished casts, deaths) and a once-a-second snapshot of every bot,
     /// then the result. <c>source/tools/pvp_analyze.py</c> turns a folder of these into a report.
     ///
-    /// Line types ("k"): match, snap, hit, cast, death, end. Times ("t") are milliseconds since
-    /// the match started. Format version 1.
+    /// Line types ("k"): match, snap, ready, hit, cast, death, dec, end. Times ("t") are milliseconds since
+    /// the match started. Format version 2 added "dec" (a squad-brain decision: what was picked,
+    /// the best-scoring options, and what stood in the way) and the weights in the header.
     ///
     /// Events arrive from game threads that run in parallel, so they are queued and written by
     /// the scrim's own tick; nothing here blocks a brain.
     /// </summary>
     public static class PvpRecorder
     {
-        public const int FormatVersion = 1;
+        public const int FormatVersion = 2;
 
         private static readonly Logger Log = LoggerManager.Create(typeof(PvpRecorder));
         private static readonly ConcurrentQueue<string> Pending = new();
@@ -61,7 +62,7 @@ namespace DOL.GS
             Line(new
             {
                 k = "match", v = FormatVersion, batch, number, utc = DateTime.UtcNow, realmLevel,
-                a = groupA.Id, b = groupB.Id,
+                a = groupA.Id, b = groupB.Id, weights = PvpWeights.Current,
                 bots = teamA.Concat(teamB).Select(bot => new
                 {
                     n = bot.Name, team = _teams[bot], build = bot.PvpBuild.Id, cls = ((eCharacterClass)bot.ClassId).ToString(),
@@ -163,6 +164,24 @@ namespace DOL.GS
                 return;
             var (killer, killerTeam, pet) = Who((args as DyingEventArgs)?.Killer as GameLiving);
             Line(new { k = "death", t = Now, n = victim.Name, team, by = killer, byTeam = killerTeam, pet });
+        }
+
+        /// <summary>The ready check ended and the match proper starts: how long buffing took and who was still at it.</summary>
+        public static void Ready(int seconds, IReadOnlyList<GameBot> notReady)
+        {
+            if (_recording)
+                Line(new { k = "ready", t = Now, seconds, timedOut = notReady.Count > 0, notReady = notReady.Select(bot => bot.Name).ToList() });
+        }
+
+        /// <summary>
+        /// A squad-brain decision, called from brain threads. <paramref name="pick"/> is null when
+        /// the bot found nothing worth casting; <paramref name="blocked"/> then says why.
+        /// </summary>
+        public static void Decision(GameBot bot, object pick, IEnumerable<object> options, object blocked)
+        {
+            if (!_recording || !_teams.TryGetValue(bot, out string team))
+                return;
+            Line(new { k = "dec", t = Now, n = bot.Name, team, pick, opts = options.ToList(), blocked });
         }
 
         private static void Line(object value) => Pending.Enqueue(JsonSerializer.Serialize(value));

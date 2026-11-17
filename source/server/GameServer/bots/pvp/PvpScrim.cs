@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Threading;
 using DOL.AI.Brain;
+using DOL.Events;
 using DOL.Logging;
 
 namespace DOL.GS
@@ -34,8 +36,21 @@ namespace DOL.GS
     public static class PvpScrim
     {
         public const int SightRange = 3_000;          // an enemy this close is noticed
+        public const int EngageRange = 3_500;         // a member this close to its target fights; farther, it marches
+        // Owner, 2026-11-17: a group that sees another spreads out at once, so one area mez does
+        // not catch it whole. Two groups close 1,500 units in a second or two, too little for a
+        // bot to move aside, so for now a group simply travels spread: two rows, fighters in
+        // front, casters and healers behind. Enemies are spotted from farther than they are engaged.
+        public const int SpotRange = 4_500;
+        public const int SpreadSpacing = 450;         // between neighbours in a row; an area mez reaches about 350
+        public const int BackRowDepth = 700;
         public static int MatchLimitSeconds { get; private set; } = 300;
-        public const int BuffSeconds = 5;             // the buffbot is instant; a short settle time
+        // The ready check before a match. The buffbot is instant, but casters also have buffs of
+        // their own to put up. A member is ready once it has gone QuietSeconds without casting a
+        // buff it had not cast yet; the match starts when both groups are ready, or at the timeout.
+        public const int MinBuffSeconds = 5;
+        public const int QuietSeconds = 8;
+        public const int ReadyTimeoutSeconds = 120;
         private enum Phase { Idle, Buffing, Roaming, Fighting }
 
         private static readonly Logger Log = LoggerManager.Create(typeof(PvpScrim));
@@ -55,6 +70,13 @@ namespace DOL.GS
         private static GameBot _killA, _killB;
         private static (int X, int Y) _spawnA, _spawnB;
         private static int _waypointA, _waypointB;
+        // Ready check: the buffs cast in this buffing phase (caster, spell, target), and when each
+        // member last finished one that was new. Filled from game threads by OnCastFinished.
+        private static ConcurrentDictionary<(GameLiving Caster, int Spell, GameLiving Target), byte> _buffsCast = new();
+        private static ConcurrentDictionary<GameLiving, long> _lastNewBuffTick = new();
+        private static HashSet<GameLiving> _members = [];
+        private static bool _hooked;
+        private static object _lastReady;
 
         public static bool Running => _phase != Phase.Idle;
 
@@ -62,6 +84,7 @@ namespace DOL.GS
             bool squadA = false, bool squadB = false)
         {
             (_squadA, _squadB) = (squadA, squadB);
+            Log.Info($"8v8 scrim weights: {PvpWeights.Reload(AppContext.BaseDirectory)}");
             if (Running)
                 throw new InvalidOperationException("A scrim is already running. Stop it first.");
             if (groupA.Realm == groupB.Realm)
@@ -97,6 +120,15 @@ namespace DOL.GS
             (_spawnA, _spawnB, _waypointA, _waypointB) = (spawnA, spawnB, 0, 0);
             _teamA = PvpArena.SpawnGroup(_groupA, _arena.Region, spawnA.X, spawnA.Y, _realmLevel).ToList();
             _teamB = PvpArena.SpawnGroup(_groupB, _arena.Region, spawnB.X, spawnB.Y, _realmLevel).ToList();
+            if (!_hooked)
+            {
+                GameEventMgr.AddHandler(GameLivingEvent.CastFinished, OnCastFinished);
+                _hooked = true;
+            }
+            _buffsCast = new();
+            _lastNewBuffTick = new();
+            _members = _teamA.Concat(_teamB).Cast<GameLiving>().ToHashSet();
+            SetSelfBuffsOnly(true);
             _phase = Phase.Buffing;
             _phaseStartTick = _matchStartTick = GameLoop.GameLoopTime;
             _contactTick = 0;
@@ -116,9 +148,11 @@ namespace DOL.GS
 
                 if (_phase == Phase.Buffing)
                 {
-                    if (now - _phaseStartTick < BuffSeconds * 1000)
+                    long waited = now - _phaseStartTick;
+                    List<GameBot> busy = _teamA.Concat(_teamB).Where(bot => bot.IsAlive && StillBuffing(bot, now)).ToList();
+                    if (waited < MinBuffSeconds * 1000 || busy.Count > 0 && waited < ReadyTimeoutSeconds * 1000)
                         return;
-                    _phase = Phase.Roaming;
+                    BeginRoaming(now, busy);
                 }
 
                 if (aliveA == 0 || aliveB == 0)
@@ -139,6 +173,7 @@ namespace DOL.GS
                 if (_contactTick == 0 && _teamA.Concat(_teamB).Any(bot => bot.InCombat))
                 {
                     _contactTick = now;
+                    SetSelfBuffsOnly(false);
                     _phase = Phase.Fighting;
                 }
                 March(_teamA, _teamB, _spawnA, _spawnB, ref _waypointA);
@@ -194,7 +229,10 @@ namespace DOL.GS
                     aim = chosen >= 0 ? alive[chosen] : null;
                 }
                 brain.PvpAssignedTarget = aim;
-                if (aim != null && bot.IsAlive)
+                // A member still far behind (it stopped to cast while the group walked on) is not
+                // put in attack state: the brain does not walk a caster that far, so it would stand
+                // where it is for the whole fight. It keeps marching until it has caught up.
+                if (aim != null && bot.IsAlive && bot.IsWithinRadius(aim, EngageRange))
                 {
                     brain.AddToAggroList(aim, 1);
                     if (brain.FSM.GetCurrentState()?.StateType != eFSMStateType.AGGRO)
@@ -227,19 +265,22 @@ namespace DOL.GS
         /// <summary>
         /// Bots with nothing to fight move as a group. While no member can see an enemy the group
         /// does not know where the other side is: it patrols (the middle of the arena, the far
-        /// end, back to its own end, and round again). Once any member sees enemies it goes for
-        /// the ones in sight. The order is repeated every few seconds because the brain's own
-        /// idle logic stops a walking bot.
+        /// end, back to its own end, and round again). Once any member spots enemies it goes for
+        /// them spread out, each member to its own place in two rows. The order is repeated every
+        /// few seconds because the brain's own idle logic stops a walking bot.
         /// </summary>
         private static void March(List<GameBot> team, List<GameBot> enemies, (int X, int Y) own, (int X, int Y) far, ref int waypoint)
         {
             List<GameBot> members = team.Where(bot => bot.IsAlive).ToList();
             if (members.Count == 0)
                 return;
-            List<GameBot> seen = enemies.Where(enemy => enemy.IsAlive && members.Any(bot => bot.IsWithinRadius(enemy, SightRange))).ToList();
+            List<GameBot> seen = enemies.Where(enemy => enemy.IsAlive && members.Any(bot => bot.IsWithinRadius(enemy, SpotRange))).ToList();
             Vector3 goal;
+            Dictionary<GameBot, Vector3> places = null;
             if (seen.Count > 0)
+            {
                 goal = new Vector3((float)seen.Average(enemy => enemy.X), (float)seen.Average(enemy => enemy.Y), (float)seen.Average(enemy => enemy.Z));
+            }
             else
             {
                 (int X, int Y)[] route = [((own.X + far.X) / 2, (own.Y + far.Y) / 2), far, ((own.X + far.X) / 2, (own.Y + far.Y) / 2), own];
@@ -256,14 +297,112 @@ namespace DOL.GS
                     : nav.GetClosestPoint(zone, new Vector3(next.X, next.Y, 5_000), 256, 256, 20_000, nav.DefaultFilters)
                       ?? new Vector3(next.X, next.Y, (float)members.Average(bot => bot.Z));
             }
+            places = SpreadPlaces(members, goal);
             foreach (GameBot bot in team)
             {
-                if (!bot.IsAlive || bot.InCombat || bot.IsCasting || bot.Brain is BotBrain { HasAggro: true })
+                if (!bot.IsAlive || bot.IsCasting || bot.IsIncapacitated)
                     continue;
+                // Fighting, or about to: an enemy is within reach. Otherwise it marches, even if
+                // the brain still holds an old target from before it fell behind.
+                bool straggler = !enemies.Any(enemy => enemy.IsAlive && bot.IsWithinRadius(enemy, EngageRange));
+                // Once the fight has started, a member within reach of the enemy is the brain's
+                // alone. A caster whose targets are all asleep has no attack target, and a march
+                // order here made it walk in the middle of its casts, which then never started
+                // (the Sorcerer made 92 mez decisions for 19 casts).
+                if (!straggler && (_contactTick != 0 || bot.InCombat || bot.Brain is BotBrain { HasAggro: true }))
+                    continue;
+                if (straggler && bot.Brain is BotBrain { HasAggro: true } behind)
+                {
+                    behind.ClearAggroList();
+                    behind.FSM.SetCurrentState(eFSMStateType.IDLE);
+                }
                 if (bot.IsMoving && GameLoop.GameLoopTime % 4_000 >= 1_000)
                     continue;
-                bot.PathTo(goal, bot.MaxSpeed);
+                bot.PathTo(places != null && places.TryGetValue(bot, out Vector3 place) ? place : goal, bot.MaxSpeed);
             }
+        }
+
+        /// <summary>
+        /// Where each member heads when the group has spotted the enemy: two rows across the line
+        /// of approach, fighters aimed at the enemy and the rest a little short of it, neighbours
+        /// <see cref="SpreadSpacing"/> apart.
+        /// </summary>
+        private static Dictionary<GameBot, Vector3> SpreadPlaces(List<GameBot> members, Vector3 enemyCentre)
+        {
+            var centre = new Vector2((float)members.Average(bot => bot.X), (float)members.Average(bot => bot.Y));
+            Vector2 toward = new Vector2(enemyCentre.X, enemyCentre.Y) - centre;
+            if (toward.LengthSquared() < 1)
+                return null;
+            toward = Vector2.Normalize(toward);
+            var across = new Vector2(-toward.Y, toward.X);
+            var nav = PathfindingProvider.Instance;
+            var places = new Dictionary<GameBot, Vector3>();
+            foreach (IGrouping<bool, GameBot> row in members.GroupBy(bot => PvpBuffPlan.ArchetypeOf(bot.PvpBuild.Class) == PvpBuffArchetype.Melee))
+            {
+                List<GameBot> inRow = row.ToList();
+                for (int slot = 0; slot < inRow.Count; slot++)
+                {
+                    Vector2 point = new Vector2(enemyCentre.X, enemyCentre.Y)
+                                    + across * ((slot - (inRow.Count - 1) / 2f) * SpreadSpacing)
+                                    - toward * (row.Key ? 0 : BackRowDepth);
+                    // The place needs a height the navmesh knows, or no path is found.
+                    places[inRow[slot]] = nav.GetFloorBeneath(inRow[slot].CurrentZone, new Vector3(point.X, point.Y, 20_000), 20_000, nav.DefaultFilters)
+                        is { } floor && floor.Z < 19_999 ? floor : new Vector3(point.X, point.Y, enemyCentre.Z);
+                }
+            }
+            return places;
+        }
+
+        private static void SetSelfBuffsOnly(bool value)
+        {
+            foreach (GameBot bot in _teamA.Concat(_teamB))
+            {
+                if (bot.Brain is BotBrain brain)
+                    brain.PvpSelfBuffsOnly = value;
+            }
+        }
+
+        /// <summary>
+        /// A buff counts once per caster, spell and target: a song or chant recast over and over
+        /// keeps nobody waiting, a buff cast on each member in turn does.
+        /// </summary>
+        private static void OnCastFinished(DOLEvent e, object sender, EventArgs args)
+        {
+            if (_phase != Phase.Buffing || sender is not GameLiving caster || !_members.Contains(caster) ||
+                args is not CastingEventArgs { SpellHandler: { Spell: { } spell } } cast)
+                return;
+            if (_buffsCast.TryAdd((caster, spell.ID, cast.Target), 0))
+                _lastNewBuffTick[caster] = GameLoop.GameLoopTime;
+        }
+
+        private static bool StillBuffing(GameBot bot, long now)
+        {
+            if (bot.IsCasting && bot.castingComponent?.SpellHandler is { Spell: { } spell } handler &&
+                !_buffsCast.ContainsKey((bot, spell.ID, handler.Target)))
+                return true;
+            return _lastNewBuffTick.TryGetValue(bot, out long last) && now - last < QuietSeconds * 1000;
+        }
+
+        /// <summary>
+        /// Both groups are ready (or the wait ran out). Everyone starts the match rested: full
+        /// health, power and endurance, as a group that sat down after buffing would. The match
+        /// clock starts here, so buffing time is not part of the match.
+        /// </summary>
+        private static void BeginRoaming(long now, List<GameBot> notReady)
+        {
+            foreach (GameBot bot in _teamA.Concat(_teamB).Where(bot => bot.IsAlive))
+            {
+                bot.Health = bot.MaxHealth;
+                bot.Mana = bot.MaxMana;
+                bot.Endurance = bot.MaxEndurance;
+            }
+            int seconds = (int)((now - _phaseStartTick) / 1000);
+            _lastReady = new { Seconds = seconds, TimedOut = notReady.Count > 0, NotReady = notReady.Select(bot => bot.PvpBuild.Id).ToList() };
+            PvpRecorder.Ready(seconds, notReady);
+            if (notReady.Count > 0)
+                Log.Warn($"8v8 scrim match {_matchNumber}: ready check timed out after {seconds}s, still buffing: {string.Join(", ", notReady.Select(bot => bot.PvpBuild.Id))}");
+            _matchStartTick = now;
+            _phase = Phase.Roaming;
         }
 
         private static void EndMatch(string winner, string end, int aliveA, int aliveB)
@@ -307,6 +446,11 @@ namespace DOL.GS
                 Match = _matchNumber,
                 Of = _matchesWanted,
                 Seconds = Running ? (int)((now - _matchStartTick) / 1000) : 0,
+                // The ready check of the current match (null while it is still buffing).
+                Ready = _phase == Phase.Buffing ? null : _lastReady,
+                StillBuffing = _phase == Phase.Buffing
+                    ? _teamA.Concat(_teamB).Where(bot => bot.IsAlive && StillBuffing(bot, now)).Select(bot => bot.PvpBuild.Id).ToList()
+                    : null,
                 SecondsToContact = _contactTick == 0 ? -1 : (int)((_contactTick - _matchStartTick) / 1000),
                 Distance = _teamA.Any(bot => bot.IsAlive) && _teamB.Any(bot => bot.IsAlive)
                     ? (int)Math.Sqrt(Math.Pow(_teamA.Where(bot => bot.IsAlive).Average(bot => bot.X) - _teamB.Where(bot => bot.IsAlive).Average(bot => bot.X), 2) +
