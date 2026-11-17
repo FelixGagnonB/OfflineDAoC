@@ -53,6 +53,8 @@ namespace DOL.GS
         private static string _batch;
         private static bool _squadA, _squadB;
         private static GameBot _killA, _killB;
+        private static (int X, int Y) _spawnA, _spawnB;
+        private static int _waypointA, _waypointB;
 
         public static bool Running => _phase != Phase.Idle;
 
@@ -92,6 +94,7 @@ namespace DOL.GS
             bool swapped = _matchNumber % 2 == 0;
             (int X, int Y) spawnA = swapped ? _arena.SpawnB : _arena.SpawnA;
             (int X, int Y) spawnB = swapped ? _arena.SpawnA : _arena.SpawnB;
+            (_spawnA, _spawnB, _waypointA, _waypointB) = (spawnA, spawnB, 0, 0);
             _teamA = PvpArena.SpawnGroup(_groupA, _arena.Region, spawnA.X, spawnA.Y, _realmLevel).ToList();
             _teamB = PvpArena.SpawnGroup(_groupB, _arena.Region, spawnB.X, spawnB.Y, _realmLevel).ToList();
             _phase = Phase.Buffing;
@@ -138,8 +141,8 @@ namespace DOL.GS
                     _contactTick = now;
                     _phase = Phase.Fighting;
                 }
-                March(_teamA, _teamB);
-                March(_teamB, _teamA);
+                March(_teamA, _teamB, _spawnA, _spawnB, ref _waypointA);
+                March(_teamB, _teamA, _spawnB, _spawnA, ref _waypointB);
             }
             catch (Exception exception)
             {
@@ -222,16 +225,37 @@ namespace DOL.GS
         }
 
         /// <summary>
-        /// Bots with nothing to fight walk toward the middle of the living enemies, or the enemy
-        /// spawn while none has been met. The order is repeated every few seconds because the
-        /// brain's own idle logic stops a walking bot.
+        /// Bots with nothing to fight move as a group. While no member can see an enemy the group
+        /// does not know where the other side is: it patrols (the middle of the arena, the far
+        /// end, back to its own end, and round again). Once any member sees enemies it goes for
+        /// the ones in sight. The order is repeated every few seconds because the brain's own
+        /// idle logic stops a walking bot.
         /// </summary>
-        private static void March(List<GameBot> team, List<GameBot> enemies)
+        private static void March(List<GameBot> team, List<GameBot> enemies, (int X, int Y) own, (int X, int Y) far, ref int waypoint)
         {
-            List<GameBot> alive = enemies.Where(enemy => enemy.IsAlive).ToList();
-            if (alive.Count == 0)
+            List<GameBot> members = team.Where(bot => bot.IsAlive).ToList();
+            if (members.Count == 0)
                 return;
-            var goal = new Vector3((float)alive.Average(enemy => enemy.X), (float)alive.Average(enemy => enemy.Y), (float)alive.Average(enemy => enemy.Z));
+            List<GameBot> seen = enemies.Where(enemy => enemy.IsAlive && members.Any(bot => bot.IsWithinRadius(enemy, SightRange))).ToList();
+            Vector3 goal;
+            if (seen.Count > 0)
+                goal = new Vector3((float)seen.Average(enemy => enemy.X), (float)seen.Average(enemy => enemy.Y), (float)seen.Average(enemy => enemy.Z));
+            else
+            {
+                (int X, int Y)[] route = [((own.X + far.X) / 2, (own.Y + far.Y) / 2), far, ((own.X + far.X) / 2, (own.Y + far.Y) / 2), own];
+                (int X, int Y) next = route[waypoint % route.Length];
+                double x = members.Average(bot => bot.X), y = members.Average(bot => bot.Y);
+                if (Math.Sqrt(Math.Pow(next.X - x, 2) + Math.Pow(next.Y - y, 2)) < 900)
+                    next = route[++waypoint % route.Length];
+                // The route has no heights: take the ground under the waypoint from the navmesh,
+                // as the spawn does. A goal above or below the mesh gives no path and nobody moves.
+                var nav = PathfindingProvider.Instance;
+                Zone zone = members[0].CurrentZone;
+                goal = nav.GetFloorBeneath(zone, new Vector3(next.X, next.Y, 20_000), 20_000, nav.DefaultFilters) is { } floor && floor.Z < 19_999
+                    ? floor
+                    : nav.GetClosestPoint(zone, new Vector3(next.X, next.Y, 5_000), 256, 256, 20_000, nav.DefaultFilters)
+                      ?? new Vector3(next.X, next.Y, (float)members.Average(bot => bot.Z));
+            }
             foreach (GameBot bot in team)
             {
                 if (!bot.IsAlive || bot.InCombat || bot.IsCasting || bot.Brain is BotBrain { HasAggro: true })

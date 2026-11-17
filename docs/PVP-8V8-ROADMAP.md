@@ -262,19 +262,34 @@ minutes: 11 to 15 of the 16 bots are mesmerized at any moment, nobody attacks a 
 target, and the healers undo the rest. That stalemate is the baseline the recorder has to show.
 Still to do: a complete batch to the time limit, parallel arenas (M2.5), the 20-match exit check.
 
-- [ ] **M2.1** (S) Arena file: box bounds in Emain Macha, two spawn areas, patrol waypoints. Size
+*Progress 2026-11-17:* groups no longer walk at each other's position. Each patrols a route (arena
+middle, far end, middle, own end) and goes for enemies only once a member sees one within 3,000
+units (M2.4). The first 20-match run met nobody: the waypoints had no ground height, so no path
+was found; they now take their height from the navmesh floor. Exit check, Albion against Midgard,
+squad brain on both, 180-second limit, run as four batches of five with a server restart between
+batches: 20 of 20 matches completed, contact at 32 to 35 seconds in every one, no server error, no
+bot left in the world. Results: Albion 7, Midgard 2, 11 draws, every match on the time limit with
+at most three deaths (a brain problem, M5 and M6). The earlier no-contact run also completed 20
+matches in one server without error. Server memory: 5.1 to 5.4 GB after the first match of a
+batch, then about 0.1 GB more per match; worth a look before long runs or parallel arenas.
+Scrims are started through the control channel (`scrim-start`, `scrim-status`, `scrim-stop`); the
+in-game `/scrim` command waits with the rest of the human-side work. M2.5 is not built.
+
+- [x] **M2.1** (S) Arena file: box bounds in Emain Macha, two spawn areas, patrol waypoints. Size
   is a setting. With its walls in place the Emain mesh splits into two large areas that do not
   connect (about 64% and 33% of the zone). The zone centre is in the smaller one; the two frontier
   arrival points first proposed as lane ends are in the other. The box, both spawns and every
   waypoint must sit in one area: pick it from the map and prove it with a path check.
-- [ ] **M2.2** (M) Match lifecycle: spawn both groups, buff, roam, contact, end on wipe or timeout,
+- [x] **M2.2** (M) Match lifecycle: spawn both groups, buff, roam, contact, end on wipe or timeout,
   clean up, repeat.
-- [ ] **M2.3** (S) `/scrim` command: start N matches between two named groups, show status, stop.
-- [ ] **M2.4** (S) Simple roaming along the waypoints with no knowledge of the enemy's position.
+- [x] **M2.3** (S) `/scrim` command: start N matches between two named groups, show status, stop.
+  Done as control-channel commands; no in-game command yet.
+- [x] **M2.4** (S) Simple roaming along the waypoints with no knowledge of the enemy's position.
   Good enough to produce contact; M8 replaces it.
 - [ ] **M2.5** (M) Several arenas at once in different boxes, since game time cannot be sped up.
 
 **Exit check:** 20 matches run unattended with no stuck bot, no leftover bot and no server error.
+Passed 2026-11-17 (four batches of five, see the progress note).
 
 ## M3. Recorder, analyzer and baseline
 
