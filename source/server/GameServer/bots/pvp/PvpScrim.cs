@@ -98,7 +98,7 @@ namespace DOL.GS
         /// single series has the whole arena, as before, unless <paramref name="inLane"/> is set.
         /// </summary>
         public static void Start(IReadOnlyList<(PvpGroupTemplate A, PvpGroupTemplate B)> pairs, int matches, int realmLevel,
-            int limitSeconds, bool squadA, bool squadB, int copies, bool inLane, bool versus)
+            int limitSeconds, bool squadA, bool squadB, int copies, bool inLane, bool versus, int vary = 0, int spread = 40)
         {
             Log.Info($"8v8 scrim weights: {PvpWeights.Reload(AppContext.BaseDirectory)}");
             if (Running)
@@ -107,6 +107,8 @@ namespace DOL.GS
                 throw new ArgumentException("No pairing given.");
             if (pairs.Any(pair => pair.A.Realm == pair.B.Realm))
                 throw new ArgumentException("The two groups must be of different realms to be able to fight.");
+            if (versus && vary > 0)
+                throw new ArgumentException("Versus compares two fixed sets of weights and Vary draws a new set for every team: use one of them.");
             if (versus && PvpWeights.Reference == null)
                 throw new ArgumentException($"A comparison needs {PvpWeights.ReferenceFileName} beside the server.");
             copies = Math.Max(1, copies);
@@ -131,7 +133,7 @@ namespace DOL.GS
                 foreach ((PvpGroupTemplate a, PvpGroupTemplate b) in pairs)
                     runs.Add(new PvpScrimRun(runs.Count, lanes[runs.Count], a, b, Math.Max(1, matches), realmLevel,
                         Math.Clamp(limitSeconds, 30, 3600), squadA, squadB, $"{stamp}-{a.Id}-vs-{b.Id}", copy * 100,
-                        !versus ? 0 : copy % 2 == 0 ? 1 : 2));
+                        !versus ? 0 : copy % 2 == 0 ? 1 : 2, vary, spread));
             }
             _runs = runs.ToArray();
             try
@@ -272,6 +274,9 @@ namespace DOL.GS
         private readonly int _lane, _numberOffset;
         // A comparison of two sets of weights: 0 none, 1 the first group has the new set, 2 the second has it.
         private readonly int _versus;
+        // Above 0: each team of each match fights with its own draw of the weights, with this
+        // share of them moved by this spread (bots/pvp/PvpWeightDraw.cs).
+        private readonly int _vary, _spread;
         private PvpRecording _recording;
         // Everything this series put in the world for the current match, buffbots included.
         private readonly List<GameBot> _bots = [];
@@ -293,14 +298,16 @@ namespace DOL.GS
         private ConcurrentDictionary<GameLiving, long> _lastNewBuffTick = new();
         private HashSet<GameLiving> _members = [];
         private object _lastReady;
+        // Healers that stayed back on incoming in the current match, to record it once each.
+        private readonly HashSet<GameBot> _hungBack = [];
 
         public bool Running => _phase != Phase.Idle;
         public int MatchLimitSeconds { get; }
 
         internal PvpScrimRun(int lane, PvpArenaBox arena, PvpGroupTemplate groupA, PvpGroupTemplate groupB, int matches, int realmLevel,
-            int limitSeconds, bool squadA, bool squadB, string batch, int numberOffset, int versus)
+            int limitSeconds, bool squadA, bool squadB, string batch, int numberOffset, int versus, int vary = 0, int spread = 40)
         {
-            _versus = versus;
+            (_versus, _vary, _spread) = (versus, vary, spread);
             (_lane, _arena, _groupA, _groupB, _matchesWanted, _realmLevel) = (lane, arena, groupA, groupB, matches, realmLevel);
             (_squadBrainA, _squadBrainB, _batch, _numberOffset) = (squadA, squadB, batch, numberOffset);
             MatchLimitSeconds = limitSeconds;
@@ -331,12 +338,15 @@ namespace DOL.GS
             _squadB = _squadBrainB ? new PvpSquad(_teamB) : null;
             FormUp(_teamA, spawnB);
             FormUp(_teamB, spawnA);
+            PvpWeights drawA = _vary > 0 ? PvpWeightDraw.Vary(PvpWeights.Current, Random.Shared, _vary, _spread) : null;
+            PvpWeights drawB = _vary > 0 ? PvpWeightDraw.Vary(PvpWeights.Current, Random.Shared, _vary, _spread) : null;
             foreach (GameBot bot in _teamA)
-                bot.PvpWeightsSet = _versus == 2 ? PvpWeights.Reference : null;
+                bot.PvpWeightsSet = drawA ?? (_versus == 2 ? PvpWeights.Reference : null);
             foreach (GameBot bot in _teamB)
-                bot.PvpWeightsSet = _versus == 1 ? PvpWeights.Reference : null;
+                bot.PvpWeightsSet = drawB ?? (_versus == 1 ? PvpWeights.Reference : null);
             _buffsCast = new();
             _lastNewBuffTick = new();
+            _hungBack.Clear();
             _members = _teamA.Concat(_teamB).Cast<GameLiving>().ToHashSet();
             SetSelfBuffsOnly(true);
             _phase = Phase.Buffing;
@@ -495,6 +505,26 @@ namespace DOL.GS
             {
                 if (!bot.IsAlive || bot.IsCasting || bot.IsIncapacitated)
                     continue;
+                // On incoming a healer that only heals stays out of the enemy's reach, and comes
+                // in once the fight has settled (bots/pvp/PvpPositioning.cs).
+                if (seen.Count > 0 && (team == _teamA ? _squadA : _squadB) != null)
+                {
+                    PvpWeights weights = PvpWeights.Of(bot);
+                    bool onlyHeals = PvpBuffPlan.ArchetypeOf(bot.PvpBuild.Class) == PvpBuffArchetype.Healer &&
+                        weights.HealsFirstBelowFor(bot.PvpBuild.Id, bot.PvpBuild.Class) > 100;
+                    if (weights.Position.HealerHangsBack(onlyHeals, (int)seen.Min(enemy => bot.GetDistanceTo(enemy)),
+                            _contactTick == 0 ? -1 : (GameLoop.GameLoopTime - _contactTick) / 1000.0))
+                    {
+                        if (_hungBack.Add(bot))
+                            PvpRecorder.Decision(bot, new { kind = "HangBack", score = 0 }, [], null);
+                        if (bot.IsMoving)
+                        {
+                            bot.StopMovingOnPath();
+                            bot.StopMoving();
+                        }
+                        continue;
+                    }
+                }
                 // Fighting, or about to: an enemy is within reach. Otherwise it marches, even if
                 // the brain still holds an old target from before it fell behind.
                 bool straggler = !enemies.Any(enemy => enemy.IsAlive && bot.IsWithinRadius(enemy, EngageRange));

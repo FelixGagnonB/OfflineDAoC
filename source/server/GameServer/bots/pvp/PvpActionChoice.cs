@@ -26,6 +26,8 @@ namespace DOL.GS
         CureMez,
         /// <summary>Makes every enemy around the target lose the spell it is casting (Bard's Lullaby, Healer, Sorcerer).</summary>
         Amnesia,
+        /// <summary>Lowers the target's resistance to the kind of damage the caster's own spells do.</summary>
+        Debuff,
     }
 
     /// <summary>One thing the caster could do now: this kind of spell on this enemy, and what is known about the enemy.</summary>
@@ -76,7 +78,9 @@ namespace DOL.GS
             // their healers and casters (RootOnPursuer) and seldom otherwise.
             // The Eldritch has no root; its snare nuke stands in for one.
             ["Eldritch"] = new() { ["Nearsight"] = 80, ["Disease"] = 70, ["Damage"] = 55, ["Root"] = 30 },
-            ["Cabalist"] = new() { ["Nearsight"] = 60, ["Disease"] = 70, ["Damage"] = 55, ["Root"] = 30 },
+            // Debuff (owner, 2026-11-18): the tri-spec Cabalist has a body resistance debuff, for
+            // when the casters kill a target together.
+            ["Cabalist"] = new() { ["Nearsight"] = 60, ["Disease"] = 70, ["Damage"] = 55, ["Root"] = 30, ["Debuff"] = 45 },
             ["Runemaster"] = new() { ["Nearsight"] = 75, ["Damage"] = 60, ["Root"] = 30 },
             ["Theurgist"] = new() { ["Pet"] = 70, ["Damage"] = 30, ["Root"] = 30 },
             // Main mezzers (owner, 2026-11-16): Sorcerer, Bard, Pacification Healer. The Healer's entry
@@ -143,6 +147,19 @@ namespace DOL.GS
         /// <summary>More for the enemy's mezzer: nearsighted, its mez no longer outranges anybody's.</summary>
         public int NearsightOnEnemyController { get; set; } = 25;
         public int DiseaseOnKillTarget { get; set; } = 40;     // disease halves the healing it receives
+        /// <summary>
+        /// Disease also slows and weakens: on a fighter it is worth more than on a caster. The
+        /// owner's Cabalist, 2026-11-18: "disease enemy tanks and other relevant targets". Without
+        /// this three in four went on healers and casters, which are free more often.
+        /// </summary>
+        public int DiseaseOnFighter { get; set; } = 30;
+        /// <summary>More on a fighter that is on the group's healers and casters.</summary>
+        public int DiseaseOnPursuer { get; set; } = 20;
+        /// <summary>
+        /// A resistance debuff is for the kill target only, and goes on before the damage: with
+        /// this it outscores a nuke on a target near full health and loses to one once the target is hurt.
+        /// </summary>
+        public int DebuffOnKillTarget { get; set; } = 50;
         public int DamageOnKillTarget { get; set; } = 30;
         public int DamageOffKillTarget { get; set; } = -60;    // spread damage kills nobody
         /// <summary>
@@ -239,8 +256,17 @@ namespace DOL.GS
         /// <summary>Where healers and casters stand in a fight (bots/pvp/PvpPositioning.cs).</summary>
         public PvpPositionWeights Position { get; set; } = new();
 
+        /// <summary>Whom the group calls as its kill target (bots/pvp/PvpKillTarget.cs).</summary>
+        public PvpKillWeights Kill { get; set; } = new();
+
         /// <summary>How the group reads the fight into an order (bots/pvp/PvpReading.cs).</summary>
         public PvpOrderWeights Order { get; set; } = new();
+
+        /// <summary>
+        /// For a set drawn at random for one team of one match (bots/pvp/PvpWeightDraw.cs): which
+        /// weights were moved, -1 down and +1 up. Null for any other set.
+        /// </summary>
+        public Dictionary<string, int> Drawn { get; set; }
 
         public const string ReferenceFileName = "pvp-weights-old.json";
 
@@ -327,6 +353,7 @@ namespace DOL.GS
             PvpActionKind.CureMez => option.Mezzed,
             // Worth a turn only while somebody inside it is casting.
             PvpActionKind.Amnesia => option.Caught > 0,
+            PvpActionKind.Debuff => option.IsKill && !option.HasEffect,
             _ => true,
         };
 
@@ -355,6 +382,10 @@ namespace DOL.GS
                     break;
                 case PvpActionKind.Disease:
                     score += option.IsKill ? weights.DiseaseOnKillTarget : 0;
+                    score += soft ? 0 : weights.DiseaseOnFighter + (option.Pursuer ? weights.DiseaseOnPursuer : 0);
+                    break;
+                case PvpActionKind.Debuff:
+                    score += option.IsKill ? weights.DebuffOnKillTarget : 0;
                     break;
                 case PvpActionKind.Damage:
                     score += option.IsKill

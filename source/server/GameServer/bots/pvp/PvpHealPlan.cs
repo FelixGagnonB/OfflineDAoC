@@ -12,6 +12,32 @@ namespace DOL.GS
     /// <summary>Part of <see cref="PvpWeights"/>: how the group's healers share out their patients.</summary>
     public sealed class PvpHealWeights
     {
+        /// <summary>
+        /// Power has to last the fight (the owner, 2026-11-17). A healer below this share of its
+        /// power saves it: it heals a member only below <see cref="SavingHealBelowPercent"/>, and
+        /// the member the enemy is training only below <see cref="SavingTrainedHealBelowPercent"/>,
+        /// in place of the usual marks. In the recorded matches of 2026-11-18 a Rejuvenation Cleric
+        /// spent 29% of the fight under a fifth of its power. 0 = it never saves.
+        /// </summary>
+        public int SavePowerBelowPercent { get; set; } = 30;
+        public int SavingHealBelowPercent { get; set; } = 60;
+        public int SavingTrainedHealBelowPercent { get; set; } = 85;
+        /// <summary>
+        /// A heal with a cast time is dropped when its target is at or above this health before it
+        /// lands: somebody else healed it meanwhile. It is seldom needed (6 of 157 big heals in a check
+        /// run of 2026-11-18; most heals that restore nothing are the instant group heal reaching
+        /// members who were not hurt). Not for the member the enemy is training: damage is on its
+        /// way to it. 0 = never dropped.
+        /// </summary>
+        public int DropHealAtPercent { get; set; } = 98;
+        /// <summary>
+        /// A backup healer (Pacification Healer, Shaman, Bard) heals first only while a member is
+        /// below its own mark (<see cref="PvpWeights.HealsFirstBelow"/>). While none of the group's
+        /// healers that only heal can heal (dead, asleep, stunned, silenced or being interrupted),
+        /// its mark rises to this: it takes over. Playbook, section 5: "When the Mending Healer is
+        /// asleep, interrupted or dead, it turns to healing".
+        /// </summary>
+        public int BackupHealsBelowWhenHealersDown { get; set; } = 95;
         /// <summary>A spread or group heal is cast when at least this many members in reach are hurt. 0 = never.</summary>
         public int SpreadHealMinHurt { get; set; } = 3;
         /// <summary>A member counts as hurt, for the spread heal, below this health.</summary>
@@ -70,6 +96,14 @@ namespace DOL.GS
     /// </summary>
     public static class PvpHealPlan
     {
+        /// <summary>True when a heal being cast is no longer worth finishing.</summary>
+        public static bool DropsHeal(int targetHealthPercent, bool targetTrained, PvpHealWeights weights) =>
+            weights.DropHealAtPercent > 0 && !targetTrained && targetHealthPercent >= weights.DropHealAtPercent;
+
+        /// <summary>The health mark below which a backup healer heals before anything else, given whether a healer of its group can heal.</summary>
+        public static int BackupHealsBelow(int ownMark, bool aHealerCanHeal, PvpHealWeights weights) =>
+            aHealerCanHeal ? ownMark : Math.Max(ownMark, weights.BackupHealsBelowWhenHealersDown);
+
         /// <summary>
         /// True when a heal for several is the heal to cast: enough members in reach are hurt at
         /// once, and nobody has the enemy's assist train on it (that member gets the single heals).
@@ -164,10 +198,13 @@ namespace DOL.GS
         /// member. -1 when the others' heals already cover everyone, so the turn is free for
         /// something else.
         /// </summary>
-        public static int Choose(IReadOnlyList<PvpPatient> patients, int own, PvpHealWeights weights)
+        /// <param name="healerPowerPercent">The healer's own power: one that is running low heals only members who are really hurt.</param>
+        public static int Choose(IReadOnlyList<PvpPatient> patients, int own, PvpHealWeights weights, int healerPowerPercent = 100)
         {
-            List<PvpPatient> needy = patients.Where(patient =>
-                Projected(patient) < (patient.Trained ? weights.TrainedHealBelowPercent : weights.HealBelowPercent)).ToList();
+            bool saving = healerPowerPercent < weights.SavePowerBelowPercent;
+            int mark = saving ? Math.Min(weights.HealBelowPercent, weights.SavingHealBelowPercent) : weights.HealBelowPercent;
+            int trainedMark = saving ? Math.Min(weights.TrainedHealBelowPercent, weights.SavingTrainedHealBelowPercent) : weights.TrainedHealBelowPercent;
+            List<PvpPatient> needy = patients.Where(patient => Projected(patient) < (patient.Trained ? trainedMark : mark)).ToList();
             return needy.Count == 0 ? -1
                 : needy.OrderByDescending(patient => Need(patient, patient.Id == own, weights)).ThenBy(patient => patient.Id).First().Id;
         }

@@ -118,6 +118,16 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void AStrungOutGroupRegroups()
+        {
+            // Two of four fighters out of the healers' reach: come back together.
+            Assert.That(PvpOrders.Choose(Fresh(), Fresh(), 0, PvpOrder.Engage, 10, Weights, 0.5), Is.EqualTo(PvpOrder.Regroup));
+            Assert.That(PvpOrders.Choose(Fresh(), Fresh(), 0, PvpOrder.Engage, 10, Weights, 0.25), Is.EqualTo(PvpOrder.Engage), "one of four is not the group");
+            // Once they are back the order ends.
+            Assert.That(PvpOrders.Choose(Fresh(), Fresh(), 0, PvpOrder.Regroup, 10, Weights, 0), Is.EqualTo(PvpOrder.Engage));
+        }
+
+        [Test]
         public void OrdersCanBeTurnedOff()
         {
             PvpReading theirs = PvpReading.Of(

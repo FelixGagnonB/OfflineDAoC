@@ -87,7 +87,7 @@ namespace DOL.GS
                 List<PvpPatient> patients = reach.Select((member, id) => new PvpPatient(id, member.Health, member.MaxHealth,
                     (int)_heals.Values.Where(heal => heal.Target == member).Sum(heal => Math.Max(0, GameBot.HealAmount(heal.Spell, member))),
                     PvpBuffPlan.ArchetypeOf(member.PvpBuild.Class), member == Trained)).ToList();
-                int chosen = PvpHealPlan.Choose(patients, reach.IndexOf(pick), weights);
+                int chosen = PvpHealPlan.Choose(patients, reach.IndexOf(pick), weights, healer.ManaPercent);
                 if (chosen < 0)
                     return null;
                 _heals[healer] = (reach[chosen], spell, now, now + Math.Clamp(spell.CastTime + 500, 1_000, 15_000));
@@ -194,8 +194,19 @@ namespace DOL.GS
             if (FightStarted || _holdOver)
                 Incoming = null;
             if (FightStarted)
+            {
+                // Strung out: the share of the living fighters that are out of the healers' reach.
+                List<GameBot> fighters = _members.Where(member => member.IsAlive && IsFighter(member)).ToList();
+                List<GameBot> soft = _members.Where(member => member.IsAlive && !IsFighter(member)).ToList();
+                double far = 0;
+                if (fighters.Count > 0 && soft.Count > 0)
+                {
+                    var middle = new Vector2((float)soft.Average(member => member.X), (float)soft.Average(member => member.Y));
+                    far = fighters.Count(fighter => Vector2.Distance(new Vector2(fighter.X, fighter.Y), middle) > weights.Order.RegroupFighterIsFarAt) / (double)fighters.Count;
+                }
                 order = PvpOrders.Choose(Own, Theirs, _pursuers.Select(enemy => enemy.TargetObject).Distinct().Count(),
-                    Order == PvpOrder.Hold ? PvpOrder.Engage : Order, (now - _orderSince) / 1000.0, weights.Order);
+                    Order == PvpOrder.Hold ? PvpOrder.Engage : Order, (now - _orderSince) / 1000.0, weights.Order, far);
+            }
             else if (!_holdOver && known.Count > 0)
             {
                 if (_firstSeen == 0)
@@ -258,16 +269,21 @@ namespace DOL.GS
             if (dealers.Count > 0 && alive.Count > 0)
             {
                 double x = dealers.Average(bot => bot.X), y = dealers.Average(bot => bot.Y);
+                PvpKillWeights kill = PvpWeights.Of(team[0]).Kill;
+                // Out of position: how far each enemy stands from the middle of its own healers, the ones in sight.
+                List<GameBot> theirHealers = alive.Where(enemy => PvpBuffPlan.ArchetypeOf(enemy.PvpBuild.Class) == PvpBuffArchetype.Healer).ToList();
+                double hx = theirHealers.Count == 0 ? 0 : theirHealers.Average(bot => bot.X), hy = theirHealers.Count == 0 ? 0 : theirHealers.Average(bot => bot.Y);
                 var views = alive.Select((enemy, id) => new PvpTargetView(id, PvpBuffPlan.ArchetypeOf(enemy.PvpBuild.Class),
-                    enemy.HealthPercent, enemy.IsMezzed, (int)Math.Sqrt(Math.Pow(enemy.X - x, 2) + Math.Pow(enemy.Y - y, 2)))).ToList();
-                int chosen = PvpKillTarget.Choose(views, current != null ? alive.IndexOf(current) : -1);
+                    enemy.HealthPercent, enemy.IsMezzed, (int)Math.Sqrt(Math.Pow(enemy.X - x, 2) + Math.Pow(enemy.Y - y, 2)),
+                    theirHealers.Count == 0 ? 0 : (int)Math.Sqrt(Math.Pow(enemy.X - hx, 2) + Math.Pow(enemy.Y - hy, 2)))).ToList();
+                int chosen = PvpKillTarget.Choose(views, current != null ? alive.IndexOf(current) : -1, kill);
                 target = chosen >= 0 ? alive[chosen] : null;
                 // The call is recorded when it changes, with what else could have been called.
                 if (target != current && target != null)
-                    PvpRecorder.Call(team[0], target, PvpKillTarget.Score(views[chosen]), current,
-                        views.OrderByDescending(PvpKillTarget.Score).Take(4).Select(view => (object)new
+                    PvpRecorder.Call(team[0], target, PvpKillTarget.Score(views[chosen], kill), current,
+                        views.OrderByDescending(view => PvpKillTarget.Score(view, kill)).Take(4).Select(view => (object)new
                         {
-                            d = alive[view.Id].Name, score = PvpKillTarget.Score(view), view.HealthPercent, view.Mezzed, view.Distance,
+                            d = alive[view.Id].Name, score = PvpKillTarget.Score(view, kill), view.HealthPercent, view.Mezzed, view.Distance, view.FromItsHealers,
                         }));
             }
             var guarded = new HashSet<GameBot>();
@@ -307,10 +323,12 @@ namespace DOL.GS
                     aim = _pursuers.OrderBy(pursuer => bot.GetDistanceTo(pursuer)).First();
                 // With nobody to turn on, a fighter that is far from its healers and casters comes
                 // back to them: the group falls back as one, and does not leave its fighters behind.
+                // Under Regroup every fighter that is far comes back, the ones with interrupt duty too.
                 int stayWithin = PvpWeights.Of(bot).Order.ExtendFightersStayWithin;
-                bool fallsBack = Order == PvpOrder.Extend && _pursuers.Count == 0 && stayWithin > 0 && home is { } middle &&
-                    role == PvpRole.Assist && onDuty == null && bot.IsAlive && IsFighter(bot) &&
-                    Vector2.Distance(new Vector2(bot.X, bot.Y), new Vector2(middle.X, middle.Y)) > stayWithin;
+                float fromHome = home is { } middle ? Vector2.Distance(new Vector2(bot.X, bot.Y), new Vector2(middle.X, middle.Y)) : 0;
+                bool fallsBack = home != null && role == PvpRole.Assist && bot.IsAlive && IsFighter(bot) &&
+                    (Order == PvpOrder.Extend && _pursuers.Count == 0 && stayWithin > 0 && onDuty == null && fromHome > stayWithin ||
+                     Order == PvpOrder.Regroup && fromHome > PvpWeights.Of(bot).Order.RegroupWithin);
                 if (fallsBack)
                 {
                     aim = null;
@@ -336,6 +354,9 @@ namespace DOL.GS
                 if (FightStarted && bot.IsAlive && bot.PvpBuild.Class is eCharacterClass.Cabalist or eCharacterClass.Enchanter or eCharacterClass.Spiritmaster &&
                     bot.ControlledBrain is ControlledMobBrain { Body: { IsAlive: true } } pet)
                 {
+                    // Its brain runs with no player near (AutonomousSummonActivity.IsPvpBotSummon); started here if it is not.
+                    if (!pet.ServiceObjectId.IsSet)
+                        pet.Start();
                     GameLiving petAim = onDuty is { IsAlive: true, IsMezzed: false } ? onDuty : target is { IsAlive: true } ? target : null;
                     if (petAim == null)
                     {
@@ -572,6 +593,16 @@ namespace DOL.GS
             static Vector2 At(GameObject thing) => new(thing.X, thing.Y);
             long now = GameLoop.GameLoopTime;
             var nav = PathfindingProvider.Instance;
+            // Under Extend they fall back the same way: from the middle of the enemy through the middle of themselves.
+            Vector2 retreat = default;
+            List<GameBot> enemiesAlive = Known.Where(enemy => enemy.IsAlive).ToList();
+            if (Order == PvpOrder.Extend && backline.Count > 0 && enemiesAlive.Count > 0)
+            {
+                Vector2 away = new Vector2((float)backline.Average(bot => bot.X), (float)backline.Average(bot => bot.Y)) -
+                               new Vector2((float)enemiesAlive.Average(enemy => enemy.X), (float)enemiesAlive.Average(enemy => enemy.Y));
+                if (away.LengthSquared() > 1)
+                    retreat = Vector2.Normalize(away);
+            }
             foreach (GameBot bot in backline)
             {
                 if (bot.Brain is not BotBrain brain || bot.IsCasting || bot.IsIncapacitated || bot.castingComponent?.HasPendingSkillRequests == true)
@@ -604,7 +635,7 @@ namespace DOL.GS
                 }
                 List<Vector2> mates = backline.Where(member => member != bot).Select(member => At(member)).ToList();
                 var self = At(bot);
-                List<Vector2> steps = PvpPositioning.Steps(self, threats, work, mates, all.Spread.MinSpacing, safe, weights, out _);
+                List<Vector2> steps = PvpPositioning.Steps(self, threats, work, mates, all.Spread.MinSpacing, safe, weights, out _, retreat);
                 foreach (Vector2 to in steps.Take(4))
                 {
                     // A place the navmesh knows; the next best otherwise.

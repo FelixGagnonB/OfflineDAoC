@@ -42,6 +42,30 @@ namespace DOL.GS
         /// one. A member running from fighters that are held does not wait.
         /// </summary>
         public int StepEveryMilliseconds { get; set; } = 4_000;
+        /// <summary>
+        /// Under Extend a place is worth this much more for each unit it lies farther along the
+        /// group's line of retreat (straight away from the enemy), so that the healers and casters
+        /// fall back the same way. Playbook, section 3: "a retreat is one group moving one way,
+        /// not eight paths". 0 = each steps wherever it is safest for itself.
+        /// </summary>
+        public double PerUnitAlongRetreat { get; set; } = 0.3;
+        /// <summary>
+        /// On incoming a healer that only heals (Cleric, Druid, Mending Healer) walks no closer to
+        /// the nearest enemy than this: outside the longest mez (1,875 and the width of its area),
+        /// so the opening mez cannot catch it. 0 = it walks in with the others. The owner,
+        /// 2026-11-17: a healer may run off on the incoming and come back into range afterwards,
+        /// so as not to be targeted or mezzed.
+        /// </summary>
+        public int HealerHangsBackAt { get; set; } = 2_300;
+        /// <summary>It comes in this long after the first blow: the fight has settled and the opening mezzes are spent.</summary>
+        public int HealerHangsBackSeconds { get; set; } = 5;
+
+        /// <summary>
+        /// True while such a healer should stay where it is. <paramref name="secondsSinceContact"/>
+        /// is negative before the first blow.
+        /// </summary>
+        public bool HealerHangsBack(bool onlyHeals, int nearestEnemy, double secondsSinceContact) =>
+            onlyHeals && HealerHangsBackAt > 0 && nearestEnemy < HealerHangsBackAt && secondsSinceContact < HealerHangsBackSeconds;
     }
 
     /// <summary>An enemy fighter as a healer or caster sees it when choosing where to stand.</summary>
@@ -72,8 +96,9 @@ namespace DOL.GS
         /// stands. <paramref name="safeDistance"/> is the weights' distance as the group's order
         /// has scaled it.
         /// </summary>
+        /// <param name="retreat">The group's line of retreat as a vector of length one; zero when it is not falling back.</param>
         public static List<Vector2> Steps(Vector2 self, IReadOnlyList<PvpThreat> threats, IReadOnlyList<PvpWorkPoint> work,
-            IReadOnlyList<Vector2> mates, int minSpacing, int safeDistance, PvpPositionWeights weights, out Verdict verdict)
+            IReadOnlyList<Vector2> mates, int minSpacing, int safeDistance, PvpPositionWeights weights, out Verdict verdict, Vector2 retreat = default)
         {
             verdict = Verdict.Safe;
             if (safeDistance <= 0 || threats.Count == 0 || threats.Min(threat => Vector2.Distance(self, threat.At)) >= safeDistance)
@@ -85,6 +110,7 @@ namespace DOL.GS
                 return [];
             }
             double here = Score(self, threats, work, mates, minSpacing, safeDistance, weights);
+            double Along(Vector2 point) => Vector2.Dot(point - self, retreat) * weights.PerUnitAlongRetreat;
             var better = new List<(Vector2 Point, double Score)>();
             foreach (int length in weights.LongStep > weights.Step ? new[] { weights.Step, weights.LongStep } : [weights.Step])
             {
@@ -92,7 +118,7 @@ namespace DOL.GS
                 {
                     double angle = 2 * Math.PI * i / Directions;
                     Vector2 point = self + new Vector2((float)Math.Cos(angle), (float)Math.Sin(angle)) * length;
-                    double score = Score(point, threats, work, mates, minSpacing, safeDistance, weights);
+                    double score = Score(point, threats, work, mates, minSpacing, safeDistance, weights) + Along(point);
                     if (score - here >= weights.MinGain)
                         better.Add((point, score));
                 }

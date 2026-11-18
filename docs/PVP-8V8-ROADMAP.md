@@ -1228,25 +1228,106 @@ checked once for whether it happens in a match, and left.
   Tried on six recorded matches (too few to conclude from): the turning point came at 14
   seconds in fights of about two minutes, the side that lost the first member lost all six, and
   the commonest label was three or more of the loser asleep.
+- **The learning tool, third layer: every match draws its weights** (`PvpWeightDraw`,
+  `pvp_batch.py Vary=50`, `pvp_insight.py --weights`). Each team of each match fights with its
+  own copy of the weights in which about half of them, picked at random, are moved one step down
+  or up: a score by 40% and at least ten points, a distance, time or factor by 40%, a health
+  percentage by fifteen points, a switch flipped in one team of four. Facts of the game (reaches
+  and ranges) are never moved. About 170 weights can move, the class leanings included, and a
+  team has about 85 moved. The recording keeps each draw in its first line. The report takes out
+  what the pairing of realms explains by itself, then compares for each weight how teams did with
+  it down, unmoved and up (a class's own weight only on the teams that have the class), and
+  lists the weights by how surely they moved the number of members left alive. With several
+  hundred matches only the weights that swing the win rate by six points or more can show; with
+  about 170 weights tested, eight or nine pass the mark of 2 by chance, so a weight is believed
+  when it passes 3 or shows again in the next batch. The tool reads one match at a time, so a
+  night's batch fits in memory, and `--since` reads a night made of several batches together.
+- **Re-mez when immunity ends: already there.** The scored choice looks at immunity on every
+  turn, so a mez becomes an option again the moment it runs out. In 18 recorded matches enemies
+  were mezzed a second time 28 times, every one of them 55 seconds or more after the first mez
+  ended, none while immune.
+- **Caster pets attack.** The Cabalist's and Enchanter's pets had followed their owners through
+  every recorded fight without attacking. Cause: a pet's brain is started only when a player sees
+  the pet, and in a scrim nobody does (the Theurgist's pets fought because their summoning spell
+  starts their attack itself). An 8v8 bot's pet now thinks whether or not a player is near, as
+  its owner does (`AutonomousSummonActivity.IsPvpBotSummon`). Check run of six matches: the
+  Cabalist's pet lands about 90 attacks a match and the Enchanter's 14, most on healers and
+  casters; before, none.
+- **The Cabalist's role** (owner, 2026-11-18). A resistance debuff is a scored kind of its own
+  (`Debuff`): on the kill target only, before the damage, and only against the kind of damage
+  the caster's own spells do. On this server the tri-spec Cabalist's body debuff is in its Spirit
+  line (30% at spec 33, eight seconds). Disease is worth more on a fighter, and more again on
+  one that is on the group's healers and casters (`DiseaseOnFighter`, `DiseaseOnPursuer`).
+  Two check runs of six matches: three and five debuffs a match; 43 of the Cabalist's 83
+  diseases on fighters (before: 4 of 30), 30 of the Shaman's 51 (before: 5 of 15).
+- **Regroup.** A fourth order: when half or more of the group's living fighters are farther than
+  1,800 units from the middle of its healers and casters, every fighter beyond 1,100 leaves its
+  target and comes back, the ones with interrupt duty too. In the lanes this is rare: fighters
+  were within 1,350 units of their healers nine times in ten, and the order held for 1% of the
+  fight in the check run. It is there for open ground and for the owner's play sessions.
+- **The kill target's numbers are weights** (`PvpKillWeights`: class, health lost, distance,
+  asleep, how readily to switch), so that the night batches vary them like all the others: the
+  owner, 2026-11-18, "maybe sometimes a good target would be a melee while other times it might
+  be a caster". New among them: an enemy standing far from its own healers is worth more (two
+  points for each hundred units, up to 2,000), the owner's "out of position".
+- **Seven more behaviours, 2026-11-18** (one check run of six matches for all of them; 3,261
+  automated tests pass on the build):
+  - *Healers hang back on incoming* (owner, 2026-11-17). A healer that only heals walks no closer
+    than 2,300 units to the nearest enemy until five seconds after the first blow
+    (`PvpPositionWeights.HealerHangsBack`). Seen 2.8 times a match, one or two seconds before
+    contact.
+  - *The Bard plays through the fight.* It keeps its drum out and plays the endurance song,
+    twisting its resistance songs in; before, it put the drum away to fight with its blade and
+    Hibernia's fighters starved. Under a fifth of their endurance: Blademasters 5% of the fight
+    (42 to 65% before), Hero 32% (58 to 65% before). The Bard's mezzes: 2.8 a match against 3.5
+    in the run before, which six matches cannot tell apart; the night batch will.
+  - *A heal on a member already full is dropped* (`DropHealAtPercent`, not on the trained
+    member). It fires 0.3 times a match, because there is little to drop: the "third of big
+    heals restore nothing" that prompted it turned out to be the instant group heal reaching
+    members who were not hurt and heals over time ticking on a full member. Single heals with a
+    cast time that landed on a full member were 6 of 157 in the check run.
+  - *The backup healer takes over* while none of the group's healers that only heal can heal
+    (`BackupHealsBelowWhenHealersDown`). Unit-tested; not seen on its own in the run.
+  - *Healers save power when low* (owner: power has to last the fight): under 30% of its power a
+    healer heals a member only below 60% health and the trained member only below 85%.
+    Unit-tested; not seen on its own.
+  - *One line of retreat under Extend:* a healer's or caster's step is worth more the farther it
+    goes straight away from the enemy (`PerUnitAlongRetreat`). Unit-tested; not measured on its own.
+  - *Sprint* was looked at and left: on this server it speeds up players only.
+- **A night's run** (`source/tools/pvp_night.py`): one plain batch and three with drawn weights,
+  about 204 matches each and two and a half hours, the server started fresh for each, then both
+  insight reports. `pvp_batch.py` now gives a batch up when the server has not answered for five
+  minutes or the batch has run far past what its matches can take, so a night cannot hang.
 Order of work agreed with the owner: finish the brain, with the readings, the group orders and
 positioning (hold, kite, extend, push) first; then play matches and record everything; then
 analyze and iterate on behavior as deep as wanted. No measure has to be fixed in advance: the
 recordings keep every event, so new questions can be asked of old fights. `pvp_analyze.py`
 reports the three readings per group from now on.
 
-- [ ] **M6.1** (L) Control plan: an area mez opener, assignments per controller, immunity timers
+- [x] **M6.1** (L) Control plan: an area mez opener, assignments per controller, immunity timers
   tracked, re-mez, stuns, roots and snares used on purpose, never breaking the group's own mez.
-- [ ] **M6.2** (M) Interrupt duty: each enemy healer and caster gets an assigned interrupter, using
-  instants, pets or melee.
-- [ ] **M6.3** (M) Protection: guard pairs set at fight start, slam and snare on enemies attacking
-  the backline, cure mez and Purge used with judgement.
+  *Done 2026-11-18. Immunity is not timed: it is looked at on every turn, which gives the re-mez.*
+- [x] **M6.2** (M) Interrupt duty: each enemy healer and caster gets an assigned interrupter, using
+  instants, pets or melee. *Done 2026-11-18, the Cabalist's and Enchanter's pets included.*
+- [x] **M6.3** (M) Protection: guard pairs set at fight start, slam and snare on enemies attacking
+  the backline, cure mez and Purge used with judgement. *Done 2026-11-18.*
 - [ ] **M6.4** (L) Scored action choice for every role in place of the random pick: debuffs before
   damage, openers, burst on the called target, power and endurance budgeting.
-- [ ] **M6.5** (M) Upkeep during fights: bladeturn chants, endurance and speed songs, resists,
-  and full buffing before a fight.
+  *Open, 2026-11-18: the casters, the healers' control and the Skald choose by score, with
+  debuffs before damage and power weighed. Still on the old routine with 8v8 rules laid over it:
+  which heal a healer casts, the fighters' styles, and the Minstrel's shouts and mezzes (scoring
+  those was tried and taken back). Nobody budgets endurance.*
+- [x] **M6.5** (M) Upkeep during fights: bladeturn chants, endurance and speed songs, resists,
+  and full buffing before a fight. *Done 2026-11-18: the Paladin twists three chants, the Bard
+  plays endurance and twists resistances in a fight, groups are fully buffed before they march.*
 
 **Exit check:** wins at least 70% of mirrored matches against the M5 build; first-mez time and
 enemy-healer free-cast share meet their targets.
+*Note, 2026-11-18: this cannot be measured as written. Both teams of a match run in one server,
+so two builds cannot fight each other; only two sets of weights can (`--versus`). For the owner
+to reword, as M5's was. A candidate in line with the working direction: every playbook line for
+M6 is built and seen once in a recorded match, and the first night's batch and its report are on
+record.*
 
 ## M7. Movement and positioning
 

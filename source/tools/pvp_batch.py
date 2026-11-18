@@ -2,7 +2,7 @@
 
     python pvp_batch.py [Pairs=alb-main:mid-main,mid-main:hib-main,alb-main:hib-main]
                         [Matches=4] [Copies=1] [RealmRank=1] [Limit=300]
-                        [BrainA=squad] [BrainB=squad]
+                        [BrainA=squad] [BrainB=squad] [Vary=0] [Spread=40]
                         [--game D:\\OfflineDAoC-scrim] [--weights file.json] [--versus old.json|builtin]
                         [--out report.txt]
 
@@ -24,6 +24,11 @@ in the second, so every realm fights with both sets against each opponent; the s
 with how many matches the new set won. A change that is switched by a weight needs no
 separate base run this way.
 
+Vary=50 makes every team of every match fight with its own draw of the weights: half of them,
+picked at random, moved one step down or up (Spread=40: a score by 40% and at least ten points).
+The recordings keep each draw, and pvp_insight.py --weights then shows which weights moved the
+results. It is for large batches (several hundred matches) and cannot be combined with --versus.
+
 The game folder must be a scrim install (scrim_server.py refuses any other), and only one
 server can use port 10300, so nothing else may be running there.
 """
@@ -39,7 +44,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULTS = {
     "Pairs": "alb-main:mid-main,mid-main:hib-main,alb-main:hib-main",
     "Matches": "4", "Copies": "1", "RealmRank": "1", "Limit": "300",
-    "BrainA": "squad", "BrainB": "squad",
+    "BrainA": "squad", "BrainB": "squad", "Vary": "0", "Spread": "40",
 }
 
 
@@ -141,15 +146,30 @@ def main(argv):
         if not begun["Ok"]:
             print("scrim-start failed:", (begun["Error"] or "")[:2000])
             return 1
-        print(f"{series} series started, {options['Matches']} matches each, realm rank {options['RealmRank']}", flush=True)
+        print(f"{series} series started, {options['Matches']} matches each, realm rank {options['RealmRank']}"
+              + (f", weights drawn at random for every team ({options['Vary']}% of them, spread {options['Spread']}%)" if options["Vary"] != "0" else ""), flush=True)
         seen = {}
         runs = []
+        silent = 0
+        # A match cannot outlast its limit by much: with buffing and the walk in, twice the limit and two minutes is generous.
+        deadline = time.time() + int(options["Matches"]) * (2 * int(options["Limit"]) + 120)
         while True:
             time.sleep(10)
             status = request(runtime, "scrim-status")
             if not status["Ok"] or not status["Data"]:
+                silent += 1
                 print("status failed:", status["Error"], flush=True)
+                # Five minutes without an answer: the server is gone or stuck, and an unattended night must not wait for it.
+                if silent >= 30:
+                    print("no answer from the server for five minutes; giving this batch up.", flush=True)
+                    failed = True
+                    break
                 continue
+            silent = 0
+            if time.time() > deadline:
+                print("the batch has run far longer than its matches can take; giving it up.", flush=True)
+                failed = True
+                break
             runs = status["Data"]["Runs"]
             for run in runs:
                 for result in run["Results"][seen.get(run["Lane"], 0):]:

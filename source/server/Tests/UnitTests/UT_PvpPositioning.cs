@@ -9,6 +9,31 @@ namespace DOL.UnitTests
     [TestFixture]
     public class UT_PvpPositioning
     {
+        [Test]
+        public void FallingBack_TheStepGoesAlongTheGroupsLineOfRetreat()
+        {
+            var weights = new PvpPositionWeights();
+            // A held fighter 300 units to the west. East and north-east are about as safe; the group retreats north.
+            PvpThreat[] threats = [new(new Vector2(-300, 0), true, false, false)];
+            List<Vector2> alone = PvpPositioning.Steps(Vector2.Zero, threats, [], [], 400, 900, weights, out _);
+            List<Vector2> together = PvpPositioning.Steps(Vector2.Zero, threats, [], [], 400, 900, weights, out _, new Vector2(0, 1));
+            Assert.That(alone[0].Y, Is.EqualTo(0).Within(1), "alone it steps straight away from the fighter");
+            Assert.That(together[0].Y, Is.GreaterThan(100), "with the group it bends its step the way the group is going");
+            Assert.That(together[0].X, Is.GreaterThan(0), "and still away from the fighter");
+        }
+
+        [Test]
+        public void AHealerThatOnlyHealsHangsBackOnIncoming_AndComesInOnceTheFightHasSettled()
+        {
+            var weights = new PvpPositionWeights();
+            Assert.That(weights.HealerHangsBack(true, 2_000, -1), Is.True, "the enemy is coming and nobody has struck");
+            Assert.That(weights.HealerHangsBack(true, 3_000, -1), Is.False, "still far: it walks with the group");
+            Assert.That(weights.HealerHangsBack(false, 2_000, -1), Is.False, "a Pacification Healer, Bard or Shaman goes in");
+            Assert.That(weights.HealerHangsBack(true, 2_000, 3), Is.True, "the opening is not over");
+            Assert.That(weights.HealerHangsBack(true, 2_000, 6), Is.False, "the fight has settled");
+            Assert.That(new PvpPositionWeights { HealerHangsBackAt = 0 }.HealerHangsBack(true, 500, -1), Is.False, "turned off");
+        }
+
         private static readonly PvpPositionWeights Weights = new();
 
         private static List<Vector2> Steps(Vector2 self, PvpThreat[] threats, PvpWorkPoint[] work, out PvpPositioning.Verdict verdict,

@@ -1,8 +1,13 @@
 """Read recorded scrim matches as a coach would watch them (docs/PVP-8V8-ROADMAP.md, M6).
 
-    python pvp_insight.py <folder or .jsonl files> [--batch <prefix>] [--stories]
+    python pvp_insight.py <folder or .jsonl files> [--batch <prefix>] [--since <prefix>] [--until <prefix>]
+                          [--stories] [--weights]
 
-Two things the per-build report of pvp_analyze.py does not give:
+--batch keeps the files whose name starts with the prefix; --since keeps those named at or after
+it (names start with the batch's date and time, so --since 20261119-01 is "from one o'clock UTC
+on": a night's run made of several batches); --until keeps those named before it.
+
+Three things the per-build report of pvp_analyze.py does not give:
 
 1. The story of each fight. From the three readings (fighters held, casters free to cast,
    healers free to heal) and the numbers alive, second by second, it finds the turning point: the
@@ -14,6 +19,13 @@ Two things the per-build report of pvp_analyze.py does not give:
    seconds per match for each group: an enemy healer free to cast with an idle member in range,
    a trained member with no heal landing while a healer was free, a pursuer that could be rooted
    with a free rooter in range, an enemy that could be mezzed with a free mezzer in range.
+
+3. Which weights matter. In a batch run with Vary=50 (pvp_batch.py) every team of every match
+   fought with its own draw of the weights, some moved a step down and some a step up. For each
+   weight this compares how the teams did with it down, unmoved and up, after taking out what
+   the pairing of realms explains by itself, and lists the weights by how surely they moved the
+   result. --weights prints this part alone and reads only the first and last line of each
+   file, so it is quick on a large batch.
 
 Needs recordings of format 3 (they carry "heal", "squad" and the interrupted flag).
 """
@@ -190,10 +202,111 @@ def chances(match):
     return out
 
 
+def head_and_end(path):
+    """The first line of a recording and its "end" line, without reading what lies between."""
+    with open(path, "rb") as handle:
+        first = handle.readline()
+        handle.seek(0, os.SEEK_END)
+        size = handle.tell()
+        handle.seek(max(0, size - 4096))
+        tail = handle.read().decode("utf-8", "replace").splitlines()
+    try:
+        head = json.loads(first)
+    except ValueError:
+        return None, None
+    if head.get("k") != "match":
+        return None, None
+    for line in reversed(tail):
+        if line.startswith('{"k":"end"'):
+            return head, json.loads(line)
+    return head, None
+
+
+def draws(head, end):
+    """The two teams of a match that drew their weights: what each drew and how it did."""
+    if head is None or end is None:
+        return []
+    a, b = (head.get("weights") or {}).get("Drawn"), (head.get("weightsB") or {}).get("Drawn")
+    if a is None or b is None:
+        return []
+    out = []
+    for team, own, enemy, drawn, sign in (("A", head["a"], head["b"], a, 1), ("B", head["b"], head["a"], b, -1)):
+        bots = [bot for bot in head["bots"] if bot["team"] == team]
+        winner = end.get("Winner")
+        out.append({"group": own, "enemy": enemy, "drawn": drawn,
+                    "has": {bot["cls"] for bot in bots} | {bot["build"] for bot in bots},
+                    "win": 1.0 if winner == own else 0.0 if winner == enemy else 0.5,
+                    "margin": sign * (end["AliveA"] - end["AliveB"])})
+    return out
+
+
+def weights_report(teams, top=30):
+    if not teams:
+        print("No match in this batch drew its weights (run pvp_batch.py with Vary=50).")
+        return
+    # What the pairing explains by itself is taken out first: Albion beating Hibernia says nothing about a weight.
+    cells = collections.defaultdict(list)
+    for team in teams:
+        cells[(team["group"], team["enemy"])].append(team)
+    for members in cells.values():
+        for key in ("win", "margin"):
+            mean = sum(m[key] for m in members) / len(members)
+            for m in members:
+                m[key + "_left"] = m[key] - mean
+    paths = sorted({p for team in teams for p in team["drawn"]})
+    rows = []
+    for p in paths:
+        parts = p.split(".")
+        # A class's or a build's own weight is judged on the teams that have that class or build.
+        needs = parts[1] if parts[0] in ("ClassBase", "BuildLean", "HealsFirstBelow") and len(parts) > 1 else None
+        sample = [team for team in teams if needs is None or needs in team["has"]]
+        xs = [team["drawn"].get(p, 0) for team in sample]
+        n = len(sample)
+        mean_x = sum(xs) / n if n else 0
+        var_x = sum((x - mean_x) ** 2 for x in xs)
+        if n < 20 or var_x == 0:
+            continue
+        by = {level: [team for team, x in zip(sample, xs) if x == level] for level in (-1, 0, 1)}
+        win = {level: (50 + 100 * sum(m["win_left"] for m in group) / len(group)) if group else None for level, group in by.items()}
+        slope, sure = {}, {}
+        for key in ("win_left", "margin_left"):
+            ys = [team[key] for team in sample]
+            mean_y = sum(ys) / n
+            slope[key] = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys)) / var_x
+            left = sum((y - mean_y - slope[key] * (x - mean_x)) ** 2 for x, y in zip(xs, ys)) / max(1, n - 2)
+            sure[key] = slope[key] / math.sqrt(left / var_x) if left > 0 else 0.0
+        rows.append((p, n, win, slope, sure))
+    matches = len(teams) // 2
+    if not rows:
+        print(f"Which weights moved the results: {matches} matches drew their weights, too few to compare "
+              "(a weight needs twenty team draws, and several hundred matches before anything shows).")
+        return
+    by_chance = max(1, round(len(rows) * 0.05))
+    print(f"Which weights moved the results: {matches} matches, {len(teams)} team draws, {len(rows)} weights.")
+    if matches < 300:
+        print(f"  WARNING: {matches} matches are too few. Below a few hundred this table is noise; read it for the method only.")
+    print("  'win' is the share of fights won with the weight down, unmoved and up, on a scale where 50 is")
+    print("  what the pairing of realms gives by itself. 'members' is how many more members a team had left")
+    print("  at the end for each step up. 'sure' is that effect in units of its own uncertainty: beyond 2 or")
+    print(f"  -2 it is unlikely to be chance for one weight alone, but among {len(rows)} weights about")
+    print(f"  {by_chance} pass 2 by chance and fewer than one passes 3.\n")
+    cell = lambda value: "   -" if value is None else f"{value:4.0f}"
+    print(f"  {'weight':44}{'teams':>6}  {'win: down':>9} {'same':>4} {'up':>4}  {'members':>8} {'sure':>6}")
+    rows.sort(key=lambda row: -abs(row[4]["margin_left"]))
+    for p, n, win, slope, sure in rows[:top]:
+        print(f"  {p:44}{n:6}  {cell(win[-1]):>9} {cell(win[0])} {cell(win[1])}  {slope['margin_left']:+8.2f} {sure['margin_left']:+6.1f}")
+    strong = sum(1 for row in rows if abs(row[4]["margin_left"]) >= 2)
+    print(f"\n  {strong} of {len(rows)} weights pass 2; chance alone would give about {by_chance}.")
+    moved = [len(team["drawn"]) for team in teams]
+    print(f"  A team had {sum(moved) / len(moved):.0f} weights moved on average.")
+
+
 def main(argv):
     args = [a for a in argv[1:] if not a.startswith("--")]
     batch = argv[argv.index("--batch") + 1] if "--batch" in argv else None
-    args = [a for a in args if a != batch]
+    since = argv[argv.index("--since") + 1] if "--since" in argv else None
+    until = argv[argv.index("--until") + 1] if "--until" in argv else None
+    args = [a for a in args if a not in (batch, since, until)]
     if not args:
         print(__doc__)
         return 2
@@ -202,13 +315,35 @@ def main(argv):
         files += sorted(glob.glob(os.path.join(a, "*.jsonl"))) if os.path.isdir(a) else [a]
     if batch:
         files = [f for f in files if os.path.basename(f).startswith(batch)]
-    matches = [m for m in (load(f) for f in files) if m]
-    if not matches:
+    if since:
+        files = [f for f in files if os.path.basename(f) >= since]
+    if until:
+        files = [f for f in files if os.path.basename(f) < until]
+    teams = []
+    for f in files:
+        teams += draws(*head_and_end(f))
+    if "--weights" in argv:
+        weights_report(teams)
+        return 0
+    # One match in memory at a time: a recording is about two megabytes and a night's batch has hundreds.
+    stories, played_matches = [], 0
+    total, played = collections.defaultdict(collections.Counter), collections.Counter()
+    for f in files:
+        m = load(f)
+        if not m:
+            continue
+        played_matches += 1
+        s = story(m)
+        if s:
+            stories.append((None, s))
+        found = chances(m)
+        for team, group in (("A", m["head"]["a"]), ("B", m["head"]["b"])):
+            total[group].update(found[team])
+            played[group] += 1
+    if not played_matches:
         print("No finished recorded matches found.")
         return 1
-    stories = [(m, story(m)) for m in matches]
-    stories = [(m, s) for m, s in stories if s]
-    print(f"{len(matches)} matches, {len(stories)} with a winner.\n")
+    print(f"{played_matches} matches, {len(stories)} with a winner.\n")
     if "--stories" in argv:
         for _, s in stories:
             print(s["text"] + "\n")
@@ -231,18 +366,15 @@ def main(argv):
           f"the side that lost the first member lost the fight in {100 * took_first / len(stories):.0f}% of them.")
 
     print("\nMissed chances, seconds a match, by group:")
-    total, played = collections.defaultdict(collections.Counter), collections.Counter()
-    for m in matches:
-        found = chances(m)
-        for team, group in (("A", m["head"]["a"]), ("B", m["head"]["b"])):
-            total[group].update(found[team])
-            played[group] += 1
     keys = ["enemy healer free", "enemy healer free, a member idle in range", "pursuer on the backline",
             "pursuer rootable, a rooter free in range", "enemy mezzable, a mezzer free in range",
             "trained 3 s and more with no heal", "trained with no heal, a healer free in range"]
     print(f"  {'':46}" + "".join(f"{group:>12}" for group in sorted(total)))
     for key in keys:
         print(f"  {key:46}" + "".join(f"{total[group][key] / played[group]:12.0f}" for group in sorted(total)))
+    if teams:
+        print()
+        weights_report(teams)
     return 0
 
 

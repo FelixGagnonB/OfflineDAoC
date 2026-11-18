@@ -8,6 +8,34 @@ namespace DOL.UnitTests
     [TestFixture]
     public class UT_PvpActionChoice
     {
+        [Test]
+        public void TheCabalistDebuffsTheKillTargetBeforeItNukesIt_AndOnlyTheKillTarget()
+        {
+            var weights = new PvpWeights();
+            var fresh = new PvpOption(PvpActionKind.Debuff, 0, PvpBuffArchetype.Melee, true, false, 100, false, false, false, false, 100);
+            Assert.That(PvpActionChoice.Score(eCharacterClass.Cabalist, fresh, weights),
+                Is.GreaterThan(PvpActionChoice.Score(eCharacterClass.Cabalist, fresh with { Kind = PvpActionKind.Damage }, weights)));
+            var hurt = fresh with { HealthPercent = 50 };
+            Assert.That(PvpActionChoice.Score(eCharacterClass.Cabalist, hurt, weights),
+                Is.LessThan(PvpActionChoice.Score(eCharacterClass.Cabalist, hurt with { Kind = PvpActionKind.Damage }, weights)), "a hurt target is finished, not debuffed");
+            Assert.That(PvpActionChoice.Useful(fresh with { IsKill = false }), Is.False);
+            Assert.That(PvpActionChoice.Useful(fresh with { HasEffect = true }), Is.False);
+            Assert.That(PvpActionChoice.Useful(fresh), Is.True);
+        }
+
+        [Test]
+        public void DiseaseIsWorthMoreOnAFighter_AndMostOnOneThatIsOnTheBackline()
+        {
+            var weights = new PvpWeights();
+            var caster = new PvpOption(PvpActionKind.Disease, 0, PvpBuffArchetype.Caster, false, false, 100, false, false, true, false, 100);
+            var fighter = caster with { Archetype = PvpBuffArchetype.Melee };
+            int onCaster = PvpActionChoice.Score(eCharacterClass.Cabalist, caster, weights);
+            int onFighter = PvpActionChoice.Score(eCharacterClass.Cabalist, fighter, weights);
+            int onPursuer = PvpActionChoice.Score(eCharacterClass.Cabalist, fighter with { Pursuer = true }, weights);
+            Assert.That(onFighter, Is.GreaterThan(onCaster));
+            Assert.That(onPursuer, Is.GreaterThan(onFighter));
+        }
+
         private static readonly PvpWeights Weights = new();
 
         private static PvpOption Option(PvpActionKind kind, int id, PvpBuffArchetype archetype = PvpBuffArchetype.Caster, bool kill = false,
@@ -153,8 +181,9 @@ namespace DOL.UnitTests
         {
             int full = Best(eCharacterClass.Shaman, Option(PvpActionKind.Disease, 1, PvpBuffArchetype.Melee, cost: 8)).Score;
             int low = Best(eCharacterClass.Shaman, Option(PvpActionKind.Disease, 1, PvpBuffArchetype.Melee, power: 20, cost: 8)).Score;
-            Assert.That(full, Is.EqualTo(90));
-            Assert.That(low, Is.EqualTo(90 - 19));
+            // 90 for the Shaman's disease and 30 because the target is a fighter.
+            Assert.That(full, Is.EqualTo(120));
+            Assert.That(low, Is.EqualTo(120 - 19));
         }
 
         [Test]

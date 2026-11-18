@@ -2187,7 +2187,12 @@ namespace DOL.AI.Brain
             // support-only actor merely because a group exists.
             bool minstrelAtRange = !groupedSupport && !UsesMinstrelHybridCombat && (eCharacterClass)bot.CharacterClass.ID == eCharacterClass.Minstrel &&
                                     !IsUnderImmediateMeleePressure();
-            if (immediateCombat && !minstrelAtRange)
+            // An 8v8 Bard is its group's mezzer and plays for it; it does not put its drum away to
+            // fight with a blade. Its endurance song runs through the fight: in the recorded
+            // matches of 2026-11-18 Hibernia's Hero spent 48% of each fight under 20% endurance and
+            // its Blademasters 34%, where Albion's and Midgard's fighters were hardly ever that low.
+            bool pvpBardPlays = bot.IsPvpBot && (eCharacterClass)bot.CharacterClass.ID == eCharacterClass.Bard;
+            if (immediateCombat && !minstrelAtRange && !pvpBardPlays)
             {
                 StopTwistedSong();
                 SwitchToUsableMeleeWeapon();
@@ -2214,7 +2219,8 @@ namespace DOL.AI.Brain
                     .Select(group => group.OrderByDescending(spell => spell.Level)
                         .ThenByDescending(spell => spell.Value).First());
             List<Spell> songs = songCandidates
-                .OrderByDescending(spell => spell.SpellType == eSpellType.SpeedEnhancement && !immediateCombat)
+                .OrderByDescending(spell => pvpBardPlays && immediateCombat && spell.SpellType == eSpellType.EnduranceRegenBuff)
+                .ThenByDescending(spell => spell.SpellType == eSpellType.SpeedEnhancement && !immediateCombat)
                 .ThenByDescending(spell => groupedSupport && spell.Target is eSpellTarget.GROUP or eSpellTarget.REALM)
                 .ThenByDescending(spell => spell.Value)
                 .ThenByDescending(spell => spell.Level)
@@ -4829,6 +4835,18 @@ namespace DOL.AI.Brain
 
             bool isCastingHeal = BotBody.IsCasting && BotBody.castingComponent.SpellHandler.Spell.IsHealing &&
                 !BotSongTwistPolicy.HasMobileSongCast(BotBody);
+
+            // An 8v8 healer drops a heal on one member that has been topped up meanwhile, as a
+            // player does by taking a step: the power is kept and the turn goes to someone hurt.
+            if (isCastingHeal && BotBody.IsPvpBot && BotBody.castingComponent.SpellHandler is { } healCast &&
+                healCast.Spell is { SpellType: eSpellType.Heal, Radius: 0, IsInstantCast: false } && healCast.Spell.Target != eSpellTarget.GROUP &&
+                healCast.Target is { IsAlive: true } patient &&
+                PvpHealPlan.DropsHeal(patient.HealthPercent, patient == PvpSquad?.Trained, PvpWeights.Of(BotBody).Heal))
+            {
+                PvpRecorder.Decision(BotBody, new { kind = "HealDropped", spell = healCast.Spell.Name, d = patient.Name, score = (int)patient.HealthPercent }, [], null);
+                BotBody.StopCurrentSpellcast();
+                isCastingHeal = false;
+            }
 
             if (isCastingHeal && !canCastInstantHeal && !canCastInstantGroupHeal)
                 return true;

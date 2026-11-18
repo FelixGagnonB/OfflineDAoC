@@ -15,6 +15,8 @@ namespace DOL.GS
         Push,
         /// <summary>Fall back: healers and casters keep more distance, and the fighters turn on whoever follows.</summary>
         Extend,
+        /// <summary>Stop chasing and come back together: the fighters return to within reach of the healers.</summary>
+        Regroup,
     }
 
     /// <summary>Part of <see cref="PvpWeights"/>: how a group reads the fight into an order.</summary>
@@ -74,6 +76,18 @@ namespace DOL.GS
         /// its healers and casters, comes back to them: the group falls back as one. 0 turns it off.
         /// </summary>
         public int ExtendFightersStayWithin { get; set; } = 1_000;
+        /// <summary>
+        /// Regroup (playbook, section 3): the group is strung out, a kill or a chase has pulled its
+        /// fighters out of its healers' reach. Its score is this base plus the next weight times
+        /// the share of its living fighters that are farther than <see cref="RegroupFighterIsFarAt"/>
+        /// from the middle of its healers and casters: with these numbers, half of them.
+        /// </summary>
+        public int RegroupBase { get; set; } = -45;
+        public int RegroupPerFighterFar { get; set; } = 130;
+        /// <summary>A fighter this far from the middle of its healers and casters is out of their reach (heals reach about 1,700).</summary>
+        public int RegroupFighterIsFarAt { get; set; } = 1_800;
+        /// <summary>Under Regroup a fighter farther than this from them leaves its target and comes back.</summary>
+        public int RegroupWithin { get; set; } = 1_100;
     }
 
     /// <summary>One member as the reading counts it.</summary>
@@ -129,13 +143,15 @@ namespace DOL.GS
 
     /// <summary>
     /// Choosing the group's order from the two readings (docs/PVP-8V8-PLAYBOOK.md, section 3).
-    /// Engage scores 0; Push and Extend have to beat it. Hold is for the time before the fight.
-    /// Regroup is not built yet.
+    /// Engage scores 0; Push, Extend and Regroup have to beat it. Hold is for the time before the fight.
     /// </summary>
     public static class PvpOrders
     {
-        public static double Score(PvpOrder order, PvpReading own, PvpReading theirs, int backlineUnderAttack, PvpOrderWeights weights) => order switch
+        /// <param name="fightersFarShare">Share of the group's living fighters that are out of its healers' reach.</param>
+        public static double Score(PvpOrder order, PvpReading own, PvpReading theirs, int backlineUnderAttack, PvpOrderWeights weights,
+            double fightersFarShare = 0) => order switch
         {
+            PvpOrder.Regroup => weights.RegroupBase + weights.RegroupPerFighterFar * fightersFarShare,
             PvpOrder.Push => weights.PushBase
                 + weights.PushPerEnemyHealerDown * (1 - theirs.HealersFreeShare)
                 + weights.PushPerEnemyFighterHeld * theirs.FightersHeldShare
@@ -166,7 +182,8 @@ namespace DOL.GS
             secondsHeld < weights.HoldWhenOutrangedMaxSeconds && nearestEnemy > weights.HoldBreakDistance;
 
         /// <summary>The order for this second, given the one in force and how long it has stood.</summary>
-        public static PvpOrder Choose(PvpReading own, PvpReading theirs, int backlineUnderAttack, PvpOrder current, double secondsInForce, PvpOrderWeights weights)
+        public static PvpOrder Choose(PvpReading own, PvpReading theirs, int backlineUnderAttack, PvpOrder current, double secondsInForce, PvpOrderWeights weights,
+            double fightersFarShare = 0)
         {
             if (!weights.Enabled || theirs.Alive == 0 || own.Alive == 0)
                 return PvpOrder.Engage;
@@ -174,9 +191,9 @@ namespace DOL.GS
                 return current;
             PvpOrder best = PvpOrder.Engage;
             double bestScore = current == PvpOrder.Engage ? weights.KeepCurrent : 0;
-            foreach (PvpOrder order in new[] { PvpOrder.Push, PvpOrder.Extend })
+            foreach (PvpOrder order in new[] { PvpOrder.Push, PvpOrder.Extend, PvpOrder.Regroup })
             {
-                double score = Score(order, own, theirs, backlineUnderAttack, weights) + (order == current ? weights.KeepCurrent : 0);
+                double score = Score(order, own, theirs, backlineUnderAttack, weights, fightersFarShare) + (order == current ? weights.KeepCurrent : 0);
                 if (score > bestScore)
                     (best, bestScore) = (order, score);
             }

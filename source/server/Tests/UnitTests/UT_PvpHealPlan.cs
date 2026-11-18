@@ -8,6 +8,38 @@ namespace DOL.UnitTests
     public class UT_PvpHealPlan
     {
         [Test]
+        public void AHealerRunningLowOnPowerKeepsItsHealsForTheReallyHurt()
+        {
+            var weights = new PvpHealWeights();
+            PvpPatient[] scratched = [new(0, 700, 1_000, 0, PvpBuffArchetype.Melee)];
+            Assert.That(PvpHealPlan.Choose(scratched, 0, weights), Is.EqualTo(0), "with power to spare, 70% is healed");
+            Assert.That(PvpHealPlan.Choose(scratched, 0, weights, 20), Is.EqualTo(-1), "at a fifth of its power it waits");
+            Assert.That(PvpHealPlan.Choose([new(0, 500, 1_000, 0, PvpBuffArchetype.Melee)], 0, weights, 20), Is.EqualTo(0), "half dead is healed all the same");
+            PvpPatient[] trained = [new(0, 900, 1_000, 0, PvpBuffArchetype.Healer, Trained: true)];
+            Assert.That(PvpHealPlan.Choose(trained, 0, weights), Is.EqualTo(0));
+            Assert.That(PvpHealPlan.Choose(trained, 0, weights, 20), Is.EqualTo(-1));
+            Assert.That(PvpHealPlan.Choose(scratched, 0, new PvpHealWeights { SavePowerBelowPercent = 0 }, 5), Is.EqualTo(0), "turned off");
+        }
+
+        [Test]
+        public void AHealIsDroppedWhenItsTargetHasBeenToppedUp_ButNotOnTheTrainedMember()
+        {
+            var weights = new PvpHealWeights();
+            Assert.That(PvpHealPlan.DropsHeal(100, false, weights), Is.True);
+            Assert.That(PvpHealPlan.DropsHeal(90, false, weights), Is.False, "still hurt");
+            Assert.That(PvpHealPlan.DropsHeal(100, true, weights), Is.False, "damage is on its way to it");
+            Assert.That(PvpHealPlan.DropsHeal(100, false, new PvpHealWeights { DropHealAtPercent = 0 }), Is.False, "turned off");
+        }
+
+        [Test]
+        public void TheBackupHealerTakesOverWhileNoHealerCanHeal()
+        {
+            var weights = new PvpHealWeights();
+            Assert.That(PvpHealPlan.BackupHealsBelow(75, true, weights), Is.EqualTo(75), "a healer is healing: control comes first above 75%");
+            Assert.That(PvpHealPlan.BackupHealsBelow(75, false, weights), Is.EqualTo(95), "nobody else can heal");
+        }
+
+        [Test]
         public void AHealForSeveralIsForSeveralHurtAtOnce()
         {
             var weights = new PvpHealWeights();

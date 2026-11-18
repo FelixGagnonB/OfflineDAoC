@@ -32,7 +32,7 @@ namespace DOL.AI
 
         public override bool Start()
         {
-            if (!Body.IsVisibleToPlayersOrBots)
+            if (!Body.IsVisibleToPlayersOrBots && !DOL.GS.AutonomousSummonActivity.IsPvpBotSummon(Body))
                 return false;
 
             return base.Start();

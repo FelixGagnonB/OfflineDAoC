@@ -103,8 +103,12 @@ namespace DOL.AI.Brain
             PvpActionKind.Stun => spell.SpellType == eSpellType.Stun,
             PvpActionKind.CureMez => spell.SpellType == eSpellType.CureMezz,
             PvpActionKind.Amnesia => spell.SpellType == eSpellType.Amnesia,
+            PvpActionKind.Debuff => IsPvpResistDebuff(spell),
             _ => false,
         };
+
+        private static bool IsPvpResistDebuff(Spell spell) => spell.SpellType is eSpellType.BodyResistDebuff or eSpellType.SpiritResistDebuff or
+            eSpellType.EnergyResistDebuff or eSpellType.HeatResistDebuff or eSpellType.ColdResistDebuff or eSpellType.MatterResistDebuff;
 
         private static bool PvpMezzedOrImmune(GameLiving living) =>
             living.IsMezzed || living.effectListComponent.ContainsEffectForEffectType(eEffect.MezImmunity);
@@ -170,9 +174,16 @@ namespace DOL.AI.Brain
         {
             if (BotBody?.IsPvpBot != true || PvpEnemies == null || BotBody.PvpBuild == null)
                 return false;
-            int below = PvpWeights.Of(BotBody).HealsFirstBelowFor(BotBody.PvpBuild.Id, BotBody.PvpBuild.Class);
+            PvpWeights weights = PvpWeights.Of(BotBody);
+            int below = weights.HealsFirstBelowFor(BotBody.PvpBuild.Id, BotBody.PvpBuild.Class);
             if (below > 100)
                 return false;
+            // With the group's healers dead, asleep or kept from casting, this one takes over.
+            bool aHealerCanHeal = Body.Group?.GetMembersInTheGroup().OfType<GameBot>().Any(member =>
+                member != Body && member.PvpBuild != null && PvpBuffPlan.ArchetypeOf(member.PvpBuild.Class) == PvpBuffArchetype.Healer &&
+                weights.HealsFirstBelowFor(member.PvpBuild.Id, member.PvpBuild.Class) > 100 &&
+                member.IsAlive && !member.IsMezzed && !member.IsStunned && !member.IsSilenced && !member.IsBeingInterrupted) == true;
+            below = PvpHealPlan.BackupHealsBelow(below, aHealerCanHeal, weights.Heal);
             // The trained member too only claims this healer's turn below that mark: healing it
             // from the first blow is the heal-first healers' work.
             return Body.Group?.GetMembersInTheGroup().Any(member => member.IsAlive && member.HealthPercent < below && InSupportReach(member)) != true;
@@ -260,12 +271,17 @@ namespace DOL.AI.Brain
                 .Append(BotBody.CureMezz)
                 // The old brain leaves amnesia out of its lists on purpose (it does nothing to a monster's cast).
                 .Concat(Body.Spells?.Where(spell => spell?.SpellType == eSpellType.Amnesia) ?? [])
+                // Nor does it list resistance debuffs.
+                .Concat(Body.Spells?.Where(spell => spell != null && IsPvpResistDebuff(spell)) ?? [])
                 .Where(spell => spell != null).DistinctBy(spell => spell.ID).ToList();
+            // A resistance debuff is of use only against the kind of damage this caster's own spells do.
+            HashSet<eDamageType> ownDamage = known.Where(spell => IsPvpSpellOfKind(spell, PvpActionKind.Damage)).Select(spell => spell.DamageType).ToHashSet();
             var spells = new Dictionary<PvpActionKind, Spell>();
             var instants = new Dictionary<PvpActionKind, Spell>();
             foreach (PvpActionKind kind in PvpActionChoice.KindsFor(characterClass, weights))
             {
-                List<Spell> ofKind = known.Where(spell => IsPvpSpellOfKind(spell, kind) && spell.Level <= Body.Level)
+                List<Spell> ofKind = known.Where(spell => IsPvpSpellOfKind(spell, kind) && spell.Level <= Body.Level &&
+                        (kind != PvpActionKind.Debuff || ownDamage.Contains(spell.DamageType)))
                     .OrderByDescending(spell => spell.Level).ToList();
                 bool Ready(Spell spell) => Body.GetSkillDisabledDuration(spell) == 0 && Body.Mana >= BotBody.PowerCost(spell);
                 Spell cast = midCast ? null : ofKind.FirstOrDefault(spell => spell.CastTime > 0 && Ready(spell) &&

@@ -7,6 +7,19 @@ namespace DOL.UnitTests
     [TestFixture]
     public class UT_PvpKillTarget
     {
+        [Test]
+        public void AnEnemyOutOfPositionIsWorthMore_AndTheWeightsDecide()
+        {
+            var home = new PvpTargetView(0, PvpBuffArchetype.Caster, 100, false, 1000, 200);
+            var forward = new PvpTargetView(1, PvpBuffArchetype.Caster, 100, false, 1000, 1500);
+            Assert.That(PvpKillTarget.Score(forward), Is.EqualTo(PvpKillTarget.Score(home) + 26));
+            Assert.That(PvpKillTarget.Choose([home, forward], -1), Is.EqualTo(1));
+            // The same two enemies, with weights that favour fighters: none of this is a rule.
+            var fighter = new PvpTargetView(2, PvpBuffArchetype.Melee, 100, false, 1000);
+            Assert.That(PvpKillTarget.Choose([home, fighter], -1), Is.EqualTo(0));
+            Assert.That(PvpKillTarget.Choose([home, fighter], -1, new PvpKillWeights { OnFighter = 250 }), Is.EqualTo(2));
+        }
+
         private static PvpTargetView View(int id, PvpBuffArchetype archetype, int health = 100, bool mezzed = false, int distance = 500) =>
             new(id, archetype, health, mezzed, distance);
 
