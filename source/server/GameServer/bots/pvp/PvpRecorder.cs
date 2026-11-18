@@ -308,6 +308,8 @@ namespace DOL.GS
                            bot.effectListComponent.ContainsEffectForEffectType(eEffect.Snare),
                     mezImm = bot.effectListComponent.ContainsEffectForEffectType(eEffect.MezImmunity),
                     stunImm = bot.effectListComponent.ContainsEffectForEffectType(eEffect.StunImmunity),
+                    // A root or snare is refused on a bot that holds this.
+                    snareImm = bot.effectListComponent.ContainsEffectForEffectType(eEffect.SnareImmunity),
                     combat = bot.InCombat, moving = bot.IsMoving,
                     casting = bot.IsCasting ? bot.castingComponent?.SpellHandler?.Spell?.Name : null,
                     target = (bot.TargetObject as GameLiving)?.Name,

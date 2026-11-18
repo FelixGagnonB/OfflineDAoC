@@ -1131,6 +1131,34 @@ cast.
   in the match read with `pvp_review.py` its Sorcerer's area mez caught two and its Cabalist's
   nearsight was cast while Midgard was still closing, before Midgard's first mez.
   3,223 automated tests pass. Still no comparison run.
+- **Kiting** (owner, 2026-11-18: "when kiting, melee could snare or slam while moving back;
+  similarly, an already far caster could cast snare, area snare or even roots").
+  Built: a fighter whose target is an enemy fighter on the group's healers and casters asks for
+  a stopping style (`PvpStylePolicy.ControlStyle`): a stun that would land, else a snare on a
+  target not slowed yet, else its best damage style. Under Extend a fighter with nobody to turn
+  on and more than 1,000 units from the middle of its healers and casters comes back to them
+  (`FallBack`). A root on such a pursuer scores 30 more, and 30 more again under Extend; Cabalist
+  and Runemaster got a low root leaning (the Eldritch has no root).
+  First run (six matches): four or five fall-backs a match; stun and snare styles landing 19 a
+  match against 15 before. Roots on pursuers: five in six matches, so that part does not work
+  yet. Fighters are on an enemy healer or caster in melee for about 190 fighter-seconds a
+  match, so the chance is there; root options on fighters mostly score 30 to 34, without the
+  pursuer bonus. Suspected and not yet checked: a diseased fighter already carries a movement
+  slow and so counts as "already rooted". Area snares and snare nukes are not scored at all.
+  3,231 automated tests pass. No comparison run.
+- **Why casters did not root pursuers** (same day). The suspicion was wrong. The recorder now
+  writes snare immunity for every bot and, for a root option, whether its target is a pursuer and
+  whether it is rooted, slowed or immune already. A run showed a root would have landed on a
+  pursuer 75% of the time (19% immune, 5% slowed), and that the option was listed and not taken:
+  it scored 46 against a bar of 50. The 15 points taken off a root whose target is "already
+  interrupted" are about a root cast to stop a caster; a fighter on the group's healers is
+  always being hit, so every pursuer carried the penalty. It no longer applies to a pursuer.
+  Also: a snare nuke counts as a root for a class without one (the Eldritch), an area root is
+  taken when it is the class's highest, and both Healers have their Pacification root scored.
+  Next run (six matches): a root picked on a pursuer 41 times against 3; about seven roots on
+  fighters a match (Theurgist 4.3, Sorcerer 1.7, Shaman 0.7). Pursuers slowed or rooted 8% of
+  the time against 5%. Stun and snare styles landing were 14 a match in this run and 19 in the
+  one before: the style change shows no effect beyond noise. 3,235 automated tests pass.
 Order of work agreed with the owner: finish the brain, with the readings, the group orders and
 positioning (hold, kite, extend, push) first; then play matches and record everything; then
 analyze and iterate on behavior as deep as wanted. No measure has to be fixed in advance: the

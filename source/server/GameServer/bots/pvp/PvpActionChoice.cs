@@ -47,7 +47,9 @@ namespace DOL.GS
         bool CatchesKill = false, // area mez: the kill target is inside it
         int Wakes = 0,        // amnesia: mezzed enemies inside it, the kill target not counted; it wakes them
         bool Instant = false, // an instant spell: it lands now and cannot be interrupted, but mezzes and stuns of this sort come back after ten minutes
-        bool OnController = false); // the target is one of the enemy's mezzers
+        bool OnController = false, // the target is one of the enemy's mezzers
+        bool Pursuer = false,     // an enemy fighter in melee on one of the group's healers or casters
+        bool Extending = false);  // the group's order is Extend
 
     /// <summary>
     /// The numbers behind the choice. Every one is a weight added to an option's score, so none is
@@ -70,9 +72,12 @@ namespace DOL.GS
             // Theurgist keeps pets on enemy healers and casters; a Sorcerer controls and interrupts
             // and joins the kill only when it is close.
             ["Shaman"] = new() { ["Disease"] = 90, ["Root"] = 40 },
-            ["Eldritch"] = new() { ["Nearsight"] = 80, ["Disease"] = 70, ["Damage"] = 55 },
-            ["Cabalist"] = new() { ["Nearsight"] = 60, ["Disease"] = 70, ["Damage"] = 55 },
-            ["Runemaster"] = new() { ["Nearsight"] = 75, ["Damage"] = 60 },
+            // Root, for the casters that have one: low, so that it is cast on a fighter that is on
+            // their healers and casters (RootOnPursuer) and seldom otherwise.
+            // The Eldritch has no root; its snare nuke stands in for one.
+            ["Eldritch"] = new() { ["Nearsight"] = 80, ["Disease"] = 70, ["Damage"] = 55, ["Root"] = 30 },
+            ["Cabalist"] = new() { ["Nearsight"] = 60, ["Disease"] = 70, ["Damage"] = 55, ["Root"] = 30 },
+            ["Runemaster"] = new() { ["Nearsight"] = 75, ["Damage"] = 60, ["Root"] = 30 },
             ["Theurgist"] = new() { ["Pet"] = 70, ["Damage"] = 30, ["Root"] = 30 },
             // Main mezzers (owner, 2026-11-16): Sorcerer, Bard, Pacification Healer. The Healer's entry
             // serves both its specs: the Mending Healer simply has fewer of the spells.
@@ -81,7 +86,7 @@ namespace DOL.GS
             // Amnesia (owner, 2026-11-17): the Bard's is instant with a ten-second recast, the other two take a two-second cast.
             ["Sorcerer"] = new() { ["Mez"] = 120, ["MezArea"] = 120, ["CureMez"] = 130, ["Damage"] = -10, ["Root"] = 35, ["Amnesia"] = 45 },
             ["Bard"] = new() { ["Mez"] = 120, ["MezArea"] = 120, ["CureMez"] = 130, ["Damage"] = 40, ["Amnesia"] = 60 },
-            ["Healer"] = new() { ["Mez"] = 110, ["MezArea"] = 110, ["CureMez"] = 140, ["Stun"] = 70, ["Amnesia"] = 45 },
+            ["Healer"] = new() { ["Mez"] = 110, ["MezArea"] = 110, ["CureMez"] = 140, ["Stun"] = 70, ["Amnesia"] = 45, ["Root"] = 30 },
             // Albion's second cure mez (owner, 2026-11-16). The Minstrel had the spell and never cast it:
             // the old brain reaches cure mez only through its healing routine, and a Minstrel has no heals.
             // Only this is scored for it; its mezzes, shouts and melee stay with the old brain.
@@ -164,6 +169,15 @@ namespace DOL.GS
         public int TargetIsFree { get; set; } = 15;
         public int RootAlreadyOnTarget { get; set; } = -25;
         public int RootTargetAlreadyInterrupted { get; set; } = -15;
+        /// <summary>
+        /// A root on an enemy fighter that is on the group's healers and casters and is not slowed
+        /// yet: the member it is on can then walk away from it. The owner, 2026-11-18: while
+        /// kiting, a caster that is already far away casts its snare, area snare or root on the
+        /// pursuers. Without this a root on a fighter never reached the bar.
+        /// </summary>
+        public int RootOnPursuer { get; set; } = 30;
+        /// <summary>More of the same while the group's order is Extend.</summary>
+        public int RootOnPursuerWhileExtending { get; set; } = 30;
         /// <summary>Waking a mezzed enemy that is not the kill target.</summary>
         public int TargetMezzed { get; set; } = -120;
         public int LowPowerPercent { get; set; } = 25;
@@ -330,7 +344,11 @@ namespace DOL.GS
                     break;
                 case PvpActionKind.Root:
                     score += option.HasEffect ? weights.RootAlreadyOnTarget : 0;
-                    score += option.Interrupted ? weights.RootTargetAlreadyInterrupted : 0;
+                    // "Already interrupted" is about a root cast to stop a caster. A fighter on the group's
+                    // healers is always being hit, and that took a root on it to 46 against a bar of 50.
+                    score += option.Interrupted && !option.Pursuer ? weights.RootTargetAlreadyInterrupted : 0;
+                    if (option.Pursuer && !option.HasEffect)
+                        score += weights.RootOnPursuer + (option.Extending ? weights.RootOnPursuerWhileExtending : 0);
                     break;
                 case PvpActionKind.Mez:
                 case PvpActionKind.MezArea:

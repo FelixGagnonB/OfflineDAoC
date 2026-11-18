@@ -53,6 +53,13 @@ namespace DOL.AI.Brain
         public int PvpWorkRange { get; private set; }
         public long PvpWorkTick { get; private set; }
 
+        /// <summary>
+        /// Set by the squad for a fighter whose target should be stopped, not killed: an enemy that
+        /// is on the group's healers and casters. Its next style is a stun or a snare when it has
+        /// one that would land (bots/pvp/PvpStylePolicy.cs).
+        /// </summary>
+        public bool PvpWantsControlStyle { get; set; }
+
         /// <summary>True while this bot's group holds: it stands and casts what reaches (bots/pvp/PvpReading.cs).</summary>
         private bool PvpHolding() => BotBody?.IsPvpBot == true && PvpSquad?.Order == PvpOrder.Hold;
 
@@ -69,7 +76,8 @@ namespace DOL.AI.Brain
             PvpActionKind.Nearsight => spell.SpellType == eSpellType.Nearsight,
             PvpActionKind.Disease => spell.SpellType == eSpellType.Disease,
             PvpActionKind.Damage => PvpDamageTypes.Contains(spell.SpellType),
-            PvpActionKind.Root => spell.SpellType == eSpellType.SpeedDecrease,
+            // A root, an area root, or a snare nuke: whichever the class has (the highest level is taken).
+            PvpActionKind.Root => spell.SpellType is eSpellType.SpeedDecrease or eSpellType.DamageSpeedDecrease,
             PvpActionKind.Pet => spell.SpellType == eSpellType.SummonTheurgistPet,
             PvpActionKind.Mez => spell.SpellType == eSpellType.Mesmerize && spell.Radius == 0,
             PvpActionKind.MezArea => spell.SpellType == eSpellType.Mesmerize && spell.Radius > 0,
@@ -351,7 +359,8 @@ namespace DOL.AI.Brain
                     options.Add(new PvpOption(kind, id, PvpBuffPlan.ArchetypeOf(enemy.PvpBuild.Class), enemy == kill,
                         enemy == PvpAssignedTarget || enemy == PvpDutyTarget, enemy.HealthPercent, hasEffect,
                         enemy.IsCasting, enemy.IsBeingInterrupted, !mez && enemy.IsMezzed, Body.ManaPercent, cost, walk, caught, catchesKill, wakes,
-                        instant, PvpActionChoice.IsController(enemy.PvpBuild.Class, weights)));
+                        instant, PvpActionChoice.IsController(enemy.PvpBuild.Class, weights),
+                        PvpSquad?.IsPursuer(enemy) == true, PvpSquad?.Order == PvpOrder.Extend));
                 }
             }
             if (tooFar > 0)
@@ -364,6 +373,9 @@ namespace DOL.AI.Brain
             {
                 kind = scored.Option.Kind.ToString(), d = targets[scored.Option.TargetId].Name, score = scored.Score, walk = scored.Option.Short,
                 caught = scored.Option.Kind == PvpActionKind.MezArea ? scored.Option.Caught : (int?)null,
+                // For a root: the target is on this group's healers and casters; it is rooted, slowed or immune already.
+                pursuer = scored.Option.Pursuer ? true : (bool?)null,
+                has = scored.Option.Kind == PvpActionKind.Root && scored.Option.HasEffect ? true : (bool?)null,
             };
 
             foreach ((PvpOption Option, int Score) scored in ranked.Where(scored => PvpActionChoice.WorthIt(scored.Option, scored.Score, weights)))

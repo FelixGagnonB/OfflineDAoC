@@ -18,6 +18,33 @@ namespace DOL.GS
         public static bool Allows(bool taunt, bool detaunt, bool stuns, bool targetStunnedOrImmune) =>
             !taunt && !detaunt && !(stuns && targetStunnedOrImmune);
 
+        public static bool Stuns(Style style) => style.Procs.Any(proc => proc.Spell?.SpellType == eSpellType.StyleStun);
+
+        public static bool Snares(Style style) => style.Procs.Any(proc => proc.Spell?.SpellType == eSpellType.StyleSpeedDecrease);
+
+        /// <summary>
+        /// How much a style does to stop an enemy: a stun first, then a snare on a target that is
+        /// not slowed yet; 0 for a style that only hurts. (A stun that would not land is refused
+        /// by <see cref="Allows(bool, bool, bool, bool)"/> before this is asked.)
+        /// </summary>
+        public static int ControlRank(bool stuns, bool snares, bool targetSlowed) => stuns ? 2 : snares && !targetSlowed ? 1 : 0;
+
+        /// <summary>
+        /// The style for a fighter whose target should be stopped, among those it can use right
+        /// now; null when none of them stuns or snares. The owner, 2026-11-18: when kiting, the
+        /// fighters snare or slam whoever follows.
+        /// </summary>
+        public static Style ControlStyle(GameBot bot, System.Collections.Generic.IEnumerable<Style> usable)
+        {
+            bool slowed = bot.TargetObject is GameLiving target &&
+                (target.effectListComponent.ContainsEffectForEffectType(eEffect.MovementSpeedDebuff) ||
+                 target.effectListComponent.ContainsEffectForEffectType(eEffect.Snare));
+            return usable.Select(style => (Style: style, Rank: ControlRank(Stuns(style), Snares(style), slowed)))
+                .Where(entry => entry.Rank > 0)
+                .OrderByDescending(entry => entry.Rank).ThenByDescending(entry => entry.Style.GrowthRate)
+                .Select(entry => entry.Style).FirstOrDefault();
+        }
+
         public static bool Allows(GameBot bot, Style style)
         {
             bool stuns = style.Procs.Any(proc => proc.Spell?.SpellType == eSpellType.StyleStun);

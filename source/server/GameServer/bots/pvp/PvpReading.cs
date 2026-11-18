@@ -59,6 +59,11 @@ namespace DOL.GS
         public double PushSafeFactor { get; set; } = 0.6;
         /// <summary>Under Extend the group's fighters leave the kill target for an enemy fighter that is on their healers and casters.</summary>
         public bool ExtendFightersTurnOnPursuers { get; set; } = true;
+        /// <summary>
+        /// Under Extend a fighter with nobody to turn on, and farther than this from the middle of
+        /// its healers and casters, comes back to them: the group falls back as one. 0 turns it off.
+        /// </summary>
+        public int ExtendFightersStayWithin { get; set; } = 1_000;
     }
 
     /// <summary>One member as the reading counts it.</summary>

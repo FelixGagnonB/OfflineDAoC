@@ -45,7 +45,13 @@ namespace DOL.GS
         public GameBot WardOf(GameBot bot) => Wards.GetValueOrDefault(bot);
 
         /// <summary>True for a shield fighter that is staying beside its ward: it has chosen not to attack.</summary>
-        public bool IsHolding(GameBot bot) => Holding.Contains(bot);
+        public bool IsHolding(GameBot bot) => Holding.Contains(bot) || FallingBack.Contains(bot);
+
+        // Fighters on their way back to the group's healers and casters under the Extend order.
+        private readonly HashSet<GameBot> FallingBack = new();
+
+        /// <summary>True for an enemy fighter that is in melee on one of the group's healers or casters.</summary>
+        public bool IsPursuer(GameBot enemy) => _pursuers.Contains(enemy);
 
         // Heals being cast right now: healer, patient, spell, when it began and when it is surely over.
         private readonly Dictionary<GameBot, (GameBot Target, Spell Spell, long Started, long Expires)> _heals = new();
@@ -254,6 +260,10 @@ namespace DOL.GS
             }
             var guarded = new HashSet<GameBot>();
             Dictionary<GameBot, GameBot> duty = InterruptDuty(team, alive, target);
+            // The middle of the group's healers and casters: where its fighters fall back to.
+            List<GameBot> soft = team.Where(member => member.IsAlive && !IsFighter(member)).ToList();
+            Vector3? home = soft.Count == 0 ? null
+                : new Vector3((float)soft.Average(member => member.X), (float)soft.Average(member => member.Y), (float)soft.Average(member => member.Z));
             bool critical = target != null && target.HealthPercent <= PvpRoles.CriticalHealthPercent;
             foreach (GameBot bot in team)
             {
@@ -283,6 +293,30 @@ namespace DOL.GS
                 if (Order == PvpOrder.Extend && _pursuers.Count > 0 && role == PvpRole.Assist && onDuty == null && bot.IsAlive &&
                     IsFighter(bot) && PvpWeights.Of(bot).Order.ExtendFightersTurnOnPursuers)
                     aim = _pursuers.OrderBy(pursuer => bot.GetDistanceTo(pursuer)).First();
+                // With nobody to turn on, a fighter that is far from its healers and casters comes
+                // back to them: the group falls back as one, and does not leave its fighters behind.
+                int stayWithin = PvpWeights.Of(bot).Order.ExtendFightersStayWithin;
+                bool fallsBack = Order == PvpOrder.Extend && _pursuers.Count == 0 && stayWithin > 0 && home is { } middle &&
+                    role == PvpRole.Assist && onDuty == null && bot.IsAlive && IsFighter(bot) &&
+                    Vector2.Distance(new Vector2(bot.X, bot.Y), new Vector2(middle.X, middle.Y)) > stayWithin;
+                if (fallsBack)
+                {
+                    aim = null;
+                    if (FallingBack.Add(bot))
+                        PvpRecorder.Decision(bot, new { kind = "FallBack", score = 0 }, [], null);
+                    if (brain.HasAggro)
+                    {
+                        brain.ClearAggroList();
+                        brain.FSM.SetCurrentState(eFSMStateType.IDLE);
+                    }
+                    if (!bot.IsCasting && !bot.IsIncapacitated)
+                        bot.PathTo(home.Value, bot.MaxSpeed);
+                }
+                else
+                    FallingBack.Remove(bot);
+                // A fighter going for an enemy that is on the group's healers and casters wants it
+                // stopped: Slam or a snare style before damage (owner, 2026-11-18).
+                brain.PvpWantsControlStyle = aim != null && IsFighter(bot) && _pursuers.Contains(aim);
                 brain.PvpAssignedTarget = aim;
                 // A fighter on the kill: its target is recorded when it changes (guards and
                 // interrupters record their own choices).

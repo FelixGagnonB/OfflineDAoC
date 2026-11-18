@@ -58,13 +58,19 @@ namespace DOL.GS
             if (preserveQueued && Usable(bot, queued, lastAttack)) return queued;
             Style best = null;
             Style anytime = null;
+            // An 8v8 fighter told to stop its target looks for a stun or a snare first.
+            bool control = bot.IsPvpBot && bot.Brain is DOL.AI.Brain.BotBrain { PvpWantsControlStyle: true };
+            var usable = control ? new System.Collections.Generic.List<Style>() : null;
             foreach (Style style in bot.Styles)
             {
                 if (!Usable(bot, style, lastAttack)) continue;
+                usable?.Add(style);
                 if (Better(style, best)) best = style;
                 if (SavageBotCombatPolicy.IsReliableAnytimeStyle(style) && Better(style, anytime)) anytime = style;
             }
             bot.styleComponent.NextCombatBackupStyle = anytime;
+            if (usable != null && PvpStylePolicy.ControlStyle(bot, usable) is { } stopper)
+                return stopper;
             return best;
         }
     }

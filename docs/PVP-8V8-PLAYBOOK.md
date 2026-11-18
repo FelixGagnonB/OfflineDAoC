@@ -77,7 +77,8 @@ script. Under "extend" a Skald still shouts at a caster if that is the best thin
 |---|---|---|
 | The group brain picks the order from the readings and changes it as they change; an order stands at least three seconds | owner | done for Hold, Engage, Push and Extend (runs of 2026-11-18: about 35% engage, 35% push, 28% extend, 2% hold; the winning side mostly pushes, the losing side mostly extends) |
 | A retreat is one group moving one way, not eight paths | draft | missing |
-| While kiting, the fighters snare or slam whoever follows as they move back; a caster that is already far away casts its snare, area snare or root on the pursuers | owner | missing |
+| While kiting, the fighters snare or slam whoever follows as they move back | owner | partly: a fighter going for an enemy that is on its healers and casters uses a stun style, then a snare style, before damage (14 to 19 stuns and snares land a match, no more than before within the noise of six matches); under Extend a fighter with nobody to turn on comes back to within 1,000 units of its healers and casters (about four or five do each match) |
+| While kiting, a caster that is already far away casts its snare, area snare or root on the pursuers | owner | done: Shaman, Sorcerer, Theurgist, Cabalist, Runemaster and both Healers root an enemy fighter that is on their healers and casters; the Eldritch uses its snare nuke; whichever of root, area root or snare nuke is the class's highest spell is taken. About seven a match in the run of 2026-11-18, mostly the Theurgist and Sorcerer. A root is refused on a fighter that holds snare immunity (a quarter of the time), and the bots do not try. Not yet shown to save anyone: pursuers were slowed or rooted 8% of the time, against 5% before |
 | When the owner plays, their commands set the same order (section 8) | draft | missing |
 
 ## 4. The fight, phase by phase
@@ -232,7 +233,7 @@ and stop it. (data)
 | Goes for the enemy that is on its ward; Slam on one that can be stunned | owner | done |
 | Does not chase that enemy away from the ward | draft | done |
 | Helps with the kill only while the target is near its ward | recall | done |
-| Snares enemies that are on the backline: a snare when the aim is distance, a stun when the aim is a few safe seconds | owner, draft | missing |
+| Snares enemies that are on the backline: a snare when the aim is distance, a stun when the aim is a few safe seconds | owner, draft | partly: going for an enemy that is on a healer or caster it uses Slam first, then a snare style. It does not yet choose between the two by aim |
 | Paladin: endurance, armor and damage chants kept up without spending every turn on them | recall | missing: it recasts its endurance chant over a hundred times a match |
 
 ### Assist train: Armsman, Savage, Berserker, two Blademasters
