@@ -72,6 +72,11 @@ namespace DOL.GS
             var nav = PathfindingProvider.Instance;
             eGender gender = index % 2 == 0 ? eGender.Male : eGender.Female;
             string name = AutonomousBotIdentityGenerator.GenerateForClass(realm, gender, build.Class).Name;
+            // Two 8v8 bots never share a name: the recorder and the analyzer tell bots apart by it,
+            // and one dead Theurgist and one living namesake read as a bot standing up far from
+            // its corpse (seen once in 816 matches, 2026-11-18).
+            for (int attempt = 0; attempt < 20 && Members.Any(other => other.Name == name); attempt++)
+                name = AutonomousBotIdentityGenerator.GenerateForClass(realm, gender, build.Class).Name;
             var bot = new GameBot(build, name, (byte)PvpBuildCatalog.RaceOf(build.Class), (byte)gender);
             bot.SetPvpRealmLevel(realmLevel);
             double angle = Math.PI * 2 * index / count;

@@ -70,7 +70,7 @@ namespace DOL.AI.Brain
                 PvpBuffArchetype.Healer => weights.CureMezOnHealer,
                 PvpBuffArchetype.Caster => weights.CureMezOnCaster,
                 _ => 0,
-            };
+            } + (PvpActionChoice.IsController(build.Class, weights) ? weights.CureMezOnController : 0);
         }
 
         /// <summary>A fight is on: a living enemy is within reach of this bot.</summary>
@@ -103,11 +103,68 @@ namespace DOL.AI.Brain
                 is { } floor && floor.Z < 19_999 ? floor : new Vector3(point.X, point.Y, Body.Z), Body.MaxSpeed);
         }
 
+        /// <summary>
+        /// True when this healer's scored choice goes before its healing routine this turn: its
+        /// build leans to control or interrupts (<see cref="PvpWeights.HealsFirstBelow"/>) and
+        /// nobody of the group in reach is hurt badly enough to claim the turn.
+        /// </summary>
+        private bool PvpScoredChoiceBeforeHeals()
+        {
+            if (BotBody?.IsPvpBot != true || PvpEnemies == null || BotBody.PvpBuild == null)
+                return false;
+            int below = PvpWeights.Of(BotBody).HealsFirstBelowFor(BotBody.PvpBuild.Id, BotBody.PvpBuild.Class);
+            if (below > 100)
+                return false;
+            // The trained member too only claims this healer's turn below that mark: healing it
+            // from the first blow is the heal-first healers' work.
+            return Body.Group?.GetMembersInTheGroup().Any(member => member.IsAlive && member.HealthPercent < below && InSupportReach(member)) != true;
+        }
+
+        /// <summary>
+        /// True when this healer, built to heal, leaves waking <paramref name="sleeper"/> to the
+        /// group's control healer: one that has cure mez, is itself able to act and is near enough
+        /// (<see cref="PvpHealWeights.HealerLeavesCureMezToController"/>).
+        /// </summary>
+        private bool PvpLeavesCureMezToController(GameLiving sleeper)
+        {
+            if (BotBody?.IsPvpBot != true || BotBody.PvpBuild == null)
+                return false;
+            PvpWeights weights = PvpWeights.Of(BotBody);
+            if (!weights.Heal.HealerLeavesCureMezToController ||
+                weights.HealsFirstBelowFor(BotBody.PvpBuild.Id, BotBody.PvpBuild.Class) <= 100)
+                return false;
+            return Body.Group?.GetMembersInTheGroup().OfType<GameBot>().Any(mate =>
+                mate != BotBody && mate != sleeper && mate.IsAlive && !mate.IsMezzed && !mate.IsStunned && mate.CureMezz != null &&
+                mate.PvpBuild != null && weights.HealsFirstBelowFor(mate.PvpBuild.Id, mate.PvpBuild.Class) <= 100 &&
+                mate.IsWithinRadius(sleeper, 2_000)) == true;
+        }
+
+        private long _pvpIdleRecordedTick;
+
+        /// <summary>
+        /// For the recording: a caster whose casts are scored spent this turn on something else
+        /// (its healing routine, a cast still waiting to start), so the scored choice did not run.
+        /// Written at most every two seconds, and only while a fight is on.
+        /// </summary>
+        private void RecordPvpTurnTaken(string by)
+        {
+            if (BotBody?.IsPvpBot != true || PvpEnemies == null || GameLoop.GameLoopTime - _pvpIdleRecordedTick < 2_000 ||
+                Body.IsCasting || Body.IsIncapacitated || !PvpFightIsOn() ||
+                !PvpActionChoice.Covers((eCharacterClass)BotBody.CharacterClass.ID, PvpWeights.Of(BotBody)))
+                return;
+            _pvpIdleRecordedTick = GameLoop.GameLoopTime;
+            PvpRecorder.Decision(BotBody, null, [], new Dictionary<string, string> { ["turn taken by"] = by });
+        }
+
         private bool TryPvpRotation()
         {
-            if (PvpEnemies == null || BotBody?.IsPvpBot != true || Body.IsIncapacitated ||
-                Body.castingComponent?.HasPendingSkillRequests == true)
+            if (PvpEnemies == null || BotBody?.IsPvpBot != true || Body.IsIncapacitated)
                 return false;
+            if (Body.castingComponent?.HasPendingSkillRequests == true)
+            {
+                RecordPvpTurnTaken("a cast waiting to start");
+                return false;
+            }
             // In the middle of a cast only an instant can be added, as a player does (owner, 2026-11-17:
             // a Bard fires its amnesia while it casts its mez).
             bool midCast = Body.IsCasting;
@@ -202,7 +259,10 @@ namespace DOL.AI.Brain
                         };
                         options.Add(new PvpOption(kind, enemies.Count + friend, PvpBuffPlan.ArchetypeOf((eCharacterClass)classId), false, false,
                             member.HealthPercent, false, false, false, true, Body.ManaPercent, cost,
-                            Math.Max(away > range ? away - range + 50 : 0, visible ? 0 : 300)) { Instant = instant });
+                            Math.Max(away > range ? away - range + 50 : 0, visible ? 0 : 300))
+                        {
+                            Instant = instant, OnController = PvpActionChoice.IsController((eCharacterClass)classId, weights),
+                        });
                     }
                     continue;
                 }
@@ -268,14 +328,14 @@ namespace DOL.AI.Brain
             if (offLimitsCount > 0)
                 blocked["asleep or claimed"] = offLimitsCount.ToString();
 
-            List<(PvpOption Option, int Score)> ranked = PvpActionChoice.Rank(characterClass, options, weights);
+            List<(PvpOption Option, int Score)> ranked = PvpActionChoice.Rank(characterClass, options, weights, BotBody.PvpBuild?.Id);
             object Describe((PvpOption Option, int Score) scored) => new
             {
                 kind = scored.Option.Kind.ToString(), d = targets[scored.Option.TargetId].Name, score = scored.Score, walk = scored.Option.Short,
                 caught = scored.Option.Kind == PvpActionKind.MezArea ? scored.Option.Caught : (int?)null,
             };
 
-            foreach ((PvpOption Option, int Score) scored in ranked.TakeWhile(scored => scored.Score >= weights.MinScore))
+            foreach ((PvpOption Option, int Score) scored in ranked.Where(scored => PvpActionChoice.WorthIt(scored.Option, scored.Score, weights)))
             {
                 Spell spell = (scored.Option.Instant ? instants : spells)[scored.Option.Kind];
                 GameLiving aim = targets[scored.Option.TargetId];
@@ -351,10 +411,12 @@ namespace DOL.AI.Brain
             }
 
             // Nothing cast. Say why, but not on every think tick, and not for a look taken in the middle of a cast.
-            if (!midCast && GameLoop.GameLoopTime - _pvpNoActionRecordedTick >= 2_000)
+            // A class with only its cure mez scored has nothing to say while nobody is asleep.
+            if (!midCast && GameLoop.GameLoopTime - _pvpNoActionRecordedTick >= 2_000 &&
+                (ranked.Count > 0 || PvpActionChoice.ScoresOffense(characterClass, weights)))
             {
                 _pvpNoActionRecordedTick = GameLoop.GameLoopTime;
-                if (ranked.Count > 0 && ranked[0].Score < weights.MinScore)
+                if (ranked.Count > 0 && !ranked.Any(scored => PvpActionChoice.WorthIt(scored.Option, scored.Score, weights)))
                     blocked["best score too low"] = ranked[0].Score.ToString();
                 PvpRecorder.Decision(BotBody, null, ranked.Take(5).Select(Describe), blocked);
             }

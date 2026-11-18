@@ -94,7 +94,10 @@ namespace DOL.UnitTests
         {
             PvpOption near = Option(PvpActionKind.Damage, 0, kill: true);
             Assert.That(Best(eCharacterClass.Enchanter, Option(PvpActionKind.Damage, 0, kill: true, walk: 600), near).Option.Short, Is.EqualTo(0));
-            Assert.That(Best(eCharacterClass.Enchanter, Option(PvpActionKind.Damage, 0, kill: true, walk: 1500)).Score, Is.GreaterThanOrEqualTo(Weights.MinScore));
+            // Alone, the far one is still worth walking to: the rank penalty for walking does not count against the bar.
+            (PvpOption far, int score) = Best(eCharacterClass.Enchanter, Option(PvpActionKind.Damage, 0, kill: true, walk: 1500));
+            Assert.That(score, Is.LessThan(Weights.MinScore));
+            Assert.That(PvpActionChoice.WorthIt(far, score, Weights), Is.True);
         }
 
         [Test]
@@ -203,6 +206,53 @@ namespace DOL.UnitTests
             Assert.That(option.Instant, Is.False, "the target is not casting: the ten-minute instant is saved");
             Assert.That(PvpActionChoice.IsController(eCharacterClass.Sorcerer, Weights), Is.True);
             Assert.That(PvpActionChoice.IsController(eCharacterClass.Cleric, Weights), Is.False);
+        }
+
+        [Test]
+        public void WithTheWeightSetWhatCanBeCastNowBeatsABetterTargetThatNeedsAWalk()
+        {
+            // Two fighters in range of the area mez; two enemies around a healer 600 units out of range.
+            PvpOption[] options =
+            [
+                Option(PvpActionKind.MezArea, 1, PvpBuffArchetype.Melee, caught: 2),
+                Option(PvpActionKind.MezArea, 2, PvpBuffArchetype.Healer, caught: 2, walk: 600),
+            ];
+            Assert.That(PvpActionChoice.Rank(eCharacterClass.Sorcerer, options, new PvpWeights { NeedsWalk = 0 }).First().Option.TargetId, Is.EqualTo(2),
+                "without the weight it walks to catch the healer");
+            Assert.That(PvpActionChoice.Rank(eCharacterClass.Sorcerer, options, Weights).First().Option.TargetId, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void TheMinstrelWakesTheGroupsMezzerFirst_AndKeepsTheOldBrainForTheRest()
+        {
+            (PvpOption option, int score) = Best(eCharacterClass.Minstrel,
+                Option(PvpActionKind.CureMez, 1, PvpBuffArchetype.Healer, mezzed: true),
+                Option(PvpActionKind.CureMez, 2, PvpBuffArchetype.Caster, mezzed: true, controller: true));
+            Assert.That(option.TargetId, Is.EqualTo(2), "the Sorcerer before a Cleric");
+            Assert.That(score, Is.EqualTo(130 + 20 + 30));
+            Assert.That(PvpActionChoice.Covers(eCharacterClass.Minstrel, Weights), Is.True);
+            Assert.That(PvpActionChoice.ScoresOffense(eCharacterClass.Minstrel, Weights), Is.False);
+            Assert.That(PvpActionChoice.ScoresOffense(eCharacterClass.Sorcerer, Weights), Is.True);
+        }
+
+        [Test]
+        public void ThePacificationHealerLeansToControlAndTheMendingHealerAwayFromIt()
+        {
+            PvpOption mez = Option(PvpActionKind.Mez, 1);
+            int plain = PvpActionChoice.Score(eCharacterClass.Healer, mez, Weights);
+            Assert.That(PvpActionChoice.Score(eCharacterClass.Healer, mez, Weights, "healer-pac"), Is.EqualTo(plain + 15));
+            Assert.That(PvpActionChoice.Score(eCharacterClass.Healer, mez, Weights, "healer-mend"), Is.EqualTo(plain - 30));
+            Assert.That(PvpActionChoice.Score(eCharacterClass.Healer, mez, Weights, "healer-mend"), Is.GreaterThanOrEqualTo(Weights.MinScore),
+                "the Mending Healer still mezzes when nobody needs a heal");
+        }
+
+        [Test]
+        public void WhoHealsFirstIsSetByBuildThenByClass()
+        {
+            Assert.That(Weights.HealsFirstBelowFor("healer-pac", eCharacterClass.Healer), Is.EqualTo(75));
+            Assert.That(Weights.HealsFirstBelowFor("healer-mend", eCharacterClass.Healer), Is.GreaterThan(100), "heals always first");
+            Assert.That(Weights.HealsFirstBelowFor("shaman-aug", eCharacterClass.Shaman), Is.EqualTo(75));
+            Assert.That(Weights.HealsFirstBelowFor("cleric-rejuv", eCharacterClass.Cleric), Is.GreaterThan(100));
         }
 
         [Test]

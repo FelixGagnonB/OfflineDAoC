@@ -2264,6 +2264,32 @@ namespace DOL.GS
                     }
                 }
             }
+            ChoosePvpHeals();
+        }
+
+        /// <summary>
+        /// An 8v8 healer's big heal and "anytime" heal (bots/pvp/PvpHealPlan.cs), in place of the
+        /// pair picked above for power efficiency, which for a healer with spec heals is the base
+        /// line's smallest heal.
+        /// </summary>
+        /// <summary>The 8v8 bot's quickest cure nearsight; null for a class or spec without one.</summary>
+        public Spell CureNearsight { get; private set; }
+
+        private void ChoosePvpHeals()
+        {
+            CureNearsight = null;
+            if (!IsPvpBot || Spells == null)
+                return;
+            CureNearsight = Spells.Where(spell => spell != null && spell.SpellType == eSpellType.CureNearsightCustom && spell.Level <= Level)
+                .OrderBy(spell => spell.CastTime).FirstOrDefault();
+            List<Spell> heals = Spells.Where(spell => spell != null && spell.SpellType == eSpellType.Heal && spell.Target == eSpellTarget.REALM &&
+                !spell.IsInstantCast && spell.Radius == 0 && spell.Level <= Level).ToList();
+            (int anytime, int big) = PvpHealPlan.PickHeals(
+                heals.Select(spell => (HealAmount(spell, this), PowerCost(spell))).ToList(), PvpWeights.Current.Heal);
+            if (big < 0)
+                return;
+            HealBig = heals[big];
+            HealEfficient = heals[anytime];
         }
 
         public override void SortStyles()

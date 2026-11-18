@@ -82,11 +82,45 @@ namespace DOL.GS
             ["Sorcerer"] = new() { ["Mez"] = 120, ["MezArea"] = 120, ["CureMez"] = 130, ["Damage"] = -10, ["Root"] = 35, ["Amnesia"] = 45 },
             ["Bard"] = new() { ["Mez"] = 120, ["MezArea"] = 120, ["CureMez"] = 130, ["Damage"] = 40, ["Amnesia"] = 60 },
             ["Healer"] = new() { ["Mez"] = 110, ["MezArea"] = 110, ["CureMez"] = 140, ["Stun"] = 70, ["Amnesia"] = 45 },
+            // Albion's second cure mez (owner, 2026-11-16). The Minstrel had the spell and never cast it:
+            // the old brain reaches cure mez only through its healing routine, and a Minstrel has no heals.
+            // Only this is scored for it; its mezzes, shouts and melee stay with the old brain.
+            ["Minstrel"] = new() { ["CureMez"] = 130 },
             ["Enchanter"] = new() { ["Damage"] = 60 },
             ["Wizard"] = new() { ["Damage"] = 60 },
             ["Mentalist"] = new() { ["Damage"] = 60 },
             ["Spiritmaster"] = new() { ["Damage"] = 60 },
         };
+
+        /// <summary>
+        /// Added to the class's leaning for one build. The owner, 2026-11-17: the Pacification
+        /// Healer weighs toward crowd control and the Mending or Augmentation Healer toward healing;
+        /// the second still has its mez, stun and cure mez, for when nobody needs a heal.
+        /// </summary>
+        public Dictionary<string, Dictionary<string, int>> BuildLean { get; set; } = new()
+        {
+            ["healer-pac"] = new() { ["Mez"] = 15, ["MezArea"] = 15, ["Stun"] = 10, ["CureMez"] = 30 },
+            ["healer-mend"] = new() { ["Mez"] = -30, ["MezArea"] = -30, ["Stun"] = -20 },
+        };
+
+        /// <summary>
+        /// By build or class: the healing routine takes a healer's turn before its scored choice
+        /// only while a member of the group in reach is below this health percent. Anyone not
+        /// listed heals first always, as before. The owner, 2026-11-17: the Pacification Healer is
+        /// for control and the Shaman for interrupts, with heals as a backup when the others are
+        /// busy; both Healers have an instant heal and an instant group heal for emergencies. 40 and 50
+        /// were tried first and cost a quarter of the group's healing; at 75 nothing is lost (2026-11-17).
+        /// </summary>
+        public Dictionary<string, int> HealsFirstBelow { get; set; } = new()
+        {
+            ["healer-pac"] = 75,
+            ["Shaman"] = 75,
+        };
+
+        /// <summary>The threshold for a build, by its id first and its class second; above 100 means heals always come first.</summary>
+        public int HealsFirstBelowFor(string build, eCharacterClass characterClass) =>
+            build != null && HealsFirstBelow.TryGetValue(build, out int byBuild) ? byBuild
+            : HealsFirstBelow.TryGetValue(characterClass.ToString(), out int byClass) ? byClass : 101;
 
         public int NearsightOnCaster { get; set; } = 30;
         public int NearsightOnHealer { get; set; } = 15;
@@ -121,6 +155,11 @@ namespace DOL.GS
         /// <summary>Waking a healer is worth the most: it then heals and, in Midgard, cures the others.</summary>
         public int CureMezOnHealer { get; set; } = 40;
         public int CureMezOnCaster { get; set; } = 20;
+        /// <summary>
+        /// Waking the group's own mezzer: it comes out immune to mez for a minute and can then do its work.
+        /// In 32 recorded Albion matches the Sorcerer, mezzed in the first seconds, was never woken.
+        /// </summary>
+        public int CureMezOnController { get; set; } = 30;
         /// <summary>The target is a healer or caster that nobody is keeping interrupted.</summary>
         public int TargetIsFree { get; set; } = 15;
         public int RootAlreadyOnTarget { get; set; } = -25;
@@ -136,6 +175,16 @@ namespace DOL.GS
         public double PowerScarcity { get; set; } = 3;
         /// <summary>Lost per 100 units the caster would first have to walk; picking such an option means walking.</summary>
         public double PerHundredUnitsShort { get; set; } = 2;
+        /// <summary>
+        /// Lost by any option the caster would first have to walk for, on top of the distance: what
+        /// can be cast from where it stands comes first. The base of 2026-11-17 showed why: a
+        /// Sorcerer whose area mez reaches 1,875 units walked on toward a healer in the enemy's
+        /// back row while the enemy's front row was already in range, and was mezzed by an instant
+        /// before it had cast anything. Measured overnight, 192 matches with one team at -40 and
+        /// the other at 0: the team with it won 123 to 69, and every realm did better with it
+        /// (Albion 78% against 54%, Midgard 54% against 18%, Hibernia 59% against 34%).
+        /// </summary>
+        public int NeedsWalk { get; set; } = -40;
         /// <summary>Enemies farther than this are not considered at all.</summary>
         public int ConsiderRange { get; set; } = 3_500;
 
@@ -209,6 +258,14 @@ namespace DOL.GS
         public static bool Covers(eCharacterClass characterClass, PvpWeights weights) =>
             weights.ClassBase.ContainsKey(characterClass.ToString());
 
+        /// <summary>
+        /// True when the class's attacking casts are picked here too, so the old brain's random
+        /// pick is not used for it. A class with only cure mez scored (the Minstrel) keeps the
+        /// old brain for everything else.
+        /// </summary>
+        public static bool ScoresOffense(eCharacterClass characterClass, PvpWeights weights) =>
+            KindsFor(characterClass, weights).Any(kind => kind != PvpActionKind.CureMez);
+
         /// <summary>The kinds this class would ever cast, so the brain does not look up spells for the rest.</summary>
         public static IEnumerable<PvpActionKind> KindsFor(eCharacterClass characterClass, PvpWeights weights) =>
             weights.ClassBase.TryGetValue(characterClass.ToString(), out Dictionary<string, int> kinds)
@@ -234,17 +291,21 @@ namespace DOL.GS
             _ => true,
         };
 
-        public static int Score(eCharacterClass characterClass, PvpOption option, PvpWeights weights)
+        public static int Score(eCharacterClass characterClass, PvpOption option, PvpWeights weights, string build = null)
         {
             bool soft = option.Archetype != PvpBuffArchetype.Melee;
             double score = weights.ClassBase.TryGetValue(characterClass.ToString(), out Dictionary<string, int> kinds) &&
                            kinds.TryGetValue(option.Kind.ToString(), out int lean) ? lean : 0;
+            if (build != null && weights.BuildLean.TryGetValue(build, out Dictionary<string, int> leans) &&
+                leans.TryGetValue(option.Kind.ToString(), out int more))
+                score += more;
             if (option.Kind == PvpActionKind.CureMez)
             {
                 // The target is a friend: none of the terms about enemies below apply.
                 score += option.Archetype switch { PvpBuffArchetype.Healer => weights.CureMezOnHealer, PvpBuffArchetype.Caster => weights.CureMezOnCaster, _ => 0 };
+                score += option.OnController ? weights.CureMezOnController : 0;
                 score -= weights.PowerScarcity * option.CostPercent * (100 - option.PowerPercent) / 100.0;
-                score -= weights.PerHundredUnitsShort * option.Short / 100.0;
+                score -= weights.PerHundredUnitsShort * option.Short / 100.0 - (option.Short > 0 ? weights.NeedsWalk : 0);
                 return (int)Math.Round(score);
             }
             switch (option.Kind)
@@ -288,7 +349,7 @@ namespace DOL.GS
                     score += weights.InstantSpent + (option.Casting ? weights.InstantOnCastingTarget : 0);
             }
             score -= weights.PowerScarcity * option.CostPercent * (100 - option.PowerPercent) / 100.0;
-            score -= weights.PerHundredUnitsShort * option.Short / 100.0;
+            score -= weights.PerHundredUnitsShort * option.Short / 100.0 - (option.Short > 0 ? weights.NeedsWalk : 0);
             if (option.IsAssigned)
                 score += weights.OnAssignedTarget;
             if (soft && !option.Interrupted)
@@ -298,10 +359,19 @@ namespace DOL.GS
             return (int)Math.Round(score);
         }
 
-        /// <summary>The useful options, best first. The caller casts the first one that reaches <see cref="PvpWeights.MinScore"/>.</summary>
-        public static List<(PvpOption Option, int Score)> Rank(eCharacterClass characterClass, IEnumerable<PvpOption> options, PvpWeights weights) =>
+        /// <summary>
+        /// True when an option is worth the turn. What needs a walk is ranked below what does
+        /// not (<see cref="PvpWeights.NeedsWalk"/>), but that must not stop a caster walking when
+        /// walking is all there is: for the bar, the walk's rank penalty is given back.
+        /// </summary>
+        public static bool WorthIt(PvpOption option, int score, PvpWeights weights) =>
+            score - (option.Short > 0 ? weights.NeedsWalk : 0) >= weights.MinScore;
+
+        /// <summary>The useful options, best first. The caller casts the first one that is <see cref="WorthIt"/>.</summary>
+        public static List<(PvpOption Option, int Score)> Rank(eCharacterClass characterClass, IEnumerable<PvpOption> options, PvpWeights weights,
+            string build = null) =>
             options.Where(Useful)
-                .Select(option => (Option: option, Score: Score(characterClass, option, weights)))
+                .Select(option => (Option: option, Score: Score(characterClass, option, weights, build)))
                 .OrderByDescending(scored => scored.Score)
                 .ThenBy(scored => scored.Option.Kind)
                 .ThenBy(scored => scored.Option.TargetId)

@@ -51,6 +51,37 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void TheMemberWithTheEnemyFightersOnItIsTheTrainedOne()
+        {
+            Assert.That(PvpHealPlan.Trained([0, 1, 3, 0], -1, Weights), Is.EqualTo(2));
+            Assert.That(PvpHealPlan.Trained([0, 1, 1, 0], -1, Weights), Is.EqualTo(-1), "one fighter on someone is not a train");
+            Assert.That(PvpHealPlan.Trained([2, 0, 2, 0], 2, Weights), Is.EqualTo(2), "a tie leaves the call where it was");
+        }
+
+        [Test]
+        public void ATrainedMemberIsHealedBeforeItIsBadlyHurt()
+        {
+            // Member 0 is at 90% with the train on it; member 1 is at 70% and left alone.
+            List<PvpPatient> patients = [new(0, 900, 1_000, 0, PvpBuffArchetype.Healer, Trained: true), Patient(1, 70)];
+            Assert.That(PvpHealPlan.Choose(patients, 1, Weights), Is.EqualTo(0));
+            // Untouched, it needs nothing yet.
+            Assert.That(PvpHealPlan.Choose([new(0, 1_000, 1_000, 0, PvpBuffArchetype.Healer, Trained: true)], 0, Weights), Is.EqualTo(-1));
+        }
+
+        [Test]
+        public void AHealersTwoHealsAreTheGreaterAndTheMajor()
+        {
+            // A Regrowth Druid's single heals in this server's data: Greater, Major, plain, Minor.
+            (double, int)[] druid = [(549, 109), (387, 57), (231, 42), (119, 17)];
+            Assert.That(PvpHealPlan.PickHeals(druid, Weights), Is.EqualTo((1, 0)), "the Major heal for any time, the Greater for big heals");
+            // A Shaman has only the base line: the plain heal is its big one, the Minor its other.
+            (double, int)[] shaman = [(231, 42), (119, 17)];
+            Assert.That(PvpHealPlan.PickHeals(shaman, Weights), Is.EqualTo((1, 0)));
+            Assert.That(PvpHealPlan.PickHeals([(300, 50)], Weights), Is.EqualTo((0, 0)));
+            Assert.That(PvpHealPlan.PickHeals([], Weights), Is.EqualTo((-1, -1)));
+        }
+
+        [Test]
         public void ProjectedHealthStaysBetweenZeroAndAHundred()
         {
             Assert.That(PvpHealPlan.Projected(Patient(0, 90, incoming: 900)), Is.EqualTo(100));

@@ -2944,7 +2944,12 @@ namespace DOL.AI.Brain
                 {
                     // A healing 8v8 caster with nobody to heal works its rotation (a Shaman's
                     // disease) without first needing an attack target of its own.
-                    if (!_brain.CheckHeals() && !_brain.TryPvpRotation())
+                    if (_brain.PvpScoredChoiceBeforeHeals() && _brain.TryPvpRotation())
+                    {
+                    }
+                    else if (_brain.CheckHeals())
+                        _brain.RecordPvpTurnTaken("the healing and curing routine");
+                    else if (!_brain.TryPvpRotation())
                         _brain.AttackMostWanted();
                 }
                 // An 8v8 caster under a squad brain picks its cast from every enemy in reach, not
@@ -3595,7 +3600,14 @@ namespace DOL.AI.Brain
             if (CompanionFollowPolicy.SendsDruidPet(BotBody))
                 TryCommandCompanionDruidPet(CalculateNextAttackTarget());
             HoldSupportCombat();
-            if (!CheckHeals() && !TryPvpCrowdControl() && !TryPvpRotation()) CheckSpells(eCheckSpellType.Defensive);
+            // A healer built for control or interrupts looks at those first while nobody is badly hurt.
+            if (PvpScoredChoiceBeforeHeals() && TryPvpRotation())
+            {
+            }
+            else if (CheckHeals())
+                RecordPvpTurnTaken("the healing and curing routine");
+            else if (!TryPvpCrowdControl() && !TryPvpRotation())
+                CheckSpells(eCheckSpellType.Defensive);
             if (BotBody.IsPlayerLedGroup)
             {
                 if (!Body.IsCasting && Body.castingComponent?.HasPendingSkillRequests != true)
@@ -3859,7 +3871,7 @@ namespace DOL.AI.Brain
                 // A caster whose casts are scored does not fall back to the old random pick (it had the
                 // Sorcerer spend its power on stat debuffs): with nothing worth casting it keeps its power.
                 if (PvpEnemies != null && BotBody?.IsPvpBot == true &&
-                    PvpActionChoice.Covers((eCharacterClass)BotBody.CharacterClass.ID, PvpWeights.Of(BotBody)))
+                    PvpActionChoice.ScoresOffense((eCharacterClass)BotBody.CharacterClass.ID, PvpWeights.Of(BotBody)))
                     return false;
                 if (TryBardPveAddMez()) return true;
                 if (TryShamanPveAddRoot()) return true;
@@ -4988,6 +5000,18 @@ namespace DOL.AI.Brain
                 }
             }
 
+            // An 8v8 healer heals the member the enemy's fighters are on before it is badly hurt
+            // (owner, 2026-11-17), unless somebody else is already in an emergency.
+            if (PvpSquad?.Trained is { IsAlive: true } trainedMember && InSupportReach(trainedMember) &&
+                trainedMember.HealthPercent < PvpWeights.Of(BotBody).Heal.TrainedHealBelowPercent &&
+                (spellTarget == null || spellTarget == trainedMember || spellTarget.HealthPercent >= 40))
+            {
+                spellTarget = trainedMember;
+                numNeedHealing = Math.Max(1, numNeedHealing);
+                if (trainedMember.HealthPercent < 40)
+                    numEmergency = Math.Max(1, numEmergency);
+            }
+
             // Emergency heal
             if (numEmergency > 0)
             {
@@ -5015,11 +5039,31 @@ namespace DOL.AI.Brain
                     foreach (GameLiving member in Body.Group.GetMembersInTheGroup().OrderBy(member => member == AssistedPlayer ? 0 : 1)
                                  .ThenByDescending(PvpCureMezPriority))
                     {
-                        if (member.IsMezzed && member != Body && InSupportReach(member) && CheckHealSpell(BotBody.CureMezz))
+                        if (member.IsMezzed && member != Body && InSupportReach(member) && CheckHealSpell(BotBody.CureMezz) &&
+                            !PvpLeavesCureMezToController(member))
                         {
                             spellToCast = BotBody.CureMezz;
                             spellTarget = member;
                             break;
+                        }
+                    }
+
+                    // An 8v8 healer lifts nearsight from a caster or healer of its group (itself too)
+                    // once nobody is below 65% health and nobody is asleep: a fighter does not care, and
+                    // the cast is long (bots/pvp/PvpHealPlan.cs).
+                    if (spellToCast == null && (spellTarget == null || spellTarget.HealthPercent >= 65) && BotBody.IsPvpBot &&
+                        BotBody.CureNearsight is { } cureNearsight &&
+                        cureNearsight.CastTime <= PvpWeights.Of(BotBody).Heal.CureNearsightMaxCastTime && CheckHealSpell(cureNearsight))
+                    {
+                        GameLiving blind = Body.Group.GetMembersInTheGroup()
+                            .Where(member => member.IsAlive && InSupportReach(member) && member is GameBot { PvpBuild: { } build } &&
+                                             PvpBuffPlan.ArchetypeOf(build.Class) != PvpBuffArchetype.Melee &&
+                                             member.effectListComponent.ContainsEffectForEffectType(eEffect.Nearsight))
+                            .OrderByDescending(PvpCureMezPriority).FirstOrDefault();
+                        if (blind != null)
+                        {
+                            spellToCast = cureNearsight;
+                            spellTarget = blind;
                         }
                     }
 
@@ -5140,10 +5184,14 @@ namespace DOL.AI.Brain
                     if (BotBody.IsPvpBot)
                         PvpRecorder.Decision(BotBody, new
                         {
-                            kind = spellToCast.SpellType == eSpellType.CureMezz ? "CureMez" : spellToCast.IsHealing ? "Heal" : "Cure",
+                            kind = spellToCast.SpellType == eSpellType.CureMezz ? "CureMez"
+                                : spellToCast.SpellType == eSpellType.CureNearsightCustom ? "CureNearsight"
+                                : spellToCast.IsHealing ? "Heal" : "Cure",
                             spell = spellToCast.Name, d = spellTarget.Name, hp = spellTarget.HealthPercent, score = 100 - spellTarget.HealthPercent,
                             // Another healer's heal was already on its way to the one this healer had picked.
                             moved = spellTarget != pickedAlone ? true : (bool?)null,
+                            // The patient is the member the enemy's fighters are on.
+                            train = PvpSquad != null && spellTarget == PvpSquad.Trained ? true : (bool?)null,
                         }, [], null);
                     if (spellToCast.IsInstantCast)
                     {

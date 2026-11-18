@@ -835,6 +835,165 @@ Not yet measured in a match.
 lost casts were two-second nearsights that had finished in 1.2 to 1.4 seconds (dexterity
 shortens a cast to about 60%); the check now uses half the listed cast time.
 
+*M6 deep dive, first question, 2026-11-17: who wins the mez fight on first contact, and why.*
+From the rank 1 base (M5 build), mezzer by mezzer:
+- Against Hibernia the Bard landed the first mez of the match in 10 of 10; Albion's Sorcerer was
+  first hit 1.2 seconds after contact, asleep 8.2 of the first 10 seconds, and landed its first
+  mez 22 seconds in (never in 3 of 10). Against Midgard the Skald landed the first mez in 8 of
+  10 and the Sorcerer was asleep 5.5 of the first 10 seconds. So since instants became options
+  of their own the Sorcerer loses the opening; before, it won it.
+- The owner remembered right: in this server's data the Sorcerer's area mez reaches 1,875 units
+  (the Senility line), every Healer and Bard mez 1,500.
+- The Sorcerer did not use that range. With the enemy's front row inside 1,875 it kept walking
+  toward a healer in their back row, which scored a little higher, and cast with the nearest
+  enemy at 770 to 1,000 units. A weight for it, `NeedsWalk` (what can be cast from where the
+  caster stands comes first; 0 in the built-in weights), tried at -40 in 12 Albion matches: the
+  Sorcerer now begins its area mez about 1.6 seconds before contact with the nearest enemy at
+  about 1,700, and still loses the race. The Bard runs ahead of its group for the Sorcerer
+  (the owner: "a Bard would usually rush in") and its instant lands half a second before
+  contact; the Sorcerer's three-second cast, about 1.9 with its dexterity, would have ended
+  0.3 after. Both groups charging close 600 units a second, so 375 units of range are worth
+  0.6 seconds, and the half second between a bot's decisions eats most of that.
+- What a head-on charge leaves out: the Sorcerer's group holding at range instead of running
+  in (halves the closing speed), and a human Bard needing a moment to find the Sorcerer among
+  eight, where a bot knows at once. Both still to do (opening positions; reaction time, M10).
+- Albion's own answer was missing: in 32 Albion matches the Sorcerer was never woken. The
+  Minstrel has cure mez (Focusing Chant) and never cast it: the old brain reaches cure mez only
+  through its healing routine, and a Minstrel has no heals. Fixed: the Minstrel's cure mez is a
+  scored option (nothing else of the Minstrel's is), and waking the group's own mezzer scores
+  more (`CureMezOnController`), since it comes out immune for a minute.
+- New in the recording: when a scored caster's turn goes to its healing and curing routine or
+  to a cast waiting to start, a line says so. Midgard's Healers lose 3 to 4 turns a match that
+  way, the Shaman 2.
+
+  Measured in 12 Albion matches with the built-in weights: the Minstrel cures mez about twice a
+  match and the Sorcerer was woken in 5 of 12 (2, 3, 7, 8 and 34 seconds after it was first
+  mezzed), against never before. It is still asleep 16 of the first 30 seconds.
+
+*Owner, 2026-11-17, on Midgard's healers:* the Pacification Healer should weigh more toward crowd
+control and the Augmentation or Mending Healer more toward healing; the second also has its cast
+mez, stun and cure mez. The Healer is a tricky class because of its role and tight specs. The
+Shaman should weigh more toward interrupts, with backup heals when the Pacification Healer is
+too busy to help. Both Healers have an instant single heal and an instant group heal.
+Built the same day:
+- A leaning per build on top of the class's (`PvpWeights.BuildLean`): `healer-pac` gets more on
+  mez, area mez and stun; `healer-mend` less, but its mez still clears the bar when nobody needs
+  a heal.
+- Who heals first (`PvpWeights.HealsFirstBelow`): a healer's healing routine used to take every
+  turn it wanted before the scored choice was even looked at (3 to 4 turns a match for each
+  Healer, 2 for the Shaman, recorded since this morning). For `healer-pac` it now comes first
+  only while a member in reach is below 40% health, for the Shaman below 50%; above that the
+  scored choice (control, cure mez, disease, root) goes first and heals follow. Everyone else
+  heals first always, as before.
+Measured the same day, 12 Midgard matches each way on one build: with the thresholds at 40
+and 50% the three cast 5.2 heals a match against 7.2 without, all three were dead more of the
+fight (59, 51 and 57% against 54, 42 and 45%), the Pacification Healer cast one more mez or stun
+a match and three fewer cure mezzes, and Midgard's enemies were mezzed 8% of the fight against
+13%. Waiting until a member is below 40 or 50% is too late (the owner: "probably too low").
+
+*Owner, 2026-11-17, on healing, first-hand (they played Druid, Cleric and Mending or
+Augmentation Healer and nothing else):* the hard part was knowing whether someone was being
+trained by the enemy's assist train. When someone called that the train was on them, all focus
+went to spamming heals on them until a peel, mez or stun let the teammate run and get distance.
+Mostly two heals, the "anytime" one and the "needs big heals" one: the spec line's Major heal
+and its Greater heal, both hungry for power. Spread heal when needed. Never group heals. How
+that compares with 1.65 they do not know.
+Checked against this server's data and the base recordings:
+- The spec lines have exactly that pair (at 41 and 42 in the line: Greater 549 health for 109
+  power, Major 387 for 57), and the base line a plain heal (231 for 42) and a Minor one (119 for
+  17, in 2.2 seconds).
+- The bots' two heals were picked for power efficiency, which made the second one the Minor
+  heal. The Regrowth Druid and Rejuvenation Cleric happened to end up with Major and Greater;
+  the Nurture Druid cast the Minor heal 76 times in 20 matches and never its Major, the
+  Mending Healer the Minor 28 times and never its Major, the Enhancement Cleric the Minor 44.
+Built: an 8v8 healer's big heal is the one that heals most and its "anytime" heal the cheapest
+per point among those healing at least half as much (`PvpHealPlan.PickHeals`), which is the
+spec Major heal for whoever has one. And the trained member (`PvpSquad.Trained`: two or more
+enemy fighters in melee on it, which a human group hears on voice) is healed first and as soon
+as it is below 97%, not only once it is hurt; it also claims the turn of a healer built for
+control. Running away to get distance once peeled is not built (M7.2).
+The heal-first threshold for the Pacification Healer and the Shaman was then set to 75%: at
+that value the three Midgard healers cast 9.1 heals a match against 7.2 with the leaning off,
+died no more, and the Shaman cast 6.0 diseases and roots a match against 4.4.
+Measured, 24 matches against the 30 of the base: "trained" is called 12 times a match and a
+third of the heals go to that member; the Rejuvenation Cleric heals 1,941 health a match
+against 986, the Regrowth Druid 1,574 against 1,347, the Nurture Druid 899 against 733 with its
+Major heal in place of the Minor; Albion and Hibernia are dead 16% of the fight against 21 and
+20%, in fights of the same length. Midgard is dead 30% against 22% and won 4 of 16.
+- The Mending Healer heals about 300 health a match: it casts 2 to 3 heals and 8 to 13 cure
+  mezzes, because Midgard is mezzed a lot and the old routine puts cure mez before any heal that
+  is not an emergency. Putting heals first for every 8v8 healer was tried and made it worse:
+  Midgard's cure mezzes fell from 7.7 to 2.0 a match, its healing did not rise (its healers are
+  dead half the fight and interrupted for much of the rest), and it lost all eight to Hibernia.
+  Taken out again. What keeps Midgard's healers from casting is the question, not the order.
+- The Enhancement Cleric heals less than before (250 health a match against 435): it is
+  usually the enemy's kill target and a 3.2-second Major heal is interrupted where a 2.2-second
+  Minor one sometimes got through.
+
+*Owner, 2026-11-17:* "As healer, I was always just healing; maybe 10% of the fight I used roots,
+stun, mez or demez to help or peel if I could." And on learning that this server's healers have
+cure nearsight (the owner does not think 1.65 had it; the server marks the spell as custom, so
+it was probably added by the emulator): then it belongs on the priority list.
+Built: a healer with the 3.5-second cure nearsight (the main healer of each realm; the second
+healers have only the 6-second one, the Shaman none) lifts nearsight from a caster or healer of
+its group once nobody is below 65% health and nobody is asleep (`PvpHealWeights.
+CureNearsightMaxCastTime`). Not yet measured.
+
+*Owner, 2026-11-17, on Midgard's two Healers:* in Albion and Hibernia the roles are split and
+everybody knows who does what; in Midgard the two Healers are in a tight spot. The Pacification
+Healer must keep interrupt, mez, demez and stun ahead of heals while knowing when to heal; for
+the Mending Healer it is the other way round. It has to heal most of the time and position
+itself so that it is interrupted as little as possible, since it is the main healer for the
+whole fight. Midgard can turn that to its advantage when the enemy pushes deep to put its
+assist train on the Mending or Augmentation Healer.
+Built from it:
+- The Pacification Healer's cure mez scores more (`BuildLean`), with its mez and stun.
+- A healer built to heal leaves waking a member to the group's control healer while that one
+  is alive, awake and within 2,000 units, and wakes the control healer itself
+  (`PvpHealWeights.HealerLeavesCureMezToController`). The earlier attempt stopped both Healers
+  curing; this one steps only the Mending Healer back, and only while the other can cover.
+- The trained member claims a control healer's turn only below its heal-first mark (75%); from
+  the first blow it is the heal-first healers' patient.
+Still to build from the same guidance: the main healer's position (standing
+back at heal range, stepping away when enemies come for it; M7.1 and M7.2), and turning on
+enemies who push deep for the healer (the kill-target call weighs class and health and not who
+has overextended).
+
+*Overnight, 2026-11-17 to 18: 816 matches unattended* (34 batches of 24 in six lanes, about
+eight hours; every batch finished, every match ended on a wipe, no server error, no bot left
+behind). Build: everything above, cure nearsight on, Midgard's Healer split on, casting from
+range off.
+| Pairing, 40 matches each | Rank 1 | Rank 5 (Purge and Group Purge) |
+|---|---|---|
+| Albion against Midgard | Albion 25 to 15 | Albion 25 to 15 |
+| Albion against Hibernia | Albion 28 to 12 | Hibernia 21 to 19 |
+| Midgard against Hibernia | Hibernia 24 to 16 | Hibernia 29 to 11 |
+Midgard is the weakest at both ranks (31 of 80 at rank 1, 26 of 80 at rank 5).
+Three comparisons of 192 matches each, one team with the new set and one with the old, every
+pairing fought both ways round:
+| What the new set had | New won | Old won | By realm, new against old |
+|---|---|---|---|
+| Casting from range before walking (`NeedsWalk` -40) | 123 | 69 | Albion 78% against 54%, Midgard 54% against 18%, Hibernia 59% against 34% |
+| Cure nearsight | 85 | 107 | Albion 45% against 65%, Hibernia 48% against 62%, Midgard 39% against 39% |
+| Midgard's Healer split | 102 | 90 | Midgard 34% against 32% (the setting does nothing for the other two) |
+- Casting from range is a clear gain for every realm and is now the default. One flaw found
+  while adopting it: a caster whose only option needed a walk scored under the bar and stood
+  still. For the bar, the walk's rank penalty is now given back (`PvpActionChoice.WorthIt`).
+- Cure nearsight cost Albion and Hibernia about fifteen to twenty points of win rate: the main
+  Cleric cast it four times a match, 14 seconds not spent healing. It is now off by default
+  (`CureNearsightMaxCastTime` 0); the code stays for a narrower use (the group's mezzer only,
+  or a shorter list of moments).
+- Midgard's Healer split shows no effect on Midgard's results either way. It stays, as the
+  owner's description of the two roles.
+- A yardstick from the same night: in the Healer-split comparison Albion won 67% with one set
+  and 53% with the other, and the setting does nothing for Albion. So with 64 matches an arm, a
+  gap of fifteen points can be chance alone; the gaps above for casting from range (24 to 36
+  points, every realm the same way) are not, and cure nearsight's (14 and 20, two realms the
+  same way, the third unaffected) is likely real.
+- The analyzer's warning about bots standing up away from their corpse fired once in the 816
+  matches: two bots of one match had been given the same name, and a dead one and its living
+  namesake read as one bot. 8v8 bots now get names no other 8v8 bot in the world has.
+
 - [ ] **M6.1** (L) Control plan: an area mez opener, assignments per controller, immunity timers
   tracked, re-mez, stuns, roots and snares used on purpose, never breaking the group's own mez.
 - [ ] **M6.2** (M) Interrupt duty: each enemy healer and caster gets an assigned interrupter, using

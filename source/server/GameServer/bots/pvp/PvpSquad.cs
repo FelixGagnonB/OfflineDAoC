@@ -80,7 +80,7 @@ namespace DOL.GS
                     return own;
                 List<PvpPatient> patients = reach.Select((member, id) => new PvpPatient(id, member.Health, member.MaxHealth,
                     (int)_heals.Values.Where(heal => heal.Target == member).Sum(heal => Math.Max(0, GameBot.HealAmount(heal.Spell, member))),
-                    PvpBuffPlan.ArchetypeOf(member.PvpBuild.Class))).ToList();
+                    PvpBuffPlan.ArchetypeOf(member.PvpBuild.Class), member == Trained)).ToList();
                 int chosen = PvpHealPlan.Choose(patients, reach.IndexOf(pick), weights);
                 if (chosen < 0)
                     return null;
@@ -130,11 +130,34 @@ namespace DOL.GS
             return known;
         }
 
-        /// <summary>The group's decisions for this second: what it sees, kill target, interrupt duty, guard and peel.</summary>
+        /// <summary>
+        /// The member the enemy's assist train is on right now (bots/pvp/PvpHealPlan.cs); null for
+        /// nobody. The group's healers put it first. A human group hears this on voice; the squad
+        /// counts the enemy fighters in melee on each member.
+        /// </summary>
+        public GameBot Trained { get; private set; }
+
+        private void FindTrained(List<GameBot> known)
+        {
+            PvpWeights weights = PvpWeights.Of(_members.FirstOrDefault());
+            List<GameBot> alive = _members.Where(member => member.IsAlive).ToList();
+            List<int> attackers = alive.Select(member => known.Count(enemy =>
+                enemy.IsAlive && !enemy.IsMezzed && !enemy.IsStunned && enemy.TargetObject == member &&
+                enemy.IsWithinRadius(member, weights.Peel.MeleeReach) &&
+                (PvpBuffPlan.ArchetypeOf(enemy.PvpBuild.Class) == PvpBuffArchetype.Melee || enemy.attackComponent?.AttackState == true))).ToList();
+            int chosen = PvpHealPlan.Trained(attackers, Trained != null ? alive.IndexOf(Trained) : -1, weights.Heal);
+            GameBot now = chosen >= 0 ? alive[chosen] : null;
+            if (now != Trained && now != null && FightStarted)
+                PvpRecorder.Decision(now, new { kind = "Trained", score = attackers[chosen] }, [], null);
+            Trained = now;
+        }
+
+        /// <summary>The group's decisions for this second: what it sees, who is being trained, kill target, interrupt duty, guard and peel.</summary>
         public void Decide(IReadOnlyList<GameBot> enemies)
         {
             List<GameBot> known = Look(enemies);
             Known = known;
+            FindTrained(known);
             KillTarget = CallTarget(_members, known, KillTarget is { IsAlive: true } current && known.Contains(current) ? current : null);
         }
 
