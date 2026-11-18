@@ -90,7 +90,15 @@ namespace DOL.GS
             // Albion's second cure mez (owner, 2026-11-16). The Minstrel had the spell and never cast it:
             // the old brain reaches cure mez only through its healing routine, and a Minstrel has no heals.
             // Only this is scored for it; its mezzes, shouts and melee stay with the old brain.
+            // Scoring its shouts and mez as well was tried on 2026-11-18 and taken back: its single mez
+            // is a song that began ninety times a match and never finished, where the old brain had
+            // been landing six mezzes a match with its area lullaby.
             ["Minstrel"] = new() { ["CureMez"] = 130 },
+            // The owner, 2026-11-18: the Skald is an interrupt class. Target a caster, instant damage
+            // shout, switch to another caster, healer or mezzer, second shout; a snare on a fighter in
+            // passing; its instant mez on a free enemy that is not a fighter. Changing target often
+            // is right for it. All of these are instants, so they cost it no swing.
+            ["Skald"] = new() { ["Damage"] = 60, ["Mez"] = 100, ["Root"] = 35 },
             ["Enchanter"] = new() { ["Damage"] = 60 },
             ["Wizard"] = new() { ["Damage"] = 60 },
             ["Mentalist"] = new() { ["Damage"] = 60 },
@@ -120,6 +128,9 @@ namespace DOL.GS
         {
             ["healer-pac"] = 75,
             ["Shaman"] = 75,
+            // A mezzer first; it heals when somebody is hurt. (The assistant's reading of the class,
+            // not the owner's word: the question is open in the playbook.)
+            ["Bard"] = 75,
         };
 
         /// <summary>The threshold for a build, by its id first and its class second; above 100 means heals always come first.</summary>
@@ -132,6 +143,12 @@ namespace DOL.GS
         public int DiseaseOnKillTarget { get; set; } = 40;     // disease halves the healing it receives
         public int DamageOnKillTarget { get; set; } = 30;
         public int DamageOffKillTarget { get; set; } = -60;    // spread damage kills nobody
+        /// <summary>
+        /// In place of the above for an instant on a healer or caster that is free to cast: a shout
+        /// there is an interrupt, not spread damage. On one already interrupted it stays spread
+        /// damage, which is what makes a Skald move on to the next caster.
+        /// </summary>
+        public int InstantDamageOnFreeCaster { get; set; } = -20;
         public double DamagePerMissingHealth { get; set; } = 0.5;
         public int PetOnCasterOrHealer { get; set; } = 30;
         public int PetOnMelee { get; set; } = -50;
@@ -339,6 +356,7 @@ namespace DOL.GS
                 case PvpActionKind.Damage:
                     score += option.IsKill
                         ? weights.DamageOnKillTarget + weights.DamagePerMissingHealth * (100 - option.HealthPercent)
+                        : option.Instant && soft && !option.Interrupted ? weights.InstantDamageOnFreeCaster
                         : weights.DamageOffKillTarget;
                     score += option.PowerPercent < weights.LowPowerPercent ? weights.DamageOnLowPower : 0;
                     break;

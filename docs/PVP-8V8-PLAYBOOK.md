@@ -173,7 +173,7 @@ Main: Sorcerer, Bard, Pacification Healer. Backup: Minstrel, Mending Healer. (ow
 | Bard | May run in and use instant amnesia while it casts its mez. Not always: see section 4 | owner | partly: it always runs in |
 | Bard | Instant mez (single and small area) on the enemy mezzer; cast mez and area mez; cure mez | data | done |
 | Bard | Speed and endurance songs kept up | recall | partly: songs run, upkeep is not managed |
-| Bard | Heals only as a last backup; it is a mezzer first | recall | missing: its healing routine still takes its turn before control |
+| Bard | Heals only as a last backup; it is a mezzer first | recall | done as a guess: control comes first unless somebody in reach is below 75% health. In the first run it cast no heal at all. Owner to confirm |
 | Any mezzer | Single mez when an area mez would catch the kill target or wake nobody new; area mez when it catches more | draft | done |
 | Any mezzer | Re-mezzes an enemy when its mez immunity ends | recall | missing: immunities are not timed |
 | Any mezzer | Moves after the opening instead of standing where it cast | draft | missing |
@@ -193,12 +193,12 @@ and stop it. (data)
 | Who | What it does | Source | Status |
 |---|---|---|---|
 | Each enemy healer and caster that is neither the kill target nor asleep has one interrupter of its own | owner | done |
-| Skald | Not part of the assist train unless there is a critical kill. Targets a caster, instant damage shout, switches to another caster, healer or mezzer, second shout, and so on. Changing target often is correct | owner | partly: it is sent to one enemy at a time and hits it in melee; the shouts are cast by the old routine on whatever it is attacking |
-| Skald | Running past an enemy fighter, may swing with its snare style, then back to interrupting | owner | missing |
-| Skald | Instant mez on a free enemy that is not a fighter | owner | partly: cast by the old routine, target not weighed |
+| Skald | Not part of the assist train unless there is a critical kill. Targets a caster, instant damage shout, switches to another caster, healer or mezzer, second shout, and so on. Changing target often is correct | owner | done: its shouts are scored as interrupts. About ten a match, eight of them on healers and casters that are free to cast, and half go to another enemy than the shout before. It still walks to one enemy at a time for its melee |
+| Skald | Running past an enemy fighter, may swing with its snare style, then back to interrupting | owner | partly: its instant snare is cast on a fighter that is on its healers and casters; no snare swing in passing |
+| Skald | Instant mez on a free enemy that is not a fighter | owner | partly: scored, 2.5 a match, but more often on a fighter than on a healer or caster |
 | Skald, Minstrel | Peels an enemy fighter off its own healers when that matters more than a far caster; does not chase a caster so far that the group loses it | draft | missing |
 | Skald | Speed song for the group | recall | done |
-| Minstrel | Runs to enemy healers and casters; instant stun shout and damage shouts | owner, data | partly: same as the Skald |
+| Minstrel | Runs to enemy healers and casters; instant stun shout and damage shouts | owner, data | partly: cast by the old routine on whatever it is attacking (about six shouts and five stun shouts a match). Scoring them like the Skald's was tried and taken back: it broke the Minstrel's mez |
 | Minstrel | Backup mez (cast, and a small area one) on targets the Sorcerer has not taken; cure mez | owner, data | partly: cure mez is weighed; its mezzes are still the old routine |
 | Theurgist | Keeps pets on enemy healers and casters, spread over them and not all on one; they stun and interrupt | owner, draft | done |
 | Theurgist | Does not send a pet at a mezzed enemy; sends a new one when the target dies or the pet is stuck | draft | partly: mezzed targets are skipped; stuck pets are not noticed |
@@ -213,7 +213,7 @@ and stop it. (data)
 | Cabalist | The three-line utility build: Body 34, Spirit 33, Matter 25 | owner | done |
 | Cabalist | Nearsight on enemy casters, healers and high-impact casters first | owner | done: about five a match; enemy healers and casters were nearsighted more than half of the fight in the first run. Partly: no order among them |
 | Cabalist | Disease on enemy fighters and other targets where it matters | owner | partly: it is cast, but three in four go on healers and casters, not fighters |
-| Cabalist | Keeps its pet on an enemy and takes interrupt assignments | owner | missing: the pet is summoned and buffed and then never attacks |
+| Cabalist | Keeps its pet on an enemy and takes interrupt assignments | owner | missing: the group now orders the pet onto the owner's duty or kill target about fifteen times a match, and it still never attacks. Not working; cause not found |
 | Cabalist | Damage on the kill target when the group has a kill | owner | done (lifedrain) |
 | Cabalist | Body resistance debuff on the kill target when the casters are killing it together | owner | missing: never cast |
 | Cabalist | No needless damage into a mez | owner | done |

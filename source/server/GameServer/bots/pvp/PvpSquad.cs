@@ -317,6 +317,25 @@ namespace DOL.GS
                 // A fighter going for an enemy that is on the group's healers and casters wants it
                 // stopped: Slam or a snare style before damage (owner, 2026-11-18).
                 brain.PvpWantsControlStyle = aim != null && IsFighter(bot) && _pursuers.Contains(aim);
+                // A caster's pet is sent where its owner works: the enemy it has interrupt duty for,
+                // else the kill target. (It was summoned and buffed and then never attacked: the
+                // owner's scored casts take every turn, and the old brain ordered the pet only on
+                // a turn it took itself.) Never left on an enemy that has since been mezzed.
+                if (FightStarted && bot.IsAlive && bot.PvpBuild.Class is eCharacterClass.Cabalist or eCharacterClass.Enchanter or eCharacterClass.Spiritmaster &&
+                    bot.ControlledBrain is ControlledMobBrain { Body: { IsAlive: true } } pet)
+                {
+                    GameLiving petAim = onDuty is { IsAlive: true, IsMezzed: false } ? onDuty : target is { IsAlive: true } ? target : null;
+                    if (petAim == null)
+                    {
+                        if (pet.OrderedAttackTarget is { IsMezzed: true })
+                            pet.Disengage();
+                    }
+                    else if (pet.OrderedAttackTarget != petAim)
+                    {
+                        pet.Attack(petAim);
+                        PvpRecorder.Decision(bot, new { kind = "PetOn", d = petAim.Name, score = 0 }, [], null);
+                    }
+                }
                 brain.PvpAssignedTarget = aim;
                 // A fighter on the kill: its target is recorded when it changes (guards and
                 // interrupters record their own choices).

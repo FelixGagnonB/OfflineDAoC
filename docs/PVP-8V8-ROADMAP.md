@@ -1159,6 +1159,34 @@ cast.
   fighters a match (Theurgist 4.3, Sorcerer 1.7, Shaman 0.7). Pursuers slowed or rooted 8% of
   the time against 5%. Stun and snare styles landing were 14 a match in this run and 19 in the
   one before: the style change shows no effect beyond noise. 3,235 automated tests pass.
+
+*Owner, 2026-11-18, on how to work:* do not spend much effort optimizing the fights for now;
+testing one piece instead of the whole picture may not give meaningful insight, and every rule
+is a soft one (sometimes a good target is a melee, other times a caster). Finish M6 so that all
+behaviours are in place, then run large batches, record, analyze, and improve after each batch.
+Agreed way to learn from the batches, since fights can only be read, not watched: (1) the story
+of each fight from the three readings, with its turning point and the ten seconds before it,
+and a summary over the batch; (2) detectors of missed chances (an enemy healer free to cast
+with an interrupter idle, a trained member unhealed with a healer free, a pursuer that could
+have been rooted); (3) every match drawing its weights at random, so that several hundred
+matches show which weights move the result. Until M6 is finished a new behaviour is built,
+checked once for whether it happens in a match, and left.
+
+*Three more behaviours, 2026-11-18, each checked once.*
+- **Skald:** its instant shouts, instant mez and instant snare are scored. An instant on a
+  healer or caster that is free to cast counts as an interrupt and not as damage off the kill
+  target; on one already interrupted it does not, which sends the Skald on to the next. Seen:
+  ten shouts a match, eight on healers and casters, half on another enemy than the one before.
+  A fighter does not walk for a shout.
+- **Bard:** control before heals unless somebody in reach is below 75% health, as a guess (the
+  owner's answer is open). Seen: amnesia 8.5, mez 6 a match, and no heal cast at all.
+- **Caster pets:** the squad orders a Cabalist's or Enchanter's pet onto its owner's duty or
+  kill target. Seen: fifteen orders a match and still no attack by a pet. Not working.
+- **Minstrel, tried and taken back:** scoring its shouts, stun shout and single mez turned the
+  old brain off for it, and its single mez is a song that began ninety times a match and never
+  finished; before, the old brain landed six mezzes a match with the area lullaby. Back to cure
+  mez only, and checked: 4.5 mezzes cast and 4 landed a match again.
+  3,241 automated tests pass.
 Order of work agreed with the owner: finish the brain, with the readings, the group orders and
 positioning (hold, kite, extend, push) first; then play matches and record everything; then
 analyze and iterate on behavior as deep as wanted. No measure has to be fixed in advance: the

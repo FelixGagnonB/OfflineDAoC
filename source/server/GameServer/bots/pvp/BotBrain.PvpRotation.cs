@@ -383,7 +383,10 @@ namespace DOL.AI.Brain
                 Spell spell = (scored.Option.Instant ? instants : spells)[scored.Option.Kind];
                 GameLiving aim = targets[scored.Option.TargetId];
                 // No walking in the middle of a cast: it would end the cast. And none while the group holds.
-                if ((midCast || PvpHolding()) && scored.Option.Short > 0)
+                // A fighter does not walk for a shout either: it goes where its melee target is.
+                // (It still walks to wake a groupmate.)
+                bool fighterShout = PvpBuffPlan.ArchetypeOf(characterClass) == PvpBuffArchetype.Melee && scored.Option.Kind != PvpActionKind.CureMez;
+                if ((midCast || PvpHolding() || fighterShout) && scored.Option.Short > 0)
                     continue;
                 if (aim is GameBot && !friends.Contains(aim))
                     (PvpWorkTarget, PvpWorkRange, PvpWorkTick) = (aim,
