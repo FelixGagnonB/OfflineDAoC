@@ -1203,6 +1203,31 @@ checked once for whether it happens in a match, and left.
   and a few badly hurt get the spread heal. The cast group heal is no longer the last resort of
   the single-heal routine. Seen once in six matches (0.2 a match): somebody is nearly always
   being trained, and that member gets the single heals. 3,245 automated tests pass.
+- **Two lines that were already there.** Chant upkeep: the Paladin's hundred recasts are it
+  twisting three chants (endurance about 45 a match, armor 10, damage 8); they are instants and
+  cost it no swing, so nothing was changed. Raising the dead: the shared healing routine already
+  weighs it (a healer not under attack, with the half of its power a resurrection costs, a
+  corpse in reach and sight, and at least half the healers left healing); it is rare in fights
+  for those reasons (0.3 begun a match against 8 deaths), and nothing was changed.
+- **Answering a hold.** A group that is outranged stands as well in half its matches
+  (`HoldWhenOutrangedChance`, a chance and not a rule, so that batches hold both openings), for
+  up to 25 seconds, longer than the holder's ten, so the holder moves first; and a nearsight is
+  worth more on the enemy's mezzer (`NearsightOnEnemyController`): nearsight reaches 2,300,
+  farther than any mez, so a Sorcerer walking in can be nearsighted before it casts.
+  Checked on four matches with the facts behind the choice recorded (`incoming` on the squad
+  line): Midgard drew under 50 in both of its matches and stood 18 seconds in each; Hibernia drew
+  66 and 50 and walked in, as it should. A first check of six matches showed no wait at all,
+  which was the luck of six draws.
+- **The learning tool, first two layers** (`source/tools/pvp_insight.py`, no server needed).
+  The story of each fight: the turning point (the second from which the winner stayed ahead for
+  good, by numbers alive and the three readings), the loser's state in the ten seconds before
+  it, and labels for what went wrong, with a summary over the batch. Missed chances, in seconds a
+  match for each group: an enemy healer free with a member idle in range, a pursuer that could be
+  rooted with a rooter free in range, an enemy that could be mezzed with a mezzer free in range,
+  a trained member unhealed with a healer free in range.
+  Tried on six recorded matches (too few to conclude from): the turning point came at 14
+  seconds in fights of about two minutes, the side that lost the first member lost all six, and
+  the commonest label was three or more of the loser asleep.
 Order of work agreed with the owner: finish the brain, with the readings, the group orders and
 positioning (hold, kite, extend, push) first; then play matches and record everything; then
 analyze and iterate on behavior as deep as wanted. No measure has to be fixed in advance: the

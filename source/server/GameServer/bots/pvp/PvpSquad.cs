@@ -153,6 +153,11 @@ namespace DOL.GS
         // The hold on incoming: when the enemy was first seen, and whether the hold has ended (it is not taken up again).
         private long _firstSeen;
         private bool _holdOver;
+        // This match's number for choices made by chance (whether an outranged group waits out a hold).
+        private readonly int _draw = Util.Random(0, 99);
+
+        /// <summary>Before the fight: the facts the group's choice to hold or walk in was made from; null once it is over.</summary>
+        public string Incoming { get; private set; }
 
         // The longest cast mez among these bots: what a player knows of a class.
         private static int MezRange(IEnumerable<GameBot> bots) => bots.Where(bot => bot.IsAlive)
@@ -186,6 +191,8 @@ namespace DOL.GS
                 enemy.IsWithinRadius(victim, weights.Peel.MeleeReach)).ToList();
             long now = GameLoop.GameLoopTime;
             PvpOrder order = PvpOrder.Engage;
+            if (FightStarted || _holdOver)
+                Incoming = null;
             if (FightStarted)
                 order = PvpOrders.Choose(Own, Theirs, _pursuers.Select(enemy => enemy.TargetObject).Distinct().Count(),
                     Order == PvpOrder.Hold ? PvpOrder.Engage : Order, (now - _orderSince) / 1000.0, weights.Order);
@@ -197,7 +204,12 @@ namespace DOL.GS
                 int nearest = alive.Count == 0 ? 0 : (int)known.Min(enemy => alive.Min(member => member.GetDistanceTo(enemy)));
                 // The enemy's reach is its realm's, whoever has come into sight: a group that sees Midgard's
                 // fighters knows a Healer is behind them.
-                if (PvpOrders.Holds(MezRange(_members), MezRange(enemies), (now - _firstSeen) / 1000.0, nearest, weights.Order))
+                int ownReach = MezRange(_members), theirReach = MezRange(enemies);
+                double waited = (now - _firstSeen) / 1000.0;
+                // For the recording: what the choice to hold was made from.
+                Incoming = $"mez reach {ownReach} against {theirReach}, nearest enemy {nearest}, seen for {waited:0} s, draw {_draw}";
+                if (PvpOrders.Holds(ownReach, theirReach, waited, nearest, weights.Order) ||
+                    PvpOrders.WaitsOutAHold(ownReach, theirReach, waited, nearest, _draw, weights.Order))
                     order = PvpOrder.Hold;
                 else if (Order == PvpOrder.Hold)
                     _holdOver = true;

@@ -325,7 +325,7 @@ namespace DOL.GS
                     {
                         k = "squad", t = Now, team = side.Key, kill = squad.KillTarget?.Name, trained = squad.Trained?.Name, known = squad.Known.Count,
                         // The order in force and the readings it came from: the group's own, and the enemy's as it sees it.
-                        order = squad.Order.ToString(), own = Shares(squad.Own), theirs = Shares(squad.Theirs),
+                        order = squad.Order.ToString(), own = Shares(squad.Own), theirs = Shares(squad.Theirs), incoming = squad.Incoming,
                     });
             }
             Drain();

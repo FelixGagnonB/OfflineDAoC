@@ -66,7 +66,7 @@ script. Under "extend" a Skald still shouts at a caster if that is the best thin
 
 | Order | What the group does | What tips toward it | Source | Status |
 |---|---|---|---|---|
-| Hold | Stands at its range and lets the enemy come | Its control outranges theirs (the Sorcerer's mez: 1,875 against 1,500); the enemy has to cross open ground | owner | partly: before the fight a group whose longest mez outranges the enemy realm's by 200 units stands still, its fighters go for nobody and its casters cast what reaches; it ends when an enemy is within 1,200 units, after ten seconds, or at the first blow. In the runs only Albion holds, for about nine seconds, and its Sorcerer's area mez and its Cabalist's nearsight land before Midgard's mezzer is in range. The ground and who saw whom first are not weighed, and the other side does not answer a hold: it walks in |
+| Hold | Stands at its range and lets the enemy come | Its control outranges theirs (the Sorcerer's mez: 1,875 against 1,500); the enemy has to cross open ground | owner | partly: before the fight a group whose longest mez outranges the enemy realm's by 200 units stands still, its fighters go for nobody and its casters cast what reaches; it ends when an enemy is within 1,200 units, after ten seconds, or at the first blow. In the runs only Albion holds, for about nine seconds, and its Sorcerer's area mez and its Cabalist's nearsight land before Midgard's mezzer is in range. The ground and who saw whom first are not weighed. The other side's answer: in half its matches it stands as well and lets the holder come, nearsighting the enemy mezzer first (nearsight outranges every mez); in the other half it walks in |
 | Engage | Closes, mezzes, calls a kill target | The default; equal readings | owner | done |
 | Extend (kite) | Falls back together; fighters snare and slam whoever follows; healers and casters keep their distance and keep working | Its healers are alive but cannot heal; enemy fighters are free and on its backline | owner, draft | partly: healers and casters want 1.4 times the usual distance, and the fighters leave the kill target for an enemy fighter that is on them. The group does not fall back as one, and nobody snares |
 | Push | Goes onto them; fighters do not outrun their healers | Enemy healers asleep, interrupted or dead; enemy fighters held; numbers ahead | draft | partly: healers and casters accept less distance to keep up. The fighters do nothing different, and nothing holds them back for their healers |
@@ -105,8 +105,8 @@ script. Under "extend" a Skald still shouts at a caster if that is the best thin
 | A member is trained | The group's fighters turn on enemies that pushed deep to reach its healer | owner | partly: under the Extend order |
 | Mezzed members | Woken by whoever has cure mez; the group's own mezzer and healers first | owner | done |
 | Rank 2 and up | Purge on a long mez; the Druid's Group Purge when several are asleep | owner | partly: Group Purge rarely fires because members purge themselves first |
-| During | Buffs, songs and chants kept up; a member that died and was raised is rebuffed | owner | partly: songs and chants are recast far too often; rebuffing not checked in fights |
-| During | Dead members are raised when it is safe | recall | missing: seen only a few times, by the Paladin |
+| During | Buffs, songs and chants kept up; a member that died and was raised is rebuffed | owner | partly: songs and chants are kept up (the Paladin twists three chants, all instants); rebuffing a raised member is not checked in fights |
+| During | Dead members are raised when it is safe | recall | done in the shared healing routine: a healer that is not under attack, has half its power (what a resurrection costs) and has a corpse in reach and sight raises it, while at least half the healers keep healing. Rare in fights for those reasons: 0.3 begun a match against 8 deaths |
 
 ## 5. Roles
 
@@ -133,7 +133,7 @@ The owner played these and described them first-hand.
 | Does not restart or drop the heal it is casting | data | done |
 | Cure nearsight on its casters and healers | owner, data | partly: built, switched off until measured again |
 | Power has to last the fight | owner | missing: heals are not budgeted |
-| Raises the dead when it is safe | recall | missing |
+| Raises the dead when it is safe | recall | done, and rare: see section 4 |
 | Second healer (Enhancement Cleric, Nurture Druid): rebuffs a member that was raised. With a buffbot it has no other buffing to do in a fight | recall | partly |
 | Their own utility: the Druid's root, the Cleric's instant point-blank mez | data | partly: cast by the old routine, not weighed |
 
@@ -234,7 +234,7 @@ and stop it. (data)
 | Does not chase that enemy away from the ward | draft | done |
 | Helps with the kill only while the target is near its ward | recall | done |
 | Snares enemies that are on the backline: a snare when the aim is distance, a stun when the aim is a few safe seconds | owner, draft | partly: going for an enemy that is on a healer or caster it uses Slam first, then a snare style. It does not yet choose between the two by aim |
-| Paladin: endurance, armor and damage chants kept up without spending every turn on them | recall | missing: it recasts its endurance chant over a hundred times a match |
+| Paladin: endurance, armor and damage chants kept up without spending every turn on them | recall | done: it twists three chants (endurance about 45 casts a match, armor 10, damage 8). They are instants and cost it no swing, so this is not the waste it was first taken for |
 
 ### Assist train: Armsman, Savage, Berserker, two Blademasters
 
@@ -311,7 +311,7 @@ recordings. Nothing has to be decided in advance. The measures follow the three 
 | Peel | Seconds from a member being trained to a shield fighter reaching the enemies on it | no |
 | Orders | Share of the fight spent under each order; each change with the readings behind it (`pvp_review.py`) | yes |
 
-`pvp_review.py` prints one fight second by second, for when a number needs explaining.
+`pvp_review.py` prints one fight second by second, for when a number needs explaining. `pvp_insight.py` reads a whole batch as a coach would: each fight's turning point and what went wrong for the loser just before it, and the chances each group missed (an enemy healer left free, a pursuer nobody rooted, an enemy nobody mezzed, a trained member nobody healed).
 
 ## 10. Open questions for the owner
 

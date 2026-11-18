@@ -140,6 +140,8 @@ namespace DOL.GS
 
         public int NearsightOnCaster { get; set; } = 30;
         public int NearsightOnHealer { get; set; } = 15;
+        /// <summary>More for the enemy's mezzer: nearsighted, its mez no longer outranges anybody's.</summary>
+        public int NearsightOnEnemyController { get; set; } = 25;
         public int DiseaseOnKillTarget { get; set; } = 40;     // disease halves the healing it receives
         public int DamageOnKillTarget { get; set; } = 30;
         public int DamageOffKillTarget { get; set; } = -60;    // spread damage kills nobody
@@ -349,6 +351,7 @@ namespace DOL.GS
             {
                 case PvpActionKind.Nearsight:
                     score += option.Archetype == PvpBuffArchetype.Caster ? weights.NearsightOnCaster : weights.NearsightOnHealer;
+                    score += option.OnController ? weights.NearsightOnEnemyController : 0;
                     break;
                 case PvpActionKind.Disease:
                     score += option.IsKill ? weights.DiseaseOnKillTarget : 0;

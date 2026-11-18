@@ -97,6 +97,27 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void AnOutrangedGroupSometimesWaitsForTheHolderToCome()
+        {
+            // A Healer's or Bard's group against a Sorcerer's: in half the matches it stands as well.
+            Assert.That(PvpOrders.WaitsOutAHold(1500, 1875, 2, 3000, 10, Weights), Is.True);
+            Assert.That(PvpOrders.WaitsOutAHold(1500, 1875, 2, 3000, 80, Weights), Is.False, "in the other half it walks in");
+            Assert.That(PvpOrders.WaitsOutAHold(1875, 1500, 2, 3000, 10, Weights), Is.False, "the group with the longer mez holds for its own reason");
+            Assert.That(PvpOrders.WaitsOutAHold(1500, 1875, 15, 3000, 10, Weights), Is.True, "it outlasts the holder's ten seconds");
+            Assert.That(PvpOrders.WaitsOutAHold(1500, 1875, 26, 3000, 10, Weights), Is.False);
+            Assert.That(PvpOrders.WaitsOutAHold(1500, 1875, 2, 1000, 10, Weights), Is.False, "the enemy is on the group");
+        }
+
+        [Test]
+        public void TheEnemysMezzerIsNearsightedFirst()
+        {
+            var weights = new PvpWeights();
+            var caster = new PvpOption(PvpActionKind.Nearsight, 0, PvpBuffArchetype.Caster, false, false, 100, false, false, false, false, 100);
+            Assert.That(PvpActionChoice.Score(eCharacterClass.Runemaster, caster with { OnController = true }, weights),
+                Is.GreaterThan(PvpActionChoice.Score(eCharacterClass.Runemaster, caster, weights)));
+        }
+
+        [Test]
         public void OrdersCanBeTurnedOff()
         {
             PvpReading theirs = PvpReading.Of(

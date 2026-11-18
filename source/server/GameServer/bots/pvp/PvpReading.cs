@@ -52,6 +52,16 @@ namespace DOL.GS
         public int HoldMaxSeconds { get; set; } = 10;
         /// <summary>A hold ends when an enemy is this close to a member: they are on the group.</summary>
         public int HoldBreakDistance { get; set; } = 1_200;
+        /// <summary>
+        /// The outranged group's answer. In this many matches of a hundred it stands as well and
+        /// lets the holder come: its nearsight reaches 2,300, farther than any mez, so the enemy
+        /// mezzer walking in can be nearsighted before it casts. In the rest it walks in as
+        /// before. A chance and not a rule (owner, 2026-11-18: sometimes the answer is to work on
+        /// them as they push in), so that recorded batches hold both openings and can be compared.
+        /// </summary>
+        public int HoldWhenOutrangedChance { get; set; } = 50;
+        /// <summary>Such a wait lasts at most this long: longer than the holder's own hold, so the holder moves first.</summary>
+        public int HoldWhenOutrangedMaxSeconds { get; set; } = 25;
 
         /// <summary>Under Extend, healers and casters want this many times the usual distance from enemy fighters.</summary>
         public double ExtendSafeFactor { get; set; } = 1.4;
@@ -145,6 +155,15 @@ namespace DOL.GS
         public static bool Holds(int ownMezRange, int theirMezRange, double secondsHeld, int nearestEnemy, PvpOrderWeights weights) =>
             weights.Enabled && weights.HoldRangeAdvantage > 0 && ownMezRange - theirMezRange >= weights.HoldRangeAdvantage &&
             secondsHeld < weights.HoldMaxSeconds && nearestEnemy > weights.HoldBreakDistance;
+
+        /// <summary>
+        /// Before the fight: true while a group that is outranged stands and lets the holder come
+        /// to it. <paramref name="draw"/> is the match's own number from 0 to 99.
+        /// </summary>
+        public static bool WaitsOutAHold(int ownMezRange, int theirMezRange, double secondsHeld, int nearestEnemy, int draw, PvpOrderWeights weights) =>
+            weights.Enabled && weights.HoldRangeAdvantage > 0 && draw < weights.HoldWhenOutrangedChance &&
+            theirMezRange - ownMezRange >= weights.HoldRangeAdvantage &&
+            secondsHeld < weights.HoldWhenOutrangedMaxSeconds && nearestEnemy > weights.HoldBreakDistance;
 
         /// <summary>The order for this second, given the one in force and how long it has stood.</summary>
         public static PvpOrder Choose(PvpReading own, PvpReading theirs, int backlineUnderAttack, PvpOrder current, double secondsInForce, PvpOrderWeights weights)
