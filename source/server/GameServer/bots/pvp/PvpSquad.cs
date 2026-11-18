@@ -332,8 +332,16 @@ namespace DOL.GS
                     }
                     else if (pet.OrderedAttackTarget != petAim)
                     {
+                        string was = pet.OrderedAttackTarget?.Name;
                         pet.Attack(petAim);
-                        PvpRecorder.Decision(bot, new { kind = "PetOn", d = petAim.Name, score = 0 }, [], null);
+                        // With what the pet was doing, to see why an order does not hold.
+                        PvpRecorder.Decision(bot, new
+                        {
+                            kind = "PetOn", d = petAim.Name, score = 0, was, took = pet.OrderedAttackTarget == petAim,
+                            fromOwner = (int)pet.Body.GetDistanceTo(bot), toAim = (int)pet.Body.GetDistanceTo(petAim),
+                            stance = pet.AggressionState.ToString(), state = pet.FSM?.GetCurrentState()?.StateType.ToString(),
+                            attacking = pet.Body.attackComponent?.AttackState == true, petTarget = (pet.Body.TargetObject as GameLiving)?.Name,
+                        }, [], null);
                     }
                 }
                 brain.PvpAssignedTarget = aim;

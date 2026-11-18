@@ -60,6 +60,25 @@ namespace DOL.AI.Brain
         /// </summary>
         public bool PvpWantsControlStyle { get; set; }
 
+        /// <summary>
+        /// The heal for several to cast now, or null: several members in reach are hurt, nobody is
+        /// trained, and of the spread and group heals that are ready this one restores the most
+        /// health for its power (bots/pvp/PvpHealPlan.cs).
+        /// </summary>
+        private Spell PvpAreaHeal()
+        {
+            if (BotBody?.IsPvpBot != true || BotBody.PvpAreaHeals is not { Count: > 0 } heals || Body.Group == null)
+                return null;
+            List<GameLiving> members = Body.Group.GetMembersInTheGroup().Where(member => member.IsAlive && InSupportReach(member)).ToList();
+            if (!PvpHealPlan.SeveralHurt(members.Select(member => (int)member.HealthPercent), PvpSquad?.Trained != null, PvpWeights.Of(BotBody).Heal))
+                return null;
+            List<Spell> ready = heals.Where(CheckHealSpell).ToList();
+            int best = PvpHealPlan.BestAreaHeal(members.Select(member => member.MaxHealth - member.Health).ToList(),
+                ready.Select(spell => (spell.SpellType == eSpellType.SpreadHeal, (int)GameBot.HealAmount(spell, Body), BotBody.PowerCost(spell))).ToList(),
+                Body.Group.MemberCount);
+            return best < 0 ? null : ready[best];
+        }
+
         /// <summary>True while this bot's group holds: it stands and casts what reaches (bots/pvp/PvpReading.cs).</summary>
         private bool PvpHolding() => BotBody?.IsPvpBot == true && PvpSquad?.Order == PvpOrder.Hold;
 

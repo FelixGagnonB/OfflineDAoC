@@ -12,6 +12,10 @@ namespace DOL.GS
     /// <summary>Part of <see cref="PvpWeights"/>: how the group's healers share out their patients.</summary>
     public sealed class PvpHealWeights
     {
+        /// <summary>A spread or group heal is cast when at least this many members in reach are hurt. 0 = never.</summary>
+        public int SpreadHealMinHurt { get; set; } = 3;
+        /// <summary>A member counts as hurt, for the spread heal, below this health.</summary>
+        public int SpreadHealBelowPercent { get; set; } = 80;
         /// <summary>A member is a patient while its health, with the heals already on their way, is below this percent.</summary>
         public int HealBelowPercent { get; set; } = 80;
         /// <summary>A healer or caster is healed as if it were this many percent lower: it dies faster and matters more.</summary>
@@ -66,6 +70,39 @@ namespace DOL.GS
     /// </summary>
     public static class PvpHealPlan
     {
+        /// <summary>
+        /// True when a heal for several is the heal to cast: enough members in reach are hurt at
+        /// once, and nobody has the enemy's assist train on it (that member gets the single heals).
+        /// </summary>
+        public static bool SeveralHurt(IEnumerable<int> healthPercents, bool someoneTrained, PvpHealWeights weights) =>
+            weights.SpreadHealMinHurt > 0 && !someoneTrained &&
+            healthPercents.Count(percent => percent < weights.SpreadHealBelowPercent) >= weights.SpreadHealMinHurt;
+
+        /// <summary>
+        /// Which heal for several to cast: the one that restores the most health for each point
+        /// of power, given how much each member in reach is missing (the owner, 2026-11-18: "I
+        /// would use the one with the best power to heal ratio"). A group heal gives each member
+        /// up to its value; a spread heal shares a pool of its value times the group's size among
+        /// the most hurt, up to twice its value each. Returns an index into
+        /// <paramref name="heals"/>, or -1 when none would restore anything.
+        /// </summary>
+        public static int BestAreaHeal(IReadOnlyList<int> missing, IReadOnlyList<(bool Spread, int Value, int Power)> heals, int groupSize)
+        {
+            int best = -1;
+            double bestRatio = 0;
+            for (int i = 0; i < heals.Count; i++)
+            {
+                (bool spread, int value, int power) = heals[i];
+                double restored = spread
+                    ? Math.Min(missing.Sum(health => Math.Min(health, 2 * value)), (double)value * groupSize)
+                    : missing.Sum(health => Math.Min(health, value));
+                double ratio = restored / Math.Max(1, power);
+                if (ratio > bestRatio)
+                    (best, bestRatio) = (i, ratio);
+            }
+            return best;
+        }
+
         /// <summary>Health percent with the heals already on their way, as low as zero and no higher than 100.</summary>
         public static double Projected(PvpPatient patient) =>
             Math.Clamp(100.0 * (patient.Health + Math.Max(0, patient.Incoming)) / Math.Max(1, patient.MaxHealth), 0, 100);

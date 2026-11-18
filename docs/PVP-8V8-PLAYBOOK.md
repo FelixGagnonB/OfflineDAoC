@@ -123,8 +123,8 @@ The owner played these and described them first-hand.
 | Both healers heal the trained member; one healer cannot keep up with an assist train | owner | done |
 | Two heals: the spec line's Major heal for any time, its Greater heal when big heals are needed. Both cost a lot of power | owner, data | done |
 | Instant single heal and instant group heal for emergencies | owner, data | done (the old routine uses them below 40% health) |
-| Spread heal when several are hurt | owner | missing: the bots never cast it. All six healers have it |
-| Never the cast group heal | owner | partly: the old routine still falls back to it when nothing else is ready |
+| When several are hurt at once: the spread heal or a group heal, whichever restores the most health for its power | owner | done: with three or more members in reach below 80% health and nobody trained, the healer works out what each of its spread and group heals would restore for its power and casts the best. Rare in the first run (0.2 a match): somebody is nearly always being trained |
+| No group heal for one member | owner | done: the cast group heal is no longer the single-heal routine's last resort; it is only a candidate when several are hurt |
 | Does not heal a member that is already full. In the first check run the healers wasted more health than they restored | draft, data | missing |
 | Who to heal comes from how fast a member is losing health and who is on it, not from the lowest health bar alone | draft | partly: the trained member comes first; damage rate is not used |
 | The second healer takes over at once when the first is asleep, interrupted or dead | draft | partly: both always heal; nothing checks the other's state |
@@ -213,7 +213,7 @@ and stop it. (data)
 | Cabalist | The three-line utility build: Body 34, Spirit 33, Matter 25 | owner | done |
 | Cabalist | Nearsight on enemy casters, healers and high-impact casters first | owner | done: about five a match; enemy healers and casters were nearsighted more than half of the fight in the first run. Partly: no order among them |
 | Cabalist | Disease on enemy fighters and other targets where it matters | owner | partly: it is cast, but three in four go on healers and casters, not fighters |
-| Cabalist | Keeps its pet on an enemy and takes interrupt assignments | owner | missing: the group now orders the pet onto the owner's duty or kill target about fifteen times a match, and it still never attacks. Not working; cause not found |
+| Cabalist | Keeps its pet on an enemy and takes interrupt assignments | owner | missing: the group orders the pet onto the owner's duty or kill target and the pet accepts the order, but it stays beside its owner with no target and never attacks. Not working; cause not found |
 | Cabalist | Damage on the kill target when the group has a kill | owner | done (lifedrain) |
 | Cabalist | Body resistance debuff on the kill target when the casters are killing it together | owner | missing: never cast |
 | Cabalist | No needless damage into a mez | owner | done |

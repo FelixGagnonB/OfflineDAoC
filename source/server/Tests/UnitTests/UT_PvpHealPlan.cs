@@ -7,6 +7,42 @@ namespace DOL.UnitTests
     [TestFixture]
     public class UT_PvpHealPlan
     {
+        [Test]
+        public void AHealForSeveralIsForSeveralHurtAtOnce()
+        {
+            var weights = new PvpHealWeights();
+            Assert.That(PvpHealPlan.SeveralHurt([60, 70, 75, 100, 100], false, weights), Is.True, "three hurt");
+            Assert.That(PvpHealPlan.SeveralHurt([40, 70, 100, 100], false, weights), Is.False, "two hurt: single heals");
+            Assert.That(PvpHealPlan.SeveralHurt([60, 70, 75], true, weights), Is.False, "a trained member gets the single heals");
+            Assert.That(PvpHealPlan.SeveralHurt([10, 10, 10], false, new PvpHealWeights { SpreadHealMinHurt = 0 }), Is.False, "turned off");
+        }
+
+        // The three heals for several of a level-50 healer on this server: spread 295 for 110 power,
+        // the spec group heal 283 for 97, the baseline group heal 93 for 25.
+        private static readonly (bool Spread, int Value, int Power)[] AreaHeals = [(true, 295, 110), (false, 283, 97), (false, 93, 25)];
+
+        [Test]
+        public void ManyLightlyHurtGetTheCheapGroupHeal()
+        {
+            // Eight members missing 100 each: 744 health for 25 power beats 800 for 97 or 110.
+            Assert.That(PvpHealPlan.BestAreaHeal([100, 100, 100, 100, 100, 100, 100, 100], AreaHeals, 8), Is.EqualTo(2));
+        }
+
+        [Test]
+        public void AFewBadlyHurtGetTheSpreadHeal()
+        {
+            // Three members missing 600 each: the spread heal gives 590 to each (1,770 for 110 power),
+            // the group heals 283 or 93 to each (849 for 97, 279 for 25).
+            Assert.That(PvpHealPlan.BestAreaHeal([600, 600, 600, 0, 0, 0, 0, 0], AreaHeals, 8), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void NobodyHurtGetsNoHealForSeveral()
+        {
+            Assert.That(PvpHealPlan.BestAreaHeal([0, 0, 0], AreaHeals, 8), Is.EqualTo(-1));
+            Assert.That(PvpHealPlan.BestAreaHeal([500, 500, 500], [], 8), Is.EqualTo(-1), "no such heal ready");
+        }
+
         private static readonly PvpHealWeights Weights = new();
 
         private static PvpPatient Patient(int id, int healthPercent, int incoming = 0, PvpBuffArchetype archetype = PvpBuffArchetype.Melee) =>

@@ -2275,11 +2275,27 @@ namespace DOL.GS
         /// <summary>The 8v8 bot's quickest cure nearsight; null for a class or spec without one.</summary>
         public Spell CureNearsight { get; private set; }
 
+        /// <summary>
+        /// An 8v8 healer's heals for several hurt at once: its spread heals and its group heals
+        /// with a cast time. Which one is cast is decided by health restored for the power spent
+        /// (bots/pvp/PvpHealPlan.cs).
+        /// </summary>
+        public List<Spell> PvpAreaHeals { get; private set; } = [];
+
         private void ChoosePvpHeals()
         {
             CureNearsight = null;
+            PvpAreaHeals = [];
             if (!IsPvpBot || Spells == null)
                 return;
+            // The owner, 2026-11-17: spread heals when needed, never a group heal for one member.
+            // 2026-11-18: between the spread heal and a group heal, the one with the best ratio of
+            // healing to power. So the group heal is no longer the single-target routine's last
+            // resort, and is a candidate only when several are hurt. The instant group heal stays
+            // where it was, for emergencies.
+            HealGroup = null;
+            PvpAreaHeals = Spells.Where(spell => spell != null && !spell.IsInstantCast && spell.Level <= Level &&
+                (spell.SpellType == eSpellType.SpreadHeal || spell.SpellType == eSpellType.Heal && spell.Target == eSpellTarget.GROUP)).ToList();
             CureNearsight = Spells.Where(spell => spell != null && spell.SpellType == eSpellType.CureNearsightCustom && spell.Level <= Level)
                 .OrderBy(spell => spell.CastTime).FirstOrDefault();
             List<Spell> heals = Spells.Where(spell => spell != null && spell.SpellType == eSpellType.Heal && spell.Target == eSpellTarget.REALM &&

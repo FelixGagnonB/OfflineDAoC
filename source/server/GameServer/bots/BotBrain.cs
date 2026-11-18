@@ -5137,7 +5137,10 @@ namespace DOL.AI.Brain
             {
                 if (!BotBody.IsCasting || (numEmergency > 0 && !isCastingHeal))
                 {
-                    if (CheckHealSpell(BotBody.HealOverTime) && !LivingHasEffect(spellTarget, BotBody.HealOverTime))
+                    // An 8v8 healer with several of the group hurt at once casts a heal for several.
+                    if (PvpAreaHeal() is { } forSeveral)
+                        spellToCast = forSeveral;
+                    else if (CheckHealSpell(BotBody.HealOverTime) && !LivingHasEffect(spellTarget, BotBody.HealOverTime))
                         spellToCast = BotBody.HealOverTime;
                     else if (BotBody.ManaPercent >= ManaThreshold && CheckHealSpell(BotBody.HealBig)
                         && (spellTarget.MaxHealth - spellTarget.Health) >= GameBot.HealAmount(BotBody.HealBig, spellTarget))

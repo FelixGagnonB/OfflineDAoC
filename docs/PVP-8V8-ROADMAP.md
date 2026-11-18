@@ -1187,6 +1187,22 @@ checked once for whether it happens in a match, and left.
   finished; before, the old brain landed six mezzes a match with the area lullaby. Back to cure
   mez only, and checked: 4.5 mezzes cast and 4 landed a match again.
   3,241 automated tests pass.
+- **Caster pets, looked at again:** the order is accepted (the pet's ordered target is set, its
+  state is AGGRO, its stance Defensive), yet it stays 50 to 230 units from its owner with no
+  target of its own and never attacks, in every one of 48 orders recorded. The Theurgist's pets
+  (another brain) attack as before. Cause not found; left for later.
+- **Heals for several** (owner, 2026-11-17: "I was using spread heals when needed. I never used
+  group heals"; 2026-11-18: "I do not remember the 1.65 era. I would use the one with the best
+  power to heal ratio"). With three or more members in reach below 80% health and nobody
+  trained, the healer takes its spread heals and its group heals with a cast time that are
+  ready, works out what each would restore (a group heal gives each member up to its value; a
+  spread heal shares its value times the group's size among the most hurt, up to twice its
+  value each) and casts the one that restores the most for each point of power
+  (`PvpHealPlan.BestAreaHeal`). On this server at level 50: spread 295 for 110 power, spec group
+  heal 283 for 97, baseline group heal 93 for 25, so many lightly hurt get the cheap group heal
+  and a few badly hurt get the spread heal. The cast group heal is no longer the last resort of
+  the single-heal routine. Seen once in six matches (0.2 a match): somebody is nearly always
+  being trained, and that member gets the single heals. 3,245 automated tests pass.
 Order of work agreed with the owner: finish the brain, with the readings, the group orders and
 positioning (hold, kite, extend, push) first; then play matches and record everything; then
 analyze and iterate on behavior as deep as wanted. No measure has to be fixed in advance: the
