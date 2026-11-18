@@ -20,6 +20,10 @@ Three things the per-build report of pvp_analyze.py does not give:
    a trained member with no heal landing while a healer was free, a pursuer that could be rooted
    with a free rooter in range, an enemy that could be mezzed with a free mezzer in range.
 
+   The first death is read the same way: who died first, how many were on it, what its healers
+   were doing in its last ten seconds and whether heals reached it. The side that loses the
+   first member nearly always loses the fight, so this is where most fights are decided.
+
 3. Which weights matter. In a batch run with Vary=50 (pvp_batch.py) every team of every match
    fought with its own draw of the weights, some moved a step down and some a step up. For each
    weight this compares how the teams did with it down, unmoved and up, after taking out what
@@ -145,6 +149,101 @@ def story(match):
             + f". Read as: {', '.join(labels)}.")
     return {"text": text, "labels": labels, "turn": turn, "length": end["Seconds"], "loser": head["a"] if loser == "A" else head["b"],
             "first_death_side": bots[first[0]]["team"] if first else None, "winner_side": winner}
+
+
+def first_death(match):
+    """The first member to die: who, when, who was on it, and what its healers did in its last ten seconds."""
+    bots, contact, rows = match["bots"], match["contact"], match["rows"]
+    deaths = [r for r in rows if r["k"] == "death" and r["n"] in bots and r["t"] >= contact]
+    if not deaths:
+        return None
+    died = min(deaths, key=lambda r: r["t"])
+    victim, at = died["n"], died["t"]
+    team = bots[victim]["team"]
+    since = at - 10_000
+    window = [r for r in rows if "t" in r and since <= r["t"] <= at]
+    hits = [r for r in window if r["k"] == "hit" and r.get("d") == victim and not r.get("dpet") and r.get("dmg", 0) > 0]
+    damage = sum(r["dmg"] for r in hits)
+    attackers = {(r["a"], bool(r.get("pet"))) for r in hits}
+    heals = [r for r in window if r["k"] == "heal" and r.get("d") == victim and not r.get("dpet") and r.get("asked", 0) >= 100 and r["n"] != victim]
+    healed = sum(r["got"] for r in heals)
+    healers = {n for n, b in bots.items() if b["team"] == team and b["cls"] in HEALERS and n != victim}
+    asleep = busy = clear = far = total = 0
+    last = {}
+    held = own = 0
+    for r in window:
+        if r["k"] != "snap":
+            continue
+        if r["n"] == victim:
+            own += 1
+            held += bool(r["mez"] or r["stun"])
+            last[victim] = r
+        elif r["n"] in healers:
+            total += 1
+            if not r["alive"]:
+                continue
+            if r["mez"] or r["stun"]:
+                asleep += 1
+            elif r.get("intr") or r.get("sil"):
+                busy += 1
+            else:
+                clear += 1
+                if victim in last and math.dist((r["x"], r["y"]), (last[victim]["x"], last[victim]["y"])) > 1700:
+                    far += 1
+    trained = sum(1 for r in rows if r["k"] == "squad" and r["team"] == team and r.get("trained") == victim and r["t"] <= at)
+    share = lambda part: part / total if total else 0.0
+    if not healers or total == 0:
+        why = "it had no healer left" if not healers else "nothing recorded of its healers"
+    elif share(asleep) >= 0.5:
+        why = "its healers were asleep or stunned"
+    elif share(asleep) + share(busy) >= 0.6:
+        why = "its healers were kept from casting"
+    elif clear and far / clear >= 0.6:
+        why = "it was out of its healers' reach"
+    elif not heals:
+        why = "its healers were free and no heal came"
+    elif healed * 2 < damage:
+        why = "it was healed and out-damaged"
+    else:
+        why = "it was healed and died all the same"
+    kind = "healer" if bots[victim]["cls"] in HEALERS else "caster" if bots[victim]["cls"] in SOFT else "fighter"
+    group = match["head"]["a"] if team == "A" else match["head"]["b"]
+    text = (f"First death: {group} {bots[victim]['build']} at {(at - contact) // 1000} s, trained for {trained} s, {len(attackers)} on it in its last ten seconds "
+            f"({damage} damage taken, {len(heals)} heals for {healed}); its healers: {share(asleep):.0%} asleep or stunned, {share(busy):.0%} interrupted, "
+            f"{share(clear):.0%} free" + (f" ({far / clear:.0%} of that out of reach)" if clear else "")
+            + (f"; it was asleep or stunned {held / own:.0%} of that time" if own and held else "") + f". Read as: {why}.")
+    return {"text": text, "why": why, "group": group, "build": bots[victim]["build"], "kind": kind, "at": (at - contact) // 1000,
+            "attackers": len(attackers), "held": own and held / own >= 0.3}
+
+
+def sleeps(match):
+    """Every mez a member sat through: how long it lasted and what ended it."""
+    bots, contact, rows = match["bots"], match["contact"], match["rows"]
+    spans, asleep = [], {}
+    for r in rows:
+        if r["k"] != "snap" or r["n"] not in bots:
+            continue
+        n, mezzed = r["n"], bool(r["mez"]) and r["alive"]
+        if mezzed and n not in asleep:
+            asleep[n] = [r["t"], r["t"]]
+        elif mezzed:
+            asleep[n][1] = r["t"]
+        elif n in asleep:
+            spans.append((n, *asleep.pop(n)))
+    spans += [(n, a, b) for n, (a, b) in asleep.items()]
+    wakes = [(r["t"], r["n"]) for r in rows if r["k"] == "wake"]
+    cures = [(r["t"], r["d"]) for r in rows if r["k"] == "cast" and r.get("st") == "CureMezz"]
+    deaths = {r["n"]: r["t"] for r in rows if r["k"] == "death"}
+    out = []
+    for n, start, end in spans:
+        near = lambda events, slack: any(who == n and end - slack <= at <= end + slack for at, who in events)
+        ended = ("died asleep" if n in deaths and abs(deaths[n] - end) <= 1500 else "cured by a groupmate" if near(cures, 1500)
+                 else "woken by an enemy's hit" if near(wakes, 1500) else "ran out or was purged")
+        b = bots[n]
+        out.append({"group": match["head"]["a"] if b["team"] == "A" else match["head"]["b"], "healer": b["cls"] in HEALERS,
+                    "kind": "healer" if b["cls"] in HEALERS else "caster" if b["cls"] in SOFT else "fighter",
+                    "seconds": (end - start) / 1000 + 1, "ended": ended, "opening": start - contact <= 15_000})
+    return out
 
 
 def chances(match):
@@ -327,6 +426,7 @@ def main(argv):
         return 0
     # One match in memory at a time: a recording is about two megabytes and a night's batch has hundreds.
     stories, played_matches = [], 0
+    firsts, slept = [], []
     total, played = collections.defaultdict(collections.Counter), collections.Counter()
     for f in files:
         m = load(f)
@@ -336,6 +436,12 @@ def main(argv):
         s = story(m)
         if s:
             stories.append((None, s))
+        f = first_death(m)
+        if f:
+            firsts.append(f)
+            if s:
+                s["text"] += " " + f["text"]
+        slept += sleeps(m)
         found = chances(m)
         for team, group in (("A", m["head"]["a"]), ("B", m["head"]["b"])):
             total[group].update(found[team])
@@ -364,6 +470,46 @@ def main(argv):
     took_first = sum(1 for _, s in stories if s["first_death_side"] and s["first_death_side"] != s["winner_side"])
     print(f"\nThe turning point comes at {turns[len(turns) // 2]} s (median) in fights of {lengths[len(lengths) // 2]} s; "
           f"the side that lost the first member lost the fight in {100 * took_first / len(stories):.0f}% of them.")
+
+    if firsts:
+        print(f"\nWhy the first member died ({len(firsts)} fights):")
+        for why, count in collections.Counter(f["why"] for f in firsts).most_common():
+            print(f"  {why:42} {count:4}  {100 * count / len(firsts):3.0f}%")
+        times = sorted(f["at"] for f in firsts)
+        on_it = sorted(f["attackers"] for f in firsts)
+        print(f"  It died {times[len(times) // 2]} s after contact (median) with {on_it[len(on_it) // 2]} enemies on it; "
+              f"{100 * sum(1 for f in firsts if f['held']) / len(firsts):.0f}% were asleep or stunned for a third or more of their last ten seconds.")
+        print("  Who dies first, by group:")
+        by_group = collections.defaultdict(collections.Counter)
+        for f in firsts:
+            by_group[f["group"]][f["build"]] += 1
+        for group, builds in sorted(by_group.items()):
+            deaths = sum(builds.values())
+            print(f"    {group} ({deaths}): " + ", ".join(f"{build} {100 * count / deaths:.0f}%" for build, count in builds.most_common(5)))
+        print("  Why, by group:")
+        by_group = collections.defaultdict(collections.Counter)
+        for f in firsts:
+            by_group[f["group"]][f["why"]] += 1
+        for group, whys in sorted(by_group.items()):
+            print(f"    {group}: " + ", ".join(f"{why} {count}" for why, count in whys.most_common(4)))
+
+    if slept:
+        print("\nMezzes sat through, by group (per match; 'opening' is within 15 s of contact):")
+        print(f"  {'':10}{'healers asleep':>15}{'in the opening':>15}{'median length':>15}   what ended a healer's sleep")
+        for group in sorted(played):
+            mine = [s for s in slept if s["group"] == group and s["healer"]]
+            if not mine:
+                print(f"  {group:10}{0:15.1f}")
+                continue
+            lengths = sorted(s["seconds"] for s in mine)
+            ended = collections.Counter(s["ended"] for s in mine)
+            print(f"  {group:10}{len(mine) / played[group]:15.1f}{sum(1 for s in mine if s['opening']) / played[group]:15.1f}{lengths[len(lengths) // 2]:13.0f} s   "
+                  + ", ".join(f"{why} {100 * count / len(mine):.0f}%" for why, count in ended.most_common()))
+        everyone = collections.defaultdict(float)
+        for s in slept:
+            everyone[(s["group"], s["kind"])] += s["seconds"]
+        print("  seconds asleep a match, all members: " + "; ".join(
+            f"{group}: " + ", ".join(f"{kind}s {everyone[(group, kind)] / played[group]:.0f}" for kind in ("healer", "caster", "fighter")) for group in sorted(played)))
 
     print("\nMissed chances, seconds a match, by group:")
     keys = ["enemy healer free", "enemy healer free, a member idle in range", "pursuer on the backline",

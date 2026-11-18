@@ -9,6 +9,23 @@ namespace DOL.UnitTests
     public class UT_PvpActionChoice
     {
         [Test]
+        public void AWalkThatEndsAmongEnemyFightersLosesToACastFromWhereItStands()
+        {
+            var weights = new PvpWeights();
+            // An Eldritch: nearsight on a caster in range, or on another it would have to walk 200 units for.
+            var here = new PvpOption(PvpActionKind.Nearsight, 0, PvpBuffArchetype.Caster, false, false, 100, false, false, true, false, 100);
+            var there = here with { TargetId = 1, Interrupted = false, Casting = true, Short = 200 };
+            // The far one is free and casting, which is worth more: with open ground between, it walks.
+            Assert.That(PvpActionChoice.Score(eCharacterClass.Eldritch, there, weights), Is.GreaterThan(PvpActionChoice.Score(eCharacterClass.Eldritch, here, weights)));
+            // With two free enemy fighters where it would have to stand, it casts from where it is.
+            Assert.That(PvpActionChoice.Score(eCharacterClass.Eldritch, there with { WalkDanger = 2 }, weights),
+                Is.LessThan(PvpActionChoice.Score(eCharacterClass.Eldritch, here, weights)));
+            // Danger at a place it does not have to walk to costs nothing here: standing off is the squad's business.
+            Assert.That(PvpActionChoice.Score(eCharacterClass.Eldritch, here with { WalkDanger = 3 }, weights),
+                Is.EqualTo(PvpActionChoice.Score(eCharacterClass.Eldritch, here, weights)));
+        }
+
+        [Test]
         public void TheCabalistDebuffsTheKillTargetBeforeItNukesIt_AndOnlyTheKillTarget()
         {
             var weights = new PvpWeights();

@@ -299,6 +299,19 @@ bots react to the owner's call the way they react to their own group brain's.
 
 Status: missing. Open: whether the server can read such commands from the game client's macros.
 
+**Watching a scrim (built 2026-11-18, not yet tried in the game).** On the scrim install, as a
+GM ("Make me GM" in the launcher, with the server stopped):
+
+1. Start the server from the scrim folder's launcher and enter the game.
+2. In a terminal: `python source/tools/pvp_watch.py` starts the three pairings in three lanes,
+   twenty matches each, and prints a `/jump` line for each lane.
+3. In the game: `/8v8 lanes` lists what is fighting, `/8v8 watch 0` takes you to the middle of
+   lane 0 and turns the feed on, `/fly` to hover.
+4. The feed prints each group's calls near you in the chat window: its order and why, its kill
+   target, who is being trained, an area mez being cast, each death, and the match's number and
+   recording, so that what you saw can be looked up afterwards. `/8v8 feed off` silences it.
+5. Ctrl+C in the terminal, or `pvp_watch.py stop`, ends the fights. The server stays up.
+
 ## 9. What is measured
 
 Everything that happens in a fight is recorded, so a new question can be asked of old

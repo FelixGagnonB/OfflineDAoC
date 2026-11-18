@@ -11,8 +11,9 @@ teleport your account must be a GM: enter the game once, stop the server, tick "
 the launcher, start again.
 
 Each pairing fights in its own lane of the arena in Emain Macha (region 200), match after
-match. The tool prints where each lane is as a /jump command to type in the game (then /fly to
-hover), and one line for every finished match. Every match is recorded as usual, so what you
+match. The tool prints for each lane the command to type in the game (/8v8 watch <lane>, then
+/fly to hover; the feed then shows each group's calls in the chat window), and one line for
+every finished match. Every match is recorded as usual, so what you
 see can be looked up afterwards: note the lane, the match number and roughly when.
 
 Ctrl+C, or "pvp_watch.py stop", ends the fights and removes the bots. The server stays up.
@@ -81,8 +82,9 @@ def main(argv):
     for lane, pair in zip(lanes["Data"], pairs):
         (ax, ay), (bx, by) = [tuple(int(v) for v in lane[end].split(",")) for end in ("A", "B")]
         height = int(lane["GroundMiddle"] or lane["GroundA"] or 0) + 100
-        print(f"  lane {lane['Lane']}  {pair.replace(':', ' against ')}:   /jump to {(ax + bx) // 2} {(ay + by) // 2} {height} 200")
+        print(f"  lane {lane['Lane']}  {pair.replace(':', ' against ')}:   /8v8 watch {lane['Lane']}     (or /jump to {(ax + bx) // 2} {(ay + by) // 2} {height} 200)")
     print("\n  then /fly to hover over the fight. The groups start 3,000 units either side of that point and meet near it.")
+    print("  /8v8 watch also turns the feed on: each group's calls in your chat window (/8v8 feed off silences it).")
     print("  Ctrl+C here ends the fights and removes the bots; the server stays up.\n", flush=True)
 
     started = time.time()

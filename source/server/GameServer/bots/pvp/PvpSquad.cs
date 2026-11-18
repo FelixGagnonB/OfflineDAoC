@@ -229,6 +229,10 @@ namespace DOL.GS
             {
                 Order = order;
                 _orderSince = now;
+                if (PvpObserver.Any && _members.FirstOrDefault(member => member.IsAlive) is { } voice)
+                    PvpObserver.Say(voice, $"{PvpObserver.Realm(voice)} order: {order}" + (order == PvpOrder.Hold ? $" ({Incoming})"
+                        : FightStarted ? $" (its healers free {Own.HealersFreeShare:0%}, enemy healers free {Theirs.HealersFreeShare:0%}, " +
+                                         $"enemy fighters held {Theirs.FightersHeldShare:0%}, {_pursuers.Count} enemies on its healers and casters)" : ""));
             }
         }
 
@@ -243,7 +247,10 @@ namespace DOL.GS
             int chosen = PvpHealPlan.Trained(attackers, Trained != null ? alive.IndexOf(Trained) : -1, weights.Heal);
             GameBot now = chosen >= 0 ? alive[chosen] : null;
             if (now != Trained && now != null && FightStarted)
+            {
                 PvpRecorder.Decision(now, new { kind = "Trained", score = attackers[chosen] }, [], null);
+                PvpObserver.Say(now, $"{PvpObserver.Name(now)} is being trained: {attackers[chosen]} on it");
+            }
             Trained = now;
         }
 
@@ -279,6 +286,8 @@ namespace DOL.GS
                 int chosen = PvpKillTarget.Choose(views, current != null ? alive.IndexOf(current) : -1, kill);
                 target = chosen >= 0 ? alive[chosen] : null;
                 // The call is recorded when it changes, with what else could have been called.
+                if (target != current && target != null)
+                    PvpObserver.Say(dealers[0], $"{PvpObserver.Realm(dealers[0])} calls {PvpObserver.Name(target)}, at {target.HealthPercent}% health");
                 if (target != current && target != null)
                     PvpRecorder.Call(team[0], target, PvpKillTarget.Score(views[chosen], kill), current,
                         views.OrderByDescending(view => PvpKillTarget.Score(view, kill)).Take(4).Select(view => (object)new

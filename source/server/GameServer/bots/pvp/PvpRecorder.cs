@@ -144,6 +144,8 @@ namespace DOL.GS
                 return;
             var (killer, killerTeam, pet) = recording.Who((args as DyingEventArgs)?.Killer as GameLiving);
             recording.Line(new { k = "death", t = recording.Now, n = victim.Name, team, by = killer, byTeam = killerTeam, pet });
+            if (victim is GameBot dead)
+                PvpObserver.Say(dead, $"{PvpObserver.Name(dead)} died" + (killer == null ? "" : $", killed by {killer}" + (pet == null ? "" : "'s pet")));
         }
 
         /// <summary>True while a match is being recorded. The engine's hooks below cost one read otherwise.</summary>

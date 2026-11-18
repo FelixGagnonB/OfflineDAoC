@@ -1298,6 +1298,37 @@ checked once for whether it happens in a match, and left.
   about 204 matches each and two and a half hours, the server started fresh for each, then both
   insight reports. `pvp_batch.py` now gives a batch up when the server has not answered for five
   minutes or the batch has run far past what its matches can take, so a night cannot hang.
+- **First batch read with the learning tool, 2026-11-18** (150 plain matches, 50 a pairing,
+  rank 1, built-in weights, 91 minutes, no error, every match a wipe; reports beside the batch
+  logs as `pvp-insight-20261118-203508.txt`). Two readings were added to `pvp_insight.py` for
+  it: why the first member died, and how long members sleep and what ends it.
+  - *Results.* Albion beat Hibernia 50 to 0 and Midgard 45 to 5; Midgard beat Hibernia 29 to 21.
+    In the M5 base of the day before, Midgard beat Albion 7 to 3. What changed since: Albion
+    holds at its longer mez range, its Minstrel cures mez, and its two pet classes now attack.
+  - *The first death decides.* The side that lost the first member lost the fight in 93% of
+    them. It died 36 seconds after contact with four enemies on it.
+  - *It dies because its healers are asleep:* 71% of first deaths came while the victim's own
+    healers were asleep or stunned, 12% while they were kept from casting. Only 5% were "healers
+    free and no heal came", so the healing routine itself is not the problem.
+  - *Who wakes the healers.* Albion's healers sleep 3 seconds a match and are cured 93% of the
+    time (the Sorcerer and the Minstrel both cure). Hibernia's sleep 33 seconds and are cured 2%
+    of the time; Midgard's 21 seconds and 16%. While a Druid sleeps the Bard, Hibernia's only
+    cure, is dead 52% of the time, being hit 19%, asleep or stunned 23%. Midgard's Pacification
+    Healer: dead 42%, being hit 22%, asleep or stunned 31%.
+  - *Who dies first.* Hibernia: the Bard in 60% of its fights. Midgard: the Pacification Healer
+    in 51%. Albion, the ten times it lost a member first: the Enhancement Cleric nine times.
+  - *Why those two.* Healers and casters walk into the fight. Twenty seconds after contact the
+    Sorcerer, Theurgist, Enchanter, Eldritch, Bard and Runemaster stand 41 to 56% of the way to
+    where the enemy group stood at contact, among the fighters; the healers that only heal stay
+    back (-9 to 7%). They walk because an option on the enemy's back row, reached by a walk of
+    1,000 to 1,900 units, outscores what they could cast from where they stand.
+  - *Other gaps the report shows.* Hibernia and Midgard leave an enemy healer free to cast for
+    about 150 seconds a match, Albion for 49. An enemy fighter is on Hibernia's healers and
+    casters for 106 seconds a match, twice the others' figure.
+- **Answer to the first finding: a walk that ends among enemy fighters costs score**
+  (`WalkEndsNearFighter`, -30 for each free enemy fighter within 600 units of the place the
+  caster would stop, up to three). It is a weight, so it is measured the designed way: new
+  against old inside the same matches (`--versus`).
 Order of work agreed with the owner: finish the brain, with the readings, the group orders and
 positioning (hold, kite, extend, push) first; then play matches and record everything; then
 analyze and iterate on behavior as deep as wanted. No measure has to be fixed in advance: the

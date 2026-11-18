@@ -88,6 +88,25 @@ namespace DOL.GS
 
         public static bool Running => _runs.Any(run => run.Running);
 
+        /// <summary>For a GM who watches: what is fighting in each lane right now.</summary>
+        public static List<string> LaneLines() => _runs.Where(run => run.Running).Select(run => run.Describe()).ToList();
+
+        /// <summary>The middle of a lane, on the ground: where its two groups meet. Null for a lane that does not exist.</summary>
+        public static (ushort Region, Vector3 Point)? LaneMiddle(int lane)
+        {
+            if (lane < 0 || lane >= PvpArenaBox.EmainLanes.Count)
+                return null;
+            PvpArenaBox box = PvpArenaBox.EmainLanes[lane];
+            int x = (box.SpawnA.X + box.SpawnB.X) / 2, y = (box.SpawnA.Y + box.SpawnB.Y) / 2;
+            var nav = PathfindingProvider.Instance;
+            Zone zone = WorldMgr.GetRegion(box.Region)?.GetZone(x, y);
+            if (zone == null)
+                return null;
+            Vector3 point = nav.GetFloorBeneath(zone, new Vector3(x, y, 20_000), 20_000, nav.DefaultFilters) is { } floor && floor.Z < 19_999
+                ? floor : new Vector3(x, y, 4_000);
+            return (box.Region, point);
+        }
+
         /// <summary>One series in the whole arena, as before there were lanes.</summary>
         public static void Start(PvpGroupTemplate groupA, PvpGroupTemplate groupB, int matches, int realmLevel, int limitSeconds = 300,
             bool squadA = false, bool squadB = false) =>
@@ -353,6 +372,9 @@ namespace DOL.GS
             _phaseStartTick = _matchStartTick = GameLoop.GameLoopTime;
             _contactTick = 0;
             _recording = PvpRecorder.Begin(_numberOffset + _matchNumber, _groupA, _groupB, _teamA, _teamB, _realmLevel, _batch);
+            if (_teamA.Count > 0)
+                PvpObserver.Say(_teamA[0], $"Lane {_lane}: match {_numberOffset + _matchNumber}, {_groupA.Id} against {_groupB.Id}, is buffing " +
+                    $"(recording {_batch}-match-{_numberOffset + _matchNumber:000})");
         }
 
         /// <summary>
@@ -411,6 +433,8 @@ namespace DOL.GS
                 if (_contactTick == 0 && _teamA.Concat(_teamB).Any(bot => bot.InCombat))
                 {
                     _contactTick = now;
+                    if (_teamA.Count > 0)
+                        PvpObserver.Say(_teamA[0], $"Lane {_lane}: first blow, {(now - _matchStartTick) / 1000} s into the match");
                     if (_squadA != null) _squadA.FightStarted = true;
                     if (_squadB != null) _squadB.FightStarted = true;
                     SetSelfBuffsOnly(false);
@@ -642,6 +666,8 @@ namespace DOL.GS
             lock (Results) Results.Add(result);
             _recording?.End(result);
             Log.Info($"PVP_SCRIM_MATCH batch={_batch} lane={_lane} number={result.Number} winner={winner} end=\"{end}\" seconds={result.Seconds} contact={result.SecondsToContact} alive={aliveA}/{aliveB}");
+            if (_teamA.Count > 0)
+                PvpObserver.Say(_teamA[0], $"Lane {_lane}: match {result.Number} is over, {winner} by {end} in {result.Seconds} s, alive {aliveA}/{aliveB}");
             PvpArena.Remove(_bots);
             _bots.Clear();
             if (_matchNumber >= _matchesWanted)
@@ -651,6 +677,9 @@ namespace DOL.GS
             }
             BeginMatch();
         }
+
+        internal string Describe() =>
+            $"lane {_lane}: {_groupA.Id} against {_groupB.Id}, match {_matchNumber} of {_matchesWanted}, {_phase.ToString().ToLowerInvariant()}";
 
         public object Status()
         {

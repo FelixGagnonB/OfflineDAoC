@@ -51,7 +51,8 @@ namespace DOL.GS
         bool Instant = false, // an instant spell: it lands now and cannot be interrupted, but mezzes and stuns of this sort come back after ten minutes
         bool OnController = false, // the target is one of the enemy's mezzers
         bool Pursuer = false,     // an enemy fighter in melee on one of the group's healers or casters
-        bool Extending = false);  // the group's order is Extend
+        bool Extending = false,   // the group's order is Extend
+        int WalkDanger = 0);      // free enemy fighters near the place the caster would have to walk to
 
     /// <summary>
     /// The numbers behind the choice. Every one is a weight added to an option's score, so none is
@@ -235,6 +236,17 @@ namespace DOL.GS
         /// (Albion 78% against 54%, Midgard 54% against 18%, Hibernia 59% against 34%).
         /// </summary>
         public int NeedsWalk { get; set; } = -40;
+        /// <summary>
+        /// Lost by an option the caster would have to walk for, for each enemy fighter that is
+        /// free to act within <see cref="WalkDangerWithin"/> of the place it would stop to cast
+        /// (up to three). The owner, 2026-11-18: casters and healers stand near the edge of their
+        /// range and away from enemy fighters. Recordings of that day: the Sorcerer, the Bard, the
+        /// Enchanter and the Pacification Healer walked 1,000 to 1,900 units to cast on the
+        /// enemy's back row, ended up halfway into the enemy and were the first to die; the Bard
+        /// was dead 58% of the time one of its Druids was asleep and needed waking.
+        /// </summary>
+        public int WalkEndsNearFighter { get; set; } = -30;
+        public int WalkDangerWithin { get; set; } = 600;
         /// <summary>Enemies farther than this are not considered at all.</summary>
         public int ConsiderRange { get; set; } = 3_500;
 
@@ -426,6 +438,8 @@ namespace DOL.GS
             }
             score -= weights.PowerScarcity * option.CostPercent * (100 - option.PowerPercent) / 100.0;
             score -= weights.PerHundredUnitsShort * option.Short / 100.0 - (option.Short > 0 ? weights.NeedsWalk : 0);
+            if (option.Short > 0)
+                score += weights.WalkEndsNearFighter * Math.Min(3, option.WalkDanger);
             if (option.IsAssigned)
                 score += weights.OnAssignedTarget;
             if (soft && !option.Interrupted)

@@ -353,6 +353,16 @@ namespace DOL.AI.Brain
                         sight[enemy] = seen = nav.HasLineOfSight(Body.CurrentZone, here, new Vector3(enemy.X, enemy.Y, enemy.Z), nav.DefaultFilters);
                     // Out of range or behind something: still an option, at the price of the walk.
                     int walk = Math.Max(distance > range ? distance - range + 50 : 0, seen ? 0 : 300);
+                    // Where that walk would end, and how many enemy fighters that are free to act would be beside it there.
+                    int walkDanger = 0;
+                    if (walk > 0 && distance > 1)
+                    {
+                        float stop = Math.Max(0, distance - walk) / (float)distance;
+                        var end = new Vector2(enemy.X + (Body.X - enemy.X) * stop, enemy.Y + (Body.Y - enemy.Y) * stop);
+                        walkDanger = enemies.Count(other => PvpBuffPlan.ArchetypeOf(other.PvpBuild.Class) == PvpBuffArchetype.Melee &&
+                            !other.IsMezzed && !other.IsStunned && !other.effectListComponent.ContainsEffectForEffectType(eEffect.MovementSpeedDebuff) &&
+                            Vector2.Distance(end, new Vector2(other.X, other.Y)) <= weights.WalkDangerWithin);
+                    }
                     // Asleep, or claimed by a mezzer of this group for the length of its cast, and not
                     // the kill target: the server refuses a bot any attack on it (the casts that were
                     // accepted and never began), so it is no option. The exception is an area mez,
@@ -395,7 +405,7 @@ namespace DOL.AI.Brain
                         enemy == PvpAssignedTarget || enemy == PvpDutyTarget, enemy.HealthPercent, hasEffect,
                         enemy.IsCasting, enemy.IsBeingInterrupted, !mez && enemy.IsMezzed, Body.ManaPercent, cost, walk, caught, catchesKill, wakes,
                         instant, PvpActionChoice.IsController(enemy.PvpBuild.Class, weights),
-                        PvpSquad?.IsPursuer(enemy) == true, PvpSquad?.Order == PvpOrder.Extend));
+                        PvpSquad?.IsPursuer(enemy) == true, PvpSquad?.Order == PvpOrder.Extend, walkDanger));
                 }
             }
             if (tooFar > 0)
@@ -410,6 +420,7 @@ namespace DOL.AI.Brain
                 caught = scored.Option.Kind == PvpActionKind.MezArea ? scored.Option.Caught : (int?)null,
                 // For a root: the target is on this group's healers and casters; it is rooted, slowed or immune already.
                 pursuer = scored.Option.Pursuer ? true : (bool?)null,
+                danger = scored.Option.WalkDanger > 0 ? scored.Option.WalkDanger : (int?)null,
                 has = scored.Option.Kind == PvpActionKind.Root && scored.Option.HasEffect ? true : (bool?)null,
             };
 
@@ -472,6 +483,8 @@ namespace DOL.AI.Brain
                         _pvpControlSpellId = spell.ID;
                         _pvpControlCastUntil = GameLoop.GameLoopTime + spell.CastTime + 2_000;
                     }
+                    if (scored.Option.Kind == PvpActionKind.MezArea)
+                        PvpObserver.Say(Body, $"{PvpObserver.Name(BotBody)} casts an area mez at {aim.Name}: {scored.Option.Caught} awake in it");
                     if (caughtBy.TryGetValue((scored.Option.Kind, scored.Option.TargetId, scored.Option.Instant), out List<GameBot> asleep))
                     {
                         foreach (GameBot other in asleep)
