@@ -137,6 +137,72 @@ namespace DOL.GS
         /// </summary>
         public GameBot Trained { get; private set; }
 
+        /// <summary>The group's own state this second in the three readings (bots/pvp/PvpReading.cs).</summary>
+        public PvpReading Own { get; private set; }
+        /// <summary>The enemy's state as the group sees it: an enemy out of sight counts as free.</summary>
+        public PvpReading Theirs { get; private set; }
+        /// <summary>What the group is trying to do right now.</summary>
+        public PvpOrder Order { get; private set; }
+        private long _orderSince;
+        // The hold on incoming: when the enemy was first seen, and whether the hold has ended (it is not taken up again).
+        private long _firstSeen;
+        private bool _holdOver;
+
+        // The longest cast mez among these bots: what a player knows of a class.
+        private static int MezRange(IEnumerable<GameBot> bots) => bots.Where(bot => bot.IsAlive)
+            .SelectMany(bot => bot.CrowdControlSpells ?? [])
+            .Where(spell => spell.SpellType == eSpellType.Mesmerize && spell.CastTime > 0)
+            .Select(spell => spell.Range).DefaultIfEmpty(0).Max();
+        // Free enemy fighters in melee on the group's healers and casters.
+        private List<GameBot> _pursuers = [];
+        // When each healer or caster last took a step away from enemy fighters.
+        private readonly Dictionary<GameBot, long> LastStandStep = new();
+
+        private static bool IsSlowed(GameBot bot) =>
+            bot.effectListComponent.ContainsEffectForEffectType(eEffect.MovementSpeedDebuff) ||
+            bot.effectListComponent.ContainsEffectForEffectType(eEffect.Snare);
+
+        private static bool IsFighter(GameBot bot) => PvpBuffPlan.ArchetypeOf(bot.PvpBuild.Class) == PvpBuffArchetype.Melee;
+
+        private static PvpMemberState StateOf(GameBot bot, bool seen = true) => new(IsFighter(bot),
+            bot.PvpBuild.Class is eCharacterClass.Cleric or eCharacterClass.Druid or eCharacterClass.Healer or eCharacterClass.Friar,
+            bot.IsAlive, seen && (bot.IsMezzed || bot.IsStunned), seen && IsSlowed(bot), seen && (bot.IsBeingInterrupted || bot.IsSilenced));
+
+        /// <summary>Takes the readings for both groups and chooses the order from them.</summary>
+        private void Read(IReadOnlyList<GameBot> enemies, List<GameBot> known)
+        {
+            PvpWeights weights = PvpWeights.Of(_members.FirstOrDefault());
+            Own = PvpReading.Of(_members.Select(member => StateOf(member)));
+            Theirs = PvpReading.Of(enemies.Select(enemy => StateOf(enemy, known.Contains(enemy))));
+            _pursuers = known.Where(enemy => enemy.IsAlive && !enemy.IsMezzed && !enemy.IsStunned &&
+                (IsFighter(enemy) || enemy.attackComponent?.AttackState == true) &&
+                enemy.TargetObject is GameBot { IsAlive: true } victim && _members.Contains(victim) && !IsFighter(victim) &&
+                enemy.IsWithinRadius(victim, weights.Peel.MeleeReach)).ToList();
+            long now = GameLoop.GameLoopTime;
+            PvpOrder order = PvpOrder.Engage;
+            if (FightStarted)
+                order = PvpOrders.Choose(Own, Theirs, _pursuers.Select(enemy => enemy.TargetObject).Distinct().Count(),
+                    Order == PvpOrder.Hold ? PvpOrder.Engage : Order, (now - _orderSince) / 1000.0, weights.Order);
+            else if (!_holdOver && known.Count > 0)
+            {
+                if (_firstSeen == 0)
+                    _firstSeen = now;
+                List<GameBot> alive = _members.Where(member => member.IsAlive).ToList();
+                int nearest = alive.Count == 0 ? 0 : (int)known.Min(enemy => alive.Min(member => member.GetDistanceTo(enemy)));
+                // The enemy's reach is its realm's, whoever has come into sight: a group that sees Midgard's
+                // fighters knows a Healer is behind them.
+                if (PvpOrders.Holds(MezRange(_members), MezRange(enemies), (now - _firstSeen) / 1000.0, nearest, weights.Order))
+                    order = PvpOrder.Hold;
+                else if (Order == PvpOrder.Hold)
+                    _holdOver = true;
+            }
+            if (order != Order)
+            {
+                Order = order;
+                _orderSince = now;
+            }
+        }
+
         private void FindTrained(List<GameBot> known)
         {
             PvpWeights weights = PvpWeights.Of(_members.FirstOrDefault());
@@ -158,6 +224,7 @@ namespace DOL.GS
             List<GameBot> known = Look(enemies);
             Known = known;
             FindTrained(known);
+            Read(enemies, known);
             KillTarget = CallTarget(_members, known, KillTarget is { IsAlive: true } current && known.Contains(current) ? current : null);
         }
 
@@ -211,6 +278,11 @@ namespace DOL.GS
                     aim = target;
                 else if (role == PvpRole.Peel && bot.IsAlive)
                     aim = Peel(bot, brain, team, alive, target, guarded);
+                // Under Extend the group's fighters turn on whoever followed onto its healers and
+                // casters (owner, 2026-11-17: an enemy that pushed deep is turned on).
+                if (Order == PvpOrder.Extend && _pursuers.Count > 0 && role == PvpRole.Assist && onDuty == null && bot.IsAlive &&
+                    IsFighter(bot) && PvpWeights.Of(bot).Order.ExtendFightersTurnOnPursuers)
+                    aim = _pursuers.OrderBy(pursuer => bot.GetDistanceTo(pursuer)).First();
                 brain.PvpAssignedTarget = aim;
                 // A fighter on the kill: its target is recorded when it changes (guards and
                 // interrupters record their own choices).
@@ -224,7 +296,8 @@ namespace DOL.GS
                 // A member still far behind (it stopped to cast while the group walked on) is not
                 // put in attack state: the brain does not walk a caster that far, so it would stand
                 // where it is for the whole fight. It keeps marching until it has caught up.
-                if (aim != null && bot.IsAlive && bot.IsWithinRadius(aim, EngageRange))
+                // While the group holds, its fighters do not go for anyone.
+                if (aim != null && bot.IsAlive && bot.IsWithinRadius(aim, EngageRange) && !(Order == PvpOrder.Hold && IsFighter(bot)))
                 {
                     brain.AddToAggroList(aim, 1);
                     if (brain.FSM.GetCurrentState()?.StateType != eFSMStateType.AGGRO)
@@ -378,7 +451,7 @@ namespace DOL.GS
         {
             PvpSpreadWeights weights = PvpWeights.Of(_members.FirstOrDefault()).Spread;
             List<GameBot> foes = Known.Where(enemy => enemy.IsAlive).ToList();
-            if (weights.MinSpacing <= 0 || foes.Count == 0)
+            if (weights.MinSpacing <= 0 || foes.Count == 0 || Order == PvpOrder.Hold)
                 return;
             List<GameBot> backline = _members.Where(bot => bot.IsAlive &&
                 PvpBuffPlan.ArchetypeOf(bot.PvpBuild.Class) != PvpBuffArchetype.Melee).ToList();
@@ -389,7 +462,8 @@ namespace DOL.GS
             {
                 if (bot.IsCasting || bot.IsMoving || bot.IsIncapacitated || bot.castingComponent?.HasPendingSkillRequests == true ||
                     !foes.Any(enemy => bot.IsWithinRadius(enemy, SpotRange)) ||
-                    LastSpreadStep.TryGetValue(bot, out long last) && now - last < 2_000)
+                    LastSpreadStep.TryGetValue(bot, out long last) && now - last < 2_000 ||
+                    LastStandStep.TryGetValue(bot, out long stood) && now - stood < 1_500)
                     continue;
                 List<Vector2> mates = backline.Where(member => member != bot).Select(member => new Vector2(member.X, member.Y)).ToList();
                 if (PvpSpacing.StepApart(new Vector2(bot.X, bot.Y), mates, enemyCentre, weights.MinSpacing, weights.Step) is not { } to)
@@ -398,6 +472,83 @@ namespace DOL.GS
                 bot.PathTo(nav.GetFloorBeneath(bot.CurrentZone, new Vector3(to.X, to.Y, 20_000), 20_000, nav.DefaultFilters)
                     is { } floor && floor.Z < 19_999 ? floor : new Vector3(to.X, to.Y, bot.Z), bot.MaxSpeed);
                 PvpRecorder.Decision(bot, new { kind = "Spread", score = 0 }, [], null);
+            }
+        }
+
+        /// <summary>
+        /// Healers and casters keep away from enemy fighters (bots/pvp/PvpPositioning.cs): a
+        /// member with a fighter nearer than it wants takes a step to a better place, staying in
+        /// range of its work. One in melee with a fighter that can follow stays: running gains
+        /// nothing until the fighter is mezzed, stunned, rooted or slowed, and then it does run.
+        /// The group's order scales the distance wanted. The step is the bot's turn: its brain
+        /// casts again when it has arrived.
+        /// </summary>
+        public void StandOff()
+        {
+            PvpWeights all = PvpWeights.Of(_members.FirstOrDefault());
+            PvpPositionWeights weights = all.Position;
+            if (weights.SafeDistance <= 0 || !FightStarted)
+                return;
+            List<GameBot> fighters = Known.Where(enemy => enemy.IsAlive && IsFighter(enemy)).ToList();
+            if (fighters.Count == 0)
+                return;
+            int safe = (int)(weights.SafeDistance * (Order == PvpOrder.Extend ? all.Order.ExtendSafeFactor : Order == PvpOrder.Push ? all.Order.PushSafeFactor : 1));
+            List<GameBot> alive = _members.Where(bot => bot.IsAlive).ToList();
+            List<GameBot> backline = alive.Where(bot => !IsFighter(bot)).ToList();
+            List<GameBot> healers = backline.Where(bot => PvpRoles.Of(bot.PvpBuild.Class) == PvpRole.Heal).ToList();
+            static Vector2 At(GameObject thing) => new(thing.X, thing.Y);
+            long now = GameLoop.GameLoopTime;
+            var nav = PathfindingProvider.Instance;
+            foreach (GameBot bot in backline)
+            {
+                if (bot.Brain is not BotBrain brain || bot.IsCasting || bot.IsIncapacitated || bot.castingComponent?.HasPendingSkillRequests == true)
+                    continue;
+                List<PvpThreat> threats = fighters.Select(enemy => new PvpThreat(At(enemy), enemy.IsMezzed || enemy.IsStunned, IsSlowed(enemy), enemy.TargetObject == bot)).ToList();
+                bool hunted = threats.Any(threat => threat.OnMe);
+                // After a step it works from its new place for a while; one running from held fighters does not wait.
+                if (LastStandStep.TryGetValue(bot, out long last) && now - last < (hunted ? 1_500 : weights.StepEveryMilliseconds))
+                    continue;
+                bool isHealer = healers.Contains(bot);
+                // A healer with somebody to heal stays at its work, unless it is the one being attacked.
+                if (isHealer && !hunted && alive.Any(member => member != bot && member.HealthPercent < weights.HealerStaysIfMemberBelow &&
+                        bot.IsWithinRadius(member, weights.HealRange + 300)))
+                    continue;
+                var work = new List<PvpWorkPoint>();
+                if (isHealer)
+                    work.AddRange(alive.Where(member => member != bot).Select(member => new PvpWorkPoint(At(member), weights.HealRange, member == Trained ? 2 : 0.5)));
+                else
+                {
+                    // What it is working on: the enemy of its last choice, its duty and the kill target, at
+                    // the range it really has (a nearsighted caster's is cut, and stepping out of it
+                    // only makes it walk back in).
+                    bool recent = now - brain.PvpWorkTick < 6_000 && brain.PvpWorkRange > 0;
+                    int reach = recent ? Math.Min(weights.WorkRange, Math.Max(200, brain.PvpWorkRange - 100)) : weights.WorkRange;
+                    foreach (GameLiving aim in new[] { recent ? brain.PvpWorkTarget : null, brain.PvpDutyTarget, brain.PvpKillTarget }
+                                 .Where(aim => aim is { IsAlive: true }).Distinct())
+                        work.Add(new PvpWorkPoint(At(aim), reach));
+                    // Everybody stays where its healers reach it.
+                    work.AddRange(healers.Select(healer => new PvpWorkPoint(At(healer), weights.HealRange, 0.5)));
+                }
+                List<Vector2> mates = backline.Where(member => member != bot).Select(member => At(member)).ToList();
+                var self = At(bot);
+                List<Vector2> steps = PvpPositioning.Steps(self, threats, work, mates, all.Spread.MinSpacing, safe, weights, out _);
+                foreach (Vector2 to in steps.Take(4))
+                {
+                    // A place the navmesh knows; the next best otherwise.
+                    if (nav.GetFloorBeneath(bot.CurrentZone, new Vector3(to.X, to.Y, 20_000), 20_000, nav.DefaultFilters) is not { } floor || floor.Z >= 19_999)
+                        continue;
+                    LastStandStep[bot] = now;
+                    brain.PvpMoveFrom = now;
+                    // The walk is the bot's turn for as long as it takes.
+                    brain.PvpMoveUntil = now + Math.Clamp((long)(Vector2.Distance(self, to) / Math.Max(100, (int)bot.MaxSpeed) * 1000) + 300, 800, 4_500);
+                    bot.PathTo(floor, bot.MaxSpeed);
+                    PvpRecorder.Decision(bot, new
+                    {
+                        kind = hunted ? "GetAway" : "StandOff", order = Order.ToString(),
+                        score = (int)threats.Min(threat => Vector2.Distance(self, threat.At)),
+                    }, [], null);
+                    break;
+                }
             }
         }
     }

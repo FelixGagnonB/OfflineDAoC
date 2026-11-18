@@ -203,6 +203,12 @@ namespace DOL.GS
         /// <summary>How the group's healers share out their patients.</summary>
         public PvpHealWeights Heal { get; set; } = new();
 
+        /// <summary>Where healers and casters stand in a fight (bots/pvp/PvpPositioning.cs).</summary>
+        public PvpPositionWeights Position { get; set; } = new();
+
+        /// <summary>How the group reads the fight into an order (bots/pvp/PvpReading.cs).</summary>
+        public PvpOrderWeights Order { get; set; } = new();
+
         public const string ReferenceFileName = "pvp-weights-old.json";
 
         public static PvpWeights Current { get; private set; } = new();

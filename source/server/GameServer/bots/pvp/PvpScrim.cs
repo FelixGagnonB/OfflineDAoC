@@ -408,6 +408,8 @@ namespace DOL.GS
                 }
                 March(_teamA, _teamB, _spawnA, _spawnB, ref _waypointA);
                 March(_teamB, _teamA, _spawnB, _spawnA, ref _waypointB);
+                _squadA?.StandOff();
+                _squadB?.StandOff();
                 _squadA?.KeepApart();
                 _squadB?.KeepApart();
             }
@@ -423,10 +425,13 @@ namespace DOL.GS
         private void Engage(List<GameBot> team, List<GameBot> enemies)
         {
             var nav = PathfindingProvider.Instance;
+            // While a group holds, its fighters go for nobody (bots/pvp/PvpReading.cs).
+            bool holds = (team == _teamA ? _squadA : _squadB)?.Order == PvpOrder.Hold;
             foreach (GameBot bot in team)
             {
                 // A shield fighter staying beside its ward has chosen not to attack.
-                if (!bot.IsAlive || bot.Brain is not BotBrain brain || brain.HasAggro || _squadA?.IsHolding(bot) == true || _squadB?.IsHolding(bot) == true)
+                if (!bot.IsAlive || bot.Brain is not BotBrain brain || brain.HasAggro || _squadA?.IsHolding(bot) == true || _squadB?.IsHolding(bot) == true ||
+                    holds && PvpBuffPlan.ArchetypeOf(bot.PvpBuild.Class) == PvpBuffArchetype.Melee)
                     continue;
                 GameBot target = enemies
                     .Where(enemy => enemy.IsAlive && bot.IsWithinRadius(enemy, SightRange))
@@ -452,6 +457,16 @@ namespace DOL.GS
             List<GameBot> members = team.Where(bot => bot.IsAlive).ToList();
             if (members.Count == 0)
                 return;
+            // A group that holds stands where it is and lets the enemy come.
+            if ((team == _teamA ? _squadA : _squadB)?.Order == PvpOrder.Hold)
+            {
+                foreach (GameBot bot in members.Where(bot => bot.IsMoving && !bot.IsCasting))
+                {
+                    bot.StopMovingOnPath();
+                    bot.StopMoving();
+                }
+                return;
+            }
             List<GameBot> seen = enemies.Where(enemy => enemy.IsAlive && members.Any(bot => bot.IsWithinRadius(enemy, SpotRange))).ToList();
             Vector3 goal;
             Dictionary<GameBot, Vector3> places = null;

@@ -25,6 +25,37 @@ namespace DOL.AI.Brain
         /// <summary>The enemy healer or caster this bot is to keep from casting (bots/pvp/PvpInterruptDuty.cs); null without one.</summary>
         public GameLiving PvpDutyTarget { get; set; }
 
+        /// <summary>
+        /// Set by the squad when it sends this bot a step away from enemy fighters
+        /// (bots/pvp/PvpPositioning.cs): the step began at From and is the bot's turn until Until.
+        /// </summary>
+        public long PvpMoveFrom { get; set; }
+        public long PvpMoveUntil { get; set; }
+
+        /// <summary>
+        /// True while this bot is on such a step. Its brain starts no cast meanwhile: a cast would
+        /// stop it where it stands, which is where it did not want to be.
+        /// </summary>
+        private bool PvpOnTheMove()
+        {
+            long now = GameLoop.GameLoopTime;
+            if (BotBody?.IsPvpBot != true || now >= PvpMoveUntil || Body.IsIncapacitated)
+                return false;
+            // The path may take a moment to be found.
+            if (Body.IsMoving || now - PvpMoveFrom < 400)
+                return true;
+            PvpMoveUntil = 0;
+            return false;
+        }
+
+        /// <summary>The enemy of this bot's last scored choice, the range of the spell chosen, and when: what it must stay in range of.</summary>
+        public GameLiving PvpWorkTarget { get; private set; }
+        public int PvpWorkRange { get; private set; }
+        public long PvpWorkTick { get; private set; }
+
+        /// <summary>True while this bot's group holds: it stands and casts what reaches (bots/pvp/PvpReading.cs).</summary>
+        private bool PvpHolding() => BotBody?.IsPvpBot == true && PvpSquad?.Order == PvpOrder.Hold;
+
         private long _pvpNoActionRecordedTick, _pvpApproachTick;
         // The last cast this routine started, to notice one that was accepted and then never began.
         private Spell _pvpLastCast;
@@ -339,9 +370,12 @@ namespace DOL.AI.Brain
             {
                 Spell spell = (scored.Option.Instant ? instants : spells)[scored.Option.Kind];
                 GameLiving aim = targets[scored.Option.TargetId];
-                // No walking in the middle of a cast: it would end the cast.
-                if (midCast && scored.Option.Short > 0)
+                // No walking in the middle of a cast: it would end the cast. And none while the group holds.
+                if ((midCast || PvpHolding()) && scored.Option.Short > 0)
                     continue;
+                if (aim is GameBot && !friends.Contains(aim))
+                    (PvpWorkTarget, PvpWorkRange, PvpWorkTick) = (aim,
+                        spell.Target == eSpellTarget.SELF || spell.Range <= 0 ? spell.Radius : spell.CalculateEffectiveRange(Body), GameLoop.GameLoopTime);
                 if (scored.Option.Short > 0)
                 {
                     // The best thing to do is out of reach: walk toward it. The order is renewed

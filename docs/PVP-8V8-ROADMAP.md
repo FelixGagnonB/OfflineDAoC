@@ -424,6 +424,29 @@ and the baseline batch of 30 matches per pairing (M3.6).
 - [ ] **M3.6** (S) Baseline: at least 30 matches per realm pairing on today's AI. Fill the
   scorecard's baseline column and write the ranked failure list.
 
+*Recorder format 3 and the fight review, 2026-11-18* (owner: first make sure the recorder and
+the analyzer have everything needed to review a fight, then finish the brain, then test). Added
+to every recording: a cast beginning (`begin`) and a cast that ended without finishing (`stop`,
+with why: attacked and by whom, moved, refused by the game, dropped by the caster); health
+actually restored by a heal and how much was asked for (`heal`); who broke a mez (`wake`); each
+group's kill target and trained member every second (`squad`); and in the once-a-second state of
+each bot its height, nearsight, disease, silence, being interrupted, and whom it is on, guards
+and has interrupt duty for. The engine calls the recorder at five places for this (cast start,
+the two ways a cast is cut, a health change, a mez removed); each call returns at once when no
+match is being recorded.
+`pvp_analyze.py` now also reports, per team: how close its healers and casters stand to the
+nearest enemy fighter and to each other, how far apart the two groups are, how much of the time
+its healers and casters are nearsighted, how long a member had the enemy's fighters on it and
+how often it died of it, mezzes broken on the kill target and on somebody else; and per build:
+casts begun against finished with what stopped the rest, health restored, wasted, and the share
+that went to the trained member. `pvp_review.py` prints one match second by second, or one bot's
+fight with its state and decisions.
+First things they showed, on recordings already there: the middles of the two groups are 258
+units apart for most of a fight (under 500 units 84% of the time), and a healer or caster has
+an enemy fighter within 500 units about half the time. One Mending Healer's opening, read with
+the review tool: amnesia on the Bard, nearsighted a second later, then it walks toward the enemy
+to get its mez in range and is mezzed 117 units from an enemy fighter.
+
 **Exit check:** the baseline report exists, and one command compares two builds.
 
 ## M4. Fair fights
@@ -993,6 +1016,126 @@ pairing fought both ways round:
 - The analyzer's warning about bots standing up away from their corpse fired once in the 816
   matches: two bots of one match had been given the same name, and a dead one and its living
   namesake read as one bot. 8v8 bots now get names no other 8v8 bot in the world has.
+
+*Correction, 2026-11-18: the cure nearsight result above is not valid.* Asked by the owner how
+many members get nearsighted, the rank 1 base (120 matches) gave: nearsight is cast by the
+Runemaster (2.5 landed a match) and the Eldritch (2.1); 4.6 of the 16 in a match are nearsighted
+at least once (1 to 9); by role, a main healer in 47% of its matches, a second healer 48%, a
+mezzer 51%, a caster 55%; Albion gets most of it (Theurgist 91%, main Cleric 81%, second Cleric
+and Cabalist 78%, Sorcerer 73%, against 23 to 42% for Midgard's and Hibernia's), usually within
+ten seconds of contact; it lasts two minutes.
+The same count showed the cure being started far more often than nearsight landed: the main
+Cleric started cure nearsight 11.8 times a match and finished 1.7, with 8.4 restarts inside a
+second and a half; the Regrowth Druid 5.2 and 0.7; the Mending Healer 2.8 and 0.4. While a
+healer's instant heal is ready, the old healing routine runs on through a cast in progress,
+picks the same cure again and begins it anew on every think. So the overnight comparison
+measured a healer stuck restarting a cast, not cure nearsight. Cure mez had the same fault to a
+lesser degree (Pacification Healer 2.7 started, 0.7 finished). Fixed: an 8v8 healer does not
+restart or drop the heal or cure it is casting; only an emergency heal takes the place of a
+cure in progress. Cure nearsight is being measured again; it stays off until then.
+
+*Owner, 2026-11-18: "we jump ahead too fast with all those tests, instead of finishing the brain
+and making sure the bots know how to play correctly."* Agreed. From here the order is: write
+down how each role plays ([PVP-8V8-PLAYBOOK.md](PVP-8V8-PLAYBOOK.md), each line marked done,
+partly or missing, with its source), have the owner correct it, build the missing lines class by
+class, check each one only for whether it happens in a match, and leave comparison runs and
+weight tuning for when the playbook is built.
+*Owner, same day, on the Skald:* changing target often is right for it. Most of the time the
+Skald is not part of the assist train, unless there is a critical kill. It is an interrupt
+class: target a caster, instant damage shout, switch to another caster, healer or mezzer, second
+shout; running past a fighter it may swing with its snare attack, then back to interrupting;
+instant mez on a free enemy that is not a fighter, and on with the interrupts.
+
+*Owner, 2026-11-18, on the playbook:* "The name of the game is how to react to what is going on.
+There are no hard rules, only soft rules, and any soft rule could overrule any other based on
+the current situation." A Bard should not always run in to stop the Sorcerer; in some fights the
+better answer is to kite and work on the enemy as it pushes in. "It really comes down to how the
+enemies' melee are controlled (stun, snare, mez), how casters are interrupted and how busy the
+opposite healers are." The owner's own review draft and the first checklist were merged into one
+[PVP-8V8-PLAYBOOK.md](PVP-8V8-PLAYBOOK.md) on that footing: it is not a rulebook. It holds the
+three readings of a fight (fighters controlled, casters interrupted, healers busy, each for both
+groups), the orders a group can be under (hold, engage, extend, push, peel, regroup), what each
+role leans toward and what shifts it, and what is built. The server's data settled the draft's
+open points (who has cure mez, cure nearsight, spread heal, amnesia, nearsight; Speed of Sound
+is Minstrel only here). It also showed that Albion's group had no nearsight: the Cabalist's
+nearsight is in its Matter spec line and it had 5 there. The owner changed the Cabalist to the
+three-line utility build, Body 34 / Spirit 33 / Matter 25 (`cabalist-tri`, replacing
+`cabalist-body` at Body 47 / Spirit 26 / Matter 5): disease at Body 34, the body resistance
+debuff at Spirit 33, the 45% nearsight at Matter 25. Recordings before this change have the old
+build under the old name.
+The owner's role for it: nearsight enemy casters (healers and high-impact casters first),
+disease enemy fighters and other targets that matter, keep the pet on an enemy and take
+interrupt assignments, damage on the kill target when there is a kill, the body resistance
+debuff when the casters kill together, no needless damage into a mez.
+First run of the new build (four matches, Albion against Midgard and Hibernia): it finishes 4.8
+nearsights, 5.2 diseases and 15 lifedrains a match; enemy healers and casters were nearsighted
+55% to 98% of the fight (the Bard 14%). Not yet as the owner describes: 15 of 19 diseases went on
+healers and casters and only 4 on fighters; the pet never attacked; the body debuff was never
+cast.
+
+*Readings, group orders and standing off, 2026-11-18* (first step of "finish the brain").
+- **Readings** (`PvpReading`): every second the squad takes the three readings for itself and
+  for the enemy as it sees it (an enemy out of sight counts as free): share of living fighters
+  mezzed, stunned, rooted or slowed; share of living healers and casters able to cast; share of
+  all healers, dead ones included, able to heal. They are written to the recording's `squad`
+  line.
+- **Orders** (`PvpOrders`): Engage scores 0; Push and Extend must beat it. Push grows with the
+  enemy's healers down, its fighters held and the numbers ahead; Extend with the group's own
+  living healers unable to heal, the enemy's fighters free and the group's healers and casters
+  under attack. An order stands three seconds. Hold and Regroup are not built.
+  What an order does so far: under Extend healers and casters want 1.4 times the usual distance
+  and the fighters leave the kill target for an enemy fighter on their backline; under Push
+  healers and casters accept 0.6 times the distance.
+- **Standing off** (`PvpPositioning`): a healer or caster with an enemy fighter nearer than 900
+  units scores sixteen steps of 350 units (distance gained from the nearest fighter, less the
+  cost of leaving the range of its work or its healers, less crowding a groupmate) and takes the
+  best if it is at least 150 better than staying. The step is its turn: the brain starts no cast
+  until it has arrived. A healer does not step while a member in reach is below 60% health,
+  unless it is the one attacked.
+  The measure behind it (ten recorded matches): a healer or caster had an enemy fighter within
+  500 units 57% of the time; for 24% of the time that fighter was free and on somebody else, for
+  13% every such fighter was mezzed or stunned, for 20% a free fighter was on the bot itself.
+- First run (six matches): steps away from fighters that were not on the bot worked (farther two
+  seconds later after 71%), steps away from a free fighter that was on it did not (43%, 7 units
+  nearer at the median: both run at the same speed). So a free fighter on the bot within 600
+  units now pins it, and it runs only once the fighters on it are mezzed, stunned, rooted or
+  slowed, which is what the owner described. Second run: 73% of those runs and 65% of the other
+  steps gained distance.
+- **Not there yet.** Over the whole fight the median distance from a healer or caster to the
+  nearest enemy fighter did not clearly move (500 to 720 by match-up in the first run, 492
+  overall in the second), and they now walk for a quarter of the fight (the Sorcerer and
+  Cabalist a third). The steps are taken and then undone: the fighters follow, and the caster
+  walks back into range of its next target. Orders: about 40% of the time engage, 35% push, 25%
+  extend, the winning side mostly pushing and the losing side mostly extending, with frequent
+  changes. Both need the next pieces: the group moving as one under Extend, fighters held back
+  for their healers, Hold on incoming, and a caster choosing targets it can reach from where it
+  stands. 3,220 automated tests pass (20 new for readings, orders and positioning). No
+  comparison run was made: nothing here says the bots win more or less for it.
+- **Second round, same day.** Why the steps were undone: 35% of them were followed by another
+  step (the caster walking away 350 units at a time and casting nothing between), and 15% by
+  the caster walking back, mostly a nearsighted one whose range is cut. Changed: a step may be
+  700 units when that is the better one; after a step the bot works from its new place for four
+  seconds (one running from held fighters does not wait); and a caster's work range is the
+  range of its last chosen spell on its last chosen enemy, so a nearsighted caster no longer
+  steps out of the range it has. Result over six matches each, same measure: time with no enemy
+  fighter within 500 units of a healer or caster 44% before, 59% now; a free fighter on somebody
+  else within 500 units 24% to 18%; only mezzed or stunned fighters within 500 units 13% to 7%.
+  The median distance is about 550 units and walking is still a quarter of the fight.
+- **Hold** (`PvpOrders.Holds`): before the fight a group whose longest cast mez outranges the
+  enemy realm's by 200 units or more stands where it is; its fighters are given no target, its
+  casters cast what reaches without walking, nobody marches. It ends when an enemy is within
+  1,200 units of a member, after ten seconds, or at the first blow, and is not taken up again.
+  The enemy's reach is its realm's (a group that sees Midgard's fighters knows a Healer is
+  behind them); comparing with only the enemies in sight made Midgard and Hibernia hold against
+  each other, which was corrected. In the runs only Albion holds, about nine seconds a match;
+  in the match read with `pvp_review.py` its Sorcerer's area mez caught two and its Cabalist's
+  nearsight was cast while Midgard was still closing, before Midgard's first mez.
+  3,223 automated tests pass. Still no comparison run.
+Order of work agreed with the owner: finish the brain, with the readings, the group orders and
+positioning (hold, kite, extend, push) first; then play matches and record everything; then
+analyze and iterate on behavior as deep as wanted. No measure has to be fixed in advance: the
+recordings keep every event, so new questions can be asked of old fights. `pvp_analyze.py`
+reports the three readings per group from now on.
 
 - [ ] **M6.1** (L) Control plan: an area mez opener, assignments per controller, immunity timers
   tracked, re-mez, stuns, roots and snares used on purpose, never breaking the group's own mez.

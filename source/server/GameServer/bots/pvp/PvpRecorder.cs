@@ -15,9 +15,16 @@ namespace DOL.GS
     /// then what happened (attacks, finished casts, deaths) and a once-a-second snapshot of every
     /// bot, then the result. <c>source/tools/pvp_analyze.py</c> turns a folder of these into a report.
     ///
-    /// Line types ("k"): match, snap, ready, hit, cast, death, dec, call, end. Times ("t") are milliseconds since
-    /// the match started. Format version 2 added "dec" (a squad-brain decision: what was picked,
-    /// the best-scoring options, and what stood in the way) and the weights in the header.
+    /// Line types ("k"): match, snap, squad, ready, hit, begin, stop, cast, heal, wake, death, dec, call, end.
+    /// Times ("t") are milliseconds since the match started. Format version 2 added "dec" (a
+    /// squad-brain decision: what was picked, the best-scoring options, and what stood in the way)
+    /// and the weights in the header. Version 3 (2026-11-18) added what a review of a fight was
+    /// missing: "begin" and "stop" (a cast started, and one that ended without finishing, with why
+    /// and by whom), "heal" (health actually restored, and how much was asked for), "wake" (who
+    /// broke a mez), "squad" (each group's kill target and trained member, every second), and in
+    /// "snap" the nearsight, disease, silence and interrupted states, the height, and whom the bot
+    /// is on, guards and has interrupt duty for. "squad" also carries the group's order and the
+    /// two readings it came from (bots/pvp/PvpReading.cs).
     ///
     /// Several matches can be recorded at once (parallel arenas, M2.5): each has its own
     /// <see cref="PvpRecording"/>, and an event goes to the recording its bots belong to.
@@ -26,7 +33,7 @@ namespace DOL.GS
     /// </summary>
     public static class PvpRecorder
     {
-        public const int FormatVersion = 2;
+        public const int FormatVersion = 3;
 
         internal static readonly Logger Log = LoggerManager.Create(typeof(PvpRecorder));
         // Every bot of every match being recorded, and its recording.
@@ -139,6 +146,68 @@ namespace DOL.GS
             recording.Line(new { k = "death", t = recording.Now, n = victim.Name, team, by = killer, byTeam = killerTeam, pet });
         }
 
+        /// <summary>True while a match is being recorded. The engine's hooks below cost one read otherwise.</summary>
+        public static bool Active => !ByBot.IsEmpty;
+
+        /// <summary>A spell with a cast time has begun (called by the casting component).</summary>
+        public static void CastStarted(GameLiving caster, Spells.SpellHandler handler)
+        {
+            if (!Active || Of(caster) is not { } recording || handler?.Spell is not { } spell)
+                return;
+            var (name, team, pet) = recording.Who(caster);
+            if (team == null)
+                return;
+            var (target, targetTeam, _) = recording.Who(handler.Target);
+            recording.Line(new
+            {
+                k = "begin", t = recording.Now, n = name, team, pet, spell = spell.Name, st = spell.SpellType.ToString(),
+                d = target, dt = targetTeam, castTime = handler.CalculateCastingTime(),
+            });
+        }
+
+        /// <summary>
+        /// A cast ended without finishing: interrupted by an attack (<paramref name="by"/>), by
+        /// moving, by something the game refused, or dropped by the caster itself.
+        /// </summary>
+        public static void CastStopped(GameLiving caster, Spells.SpellHandler handler, string why, GameLiving by = null)
+        {
+            if (!Active || Of(caster) is not { } recording || handler?.Spell is not { } spell)
+                return;
+            var (name, team, pet) = recording.Who(caster);
+            if (team == null || !recording.FirstStop(caster, spell.ID))
+                return;
+            var (attacker, attackerTeam, attackerPet) = recording.Who(by);
+            recording.Line(new { k = "stop", t = recording.Now, n = name, team, pet, spell = spell.Name, why, by = attacker, byTeam = attackerTeam, byPet = attackerPet });
+        }
+
+        /// <summary>Health restored by a heal: what was asked for and what the target could take.</summary>
+        public static void Healed(GameLiving target, GameObject source, int asked, int restored)
+        {
+            if (!Active || Of(target) is not { } recording)
+                return;
+            var (name, team, pet) = recording.Who(target);
+            if (team == null)
+                return;
+            var (healer, healerTeam, healerPet) = recording.Who(source as GameLiving);
+            recording.Line(new { k = "heal", t = recording.Now, n = healer, team = healerTeam, pet = healerPet, d = name, dt = team, dpet = pet, asked, got = restored });
+        }
+
+        /// <summary>A mez was broken by this attack.</summary>
+        public static void Woken(GameLiving target, AttackData ad)
+        {
+            if (!Active || ad == null || Of(target) is not { } recording)
+                return;
+            var (name, team, _) = recording.Who(target);
+            if (team == null)
+                return;
+            var (attacker, attackerTeam, pet) = recording.Who(ad.Attacker);
+            recording.Line(new
+            {
+                k = "wake", t = recording.Now, n = name, team, by = attacker, byTeam = attackerTeam, pet,
+                spell = ad.SpellHandler?.Spell?.Name, style = ad.Style?.Name, type = ad.AttackType.ToString(),
+            });
+        }
+
         /// <summary>
         /// A group's kill-target call (line type "call"): whom it now kills, whom it was killing,
         /// and the best-scoring enemies it chose from.
@@ -168,6 +237,25 @@ namespace DOL.GS
         private readonly ConcurrentQueue<string> _pending = new();
         private readonly object _writeLock = new();
         private readonly long _startTick = GameLoop.GameLoopTime;
+        // The last cast each bot was recorded as stopping: one cast can be reported as stopped by
+        // more than one part of the engine.
+        private readonly ConcurrentDictionary<GameLiving, (int Spell, long Tick)> _stops = new();
+
+        // A reading for the record: fighters held, casters free, healers free (shares), and how many are alive.
+        private static object Shares(PvpReading reading) => new
+        {
+            fh = Math.Round(reading.FightersHeldShare, 2), cf = Math.Round(reading.CastersFreeShare, 2),
+            hf = Math.Round(reading.HealersFreeShare, 2), alive = reading.Alive,
+        };
+
+        internal bool FirstStop(GameLiving caster, int spell)
+        {
+            long now = GameLoop.GameLoopTime;
+            if (_stops.TryGetValue(caster, out var last) && last.Spell == spell && now - last.Tick < 300)
+                return false;
+            _stops[caster] = (spell, now);
+            return true;
+        }
         private StreamWriter _writer;
         private volatile bool _open = true;
 
@@ -206,9 +294,14 @@ namespace DOL.GS
             foreach ((GameLiving living, string _) in Teams)
             {
                 var bot = (GameBot)living;
+                var brain = bot.Brain as BotBrain;
                 Line(new
                 {
-                    k = "snap", t = Now, n = bot.Name, x = bot.X, y = bot.Y,
+                    k = "snap", t = Now, n = bot.Name, x = bot.X, y = bot.Y, z = bot.Z,
+                    ns = bot.effectListComponent.ContainsEffectForEffectType(eEffect.Nearsight),
+                    dis = bot.IsDiseased, sil = bot.IsSilenced, intr = bot.IsBeingInterrupted,
+                    // Whom it is on, whom it guards, whom it has interrupt duty for.
+                    aim = brain?.PvpAssignedTarget?.Name, ward = brain?.PvpSquad?.WardOf(bot)?.Name, duty = brain?.PvpDutyTarget?.Name,
                     hp = bot.IsAlive ? bot.Health : 0, pow = bot.Mana, end = bot.Endurance,
                     alive = bot.IsAlive, mez = bot.IsMezzed, stun = bot.IsStunned,
                     root = bot.effectListComponent.ContainsEffectForEffectType(eEffect.MovementSpeedDebuff) ||
@@ -220,6 +313,18 @@ namespace DOL.GS
                     target = (bot.TargetObject as GameLiving)?.Name,
                     state = (bot.Brain as BotBrain)?.FSM?.GetCurrentState()?.StateType.ToString(),
                 });
+            }
+            // What each group has decided, so any second of the fight can be read on its own.
+            foreach (IGrouping<string, GameLiving> side in Teams.Keys.GroupBy(living => Teams[living]))
+            {
+                PvpSquad squad = side.Select(living => (living as GameBot)?.Brain as BotBrain).FirstOrDefault(brain => brain?.PvpSquad != null)?.PvpSquad;
+                if (squad != null)
+                    Line(new
+                    {
+                        k = "squad", t = Now, team = side.Key, kill = squad.KillTarget?.Name, trained = squad.Trained?.Name, known = squad.Known.Count,
+                        // The order in force and the readings it came from: the group's own, and the enemy's as it sees it.
+                        order = squad.Order.ToString(), own = Shares(squad.Own), theirs = Shares(squad.Theirs),
+                    });
             }
             Drain();
         }

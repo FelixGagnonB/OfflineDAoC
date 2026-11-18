@@ -2936,6 +2936,16 @@ namespace DOL.AI.Brain
                     return;
                 }
 
+                // An 8v8 healer or caster stepping away from enemy fighters finishes the step first.
+                if (_brain.PvpOnTheMove())
+                    return;
+                // A group that holds stands and casts what reaches from where it stands.
+                if (_brain.PvpHolding())
+                {
+                    _brain.TryPvpRotation();
+                    return;
+                }
+
                 if (_brain.HoldsExclusiveSupportRole())
                 {
                     _brain.PerformGroupSupport();
@@ -5160,6 +5170,18 @@ namespace DOL.AI.Brain
                     return ApproachSupportTarget(spellTarget) || isCastingHeal;
                 }
                 _supportReach.Reached(spellTarget);
+
+                // An 8v8 healer does not restart or drop the heal or cure it is casting. While an
+                // instant heal was ready this routine ran on through a cast in progress, chose the
+                // same cure again and began it anew on every think: in 120 recorded matches the
+                // main Cleric started cure nearsight 11.8 times a match and finished 1.7, and the
+                // Pacification Healer started cure mez 2.7 times and finished 0.7. Only an
+                // emergency heal takes the place of a cure in progress.
+                if (BotBody.IsPvpBot && !spellToCast.IsInstantCast && isCastingHeal &&
+                    BotBody.castingComponent.SpellHandler?.Spell is { } running &&
+                    (running == spellToCast || numEmergency == 0 ||
+                     running.SpellType is not (eSpellType.CureMezz or eSpellType.CureNearsightCustom or eSpellType.CureDisease or eSpellType.CurePoison)))
+                    return true;
 
                 if (!spellToCast.IsInstantCast)
                 {

@@ -1810,7 +1810,10 @@ namespace DOL.GS
 					case eEffect.Mez:
 					{
 						if (removeMez)
+						{
+							PvpRecorder.Woken(this, ad);
 							effect.End();
+						}
 
 						break;
 					}
@@ -1925,6 +1928,8 @@ namespace DOL.GS
 
 				Health += changeAmount;
 				int healthChanged = Health - oldHealth;
+				if (changeAmount > 0 && healthChangeType != eHealthChangeType.Regenerate)
+					PvpRecorder.Healed(this, changeSource, changeAmount, healthChanged);
 
 				//Notify our enemies that we were healed by other means than
 				//natural regeneration, this allows for aggro on healers!
@@ -3699,6 +3704,8 @@ namespace DOL.GS
 		/// </summary>
 		public virtual void StopCurrentSpellcast()
 		{
+			if (PvpRecorder.Active && castingComponent.SpellHandler is { } dropped)
+				PvpRecorder.CastStopped(this, dropped, "dropped by the caster");
 			castingComponent.InterruptCasting(IsMoving);
 		}
 

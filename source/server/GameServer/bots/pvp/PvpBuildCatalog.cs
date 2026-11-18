@@ -50,8 +50,12 @@ namespace DOL.GS
                 L(Specs.Chants, 46), L(Specs.Shields, 42), L(Specs.Slash, 39), L(Specs.Parry, 20)),
             Melee("armsman-polearm", eCharacterClass.Armsman, eSpecType.TwoHandHybrid, eObjectType.SlashingWeapon, eObjectType.PolearmWeapon, true,
                 L(Specs.Polearms, 50), L(Specs.Shields, 42), L(Specs.Slash, 39), L(Specs.Parry, 6)),
-            Caster("cabalist-body", eCharacterClass.Cabalist, eSpecType.BodyCab,
-                L(Specs.Body_Magic, 47), L(Specs.Spirit_Magic, 26), L(Specs.Matter_Magic, 5)),
+            // The three-line utility Cabalist (owner, 2026-11-18). Each level is where a spell is
+            // gained (spell table read that day): Body 34 the disease, Spirit 33 the 30% body
+            // resistance debuff (and the best simulacrum, at 32), Matter 25 the 45% nearsight,
+            // which Albion's group had none of. The lifedrain it kills with is baseline.
+            Caster("cabalist-tri", eCharacterClass.Cabalist, eSpecType.BodyCab,
+                L(Specs.Body_Magic, 34), L(Specs.Spirit_Magic, 33), L(Specs.Matter_Magic, 25)),
             Melee("mercenary", eCharacterClass.Mercenary, eSpecType.DualWield, eObjectType.SlashingWeapon, eObjectType.SlashingWeapon, false,
                 L(Specs.Dual_Wield, 50), L(Specs.Slash, 50), L(Specs.Parry, 28)),
             Caster("wizard-fire", eCharacterClass.Wizard, eSpecType.FireWiz,
@@ -123,7 +127,7 @@ namespace DOL.GS
         public static readonly IReadOnlyList<PvpGroupTemplate> Groups =
         [
             new("alb-main", eRealm.Albion,
-                ["cleric-rejuv", "cleric-enhance", "sorcerer-mind", "minstrel", "theurgist-air", "paladin", "armsman-polearm", "cabalist-body"]),
+                ["cleric-rejuv", "cleric-enhance", "sorcerer-mind", "minstrel", "theurgist-air", "paladin", "armsman-polearm", "cabalist-tri"]),
             new("mid-main", eRealm.Midgard,
                 ["healer-pac", "healer-mend", "shaman-aug", "skald", "runemaster-rune", "savage", "berserker", "warrior"]),
             new("hib-main", eRealm.Hibernia,
