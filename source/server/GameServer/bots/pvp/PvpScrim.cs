@@ -175,10 +175,62 @@ namespace DOL.GS
         /// <summary>The length of a play session's fight at most, in seconds: a fight between equals ran five to ten minutes.</summary>
         public const int PlayLimitSeconds = 1_800;
 
-        /// <summary>Where a play session starts: one end of the open basin of Emain Macha, on the ground.</summary>
-        public static (ushort Region, Vector3 Point) PlayStart()
+        /// <summary>
+        /// The two starts of a play session. "lane": face to face, the groups 6,000 units apart
+        /// on level ground, as in the scrims. "basin": opposite ends of the open basin, 21,500
+        /// apart and out of sight; the enemy patrols and the player leads the group to find it.
+        /// </summary>
+        public static PvpArenaBox PlayBox(string start) =>
+            string.Equals(start, "basin", StringComparison.OrdinalIgnoreCase) ? PvpArenaBox.EmainSouthEast : PvpArenaBox.EmainLanes[0];
+
+        /// <summary>
+        /// Takes the player to the start of a play session and begins it once the player stands
+        /// there: a change of region takes the client a moment, and the companions are put around
+        /// where the player stands. <paramref name="say"/> receives what happened.
+        /// </summary>
+        public static void TravelAndStartPlay(GamePlayer player, PvpGroupTemplate enemy, int realmLevel, string start, Action<string> say)
         {
-            PvpArenaBox box = PvpArenaBox.EmainSouthEast;
+            PvpArenaBox box = PlayBox(start);
+            (ushort region, Vector3 point) = PlayStart(box);
+            var spot = new Point3D((int)point.X, (int)point.Y, (int)point.Z);
+            bool There() => player.ObjectState == GameObject.eObjectState.Active && player.CurrentRegionID == region && player.IsWithinRadius(spot, 2_500);
+            void Begin()
+            {
+                try
+                {
+                    StartPlay(player, enemy, realmLevel, box);
+                    say($"Seven companions are with you at realm rank {realmLevel / 10 + 1}; {enemy.Id} is " +
+                        (box == PvpArenaBox.EmainSouthEast ? "at the far end of the basin, to the east, and will roam" : "6,000 units to the south") +
+                        ". Both groups buff for about a minute first. /8v8 stop ends it.");
+                }
+                catch (Exception exception)
+                {
+                    say("The fight could not start: " + exception.Message);
+                }
+            }
+            if (There())
+            {
+                Begin();
+                return;
+            }
+            say("Taking you to the start in Emain Macha; the fight begins when you are there.");
+            player.MoveTo(region, spot.X, spot.Y, spot.Z, player.Heading);
+            int waited = 0;
+            new ECSGameTimer(player, _ =>
+            {
+                if (player.Client?.IsPlaying != true || ++waited > 90)
+                    return 0;
+                if (!There())
+                    return 1_000;
+                Begin();
+                return 0;
+            }, 2_000);
+        }
+
+        /// <summary>Where a play session starts: the player's end of the lane or the basin, on the ground.</summary>
+        public static (ushort Region, Vector3 Point) PlayStart(PvpArenaBox box = null)
+        {
+            box ??= PvpArenaBox.EmainSouthEast;
             var nav = PathfindingProvider.Instance;
             Zone zone = WorldMgr.GetRegion(box.Region)?.GetZone(box.SpawnA.X, box.SpawnA.Y);
             Vector3 point = zone != null && nav.GetFloorBeneath(zone, new Vector3(box.SpawnA.X, box.SpawnA.Y, 20_000), 20_000, nav.DefaultFilters) is { } floor && floor.Z < 19_999
@@ -193,8 +245,9 @@ namespace DOL.GS
         /// must stand at <see cref="PlayStart"/> already: moving a player between regions takes
         /// the client a moment, and the companions are put around where the player stands.
         /// </summary>
-        public static void StartPlay(GamePlayer player, PvpGroupTemplate enemy, int realmLevel)
+        public static void StartPlay(GamePlayer player, PvpGroupTemplate enemy, int realmLevel, PvpArenaBox box = null)
         {
+            box ??= PvpArenaBox.EmainSouthEast;
             Log.Info($"8v8 play weights: {PvpWeights.Reload(AppContext.BaseDirectory)}");
             if (Running)
                 throw new InvalidOperationException("A scrim or a session is already running. Stop it first.");
@@ -207,7 +260,7 @@ namespace DOL.GS
                 GameEventMgr.AddHandler(GameLivingEvent.CastFinished, OnCastFinished);
                 _hooked = true;
             }
-            var run = new PvpScrimRun(0, PvpArenaBox.EmainSouthEast, own, enemy, 1, realmLevel, PlayLimitSeconds, true, true,
+            var run = new PvpScrimRun(0, box, own, enemy, 1, realmLevel, PlayLimitSeconds, true, true,
                 $"{DateTime.UtcNow:yyyyMMdd-HHmmss}-play-{own.Id}-vs-{enemy.Id}", 0, 0, 0, 40, player);
             _runs = [run];
             try

@@ -6,7 +6,9 @@ namespace DOL.GS.Commands
     /// <summary>The 8v8 mode from inside the game (docs/PVP-8V8-ROADMAP.md, M1.6).</summary>
     [CmdAttribute("&8v8", ePrivLevel.Player, "8v8 group: seven level-50 companions built around your class",
         "/8v8 group [realm rank 1-13]   your realm's main group without your own class, fully buffed",
-        "/8v8 play <alb|mid|hib> [rank] a fight: you and seven companions against that realm's group of eight, in the basin of Emain Macha",
+        "/8v8 setup                     a window to pick the enemy realm, the start (lane or basin) and the realm rank, then start",
+        "/8v8 ready [build]             your character becomes level 50 with that build's class, spec and gear (lists the builds without one)",
+        "/8v8 play <alb|mid|hib> [rank] [lane|basin]  a fight: you and seven companions against that realm's group of eight, in Emain Macha",
         "/8v8 stop                      ends the fight and removes every 8v8 bot",
         "/8v8 clear                     removes every 8v8 bot",
         "/8v8 lanes                     (GM) what is fighting in each lane of the arena",
@@ -48,27 +50,49 @@ namespace DOL.GS.Commands
                         Say("A fight or a scrim is already running. /8v8 stop ends it.");
                         return;
                     }
-                    // The fight is in the open basin of Emain Macha. Getting there changes region, which the
-                    // client needs a moment for: the first /8v8 play takes you there, the second starts.
-                    (ushort region, System.Numerics.Vector3 start) = PvpScrim.PlayStart();
-                    if (player.CurrentRegionID != region || !player.IsWithinRadius(new Point3D((int)start.X, (int)start.Y, (int)start.Z), 2_500))
+                    int playRank = args.Skip(3).Select(arg => int.TryParse(arg, out int wanted) ? wanted : 0).FirstOrDefault(wanted => wanted > 0);
+                    string start = args.Skip(3).Any(arg => arg.ToLowerInvariant() == "basin") ? "basin" : "lane";
+                    PvpScrim.TravelAndStartPlay(player, enemy, (System.Math.Clamp(playRank == 0 ? 1 : playRank, 1, 13) - 1) * 10, start, Say);
+                    return;
+                }
+
+                case "setup":
+                    if (!Pvp8v8SetupMenu.Open(player))
+                        Say("The setup window could not open here. Use /8v8 play <alb|mid|hib> [rank] [lane|basin] instead.");
+                    return;
+
+                case "ready":
+                {
+                    if (args.Length < 3)
                     {
-                        player.MoveTo(region, (int)start.X, (int)start.Y, (int)start.Z, player.Heading);
-                        Say("You are at the start, in Emain Macha. Type the same /8v8 play again to bring your companions and the enemy.");
+                        Say("Builds of your realm: " + string.Join(", ", PvpPlayerReady.BuildsFor(player.Realm).Select(build => build.Id)) +
+                            ". /8v8 ready <build> makes this character level 50 with that build's class, spec and gear.");
                         return;
                     }
-                    int playRank = args.Length > 3 && int.TryParse(args[3], out int wanted) ? System.Math.Clamp(wanted, 1, 13) : 5;
+                    PvpBuild build = PvpPlayerReady.Find(player.Realm, args[2]);
+                    string refusal = PvpScrim.IsPlaying(player) ? "A fight is running. /8v8 stop first."
+                        : PvpPlayerReady.Refusal(player.Realm, player.InCombat, player.IsAlive, build);
+                    if (refusal != null)
+                    {
+                        Say(refusal + " Builds of your realm: " + string.Join(", ", PvpPlayerReady.BuildsFor(player.Realm).Select(each => each.Id)));
+                        return;
+                    }
+                    if (args.Length < 4 || args[3].ToLowerInvariant() != "confirm")
+                    {
+                        Say($"This changes {player.Name} for good: class {build.Class}, level 50, the spec of {build.Id} " +
+                            $"({string.Join(", ", build.Lines.Select(line => $"{line.Spec} {line.Level}"))}), and its gear in place of what you wear. " +
+                            $"Realm rank is not touched. To do it: /8v8 ready {build.Id} confirm");
+                        return;
+                    }
                     try
                     {
-                        PvpScrim.StartPlay(player, enemy, (playRank - 1) * 10);
+                        foreach (string line in PvpPlayerReady.Apply(player, build))
+                            Say(line);
                     }
                     catch (System.Exception exception)
                     {
-                        Say("The fight could not start: " + exception.Message);
-                        return;
+                        Say("Making the character ready failed part way: " + exception.Message);
                     }
-                    Say($"Seven companions are with you at realm rank {playRank}, and {enemy.Id} is at the far end of the basin, to the east. " +
-                        "Both groups buff for about a minute; then the enemy roams. Lead your group where you like.");
                     return;
                 }
 

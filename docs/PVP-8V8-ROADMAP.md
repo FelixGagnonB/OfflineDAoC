@@ -631,8 +631,15 @@ walls stop bots. **Passed 2026-11-16.**
   items carry no procs or charges; race is random per bot, so base stats vary from run to run.
 - [ ] **M1.4** (M) `/ready` for the owner's own character: level 50, respec to a chosen build,
   equip the template. Realm rank untouched.
-  *Not started.* It changes a real player character (level, specs, inventory), so it has to be
-  built and then tried in a game client with the owner; nothing on the scrim server can check it.
+  *Built 2026-11-19 as `/8v8 ready <build>`, not yet tried in a client.* Without a build it
+  lists the realm's builds; with one it says what will change and asks for
+  `/8v8 ready <build> confirm`. It then sets the build's class, level 50 and the build's lines,
+  and puts on a saved copy of the gear a bot of that build wears (each piece the character's own
+  unique item); what was worn goes to the backpack where there is room. Realm rank and realm
+  abilities are not touched, so the character has none: play the first sessions at rank 1. The
+  companions leave out the build the player took (Albion has two Clerics). It changes a real
+  character for good and nothing on the scrim server can check it: the tests cover only the
+  choices (which build, which companion slot, the refusals).
 - [ ] **M1.5** (M) Realm rank for 8v8 bots and companions: stored realm points, earned from kills,
   realm abilities bought in the build's order. A scrim setting overrides rank.
   *Progress 2026-11-16:* a rank can be set when a group spawns (`RealmRank=5` on `spawn-group`,
@@ -1999,9 +2006,13 @@ In order:
 4. [ ] `/8v8 play <enemy realm> [rank]` (M9.4): both groups in the open basin of Emain Macha,
    the enemy roaming a route, the companions travelling with the owner until the enemy is in
    sight, a rematch after each fight, `/8v8 stop`.
-   *Built 2026-11-19, not yet tried with a player.* `/8v8 play mid 5` first takes the player to
-   one end of the basin (a change of region), and typed again brings seven companions of the
-   realm's main group and the enemy group at the far end. Both sides run the squad brain; the
+   *Built 2026-11-19, not yet tried with a player.* `/8v8 setup` opens a window with clickable
+   choices (enemy realm, start, realm rank, Start), the way `/spawn` does; `/8v8 play mid 1 lane`
+   is the same typed. Two starts (owner, 2026-11-19: "face to face, or roam and find each
+   other?"): **lane**, face to face 6,000 units apart as in the scrims, the default and the one
+   for a first try; **basin**, opposite ends 21,500 apart and out of sight, the enemy patrolling.
+   Either takes the player to the start and begins when the player stands there, with seven
+   companions of the realm's main group around the player and the enemy group at the other end. Both sides run the squad brain; the
    companions follow the player until an enemy is within reach, the enemy patrols the basin as
    in a scrim. One fight of at most 30 minutes, recorded as `<stamp>-play-<a>-vs-<b>`; the same
    command again is the rematch; `/8v8 stop` ends it. A GM character can be attacked while its

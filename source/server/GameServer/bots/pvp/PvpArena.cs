@@ -99,8 +99,8 @@ namespace DOL.GS
         {
             PvpGroupTemplate template = PvpBuildCatalog.Groups.First(group => group.Realm == player.Realm);
             List<string> builds = template.BuildIds.ToList();
-            int own = builds.FindIndex(id => PvpBuildCatalog.Find(id).Class == (eCharacterClass)player.CharacterClass.ID);
-            builds.RemoveAt(own >= 0 ? own : builds.Count - 1);
+            builds.RemoveAt(PvpPlayerReady.SlotOf(builds, (eCharacterClass)player.CharacterClass.ID,
+                player.TempProperties.GetProperty<string>(PvpPlayerReady.BuildProperty)));
 
             var nav = PathfindingProvider.Instance;
             var centre = new Vector3(player.X, player.Y, player.Z);
