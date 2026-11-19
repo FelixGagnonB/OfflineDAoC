@@ -1990,8 +1990,12 @@ In order:
    code goes (a player counts as an attacker and as a pet's owner too); six recorded matches of
    bots against bots ran as before. It has not been tried against a player yet: that comes with
    step 4.
-3. [ ] The owner's side fights as a squad: seven bots under a squad brain that counts the owner
-   among its healers and casters (guarded, healed, woken, defended when trained).
+3. [x] The owner's side fights as a squad: a squad is its bots and the players with them
+   (`PvpSquad.Allies`), and a player counts among its healers and casters: one of those a
+   shield fighter may guard, a patient when the healers share out their heals, the member the
+   enemy is training, somebody to stay in heal range of, to wake, and whose pets are cleared.
+   The squad still steers only its bots. Done as far as the code goes; three recorded matches
+   of bots against bots ran as before. Not tried with a player yet: step 4.
 4. [ ] `/8v8 play <enemy realm> [rank]` (M9.4): both groups in the open basin of Emain Macha,
    the enemy roaming a route, the companions travelling with the owner until the enemy is in
    sight, a rematch after each fight, `/8v8 stop`.

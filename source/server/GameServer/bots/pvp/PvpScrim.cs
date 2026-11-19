@@ -625,7 +625,7 @@ namespace DOL.GS
             // guard reaches 256 units, and its own place in the front row is 700 from the back row.
             foreach (GameBot bot in members)
             {
-                if ((_squadA?.WardOf(bot) ?? _squadB?.WardOf(bot)) is { } ward && places.TryGetValue(ward, out Vector3 beside))
+                if ((_squadA?.WardOf(bot) ?? _squadB?.WardOf(bot)) is GameBot ward && places.TryGetValue(ward, out Vector3 beside))
                     places[bot] = new Vector3(beside.X + toward.X * 100, beside.Y + toward.Y * 100, beside.Z);
             }
             return places;

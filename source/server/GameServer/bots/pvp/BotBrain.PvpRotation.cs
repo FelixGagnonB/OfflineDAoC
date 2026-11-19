@@ -312,15 +312,17 @@ namespace DOL.AI.Brain
         /// <summary>Whom to wake first, for the healing routine's cure mez; 0 for everyone outside an 8v8 group.</summary>
         private int PvpCureMezPriority(GameLiving member)
         {
-            if (BotBody?.IsPvpBot != true || member is not GameBot { PvpBuild: { } build })
+            // A bot of the group, or a player in it.
+            eCharacterClass own = PvpMember.ClassOf(member);
+            if (BotBody?.IsPvpBot != true || own == eCharacterClass.Unknown)
                 return 0;
             PvpWeights weights = PvpWeights.Of(BotBody);
-            return PvpBuffPlan.ArchetypeOf(build.Class) switch
+            return PvpBuffPlan.ArchetypeOf(own) switch
             {
                 PvpBuffArchetype.Healer => weights.CureMezOnHealer,
                 PvpBuffArchetype.Caster => weights.CureMezOnCaster,
                 _ => 0,
-            } + (PvpActionChoice.IsController(build.Class, weights) ? weights.CureMezOnController : 0);
+            } + (PvpActionChoice.IsController(own, weights) ? weights.CureMezOnController : 0);
         }
 
         /// <summary>A fight is on: a living enemy is within reach of this bot.</summary>
@@ -816,8 +818,8 @@ namespace DOL.AI.Brain
         private List<GameNPC> PvpPetsOnBackline() => PvpEnemies == null ? [] : Body.GetNPCsInRadius(2_500)
             .Where(npc => npc.IsAlive && npc.Brain is IControlledBrain owned &&
                           owned.GetLivingOwner() is { } owner && PvpEnemies.Contains(owner) &&
-                          npc.TargetObject is GameBot { IsAlive: true, PvpBuild: { } build } victim && victim.Realm == Body.Realm &&
-                          PvpBuffPlan.ArchetypeOf(build.Class) != PvpBuffArchetype.Melee && npc.IsWithinRadius(victim, 350))
+                          npc.TargetObject is GameLiving { IsAlive: true } victim && victim.Realm == Body.Realm &&
+                          PvpMember.ClassOf(victim) != eCharacterClass.Unknown && !PvpMember.IsFighter(victim) && npc.IsWithinRadius(victim, 350))
             .ToList();
 
         private GameNPC _pvpStaffedPet;
