@@ -128,7 +128,8 @@ namespace DOL.GS
             long now = GameLoop.GameLoopTime;
             List<GameBot> watchers = _members.Where(member => member.IsAlive).ToList();
             var known = new List<GameLiving>();
-            foreach (GameBot enemy in enemies)
+            // An enemy is a bot or a player: a typed loop variable here would cast, and did (the first play session, 2026-11-19).
+            foreach (GameLiving enemy in enemies)
             {
                 if (!enemy.IsAlive || enemy.ObjectState != GameObject.eObjectState.Active)
                     continue;

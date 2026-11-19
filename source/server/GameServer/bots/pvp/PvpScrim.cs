@@ -218,9 +218,10 @@ namespace DOL.GS
             int waited = 0;
             new ECSGameTimer(player, _ =>
             {
-                if (player.Client?.IsPlaying != true || ++waited > 90)
+                // While the client loads the zone the player is not "playing": that is the wait, not a reason to give up.
+                if (player.Client == null || player.ObjectState == GameObject.eObjectState.Deleted || ++waited > 120)
                     return 0;
-                if (!There())
+                if (player.Client.IsPlaying != true || !There())
                     return 1_000;
                 Begin();
                 return 0;
@@ -583,6 +584,9 @@ namespace DOL.GS
             {
                 _lastError = exception.ToString();
                 Log.Error($"8v8 scrim tick failed in lane {_lane} ({_batch})", exception);
+                if (_leader?.Client?.IsPlaying == true)
+                    _leader.Out.SendMessage($"[8v8] The fight stopped on an error and its bots were removed: {exception.Message}",
+                        PacketHandler.eChatType.CT_Important, PacketHandler.eChatLoc.CL_SystemWindow);
                 Stop();
             }
         }

@@ -97,6 +97,8 @@ namespace DOL.GS
             player.Mana = player.MaxMana;
             player.Endurance = player.MaxEndurance;
             player.TempProperties.SetProperty(BuildProperty, build.Id);
+            // The skill list is rebuilt from nothing: lines the old class shared with the new one stayed in it at their old level.
+            player.ForgetUsableSkills();
             player.Out.SendUpdatePlayer();
             player.Out.SendUpdatePlayerSkills(true);
             player.Out.SendUpdatePoints();
