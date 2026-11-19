@@ -11,6 +11,8 @@ namespace DOL.GS
         public static eCharacterClass ClassOf(GameLiving living) => living switch
         {
             GameBot { PvpBuild: { } build } => build.Class,
+            // A real player is a GamePlayer, which is not an IGamePlayer (that is the bots' interface).
+            GamePlayer { CharacterClass: { } played } => (eCharacterClass)played.ID,
             IGamePlayer { CharacterClass: { } own } => (eCharacterClass)own.ID,
             _ => eCharacterClass.Unknown,
         };
