@@ -14,7 +14,21 @@ Bots first. Everything that needs a human at the keyboard waits until the bots f
 path now is M2 (arena and match loop), M3 (recorder, analyzer, baseline), then M4 to M8, each
 measured by scrims. M1 counts as finished for that purpose.
 
-## Current focus (owner, 2026-11-19, afternoon): to where the owner can play
+## Current focus (owner, 2026-11-19, evening): positioning and playing as one team
+
+After an evening of about ten sessions played against the bots, the owner: "I feel the bots are
+pretty optimized, target and crowd control wise. I would not try to spend more time optimizing
+that part for now, I think we did enough at this point for where we stand. Now it's more about
+positioning and behaving as a whole team during fight." Asked what was left of M6, and told it
+was two decisions (below, under M6), the owner: "I'd say yes to both decisions. Let's close and
+accept current behavior/status."
+
+So **M6 is closed**, and the work is M7 (movement and positioning) and then M8 (group tactics),
+led by what the owner sees in play sessions and counted over the recordings before anything is
+changed. Nothing new is opened on target choice, crowd control, rotations or power pacing; what
+was left of those is parked under M10.
+
+## The afternoon before (owner, 2026-11-19): to where the owner can play
 
 After a day of watching, and a loop of seven recorded rounds (below), the owner: "Maybe the best
 course of action, at this point, would be to leave the optimization as it is, and continue with
@@ -629,9 +643,13 @@ walls stop bots. **Passed 2026-11-16.**
   real weapons (8v8 fighters no longer get a bow); and bonuses were landing on weapons not in hand.
   Assumptions to revisit: jewelry is allowed 24 imbue points per piece (crafted pieces hold 37);
   items carry no procs or charges; race is random per bot, so base stats vary from run to run.
-- [ ] **M1.4** (M) `/ready` for the owner's own character: level 50, respec to a chosen build,
+- [x] **M1.4** (M) `/ready` for the owner's own character: level 50, respec to a chosen build,
   equip the template. Realm rank untouched.
-  *Built 2026-11-19 as `/8v8 ready <build>`, not yet tried in a client.* Without a build it
+  *Done 2026-11-19: used by the owner in a client the same evening on two characters, a Cleric and a
+  Hero ("it
+  worked. I have all the gear. Con/Dex/Piety are all 75/75. Resists are all cap"). One fault
+  seen and fixed: the skill window showed a line trained to 33 as "1+43".*
+  *Built 2026-11-19 as `/8v8 ready <build>`.* Without a build it
   lists the realm's builds; with one it says what will change and asks for
   `/8v8 ready <build> confirm`. It then sets the build's class, level 50 and the build's lines,
   and puts on a saved copy of the gear a bot of that build wears (each piece the character's own
@@ -642,6 +660,11 @@ walls stop bots. **Passed 2026-11-16.**
   choices (which build, which companion slot, the refusals).
 - [ ] **M1.5** (M) Realm rank for 8v8 bots and companions: stored realm points, earned from kills,
   realm abilities bought in the build's order. A scrim setting overrides rank.
+  *The player's side, 2026-11-19:* picking a rank in `/8v8 setup` above the character's own
+  gives the character that rank and its points to spend with `/train` (the owner: "even if I
+  pick realm rank 5, I have no realm points and can't train purge"). The owner's Hero stands at
+  rank 5 in the scrim database after it; whether the points were spent as wanted is the
+  owner's to say.
   *Progress 2026-11-16:* a rank can be set when a group spawns (`RealmRank=5` on `spawn-group`,
   `/8v8 group 5` in game), and the bot gets the realm abilities that rank pays for; the default is
   rank 1. Checked on the scrim server at rank 5 (ten or so abilities each) and rank 1 (one).
@@ -1839,8 +1862,11 @@ reports the three readings per group from now on.
   instants, pets or melee. *Done 2026-11-18, the Cabalist's and Enchanter's pets included.*
 - [x] **M6.3** (M) Protection: guard pairs set at fight start, slam and snare on enemies attacking
   the backline, cure mez and Purge used with judgement. *Done 2026-11-18.*
-- [ ] **M6.4** (L) Scored action choice for every role in place of the random pick: debuffs before
+- [x] **M6.4** (L) Scored action choice for every role in place of the random pick: debuffs before
   damage, openers, burst on the called target, power and endurance budgeting.
+  *Closed as it stands, owner, 2026-11-19: "Let's close and accept current behavior/status."
+  The five things below that are still on the old routine are parked under M10 and are not
+  work in progress.*
   *Open, 2026-11-18: the casters, the healers' control and the Skald choose by score, with
   debuffs before damage and power weighed. Still on the old routine with 8v8 rules laid over it:
   which heal a healer casts, the fighters' styles, and the Minstrel's shouts and mezzes (scoring
@@ -1849,7 +1875,28 @@ reports the three readings per group from now on.
   and full buffing before a fight. *Done 2026-11-18: the Paladin twists three chants, the Bard
   plays endurance and twists resistances in a fight, groups are fully buffed before they march.*
 
-**Exit check:** wins at least 70% of mirrored matches against the M5 build; first-mez time and
+**Exit check** (reworded 2026-11-19 with the owner, who accepted the candidate below): every
+line of M6 is built and seen in a recorded match, and the first night's batch and its report
+are on record. **Met.** The pass, over the twelve bots-only matches recorded on 2026-11-19
+after 18:00 UTC (nine in lanes, three in the basin, realm rank 5):
+
+| What M6 asks for | Seen as | In how many of 12 |
+|---|---|---|
+| An area mez to open (M6.1) | an area mez cast in the first 10 s | 12 |
+| Control by assignment (M6.1) | decisions Mez, MezArea, Root (Stun in 8) | 12 |
+| Interrupt duty (M6.2) | a member holding a duty target; nearsight, disease, amnesia chosen | 12 |
+| Guard (M6.3) | guard decisions, and hits taken by the guard for its ward (136) | 12 |
+| Peel and intercept (M6.3) | decisions Peel and Intercept; Slam landed (142) | 12 |
+| Purge by score | decision Purge (Group Purge in 5) | 12 |
+| Waking the mezzed | decision CureMez (the cure cast in 8) | 11 |
+| Upkeep in a fight (M6.5) | endurance song, damage add, bladeturn (combat heal chant in 7) | 12 |
+| Scored choice (M6.4) | Damage, Nearsight, Disease, Amnesia, Pet decisions with their scores | 12 |
+
+One thing the pass turned up and nobody has looked into: 21 of 236 mez casts finished on a
+target whose last snapshot showed mez immunity. It may be casts begun before the immunity
+started. Parked with the rest.
+
+*The check as first written:* wins at least 70% of mirrored matches against the M5 build; first-mez time and
 enemy-healer free-cast share meet their targets.
 *Note, 2026-11-18: this cannot be measured as written. Both teams of a match run in one server,
 so two builds cannot fight each other; only two sets of weights can (`--versus`). For the owner
@@ -2003,10 +2050,14 @@ In order:
    enemy is training, somebody to stay in heal range of, to wake, and whose pets are cleared.
    The squad still steers only its bots. Done as far as the code goes; three recorded matches
    of bots against bots ran as before. Not tried with a player yet: step 4.
-4. [ ] `/8v8 play <enemy realm> [rank]` (M9.4): both groups in the open basin of Emain Macha,
+4. [x] `/8v8 play <enemy realm> [rank]` (M9.4): both groups in the open basin of Emain Macha,
    the enemy roaming a route, the companions travelling with the owner until the enemy is in
    sight, a rematch after each fight, `/8v8 stop`.
-   *Built 2026-11-19, not yet tried with a player.* `/8v8 setup` opens a window with clickable
+   *Done 2026-11-19: played by the owner about ten times that evening, in the lane and in the
+   basin, as a Cleric and as a Hibernian, against Midgard, Hibernia and Albion ("Basin works
+   fine, the initial contact was ok"; "it's fun tho"). The first three tries failed and were
+   fixed the same hour: the enemy squad took the player for a bot and the session stopped; the
+   start after the teleport gave up while the zone loaded.* `/8v8 setup` opens a window with clickable
    choices (enemy realm, start, realm rank, Start), the way `/spawn` does; `/8v8 play mid 1 lane`
    is the same typed. Two starts (owner, 2026-11-19: "face to face, or roam and find each
    other?"): **lane**, face to face 6,000 units apart as in the scrims, the default and the one
@@ -2022,9 +2073,9 @@ In order:
    M1.4 and not built. Found on the way: a real player's class was not read at all
    (`GamePlayer` is not an `IGamePlayer`), so the player counted as a fighter of no class;
    fixed, with a test.
-5. [ ] The recorder takes the human member (M9.5): the owner in the match's list and in every
+5. [x] The recorder takes the human member (M9.5): the owner in the match's list and in every
    second's rows, so the referee and `pvp_replay.py` read a session like a scrim.
-   *Built 2026-11-19, not yet tried with a player.* In a play session the player is in the
+   *Done 2026-11-19, in every session the owner played.* In a play session the player is in the
    match's member list (`player: true`, build `player-<class>`), has a row every second like a
    bot (what a brain decides stays empty) and is the named actor of its hits, casts and death.
    Three bots-against-bots recordings after the change hold the same rows as before. Whether
@@ -2082,9 +2133,11 @@ In order:
   and anything the player says back (M9.3).
 - [ ] **M9.3** (M) Owner's calls: `/call` macros for target, push, retreat, control that one,
   regroup. The squad brain treats them as its own decisions.
-- [ ] **M9.4** (M) `/8v8` play session: pick the enemy realm and group, enemy roams the arena,
+- [x] **M9.4** (M) `/8v8` play session: pick the enemy realm and group, enemy roams the arena,
   rematch after each fight. The enemy roster keeps its own realm points.
-- [ ] **M9.5** (S) Play sessions are recorded and analyzed like scrims.
+- [x] **M9.5** (S) Play sessions are recorded and analyzed like scrims.
+  *Done 2026-11-19: about ten sessions recorded with the player in them; `pvp_replay.py` draws
+  them with the player marked, and `pvp_referee.py` reads one as it reads a scrim.*
 - [ ] **M9.6** (S) Check both clients: the original client and the new client's target and assist
   buttons.
 
@@ -2092,6 +2145,18 @@ In order:
 rematch, with no GM commands.
 
 ## M10. Difficulty and tuning
+
+*Parked here from M6 when it was closed (owner, 2026-11-19: target choice and crowd control are
+good enough for where we stand). Not work in progress; to be picked up, if at all, in a tuning
+round:*
+- which heal a healer casts is still the old routine, not a scored choice;
+- the fighters' choice of style, the same;
+- the Minstrel's shouts and mezzes, the same (scoring them was tried and taken back);
+- nobody budgets endurance;
+- power: at rank 5 the Bard, the Theurgist and the Skald run under 10% in about 70% of their
+  fights, a minute after the first blow (counted over about 100 fights a build, 2026-11-19);
+- 21 of 236 mez casts in twelve matches finished on a target that showed mez immunity;
+- the owner's reading that the bots know every timer too exactly ("mathematically good"): M10.1.
 
 - [ ] **M10.1** (M) Human-like limits as settings: reaction delay, attention, mistake rate.
 - [ ] **M10.2** (S) Named difficulty levels for the enemy group and, separately, for companions.
