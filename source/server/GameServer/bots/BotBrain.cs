@@ -3678,7 +3678,11 @@ namespace DOL.AI.Brain
                 RecordPvpTurnTaken("the healing and curing routine");
             else if (!TryPvpCrowdControl() && !TryPvpRotation())
                 CheckSpells(eCheckSpellType.Defensive);
-            if (BotBody.IsPlayerLedGroup)
+            // A companion healer walks back to its place behind the player between casts. Not in an
+            // 8v8 fight: there the squad places it, and the walk back kept the owner's second Cleric
+            // at the owner's side, moving two seconds in three and out of reach of the rest of the
+            // group (first play sessions, 2026-11-19). Before the fight it travels with the player.
+            if (BotBody.IsPlayerLedGroup && PvpSquad?.FightStarted != true)
             {
                 if (!Body.IsCasting && Body.castingComponent?.HasPendingSkillRequests != true)
                     FollowFormation();
