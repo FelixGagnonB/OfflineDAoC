@@ -2051,15 +2051,35 @@ In order:
    Found on the way: a companion healer walked back to the player's side between casts, in
    fights too (the owner: "stuck to me most of the fight doing nothing"; it moved 65% of the
    time and cast a third less than the same build among bots). Off in a fight since.
-   Open from these sessions, counted once each and not acted on: casters out of power within
-   60 to 80 seconds; the Armsman swinging without a style on full endurance (10 of 16 hits);
-   the bots healing the player very little (116 and 186 points in two fights).
+   Three things stood out in single fights and were then counted over every recording of the
+   day before anything was changed. Two were not there:
+   - *The bots healing the player very little* (116 and 186 points in two fights). Over the
+     nine sessions that ran to an end the player got 53 points of healing from others for
+     every 100 of damage taken, the bot healers beside the player 38, and bot healers among
+     bots 37. Not a fault.
+   - *The Armsman swinging without a style on full endurance* (10 of 16 hits in one window).
+     Over all its landed hits the Armsman styles 98%. The builds that show 52 to 60% are the
+     two-weapon ones (Blademaster, Berserker, Savage), whose off-hand swing never has a style.
+     Not a fault.
+   - *Casters out of power.* This one holds. At realm rank 5, over about 100 fights a build:
+     the Bard runs under 10% power in 70% of its fights (median 58 s after the first blow),
+     the Theurgist in 69% (63 s), the Skald in 68% (63 s), the Minstrel in 53% (89 s), the
+     Cabalist in 42% (129 s); every other build in under a third. The Theurgist spends it on
+     pets, 17 a fight at 12% of its power each. Not acted on: what a group does about power
+     (pace, potions, who keeps a reserve) is the owner's to say.
 7. [ ] Calls (M9.2, M9.3).
 
 - [ ] **M9.1** (M) A lasting companion roster built around the owner's class, earning realm points
   with the owner.
 - [ ] **M9.2** (M) Bot shot-caller: calls announced in group chat (assist target, mez landed,
   retreat), with an assist key for the owner.
+  *First cut 2026-11-19, not yet seen in a client.* In a group with a player, its bots say in
+  group chat what the squad already decides (`PvpCalls.cs`): the assist ("Assist Finnarar
+  (Healer), at 62%."), the order when it changes (push, regroup on the healers, extend, hold),
+  incoming on a member with two or more on it ("3 on you, Nayas!"), a member out of power, and
+  a caster calling the group to stack for pets. Orders no more often than every 5 seconds and
+  incoming every 8; `/8v8 calls off` silences them. Not in it yet: mez landed, purge used,
+  and anything the player says back (M9.3).
 - [ ] **M9.3** (M) Owner's calls: `/call` macros for target, push, retreat, control that one,
   regroup. The squad brain treats them as its own decisions.
 - [ ] **M9.4** (M) `/8v8` play session: pick the enemy realm and group, enemy roams the arena,

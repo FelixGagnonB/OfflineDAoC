@@ -246,6 +246,8 @@ namespace DOL.GS
             {
                 Order = order;
                 _orderSince = now;
+                if (FightStarted || order == PvpOrder.Hold)
+                    Call(_members.FirstOrDefault(member => member.IsAlive), "order", PvpCalls.Order(order), PvpCalls.OrderEveryMilliseconds);
                 if (PvpObserver.Any && _members.FirstOrDefault(member => member.IsAlive) is { } voice)
                     PvpObserver.Say(voice, $"{PvpObserver.Realm(voice)} order: {order}" + (order == PvpOrder.Hold ? $" ({Incoming})"
                         : FightStarted ? $" (its healers free {Own.HealersFreeShare:0%}, enemy healers free {Theirs.HealersFreeShare:0%}, " +
@@ -289,6 +291,9 @@ namespace DOL.GS
                 else if (_members.FirstOrDefault(member => member.IsAlive) is { } witness)
                     PvpRecorder.Decision(witness, new { kind = "TrainedPlayer", d = now.Name, score = attackers[chosen] }, [], null);
                 PvpObserver.Say(now, $"{PvpObserver.Name(now)} is being trained: {attackers[chosen]} on it");
+                if (PvpCalls.WorthIncoming(attackers[chosen]))
+                    Call(now is GameBot ? now : _members.FirstOrDefault(member => member.IsAlive), "incoming",
+                        PvpCalls.Incoming(now.Name, attackers[chosen], now is not GameBot), PvpCalls.IncomingEveryMilliseconds);
             }
             Trained = now;
         }
@@ -303,6 +308,38 @@ namespace DOL.GS
             _everyEnemy.Any(enemy => enemy.IsAlive && member.IsWithinRadius(enemy, range));
 
         private IReadOnlyList<GameLiving> _everyEnemy = [];
+
+        // When each kind of call was last said in group chat.
+        private readonly Dictionary<string, long> _lastCall = new();
+
+        /// <summary>
+        /// A call in group chat to the players of the group (bots/pvp/PvpCalls.cs), said by one of
+        /// its bots. Nothing is said in a group of bots only. Never throws: a chat line must not
+        /// be able to stop a fight.
+        /// </summary>
+        private void Call(GameLiving speaker, string kind, string text, int every = 0)
+        {
+            try
+            {
+                if (speaker == null || !_allies.Any(ally => ally is GamePlayer))
+                    return;
+                long now = GameLoop.GameLoopTime;
+                lock (_lastCall)
+                {
+                    if (!PvpCalls.Due(now, _lastCall.GetValueOrDefault(kind), every))
+                        return;
+                    _lastCall[kind] = now;
+                }
+                foreach (GamePlayer player in _allies.OfType<GamePlayer>())
+                {
+                    if (player.Client?.IsPlaying == true && !player.TempProperties.GetProperty<bool>(PvpCalls.OffProperty))
+                        player.Out.SendMessage($"[Party] {speaker.Name}: \"{text}\"", PacketHandler.eChatType.CT_Group, PacketHandler.eChatLoc.CL_ChatWindow);
+                }
+            }
+            catch (Exception)
+            {
+            }
+        }
 
         public void Decide(IReadOnlyList<GameLiving> enemies)
         {
@@ -363,7 +400,10 @@ namespace DOL.GS
                 }
                 // The call is recorded when it changes, with what else could have been called.
                 if (target != current && target != null)
+                {
                     PvpObserver.Say(dealers[0], $"{PvpObserver.Realm(dealers[0])} calls {PvpObserver.Name(target)}, at {target.HealthPercent}% health");
+                    Call(dealers[0], "assist", PvpCalls.Assist(target.Name, PvpMember.ClassOf(target), target.HealthPercent));
+                }
                 if (target != current && target != null)
                     PvpRecorder.Call(team[0], target, PvpKillTarget.Score(views[chosen], kill), current,
                         views.OrderByDescending(view => PvpKillTarget.Score(view, kill)).Take(4).Select(view => (object)new
@@ -398,7 +438,10 @@ namespace DOL.GS
                 if (FightStarted && bot.IsAlive && bot.MaxMana > 0)
                 {
                     if (bot.ManaPercent < 10 && OutOfPower.Add(bot))
+                    {
                         PvpObserver.Say(bot, $"{PvpObserver.Name(bot)} is out of power");
+                        Call(bot, "power-" + bot.Name, PvpCalls.OutOfPower);
+                    }
                     else if (bot.ManaPercent >= 30)
                         OutOfPower.Remove(bot);
                 }
@@ -740,6 +783,7 @@ namespace DOL.GS
                 Gathering.Add(caster);
                 PvpRecorder.Decision(caster, new { kind = "GatherOn", spell = spell.Name, score = onBackline }, [], null);
                 PvpObserver.Say(caster, $"{PvpObserver.Realm(caster)} gathers on {PvpObserver.Name(caster)}: {onBackline} pets on its healers and casters");
+                Call(caster, "gather", PvpCalls.Gather(onBackline));
             }
             long now = GameLoop.GameLoopTime;
             var nav = PathfindingProvider.Instance;
