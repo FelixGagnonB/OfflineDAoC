@@ -163,7 +163,8 @@ def sheets(path, out, start, step, panels):
                 if snap.get("casting"):
                     draw.ellipse([x - 3, y - 3, x + 3, y + 3], fill=(255, 255, 255))
                 health = 100 * snap["hp"] // max(1, snap_max(seconds, name))
-                label = "%s %d" % (cls[:3], health)
+                # The human member of a play session stands out from the bots of its class.
+                label = "%s %d" % ("YOU" if bots[name].get("player") else cls[:3], health)
                 draw.text((x + 12, y - 9), label, fill=(25, 25, 25), font=small)
         legend = ("triangle fighter, square healer, circle caster; white dot casting; ring: yellow mezzed, orange stunned, brown rooted or snared; "
                   "x dead; black frame = a kill target; number = health %; thin line = its target; pale tail = the last 3 s; north is up")
@@ -231,7 +232,7 @@ function draw(s){
     else if(healers.has(c)){g.rect(x-9,y-9,18,18);} else {g.arc(x,y,9,0,7);}
     g.fill(); g.stroke();
     if(p.c){g.fillStyle="#fff"; g.beginPath(); g.arc(x,y,3.5,0,7); g.fill();}
-    g.fillStyle="#222"; g.font="13px Segoe UI"; g.fillText(c.slice(0,3),x+12,y+4);}
+    g.fillStyle="#222"; g.font=(D.bots[n].you?"bold ":"")+"13px Segoe UI"; g.fillText(D.bots[n].you?"YOU":c.slice(0,3),x+12,y+4);}
   document.getElementById("clock").textContent=(s>=0?"+":"")+s+" s";
   let o=""; for(const t of ["A","B"]){const q=squad(s,t); const r=D.realm[t];
     o+='<b style="color:'+colour[r]+'">'+r[0].toUpperCase()+r.slice(1)+"</b>: "+(q?q.order:"?")+(q&&q.kill&&D.bots[q.kill]?", kill "+D.bots[q.kill].cls+" ("+q.kill+")":"")+(q&&q.trained&&D.bots[q.trained]?", trained "+D.bots[q.trained].cls:"")+" &nbsp; ";}
@@ -262,7 +263,7 @@ def page(path, out):
                                                   ("; %s, alive %s/%s" % (end.get("End"), end.get("AliveA"), end.get("AliveB"))) if end else " (not finished)"),
         "from": start, "to": last, "realm": realm,
         "order": sorted(bots, key=lambda n: (bots[n]["team"], shape(bots[n]["cls"]), bots[n]["cls"])),
-        "bots": {n: {"cls": b["cls"], "build": b["build"], "team": b["team"], "hp": snap_max(seconds, n),
+        "bots": {n: {"cls": b["cls"], "build": b["build"], "team": b["team"], "you": bool(b.get("player")), "hp": snap_max(seconds, n),
                      "pow": max((snap[n]["pow"] for snap in seconds.values() if n in snap), default=0)} for n, b in bots.items()},
         "seconds": {s: {n: {"x": p["x"], "y": p["y"], "a": p["alive"], "h": p["hp"], "p": p["pow"], "e": p["end"], "m": p["mez"], "s": p["stun"],
                             "r": p["root"], "c": p["casting"], "mv": p["moving"], "t": p.get("target")} for n, p in snaps.items()}
