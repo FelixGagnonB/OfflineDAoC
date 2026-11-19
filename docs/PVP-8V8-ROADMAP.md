@@ -2031,6 +2031,29 @@ In order:
    the referee and `pvp_replay.py` read a session cleanly waits for the first real one.
 6. [ ] The roaming start for both sides (M8.4): who sees whom first depends on where a group
    is facing.
+   *Progress 2026-11-19, from the owner's first evening of play* (ten sessions as a Cleric
+   and a Hibernian healer; "it's fun tho", "I think the bots are mathematically good"). Facing
+   is still not in it; what changed is the shape of a group off the fight (`PvpFormation.cs`):
+   - *"We are way too tight on initial contact."* Counted in six sessions: every companion
+     within 160 units of the player eight seconds before the first blow, all eight inside one
+     area mez, and two to seven still at the first blow (the enemy: one to three). With an
+     enemy within 6,500 units the companions now take two rows around the player, the player's
+     place left free; in a lane they start in them. **Not yet seen with a player.**
+   - *"The opposite team runs as a two-lane rectangle in the basin."* On the road in the basin a
+     group runs as a loose clump (neighbours about 300 apart) and takes its rows on sight.
+     Checked in three bots-only basin matches: at the first blow neighbours 307 to 488 apart
+     and two or three members in one mez, as in the lanes (450 and two). A first try with a
+     tight clump (130) left both groups in a ball three seconds before contact, and was dropped.
+   - *"The bard is not playing endurance as we roam... it does not need to cast speed over
+     and over."* Off the fight the Bard holds one song: speed on the road (it had re-cast it 24
+     times in 85 seconds, slipping resistance hymns in), endurance with an enemy within 9,000
+     units. In the third match the song was up five seconds before the first blow.
+   Found on the way: a companion healer walked back to the player's side between casts, in
+   fights too (the owner: "stuck to me most of the fight doing nothing"; it moved 65% of the
+   time and cast a third less than the same build among bots). Off in a fight since.
+   Open from these sessions, counted once each and not acted on: casters out of power within
+   60 to 80 seconds; the Armsman swinging without a style on full endurance (10 of 16 hits);
+   the bots healing the player very little (116 and 186 points in two fights).
 7. [ ] Calls (M9.2, M9.3).
 
 - [ ] **M9.1** (M) A lasting companion roster built around the owner's class, earning realm points

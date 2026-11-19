@@ -16,8 +16,12 @@ namespace DOL.GS
     {
         /// <summary>The enemy is seen from this far in the open basin, to form up and to turn towards it.</summary>
         public const int FormRange = 6_500;
-        /// <summary>Neighbours in the travelling clump are about this far apart.</summary>
-        public const int TravelSpacing = 130;
+        /// <summary>
+        /// Neighbours in the travelling clump are about this far apart. Loose on purpose: at 130 the
+        /// first recorded match had both groups still in a ball three seconds before the first blow
+        /// (four or five members inside one area mez), with no time left to take their rows.
+        /// </summary>
+        public const int TravelSpacing = 300;
         /// <summary>The travelling clump aims this far ahead of where the group is.</summary>
         public const int TravelLead = 3_000;
 

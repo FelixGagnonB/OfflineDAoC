@@ -431,6 +431,8 @@ namespace DOL.GS
         // Healers that stayed back on incoming in the current match, to record it once each.
         private readonly HashSet<GameBot> _hungBack = [];
         private readonly HashSet<GameBot> _stoodAtRange = [];
+        // Whether each side had an enemy in sight at its last march, to catch the moment one comes into sight.
+        private bool _sawEnemyA, _sawEnemyB;
         // A play session: the player who leads side A, with seven companions in place of a group of eight.
         private readonly GamePlayer _leader;
         internal GamePlayer Leader => _leader;
@@ -483,10 +485,19 @@ namespace DOL.GS
             else if (_leader.IsWithinRadius(new Point2D(spawnB.X, spawnB.Y), PvpFormation.FormRange + 1_500) &&
                      LeaderPlaces(_teamA, new Vector3(spawnB.X, spawnB.Y, _leader.Z)) is { } start)
             {
-                // Face to face in a lane: there is no way to the enemy on which to spread out.
+                // Face to face in a lane: there is no way to the enemy on which to spread out. They
+                // keep these places while the groups buff, and do not walk back to the player's side.
                 foreach ((GameBot bot, Vector3 place) in start)
+                {
+                    bot.StopFollowing();
                     bot.MoveTo(bot.CurrentRegionID, (int)Math.Round(place.X), (int)Math.Round(place.Y), (int)Math.Round(place.Z),
                         bot.GetHeading(new Point2D(spawnB.X, spawnB.Y)));
+                    if (bot.Brain is BotBrain brain)
+                    {
+                        brain.PvpSpreadOut = true;
+                        brain.FSM.SetCurrentState(eFSMStateType.IDLE);
+                    }
+                }
             }
             FormUp(_teamB, spawnA);
             PvpWeights drawA = _vary > 0 ? PvpWeightDraw.Vary(PvpWeights.Current, Random.Shared, _vary, _spread) : null;
@@ -722,6 +733,9 @@ namespace DOL.GS
             }
             // On the road in the basin it runs as a clump; it takes its rows when the enemy is in sight.
             places = basin && seen.Count == 0 ? TravelPlaces(members, goal) : SpreadPlaces(members, goal);
+            bool sawBefore = team == _teamA ? _sawEnemyA : _sawEnemyB;
+            bool sighted = seen.Count > 0 && !sawBefore;
+            if (team == _teamA) _sawEnemyA = seen.Count > 0; else _sawEnemyB = seen.Count > 0;
             foreach (GameBot bot in team)
             {
                 if (!bot.IsAlive || bot.IsCasting || bot.IsIncapacitated)
@@ -773,7 +787,8 @@ namespace DOL.GS
                     behind.ClearAggroList();
                     behind.FSM.SetCurrentState(eFSMStateType.IDLE);
                 }
-                if (bot.IsMoving && GameLoop.GameLoopTime % 4_000 >= 1_000)
+                // The moment the enemy comes into sight the order to take the rows goes out at once.
+                if (!sighted && bot.IsMoving && GameLoop.GameLoopTime % 4_000 >= 1_000)
                     continue;
                 bot.PathTo(places != null && places.TryGetValue(bot, out Vector3 place) ? place : goal, bot.MaxSpeed);
             }

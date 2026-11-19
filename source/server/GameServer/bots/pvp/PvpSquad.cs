@@ -294,8 +294,19 @@ namespace DOL.GS
         }
 
         /// <summary>The group's decisions for this second: what it sees, who is being trained, kill target, interrupt duty, guard and peel.</summary>
+        /// <summary>
+        /// An enemy of the match is this near a member, seen or not. Only for what has to be made
+        /// ready before the enemy is in sight (the Bard's endurance song): everything the group
+        /// decides is about <see cref="Known"/>.
+        /// </summary>
+        public bool EnemyWithin(GameLiving member, int range) =>
+            _everyEnemy.Any(enemy => enemy.IsAlive && member.IsWithinRadius(enemy, range));
+
+        private IReadOnlyList<GameLiving> _everyEnemy = [];
+
         public void Decide(IReadOnlyList<GameLiving> enemies)
         {
+            _everyEnemy = enemies;
             List<GameLiving> known = Look(enemies);
             Known = known;
             FindTrained(known);

@@ -352,11 +352,13 @@ namespace DOL.GS
 
         /// <summary>
         /// A Bard on the road plays speed; with an enemy this near it changes to its endurance
-        /// song, so that the song is up when the fight begins. 7,000 units is about five seconds
-        /// of two groups running at each other before they are in reach, against a three-second
-        /// cast. 0 leaves the change to when the enemy is seen.
+        /// song, so that the song is up when the fight begins. Two groups running at each other
+        /// close about 950 units a second, the change takes the Bard about three seconds to begin
+        /// and the song three to cast: at 7,000 it was up one second before the first blow (one
+        /// recorded match in the basin, 2026-11-19), so 9,000. 0 leaves the change to when the
+        /// enemy is seen.
         /// </summary>
-        public int EnduranceSongWhenEnemyWithin { get; set; } = 7_000;
+        public int EnduranceSongWhenEnemyWithin { get; set; } = 9_000;
 
         /// <summary>What a shield fighter weighs when it picks whom to guard and whom to go for.</summary>
         public PvpPeelWeights Peel { get; set; } = new();

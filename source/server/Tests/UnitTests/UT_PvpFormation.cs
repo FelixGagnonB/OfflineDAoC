@@ -39,11 +39,12 @@ namespace DOL.UnitTests
         public void TheTravellingClumpIsLooseAndHasNoRows()
         {
             Vector2[] places = Enumerable.Range(0, 8).Select(index => PvpFormation.TravelOffset(index, PvpFormation.TravelSpacing)).ToArray();
-            // Eight members fit in a disc well inside the reach of their speed song.
-            Assert.That(places.Max(place => place.Length()), Is.LessThan(400));
-            // Nobody stands on anybody.
+            // Eight members fit in a disc well inside the reach of their speed song (2,000).
+            Assert.That(places.Max(place => place.Length()), Is.LessThan(900));
+            // An area mez reaches about 350 units: on the road no member has more than two others that near.
             float nearest = places.SelectMany((a, i) => places.Where((_, j) => j != i).Select(b => Vector2.Distance(a, b))).Min();
-            Assert.That(nearest, Is.GreaterThan(100));
+            Assert.That(nearest, Is.GreaterThan(250));
+            Assert.That(places.Max(a => places.Count(b => Vector2.Distance(a, b) <= 350)), Is.LessThanOrEqualTo(3));
             // No two members level with each other, ahead or across: it is not rows and columns.
             Assert.That(places.Select(place => Math.Round(place.X / 20)).Distinct().Count(), Is.EqualTo(8));
             Assert.That(places.Select(place => Math.Round(place.Y / 20)).Distinct().Count(), Is.EqualTo(8));
