@@ -16,6 +16,17 @@ namespace DOL.AI.Brain
     {
         /// <summary>The enemy group as the squad brain sees it; null without a squad brain.</summary>
         public IReadOnlyList<GameLiving> PvpEnemies { get; set; }
+
+        /// <summary>
+        /// Set while a companion of a play session stands in its place around the player with the
+        /// enemy in sight (bots/pvp/PvpScrim.cs): the companion rules that walk it back to the
+        /// player's side are off for as long.
+        /// </summary>
+        public bool PvpSpreadOut { get; set; }
+
+        /// <summary>An enemy of the 8v8 match is this near, seen or not: for what has to be ready before the fight (a song).</summary>
+        private bool PvpEnemyWithin(int range) =>
+            PvpEnemies?.Any(enemy => enemy.IsAlive && Body.IsWithinRadius(enemy, range)) == true;
         /// <summary>The group's called kill target, for every member (an interrupter's own aim is PvpAssignedTarget).</summary>
         public GameLiving PvpKillTarget { get; set; }
 

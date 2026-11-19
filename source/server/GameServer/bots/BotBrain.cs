@@ -2222,6 +2222,8 @@ namespace DOL.AI.Brain
                              bot.PersistentRecord?.Activity?.Contains("travel", StringComparison.OrdinalIgnoreCase) == true ||
                              bot.PersistentRecord?.Activity?.Contains("walking", StringComparison.OrdinalIgnoreCase) == true;
 
+            bool pvpBardEnemyNear = pvpBardPlays && (PvpSquad?.Known.Count > 0 ||
+                PvpEnemyWithin(PvpWeights.Of(bot).EnduranceSongWhenEnemyWithin));
             IEnumerable<Spell> songCandidates = (bot.MiscSpells ?? [])
                 .Concat(bot.InstantMiscSpells ?? [])
                 .Where(spell => spell != null && spell.IsPulsing && !spell.IsHarmful &&
@@ -2233,7 +2235,13 @@ namespace DOL.AI.Brain
                 .Where(spell => spell.SpellType != eSpellType.SpeedEnhancement || !immediateCombat && (traveling || groupedSupport))
                 // No speed song once an 8v8 fight is on (a Minstrel began one 37 s into a fight, an enemy 275 units away).
                 .Where(spell => spell.SpellType != eSpellType.SpeedEnhancement || !PvpHeldBackInFight(spell))
-                .Where(spell => !pvpSongBounded || spell.SpellType == eSpellType.EnduranceRegenBuff);
+                .Where(spell => !pvpSongBounded || spell.SpellType == eSpellType.EnduranceRegenBuff)
+                // Off the fight an 8v8 Bard holds one song and lets it play: speed on the road, endurance
+                // once the enemy is near. Slipping its three resistance hymns in between made it cast the
+                // speed song again every three and a half seconds (24 times in 85 seconds of roaming;
+                // the owner, 2026-11-19: "it does not need to cast speed over and over").
+                .Where(spell => !pvpBardPlays || immediateCombat ||
+                                spell.SpellType == (pvpBardEnemyNear ? eSpellType.EnduranceRegenBuff : eSpellType.SpeedEnhancement));
             if (ownerMoving)
                 songCandidates = songCandidates.GroupBy(spell => spell.SpellType)
                     .Select(group => group.OrderByDescending(spell => spell.Level)
@@ -2242,7 +2250,13 @@ namespace DOL.AI.Brain
                 // The owner, 2026-11-18: speed and endurance while the group runs around, until contact;
                 // from then on only endurance matters, and a song that is up stays up. So once the
                 // enemy is in sight the endurance song is the one to start: playing when the fight begins.
-                .OrderByDescending(spell => pvpBardPlays && (immediateCombat || PvpSquad?.Known.Count > 0) &&
+                // The owner again, 2026-11-19, after roaming the basin with a Bard: "on initial contact it
+                // cannot cast it and so we end up with no endurance song during the fight". Speed and
+                // endurance are both three-second casts on different instruments and last five and six
+                // seconds, so they cannot be twisted without the speed dropping; in five sessions the
+                // Bard began the endurance song 0 or 1 times before the first blow, at 4,500 units. It now
+                // changes to it from PvpWeights.EnduranceSongWhenEnemyWithin, and the speed lasts out its six seconds.
+                .OrderByDescending(spell => pvpBardPlays && (immediateCombat || pvpBardEnemyNear) &&
                                             spell.SpellType == eSpellType.EnduranceRegenBuff)
                 .ThenByDescending(spell => spell.SpellType == eSpellType.SpeedEnhancement && !immediateCombat)
                 .ThenByDescending(spell => groupedSupport && spell.Target is eSpellTarget.GROUP or eSpellTarget.REALM)
@@ -2784,7 +2798,7 @@ namespace DOL.AI.Brain
                         return;
                     }
 
-                    if (!_brain.Body.IsWithinRadius(leader, 650))
+                    if (!_brain.PvpSpreadOut && !_brain.Body.IsWithinRadius(leader, 650))
                     {
                         _brain.FSM.SetCurrentState(eFSMStateType.FOLLOW);
                         return;
@@ -2814,6 +2828,13 @@ namespace DOL.AI.Brain
                 if (_brain.HasAggro)
                 {
                     _brain.FSM.SetCurrentState(eFSMStateType.AGGRO);
+                    return;
+                }
+
+                // An 8v8 companion in its place around the player, the enemy in sight, does not go back to the player's side.
+                if (_brain.PvpSpreadOut)
+                {
+                    _brain.FSM.SetCurrentState(eFSMStateType.IDLE);
                     return;
                 }
 
@@ -3682,7 +3703,7 @@ namespace DOL.AI.Brain
             // 8v8 fight: there the squad places it, and the walk back kept the owner's second Cleric
             // at the owner's side, moving two seconds in three and out of reach of the rest of the
             // group (first play sessions, 2026-11-19). Before the fight it travels with the player.
-            if (BotBody.IsPlayerLedGroup && PvpSquad?.FightStarted != true)
+            if (BotBody.IsPlayerLedGroup && PvpSquad?.FightStarted != true && !PvpSpreadOut)
             {
                 if (!Body.IsCasting && Body.castingComponent?.HasPendingSkillRequests != true)
                     FollowFormation();

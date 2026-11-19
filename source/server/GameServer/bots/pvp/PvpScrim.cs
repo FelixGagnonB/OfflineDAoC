@@ -480,6 +480,14 @@ namespace DOL.GS
             _squadB = _squadBrainB ? new PvpSquad(_teamB) : null;
             if (_leader == null)
                 FormUp(_teamA, spawnB);
+            else if (_leader.IsWithinRadius(new Point2D(spawnB.X, spawnB.Y), PvpFormation.FormRange + 1_500) &&
+                     LeaderPlaces(_teamA, new Vector3(spawnB.X, spawnB.Y, _leader.Z)) is { } start)
+            {
+                // Face to face in a lane: there is no way to the enemy on which to spread out.
+                foreach ((GameBot bot, Vector3 place) in start)
+                    bot.MoveTo(bot.CurrentRegionID, (int)Math.Round(place.X), (int)Math.Round(place.Y), (int)Math.Round(place.Z),
+                        bot.GetHeading(new Point2D(spawnB.X, spawnB.Y)));
+            }
             FormUp(_teamB, spawnA);
             PvpWeights drawA = _vary > 0 ? PvpWeightDraw.Vary(PvpWeights.Current, Random.Shared, _vary, _spread) : null;
             PvpWeights drawB = _vary > 0 ? PvpWeightDraw.Vary(PvpWeights.Current, Random.Shared, _vary, _spread) : null;
@@ -602,11 +610,35 @@ namespace DOL.GS
         /// </summary>
         private void TravelWithLeader()
         {
+            // The enemy is in sight: the companions leave the clump they travel in and take their
+            // places in rows around the player, the player's own place left free. In the six
+            // sessions of 2026-11-19 all eight stood inside one area mez eight seconds before the
+            // first blow, and two to seven of them still did at the first blow.
+            List<GameBot> seen = _teamB.Where(enemy => enemy.IsAlive && (_leader.IsWithinRadius(enemy, PvpFormation.FormRange) ||
+                _teamA.Any(bot => bot.IsAlive && bot.IsWithinRadius(enemy, PvpFormation.FormRange)))).ToList();
+            Dictionary<GameBot, Vector3> places = seen.Count == 0 ? null : LeaderPlaces(_teamA.Where(bot => bot.IsAlive).ToList(),
+                new Vector3((float)seen.Average(enemy => enemy.X), (float)seen.Average(enemy => enemy.Y), (float)seen.Average(enemy => enemy.Z)));
             foreach (GameBot bot in _teamA)
             {
+                if (bot.Brain is BotBrain own)
+                    own.PvpSpreadOut = places != null;
                 if (!bot.IsAlive || bot.Brain is not BotBrain brain || bot.IsCasting || bot.IsIncapacitated || bot.InCombat || brain.HasAggro ||
                     _teamB.Any(enemy => enemy.IsAlive && bot.IsWithinRadius(enemy, EngageRange)))
                     continue;
+                if (places != null)
+                {
+                    if (!places.TryGetValue(bot, out Vector3 place))
+                        continue;
+                    if (bot.FollowTarget != null)
+                        bot.StopFollowing();
+                    if (brain.FSM.GetCurrentState()?.StateType == eFSMStateType.FOLLOW)
+                        brain.FSM.SetCurrentState(eFSMStateType.IDLE);
+                    // The player moves, and its places with it: a new order every other second.
+                    if (!bot.IsWithinRadius(new Point3D((int)place.X, (int)place.Y, (int)place.Z), 120) &&
+                        !(bot.IsMoving && GameLoop.GameLoopTime % 2_000 >= 1_000))
+                        bot.PathTo(place, bot.MaxSpeed);
+                    continue;
+                }
                 if (!bot.IsWithinRadius(_leader, BotManager.MAX_FOLLOW_DISTANCE))
                     bot.PathTo(new Vector3(_leader.X, _leader.Y, _leader.Z), bot.MaxSpeed);
                 else if (bot.FollowTarget != _leader)
@@ -662,7 +694,10 @@ namespace DOL.GS
                 }
                 return;
             }
-            List<GameLiving> seen = enemies.Where(enemy => enemy.IsAlive && members.Any(bot => bot.IsWithinRadius(enemy, SpotRange))).ToList();
+            // In the open basin a group sees the other from farther than in a lane, where the two start in sight.
+            bool basin = _arena == PvpArenaBox.EmainSouthEast;
+            int spot = basin ? PvpFormation.FormRange : SpotRange;
+            List<GameLiving> seen = enemies.Where(enemy => enemy.IsAlive && members.Any(bot => bot.IsWithinRadius(enemy, spot))).ToList();
             Vector3 goal;
             Dictionary<GameBot, Vector3> places = null;
             if (seen.Count > 0)
@@ -685,7 +720,8 @@ namespace DOL.GS
                     : nav.GetClosestPoint(zone, new Vector3(next.X, next.Y, 5_000), 256, 256, 20_000, nav.DefaultFilters)
                       ?? new Vector3(next.X, next.Y, (float)members.Average(bot => bot.Z));
             }
-            places = SpreadPlaces(members, goal);
+            // On the road in the basin it runs as a clump; it takes its rows when the enemy is in sight.
+            places = basin && seen.Count == 0 ? TravelPlaces(members, goal) : SpreadPlaces(members, goal);
             foreach (GameBot bot in team)
             {
                 if (!bot.IsAlive || bot.IsCasting || bot.IsIncapacitated)
@@ -741,6 +777,82 @@ namespace DOL.GS
                     continue;
                 bot.PathTo(places != null && places.TryGetValue(bot, out Vector3 place) ? place : goal, bot.MaxSpeed);
             }
+        }
+
+        /// <summary>
+        /// The companions' places around the player once the enemy is in sight: the same two rows
+        /// as <see cref="SpreadPlaces"/>, but set on the player, who goes where it likes. The
+        /// player's row has the player in its middle; the fighters' row is a row's depth nearer
+        /// the enemy than the others'.
+        /// </summary>
+        private Dictionary<GameBot, Vector3> LeaderPlaces(List<GameBot> members, Vector3 enemyCentre)
+        {
+            var centre = new Vector2(_leader.X, _leader.Y);
+            Vector2 toward = new Vector2(enemyCentre.X, enemyCentre.Y) - centre;
+            if (toward.LengthSquared() < 1 || members.Count == 0)
+                return null;
+            toward = Vector2.Normalize(toward);
+            var across = new Vector2(-toward.Y, toward.X);
+            bool leaderFights = PvpMember.IsFighter(_leader);
+            var nav = PathfindingProvider.Instance;
+            var places = new Dictionary<GameBot, Vector3>();
+            Vector3 Ground(GameBot bot, Vector2 point) =>
+                nav.GetFloorBeneath(bot.CurrentZone, new Vector3(point.X, point.Y, 20_000), 20_000, nav.DefaultFilters) is { } floor && floor.Z < 19_999
+                    ? floor : new Vector3(point.X, point.Y, _leader.Z);
+            foreach (IGrouping<bool, GameBot> row in members.GroupBy(bot => PvpMember.ArchetypeOf(bot) == PvpBuffArchetype.Melee))
+            {
+                List<GameBot> inRow = row.ToList();
+                if (!row.Key)
+                {
+                    // The back row: a healer at each end, the casters between them.
+                    List<GameBot> healers = inRow.Where(bot => PvpMember.RoleOf(bot) == PvpRole.Heal).ToList();
+                    if (healers.Count >= 2)
+                        inRow = [healers[0], .. inRow.Where(bot => !healers.Contains(bot)), .. healers.Skip(1)];
+                }
+                float[] offsets = PvpFormation.RowOffsets(inRow.Count, row.Key == leaderFights, SpreadSpacing);
+                // Measured from the player: the fighters' row ahead of a player in the back row, the back row behind a player who fights.
+                float ahead = row.Key == leaderFights ? 0 : row.Key ? BackRowDepth : -BackRowDepth;
+                for (int slot = 0; slot < inRow.Count; slot++)
+                    places[inRow[slot]] = Ground(inRow[slot], centre + across * offsets[slot] + toward * ahead);
+            }
+            // A shield fighter stands beside the member it guards, on the enemy's side of it: guard reaches 256 units.
+            foreach (GameBot bot in members)
+            {
+                GameLiving ward = _squadA?.WardOf(bot);
+                if (ward == _leader && ward != null)
+                    places[bot] = Ground(bot, centre + toward * 100);
+                else if (ward is GameBot wardBot && places.TryGetValue(wardBot, out Vector3 beside))
+                    places[bot] = new Vector3(beside.X + toward.X * 100, beside.Y + toward.Y * 100, beside.Z);
+            }
+            return places;
+        }
+
+        /// <summary>
+        /// Where each member heads while the group travels with no enemy in sight: a loose clump
+        /// some way ahead on the road, healers and casters inside and fighters around them, not
+        /// the rows it fights from.
+        /// </summary>
+        private static Dictionary<GameBot, Vector3> TravelPlaces(List<GameBot> members, Vector3 goal)
+        {
+            var centre = new Vector2((float)members.Average(bot => bot.X), (float)members.Average(bot => bot.Y));
+            Vector2 anchor = PvpFormation.TravelAnchor(centre, new Vector2(goal.X, goal.Y), PvpFormation.TravelLead);
+            Vector2 toward = anchor - centre;
+            if (toward.LengthSquared() < 1)
+                return null;
+            toward = Vector2.Normalize(toward);
+            var across = new Vector2(-toward.Y, toward.X);
+            var nav = PathfindingProvider.Instance;
+            var places = new Dictionary<GameBot, Vector3>();
+            // The same member has the same place every time: by kind, then by name.
+            List<GameBot> ordered = members.OrderBy(bot => PvpMember.ArchetypeOf(bot) == PvpBuffArchetype.Melee).ThenBy(bot => bot.Name, StringComparer.Ordinal).ToList();
+            for (int index = 0; index < ordered.Count; index++)
+            {
+                Vector2 offset = PvpFormation.TravelOffset(index, PvpFormation.TravelSpacing);
+                Vector2 point = anchor + toward * offset.X + across * offset.Y;
+                places[ordered[index]] = nav.GetFloorBeneath(ordered[index].CurrentZone, new Vector3(point.X, point.Y, 20_000), 20_000, nav.DefaultFilters)
+                    is { } floor && floor.Z < 19_999 ? floor : new Vector3(point.X, point.Y, goal.Z);
+            }
+            return places;
         }
 
         /// <summary>
