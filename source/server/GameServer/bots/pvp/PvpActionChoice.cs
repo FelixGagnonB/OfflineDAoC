@@ -28,6 +28,8 @@ namespace DOL.GS
         Amnesia,
         /// <summary>Lowers the target's resistance to the kind of damage the caster's own spells do.</summary>
         Debuff,
+        /// <summary>A ranged area nuke, cast on enemy pets that are on the group's healers and casters.</summary>
+        AreaDamage,
     }
 
     /// <summary>One thing the caster could do now: this kind of spell on this enemy, and what is known about the enemy.</summary>
@@ -54,7 +56,10 @@ namespace DOL.GS
         bool Extending = false,   // the group's order is Extend
         int WalkDanger = 0,       // free enemy fighters near the place the caster would have to walk to
         bool OnTrained = false,   // one of the enemies on the member of the group that is being trained
-        int WalkInsideEdge = 0);  // how far inside the edge distance of the nearest awake enemy the walk would end
+        int WalkInsideEdge = 0,   // how far inside the edge distance of the nearest awake enemy the walk would end
+        bool KillOutOfReach = false, // no kill target is called, or it is beyond this spell's range from where the caster stands
+        bool Rooted = false,      // held by a root or slowed by a spell, which damage would break
+        bool PetOnBackline = false); // the target is an enemy pet in melee on one of the group's healers or casters
 
     /// <summary>
     /// The numbers behind the choice. Every one is a weight added to an option's score, so none is
@@ -84,7 +89,7 @@ namespace DOL.GS
             // Debuff (owner, 2026-11-18): the tri-spec Cabalist has a body resistance debuff, for
             // when the casters kill a target together.
             ["Cabalist"] = new() { ["Nearsight"] = 60, ["Disease"] = 70, ["Damage"] = 55, ["Root"] = 30, ["Debuff"] = 45 },
-            ["Runemaster"] = new() { ["Nearsight"] = 75, ["Damage"] = 60, ["Root"] = 30 },
+            ["Runemaster"] = new() { ["Nearsight"] = 75, ["Damage"] = 60, ["Root"] = 30, ["AreaDamage"] = 40 },
             ["Theurgist"] = new() { ["Pet"] = 70, ["Damage"] = 30, ["Root"] = 30 },
             // Main mezzers (owner, 2026-11-16): Sorcerer, Bard, Pacification Healer. The Healer's entry
             // serves both its specs: the Mending Healer simply has fewer of the spells.
@@ -171,6 +176,57 @@ namespace DOL.GS
         public int DebuffOnKillTarget { get; set; } = 50;
         public int DamageOnKillTarget { get; set; } = 30;
         public int DamageOffKillTarget { get; set; } = -60;    // spread damage kills nobody
+        /// <summary>
+        /// In place of the above while the kill target is beyond the spell's range, or none is
+        /// called: the caster works on what it can reach. The owner, watching on 2026-11-19: the
+        /// "Enchanter was standing most of the fight, not doing anything". Once the two back
+        /// lines stood apart the fighters' target was beyond the casters' range for 34 to 62% of
+        /// the turns a caster found nothing to cast, and damage on anybody else never reached the
+        /// bar: an enemy fighter in range scored -4, a healer or caster 24, against 50. The
+        /// Enchanter stood free to act for 24% of its life and cast for 17%.
+        /// </summary>
+        public int DamageOffKillTargetOutOfReach { get; set; } = -5;
+        /// <summary>
+        /// Damage on an enemy pet that is in melee on one of the group's healers or casters, in
+        /// place of the kill-target terms. The owner, watching Albion against Hibernia on
+        /// 2026-11-19: two Albion casters had a Druid's pet on them, "and they just ran away and
+        /// stood still. They could always quickcast or staff or someone dd or attack the pet.
+        /// They are really weak". In that match a lynx was on the Cabalist for 71 seconds and
+        /// attacked it 24 times; the Cabalist cast nothing in that time and nobody attacked the
+        /// lynx. With this a nuke on such a pet outscores one on a kill target at full health.
+        /// The Theurgist's pets are left to the point-blank spells (bots/pvp/PvpPetClear.cs).
+        /// </summary>
+        public int DamageOnPetOnBackline { get; set; } = 35;
+        /// <summary>
+        /// A ranged area nuke on enemy pets that are on the group's healers and casters, for each
+        /// pet inside it (two at least, and nobody asleep in it). The owner, 2026-11-19, on what
+        /// Midgard did about a Theurgist: "Runemaster should have an AoE, similar to the
+        /// Eldritch." On this server the Runemaster's is not point-blank: Odin's Hatred (level 44
+        /// of the Runecarving line) does 158 damage 350 units around a target up to 1,500 away.
+        /// Albion's pets attacked Midgard's healers about 135 times a match with no answer.
+        /// </summary>
+        public int AreaDamagePerPet { get; set; } = 20;
+        /// <summary>
+        /// A healer or caster that cannot cast because an enemy pet is hitting it hits the pet
+        /// with its staff (the owner, the same day).
+        /// </summary>
+        public bool StaffThePetOnMe { get; set; } = true;
+        /// <summary>
+        /// A caster drops the mez, stun or root it is casting when its target has meanwhile been
+        /// put to sleep, stunned or rooted by somebody else, or has become immune, as a player
+        /// who sees the immunity go up stops casting. In 24 matches at rank 5, of 78 mezzes begun
+        /// on an enemy fighter in the first fifteen seconds 19 were finished on a target that
+        /// had become immune during the cast (another mez had landed and been purged): about
+        /// two seconds each, for nothing.
+        /// </summary>
+        public bool DropsAWastedControlCast { get; set; } = true;
+
+        /// <summary>True for a single-target mez, stun or root whose target no longer takes it.</summary>
+        public static bool ControlCastIsWasted(bool mez, bool stun, bool root, bool targetAlive, bool mezzedOrImmune, bool stunnedOrImmune, bool rootedOrImmune) =>
+            !targetAlive || mez && mezzedOrImmune || stun && stunnedOrImmune || root && rootedOrImmune;
+
+        /// <summary>Damage on an enemy that a spell holds or slows, and that is not the kill target, sets it free.</summary>
+        public int DamageBreaksRoot { get; set; } = -60;
         /// <summary>
         /// In place of the above for an instant on a healer or caster that is free to cast: a shout
         /// there is an interrupt, not spread damage. On one already interrupted it stays spread
@@ -265,12 +321,15 @@ namespace DOL.GS
         /// <summary>
         /// Lost by an option the caster would have to walk for, for every 100 units by which the
         /// place it would stop lies inside <see cref="PvpPositionWeights.EdgeDistance"/> of the
-        /// nearest enemy that is awake. A target deep in the enemy's back row is in range only
+        /// nearest enemy healer or caster that is awake (a fighter there is the walk's danger,
+        /// above). A target deep in the enemy's back row is in range only
         /// from among their front casters: in the twelve check matches of the night of 2026-11-18
         /// a caster walked toward a target 23 times in the first minute, and the two back lines
         /// still closed from 1,180 units at twenty seconds to 875 at forty-five. 0 = as before.
+        /// At 8 the lines still closed to 1,010; 16 is part of what kept them apart
+        /// (<see cref="PvpPositionWeights.EdgeDistance"/>).
         /// </summary>
-        public double WalkInsideEdgePerHundred { get; set; } = 8;
+        public double WalkInsideEdgePerHundred { get; set; } = 16;
         /// <summary>Enemies farther than this are not considered at all.</summary>
         public int ConsiderRange { get; set; } = 3_500;
         /// <summary>
@@ -311,6 +370,9 @@ namespace DOL.GS
 
         /// <summary>Whom the group calls as its kill target (bots/pvp/PvpKillTarget.cs).</summary>
         public PvpKillWeights Kill { get; set; } = new();
+
+        /// <summary>What the group does about enemy pets (bots/pvp/PvpPetClear.cs).</summary>
+        public PvpPetWeights Pets { get; set; } = new();
 
         /// <summary>How the group reads the fight into an order (bots/pvp/PvpReading.cs).</summary>
         public PvpOrderWeights Order { get; set; } = new();
@@ -407,6 +469,7 @@ namespace DOL.GS
             // Worth a turn only while somebody inside it is casting.
             PvpActionKind.Amnesia => option.Caught > 0,
             PvpActionKind.Debuff => option.IsKill && !option.HasEffect,
+            PvpActionKind.AreaDamage => option.Caught >= 2,
             _ => true,
         };
 
@@ -442,10 +505,13 @@ namespace DOL.GS
                     score += option.IsKill ? weights.DebuffOnKillTarget : 0;
                     break;
                 case PvpActionKind.Damage:
-                    score += option.IsKill
+                    score += option.PetOnBackline ? weights.DamageOnPetOnBackline
+                        : option.IsKill
                         ? weights.DamageOnKillTarget + weights.DamagePerMissingHealth * (100 - option.HealthPercent)
                         : option.Instant && soft && !option.Interrupted ? weights.InstantDamageOnFreeCaster
+                        : option.KillOutOfReach ? weights.DamageOffKillTargetOutOfReach
                         : weights.DamageOffKillTarget;
+                    score += option.Rooted && !option.IsKill ? weights.DamageBreaksRoot : 0;
                     score += option.PowerPercent < weights.LowPowerPercent ? weights.DamageOnLowPower : 0;
                     break;
                 case PvpActionKind.Root:
@@ -470,6 +536,9 @@ namespace DOL.GS
                     break;
                 case PvpActionKind.Pet:
                     score += soft ? weights.PetOnCasterOrHealer : weights.PetOnMelee;
+                    break;
+                case PvpActionKind.AreaDamage:
+                    score += weights.AreaDamagePerPet * option.Caught;
                     break;
             }
             if (option.Kind is PvpActionKind.Mez or PvpActionKind.MezArea or PvpActionKind.Stun)

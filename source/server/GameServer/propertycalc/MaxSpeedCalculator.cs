@@ -144,6 +144,10 @@ namespace DOL.GS.PropertyCalc
                     speedIncrease *= 0.2 + healthPercent * (0.8 / 0.33); // 33% HP = full speed, 0% HP = 20% speed
             }
 
+            // An 8v8 bot in a fight sprints, as every player in one did (GameBot.PvpSprinting).
+            if (living is GameBot { PvpSprinting: true })
+                speedIncrease *= SPRINT;
+
             if (living is GameBot && GameRelic.IsPlayerCarryingRelic(living))
                 speedIncrease = Math.Min(speedIncrease, 1.0);
             return (int) Math.Round(maxSpeedBase * speedIncrease);

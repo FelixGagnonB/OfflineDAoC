@@ -8,6 +8,25 @@ namespace DOL.UnitTests
     public class UT_PvpHealPlan
     {
         [Test]
+        public void AHealerWalksToACorpseWhenItIsSafeAndTheLivingAreWell()
+        {
+            // 8.5 deaths and 0.2 resurrections a match: 41 of 137 dead had a healer up that was only too far away.
+            var weights = new PvpHealWeights { ResurrectWalkWithin = 2_500 };
+            Assert.That(new PvpHealWeights().WalksToRaise(2_000, 1_500, true, false, 90, 0), Is.False, "off as the weights are");
+            Assert.Multiple(() =>
+            {
+                Assert.That(weights.WalksToRaise(2_000, 1_500, true, false, 90, 0), Is.True);
+                Assert.That(weights.WalksToRaise(1_200, 1_500, true, false, 90, 0), Is.False, "in reach already: it casts, it does not walk");
+                Assert.That(weights.WalksToRaise(3_000, 1_500, true, false, 90, 0), Is.False, "too far to go for");
+                Assert.That(weights.WalksToRaise(2_000, 1_500, false, false, 90, 0), Is.False, "a resurrection costs half its power");
+                Assert.That(weights.WalksToRaise(2_000, 1_500, true, true, 90, 0), Is.False, "it is being hit");
+                Assert.That(weights.WalksToRaise(2_000, 1_500, true, false, 40, 0), Is.False, "the living come first");
+                Assert.That(weights.WalksToRaise(2_000, 1_500, true, false, 90, 1), Is.False, "an enemy fighter stands at the corpse");
+                Assert.That(new PvpHealWeights { ResurrectWalkWithin = 0 }.WalksToRaise(2_000, 1_500, true, false, 90, 0), Is.False);
+            });
+        }
+
+        [Test]
         public void AHealerRunningLowOnPowerKeepsItsHealsForTheReallyHurt()
         {
             var weights = new PvpHealWeights();

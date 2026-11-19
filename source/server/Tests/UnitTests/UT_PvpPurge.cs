@@ -74,5 +74,29 @@ namespace DOL.UnitTests
             Assert.That(poor.ContainsKey(PvpPurge.GroupPurgeKey) || poor.ContainsKey(AutonomousBotRealmAbilities.Purge), Is.False);
             Assert.That(poor, Is.Not.Empty, "what it cannot pay for yet does not stop it buying the rest");
         }
+
+        [Test]
+        public void ACasterBuysMysticCrystalLoreRightAfterItsPurge()
+        {
+            // The owner, 2026-11-19: power came back from Mystic Crystal Lore and Raging Power; without them "was a rough time".
+            var available = new Dictionary<string, int>
+            {
+                ["AtlasOF_AugAcuity"] = 5, ["AtlasOF_AugCon"] = 5, [AutonomousBotRealmAbilities.Purge] = 1,
+                [AutonomousBotRealmAbilities.Mcl] = 3, [AutonomousBotRealmAbilities.RagingPower] = 1,
+            };
+            int Cost(string key, int level) => key == AutonomousBotRealmAbilities.Purge || key == AutonomousBotRealmAbilities.RagingPower ? 10
+                : key == AutonomousBotRealmAbilities.Mcl ? new[] { 3, 6, 10 }[level] : level + 1;
+            Dictionary<string, int> rank3 = AutonomousBotRealmAbilities.Plan(available, AutonomousBotRealmAbilities.Archetype.Caster, 5, 20, Cost,
+                AutonomousBotRealmAbilities.PvpFirst);
+            Assert.That(rank3[AutonomousBotRealmAbilities.Purge], Is.EqualTo(1));
+            Assert.That(rank3[AutonomousBotRealmAbilities.Mcl], Is.EqualTo(2), "nine points, right after the Purge");
+            Assert.That(rank3.ContainsKey(AutonomousBotRealmAbilities.RagingPower), Is.False, "no points left for it at this rank");
+            // Raging Power is never bought without Mystic Crystal Lore 2.
+            Assert.That(AutonomousBotRealmAbilities.Requirement(AutonomousBotRealmAbilities.RagingPower, 5), Is.EqualTo((AutonomousBotRealmAbilities.Mcl, 2)));
+            // A fighter's class has neither: nothing changes for it.
+            var fighter = new Dictionary<string, int> { ["AtlasOF_AugCon"] = 5, [AutonomousBotRealmAbilities.PurgeReduced] = 1 };
+            Assert.That(AutonomousBotRealmAbilities.Plan(fighter, AutonomousBotRealmAbilities.Archetype.Melee, 44, 20, Cost, AutonomousBotRealmAbilities.PvpFirst)
+                .ContainsKey(AutonomousBotRealmAbilities.Mcl), Is.False);
+        }
     }
 }

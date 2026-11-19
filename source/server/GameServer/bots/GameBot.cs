@@ -53,6 +53,13 @@ namespace DOL.GS
         public PvpTemplate PvpTemplate { get; private set; }
         /// <summary>An ownerless, never-saved level-50 bot of the 8v8 mode.</summary>
         public bool IsPvpBot => PvpBuild != null && Owner == null && PersistentRecord == null;
+
+        /// <summary>
+        /// Set by the squad for an 8v8 bot while its fight is on: it moves at sprint speed
+        /// (propertycalc/MaxSpeedCalculator.cs), as a player with sprint on does. It costs the bot
+        /// no endurance, like all of a bot's movement (PvpPositionWeights.SprintInFights).
+        /// </summary>
+        public bool PvpSprinting { get; set; }
         /// <summary>Specialization points left after training; 8v8 builds are checked to leave only a remainder.</summary>
         public int UnspentSpecPoints => m_leftOverSpecPoints;
         private bool _endgameCompanionEquipped;
@@ -4000,6 +4007,28 @@ namespace DOL.GS
             List<Spell> highestSpellLevels = IsEndgameCompanion
                 ? TemporaryCompanionBalance.HighestRanks(spells, Level, SkillBase.GetSpellByID)
                 : GetHighestLevelSpells(spells);
+
+            // An 8v8 caster whose class uses one (PvpWeights.ClassBase, AreaDamage) also keeps the best area nuke of each line that is aimed at an enemy. The list
+            // above holds one spell of each type and target for a line, so the Runemaster had its level 48
+            // single nuke and not the level 44 area nuke of the same line (seen 2026-11-19: "no such spell").
+            if (IsPvpBot && dict != null && CharacterClass != null &&
+                PvpActionChoice.KindsFor((eCharacterClass)CharacterClass.ID, PvpWeights.Current).Contains(PvpActionKind.AreaDamage))
+            {
+                foreach (var tuple in dict)
+                {
+                    SpellLine line = tuple.Item1;
+                    int trained = line.IsBaseLine ? Level : Math.Min(Level, GetBaseSpecLevel(line.Spec));
+                    Spell area = SkillBase.GetSpellList(line.KeyName)
+                        .Where(candidate => candidate.SpellType == eSpellType.DirectDamage && candidate.Target == eSpellTarget.ENEMY &&
+                                            candidate.Radius > 0 && candidate.Range > 0 && candidate.Level <= trained)
+                        .OrderByDescending(candidate => candidate.Level).FirstOrDefault();
+                    if (area != null && highestSpellLevels.All(known => known.ID != area.ID))
+                    {
+                        highestSpellLevels.Add(area);
+                        _powerSpellLines.TryAdd(area.ID, line);
+                    }
+                }
+            }
 
             if (highestSpellLevels.Count > 0)
                 Spells = highestSpellLevels;

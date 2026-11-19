@@ -81,7 +81,10 @@ namespace DOL.GS
                 L(Specs.Savagery, 49), L(Specs.HandToHand, 44), L(Specs.Parry, 4)),
             Melee("berserker", eCharacterClass.Berserker, eSpecType.LeftAxe, eObjectType.Axe, eObjectType.Axe, false,
                 L(Specs.Left_Axe, 50), L(Specs.Axe, 44), L(Specs.Parry, 37)),
-            Melee("warrior", eCharacterClass.Warrior, eSpecType.Mid, eObjectType.Hammer, eObjectType.GenericItem, false,
+            // A two-handed hammer for damage, shield and one-hander for Slam and guard (owner,
+            // 2026-11-19: the same as the Hero; PvpWeaponSwap.cs). Midgard's two-handers use the
+            // one-hander's line, so the lines are the ones it had.
+            Melee("warrior", eCharacterClass.Warrior, eSpecType.Mid, eObjectType.Hammer, eObjectType.GenericItem, true,
                 L(Specs.Hammer, 50), L(Specs.Shields, 42), L(Specs.Parry, 39)),
             Caster("spiritmaster-dark", eCharacterClass.Spiritmaster, eSpecType.DarkSpirit,
                 L(Specs.Darkness, 47), L(Specs.Suppression, 26), L(Specs.Summoning, 5)),
@@ -95,14 +98,20 @@ namespace DOL.GS
                 L(Specs.Nurture, 42), L(Specs.Regrowth, 33), L(Specs.Nature, 7)),
             Melee("bard", eCharacterClass.Bard, eSpecType.Instrument, eObjectType.Blades, eObjectType.GenericItem, false,
                 L(Specs.Music, 46), L(Specs.Nurture, 43), L(Specs.Regrowth, 19)),
-            Melee("hero", eCharacterClass.Hero, eSpecType.OneHandAndShield, eObjectType.Blades, eObjectType.LargeWeapons, false,
-                L(Specs.Blades, 50), L(Specs.Shields, 42), L(Specs.Parry, 39)),
+            // 50 Large Weapons and 42 Shields (owner, 2026-11-19): the shield and an untrained
+            // blade for Slam and for guard, the two-hander for everything else (PvpWeaponSwap.cs).
+            Melee("hero", eCharacterClass.Hero, eSpecType.TwoHandHybrid, eObjectType.Blades, eObjectType.LargeWeapons, true,
+                L(Specs.Large_Weapons, 50), L(Specs.Shields, 42), L(Specs.Parry, 39)),
             Melee("blademaster", eCharacterClass.Blademaster, eSpecType.DualWield, eObjectType.Blades, eObjectType.Blades, false,
                 L(Specs.Celtic_Dual, 50), L(Specs.Blades, 44), L(Specs.Parry, 37)),
             Caster("eldritch-light", eCharacterClass.Eldritch, eSpecType.LightEld,
                 L(Specs.Light, 45), L(Specs.Mana, 29), L(Specs.Void, 6)),
+            // Light for the nuke, Mana for the point-blank area spell and the heat debuff (owner,
+            // 2026-11-19: "45 Light / 30 Mana / 4 Enchantment"; it had 29 Enchantments and 6 Mana).
+            // 45 and 30 cost 1,498 of a caster's 1,494 points here, so Mana is 29: that keeps the
+            // level 45 nuke, and level 30 would add only a stronger damage shield.
             Caster("enchanter-light", eCharacterClass.Enchanter, eSpecType.LightEnchanter,
-                L(Specs.Light, 45), L(Specs.Enchantments, 29), L(Specs.Mana, 6)),
+                L(Specs.Light, 45), L(Specs.Mana, 29), L(Specs.Enchantments, 6)),
             Melee("warden", eCharacterClass.Warden, eSpecType.NurtureWarden, eObjectType.Blades, eObjectType.GenericItem, false,
                 L(Specs.Nurture, 34), L(Specs.Blades, 39), L(Specs.Regrowth, 28), L(Specs.Parry, 29)),
             Melee("champion", eCharacterClass.Champion, eSpecType.TwoHanded, eObjectType.Blades, eObjectType.LargeWeapons, true,

@@ -31,6 +31,8 @@ namespace DOL.AI.Brain
         /// </summary>
         public long PvpMoveFrom { get; set; }
         public long PvpMoveUntil { get; set; }
+        /// <summary>When this bot last set off, or kept walking, toward a target to cast on it.</summary>
+        public long PvpApproachTick => _pvpApproachTick;
 
         /// <summary>
         /// True while this bot is on such a step. Its brain starts no cast meanwhile: a cast would
@@ -41,11 +43,83 @@ namespace DOL.AI.Brain
             long now = GameLoop.GameLoopTime;
             if (BotBody?.IsPvpBot != true || now >= PvpMoveUntil || Body.IsIncapacitated)
                 return false;
+            // A healer breaks the step off for a member that is badly hurt (PvpPositionWeights.HealerBreaksOffAStepToHeal).
+            if (PvpBreaksOffToHeal())
+            {
+                PvpMoveUntil = 0;
+                Body.StopMovingOnPath();
+                Body.StopMoving();
+                return false;
+            }
             // The path may take a moment to be found.
             if (Body.IsMoving || now - PvpMoveFrom < 400)
                 return true;
             PvpMoveUntil = 0;
             return false;
+        }
+
+        private long _pvpRaiseTick;
+
+        /// <summary>
+        /// A healer walks to within reach of a dead groupmate to raise it, when it has the power, is
+        /// not being hit, nobody alive in its reach is badly hurt and no free enemy fighter stands
+        /// at the corpse (<see cref="PvpHealWeights.WalksToRaise"/>). True when it is on its way.
+        /// </summary>
+        private bool PvpWalkToRaise(Spell resurrection)
+        {
+            if (BotBody?.IsPvpBot != true || PvpEnemies == null || Body.Group == null || resurrection == null ||
+                PvpRoles.Of(BotBody.PvpBuild.Class) != PvpRole.Heal || Body.IsCasting || Body.IsIncapacitated)
+                return false;
+            PvpWeights all = PvpWeights.Of(BotBody);
+            int range = BotBody.castingComponent.CalculateSpellRange(resurrection);
+            bool beingHit = Body.IsBeingInterruptedByOther || PvpEnemies.Any(enemy => enemy.IsAlive && !enemy.IsMezzed && !enemy.IsStunned &&
+                enemy.TargetObject == Body && PvpBuffPlan.ArchetypeOf(enemy.PvpBuild.Class) == PvpBuffArchetype.Melee && enemy.IsWithinRadius(Body, 500));
+            int lowest = 100;
+            foreach (GameLiving member in Body.Group.GetMembersInTheGroup())
+            {
+                if (member != Body && member.IsAlive && member.HealthPercent < lowest && Body.IsWithinRadius(member, all.Position.HealRange + 300))
+                    lowest = member.HealthPercent;
+            }
+            GameLiving corpse = Body.Group.GetMembersInTheGroup()
+                .Where(member => member != Body && !member.IsAlive && member.ObjectState == GameObject.eObjectState.Active &&
+                                 member.CurrentRegionID == Body.CurrentRegionID &&
+                                 member.TempProperties.GetProperty<GameLiving>("RESURRECT_CASTER") == null)
+                .OrderBy(member => Body.GetDistanceTo(member))
+                .FirstOrDefault(member => all.Heal.WalksToRaise((int)Body.GetDistanceTo(member), range,
+                    Body.Mana >= (int)(Body.MaxMana * Math.Max(.1f, .5f + (member.Level - Body.Level) / (float)Math.Max(1, (int)Body.Level))),
+                    beingHit, lowest,
+                    PvpEnemies.Count(enemy => enemy.IsAlive && !enemy.IsMezzed && !enemy.IsStunned &&
+                        PvpBuffPlan.ArchetypeOf(enemy.PvpBuild.Class) == PvpBuffArchetype.Melee &&
+                        enemy.IsWithinRadius(member, all.Heal.ResurrectNoFighterWithin))));
+            if (corpse == null)
+                return false;
+            double distance = Body.GetDistanceTo(corpse);
+            double keep = (range - 150) / distance;
+            Body.WalkTo(new Point3D((int)(corpse.X + (Body.X - corpse.X) * keep), (int)(corpse.Y + (Body.Y - corpse.Y) * keep), Body.Z), Body.MaxSpeed);
+            long now = GameLoop.GameLoopTime;
+            if (now - _pvpRaiseTick >= 3_000)
+            {
+                _pvpRaiseTick = now;
+                PvpRecorder.Decision(BotBody, new { kind = "GoRaise", d = corpse.Name, score = (int)distance }, [], null);
+            }
+            return true;
+        }
+
+        /// <summary>True for a healer with a badly hurt groupmate in reach and no enemy fighter on itself.</summary>
+        public bool PvpBreaksOffToHeal()
+        {
+            if (BotBody?.PvpBuild == null || PvpEnemies == null || Body.Group == null || PvpRoles.Of(BotBody.PvpBuild.Class) != PvpRole.Heal)
+                return false;
+            PvpPositionWeights weights = PvpWeights.Of(BotBody).Position;
+            int lowest = 100;
+            foreach (GameLiving member in Body.Group.GetMembersInTheGroup())
+            {
+                if (member != Body && member.IsAlive && member.HealthPercent < lowest && Body.IsWithinRadius(member, weights.HealRange + 300))
+                    lowest = member.HealthPercent;
+            }
+            bool hunted = PvpEnemies.Any(enemy => enemy.IsAlive && !enemy.IsMezzed && !enemy.IsStunned && enemy.TargetObject == Body &&
+                PvpBuffPlan.ArchetypeOf(enemy.PvpBuild.Class) == PvpBuffArchetype.Melee && enemy.IsWithinRadius(Body, 500));
+            return weights.BreaksOffToHeal(true, hunted, lowest);
         }
 
         /// <summary>The enemy of this bot's last scored choice, the range of the spell chosen, and when: what it must stay in range of.</summary>
@@ -59,6 +133,92 @@ namespace DOL.AI.Brain
         /// one that would land (bots/pvp/PvpStylePolicy.cs).
         /// </summary>
         public bool PvpWantsControlStyle { get; set; }
+
+        /// <summary>
+        /// A fighter that carries a two-hander and a shield takes out the one this moment calls
+        /// for (bots/pvp/PvpWeaponSwap.cs): the shield to Slam a target that can be stunned, and
+        /// to guard while it attacks nobody; the two-hander for the rest. False for every other bot.
+        /// </summary>
+        public bool PvpChooseHands()
+        {
+            if (BotBody?.IsPvpBot != true || !PvpWeaponSwap.Applies(BotBody, out _))
+                return false;
+            if (Body.IsIncapacitated || Body.IsCasting)
+                return true;
+            // The enemy it is swinging at, which is not always the one the squad named: with the
+            // shield out for a kill target it was not on, the Armsman threw 14 one-handed styles
+            // in the first eight matches.
+            GameLiving target = Body.attackComponent.AttackState && Body.TargetObject is GameLiving { IsAlive: true } own ? own
+                : PvpAssignedTarget is { IsAlive: true } aim ? aim : null;
+            if (PvpWeaponSwap.Slot(BotBody, target, PvpSquad?.WardOf(BotBody) != null) is not { } slot || slot == Body.ActiveWeaponSlot)
+                return true;
+            Body.SwitchWeapon(slot);
+            if (PvpSquad?.FightStarted == true)
+                PvpRecorder.Decision(BotBody, new { kind = slot == eActiveWeaponSlot.Standard ? "ShieldOut" : "TwoHander", d = target?.Name, score = 0 }, [], null);
+            return true;
+        }
+
+        /// <summary>
+        /// This bot's best point-blank area damage spell (no range, a radius around the caster);
+        /// null when it has none. The scored choice never casts it: among the damage spells the
+        /// highest level is taken, and that is the caster's own line. It is cast on enemy pets
+        /// (bots/pvp/PvpPetClear.cs).
+        /// </summary>
+        public Spell PvpPointBlank() => BotBody?.IsPvpBot != true ? null : Body.Spells?
+            .Where(spell => spell != null && spell.SpellType == eSpellType.DirectDamage && spell.Range <= 0 && spell.Radius > 0 &&
+                            spell.CastTime > 0 && spell.Level <= Body.Level)
+            .OrderByDescending(spell => spell.Level).FirstOrDefault();
+
+        /// <summary>Casts the point-blank area spell on the enemy pets around this bot. True when the cast began.</summary>
+        public bool PvpBlast(int pets)
+        {
+            if (Body.IsCasting || Body.IsIncapacitated || Body.IsBeingInterrupted || Body.castingComponent?.HasPendingSkillRequests == true ||
+                PvpPointBlank() is not { } spell || Body.GetSkillDisabledDuration(spell) != 0 || Body.Mana < BotBody.PowerCost(spell))
+                return false;
+            Body.StopMovingOnPath();
+            Body.StopMoving();
+            Body.StopAttack();
+            if (!Body.CastSpell(spell, m_mobSpellLine))
+                return false;
+            long now = GameLoop.GameLoopTime;
+            (_pvpLastCast, _pvpLastCastTarget, _pvpLastCastTick) = (spell, null, now);
+            _pvpControlSpellId = spell.ID;
+            _pvpControlCastUntil = now + spell.CastTime + 2_000;
+            PvpRecorder.Decision(BotBody, new { kind = "Blast", spell = spell.Name, score = pets, caught = pets }, [], null);
+            return true;
+        }
+
+        private long _pvpBehindTick;
+
+        /// <summary>
+        /// A fighter in reach of a stunned target walks behind it when it has a style that needs
+        /// the target's back (bots/pvp/PvpWeaponSwap.cs). True when the walk was started: it is
+        /// the bot's turn until it arrives, and the attack goes on.
+        /// </summary>
+        private bool PvpStepBehind(GameLiving target)
+        {
+            if (BotBody?.IsPvpBot != true || PvpSquad == null || target?.IsAlive != true || Body.IsIncapacitated)
+                return false;
+            PvpPositionWeights weights = PvpWeights.Of(BotBody).Position;
+            long now = GameLoop.GameLoopTime;
+            if (!weights.FightersStepBehindStunned || now - _pvpBehindTick < weights.StepBehindEveryMilliseconds)
+                return false;
+            DOL.Database.DbInventoryItem left = BotBody.Inventory?.GetItem(eInventorySlot.LeftHandWeapon);
+            bool backStyle = BotBody.StylesBack?.Any(style => style.Level <= Body.Level && PvpStylePolicy.Allows(BotBody, style) &&
+                BotMeleeStylePolicy.MatchesWeapon(style, Body.ActiveWeapon, left, Body.ActiveWeaponSlot)) == true;
+            int distance = (int)Body.GetDistanceTo(target);
+            if (!PvpWeaponSwap.StepsBehind(target.IsStunned && !target.IsMoving, backStyle, target.GetAngle(Body), distance, Body.MeleeAttackRange))
+                return false;
+            Point2D behind = target.GetPointFromHeading((ushort)((target.Heading + 2048) % 4096), weights.StepBehindDistance);
+            _pvpBehindTick = now;
+            // The follow would stop the walk at once: the fighter is already as near as it follows.
+            Body.StopFollowing();
+            PvpMoveFrom = now;
+            PvpMoveUntil = now + Math.Clamp((long)((distance + weights.StepBehindDistance) / (double)Math.Max(100, (int)Body.MaxSpeed) * 1000) + 300, 600, 2_500);
+            Body.PathTo(new Vector3(behind.X, behind.Y, target.Z), Body.MaxSpeed);
+            PvpRecorder.Decision(BotBody, new { kind = "StepBehind", d = target.Name, score = 0 }, [], null);
+            return true;
+        }
 
         /// <summary>
         /// Set by the squad for a shield fighter it keeps beside its ward and for a fighter it has
@@ -119,7 +279,8 @@ namespace DOL.AI.Brain
         {
             PvpActionKind.Nearsight => spell.SpellType == eSpellType.Nearsight,
             PvpActionKind.Disease => spell.SpellType == eSpellType.Disease,
-            PvpActionKind.Damage => PvpDamageTypes.Contains(spell.SpellType),
+            // Not an area nuke aimed at an enemy: that one is kept for pets (AreaDamage, below).
+            PvpActionKind.Damage => PvpDamageTypes.Contains(spell.SpellType) && !IsPvpSpellOfKind(spell, PvpActionKind.AreaDamage),
             // A root, an area root, or a snare nuke: whichever the class has (the highest level is taken).
             PvpActionKind.Root => spell.SpellType is eSpellType.SpeedDecrease or eSpellType.DamageSpeedDecrease,
             PvpActionKind.Pet => spell.SpellType == eSpellType.SummonTheurgistPet,
@@ -129,6 +290,8 @@ namespace DOL.AI.Brain
             PvpActionKind.CureMez => spell.SpellType == eSpellType.CureMezz,
             PvpActionKind.Amnesia => spell.SpellType == eSpellType.Amnesia,
             PvpActionKind.Debuff => IsPvpResistDebuff(spell),
+            // Aimed at an enemy: a ground-targeted one (Mark of Undoing) was begun 21 times in two matches and never finished.
+            PvpActionKind.AreaDamage => spell.SpellType == eSpellType.DirectDamage && spell.Radius > 0 && spell.Range > 0 && spell.Target == eSpellTarget.ENEMY,
             _ => false,
         };
 
@@ -264,6 +427,20 @@ namespace DOL.AI.Brain
             bool midCast = Body.IsCasting;
             var characterClass = (eCharacterClass)BotBody.CharacterClass.ID;
             PvpWeights weights = PvpWeights.Of(BotBody);
+            // The target of the mez, stun or root it is casting has been dealt with or is immune now: stop, and choose again.
+            if (midCast && weights.DropsAWastedControlCast && _pvpLastCast is { Radius: 0, CastTime: > 0 } running &&
+                _pvpLastCastTarget is GameBot aimedAt && Body.castingComponent?.SpellHandler?.Spell?.ID == running.ID &&
+                running.SpellType is eSpellType.Mesmerize or eSpellType.Stun or eSpellType.SpeedDecrease &&
+                PvpWeights.ControlCastIsWasted(running.SpellType == eSpellType.Mesmerize, running.SpellType == eSpellType.Stun,
+                    running.SpellType == eSpellType.SpeedDecrease, aimedAt.IsAlive, PvpMezzedOrImmune(aimedAt), PvpStunnedOrImmune(aimedAt),
+                    aimedAt.effectListComponent.ContainsEffectForEffectType(eEffect.MovementSpeedDebuff) ||
+                    aimedAt.effectListComponent.ContainsEffectForEffectType(eEffect.SnareImmunity)))
+            {
+                Body.StopCurrentSpellcast();
+                PvpRecorder.Decision(BotBody, new { kind = "DropCast", spell = running.Name, d = aimedAt.Name, score = 0 }, [], null);
+                _pvpLastCast = null;
+                midCast = false;
+            }
             if (!PvpActionChoice.Covers(characterClass, weights))
                 return false;
 
@@ -298,6 +475,8 @@ namespace DOL.AI.Brain
                 .Concat(Body.Spells?.Where(spell => spell?.SpellType == eSpellType.Amnesia) ?? [])
                 // Nor does it list resistance debuffs.
                 .Concat(Body.Spells?.Where(spell => spell != null && IsPvpResistDebuff(spell)) ?? [])
+                // Nor every area nuke: the Runemaster's level 44 one was not in them.
+                .Concat(Body.Spells?.Where(spell => spell != null && IsPvpSpellOfKind(spell, PvpActionKind.AreaDamage)) ?? [])
                 .Where(spell => spell != null).DistinctBy(spell => spell.ID).ToList();
             // A resistance debuff is of use only against the kind of damage this caster's own spells do.
             HashSet<eDamageType> ownDamage = known.Where(spell => IsPvpSpellOfKind(spell, PvpActionKind.Damage)).Select(spell => spell.DamageType).ToHashSet();
@@ -343,6 +522,8 @@ namespace DOL.AI.Brain
                 bool aroundCaster = spell.Target == eSpellTarget.SELF || spell.Range <= 0;
                 int range = aroundCaster ? spell.Radius : spell.CalculateEffectiveRange(Body);
                 int cost = Body.MaxMana > 0 ? 100 * BotBody.PowerCost(spell) / Body.MaxMana : 0;
+                // With the kill target beyond this spell, or none called, the caster works on what it reaches.
+                bool killOutOfReach = kill == null || Body.GetDistanceTo(kill) > range;
                 if (kind == PvpActionKind.CureMez)
                 {
                     for (int friend = 0; friend < friends.Count; friend++)
@@ -365,6 +546,9 @@ namespace DOL.AI.Brain
                     }
                     continue;
                 }
+                // An area nuke is for enemy pets only, below: around an enemy it would wake whoever sleeps beside it.
+                if (kind == PvpActionKind.AreaDamage)
+                    continue;
                 for (int id = 0; id < enemies.Count; id++)
                 {
                     GameBot enemy = enemies[id];
@@ -387,10 +571,13 @@ namespace DOL.AI.Brain
                         // The edge as the group's order has scaled it: wider when it falls back, tighter when it pushes.
                         double edge = weights.Position.EdgeDistance * (PvpSquad?.Order == PvpOrder.Extend ? weights.Order.ExtendSafeFactor
                             : PvpSquad?.Order == PvpOrder.Push ? weights.Order.PushSafeFactor : 1);
+                        // Counted from the enemy's healers and casters only. A fighter beside where the walk
+                        // ends is the walk's danger, below; counted here too, the enemy fighters on this
+                        // group's own front made every walk forward one that "ended among the enemy".
                         float nearest = float.MaxValue;
                         foreach (GameBot other in enemies)
                         {
-                            if (other.IsAlive && !other.IsMezzed)
+                            if (other.IsAlive && !other.IsMezzed && PvpBuffPlan.ArchetypeOf(other.PvpBuild.Class) != PvpBuffArchetype.Melee)
                                 nearest = Math.Min(nearest, Vector2.Distance(end, new Vector2(other.X, other.Y)));
                         }
                         walkInsideEdge = (int)Math.Max(0, edge - nearest);
@@ -441,8 +628,64 @@ namespace DOL.AI.Brain
                         enemy.IsCasting, enemy.IsBeingInterrupted, !mez && enemy.IsMezzed, Body.ManaPercent, cost, walk, caught, catchesKill, wakes,
                         instant, PvpActionChoice.IsController(enemy.PvpBuild.Class, weights),
                         PvpSquad?.IsPursuer(enemy) == true, PvpSquad?.Order == PvpOrder.Extend, walkDanger,
-                        PvpSquad?.IsOnTrained(enemy) == true, walkInsideEdge));
+                        PvpSquad?.IsOnTrained(enemy) == true, walkInsideEdge, killOutOfReach,
+                        enemy.effectListComponent.ContainsEffectForEffectType(eEffect.MovementSpeedDebuff)));
                 }
+            }
+            // Enemy pets in melee on this group's healers and casters, after the enemies and the friends: a target for
+            // damage (not the Theurgist's swarm: those are for a point-blank spell) and for a mez. Pets have no Purge.
+            List<GameNPC> pets = PvpPetsOnBackline();
+            if (pets.Count > 0)
+            {
+                foreach ((PvpActionKind kind, Spell spell, bool instant) in spells.Select(pair => (pair.Key, pair.Value, false))
+                             .Concat(instants.Select(pair => (pair.Key, pair.Value, true)))
+                             .Where(entry => entry.Item1 is PvpActionKind.Damage or PvpActionKind.Mez or PvpActionKind.MezArea or PvpActionKind.AreaDamage))
+                {
+                    if (spell.Target == eSpellTarget.SELF || spell.Range <= 0)
+                        continue;
+                    int range = spell.CalculateEffectiveRange(Body);
+                    int cost = Body.MaxMana > 0 ? 100 * BotBody.PowerCost(spell) / Body.MaxMana : 0;
+                    for (int index = 0; index < pets.Count; index++)
+                    {
+                        GameNPC pet = pets[index];
+                        bool swarm = pet is TheurgistPet;
+                        // Not the pet that is on this bot itself while it is being hit: it could not finish the cast.
+                        if (!instant && pet.TargetObject == Body && Body.IsBeingInterrupted)
+                            continue;
+                        bool area = kind is PvpActionKind.MezArea or PvpActionKind.AreaDamage;
+                        if (!area && swarm || kind is PvpActionKind.Mez or PvpActionKind.MezArea && PvpPetMezzedOrImmune(pet))
+                            continue;
+                        int caught = 1;
+                        bool catchesKill = false;
+                        if (kind == PvpActionKind.AreaDamage)
+                        {
+                            // Every pet inside it, unless it would wake an enemy or a pet that sleeps there.
+                            if (enemies.Any(enemy => enemy.IsMezzed && enemy.IsWithinRadius(pet, spell.Radius)) ||
+                                pets.Any(other => other.IsMezzed && other.IsWithinRadius(pet, spell.Radius)))
+                                continue;
+                            caught = pets.Count(other => other.IsWithinRadius(pet, spell.Radius));
+                            if (caught < 2)
+                                continue;
+                        }
+                        if (kind == PvpActionKind.MezArea)
+                        {
+                            int players = enemies.Count(enemy => enemy != kill && enemy.IsWithinRadius(pet, spell.Radius) && !PvpMezzedOrImmune(enemy));
+                            caught = PvpPetClear.MezCount(players, pets.Count(other => other.IsWithinRadius(pet, spell.Radius) && !PvpPetMezzedOrImmune(other)));
+                            catchesKill = kill != null && kill.IsWithinRadius(pet, spell.Radius) && !PvpMezzedOrImmune(kill);
+                            if (caught == 0)
+                                continue;
+                        }
+                        int distance = (int)Body.GetDistanceTo(pet);
+                        bool seen = nav.HasLineOfSight(Body.CurrentZone, here, new Vector3(pet.X, pet.Y, pet.Z), nav.DefaultFilters);
+                        options.Add(new PvpOption(kind, targets.Count + index, PvpBuffArchetype.Melee, false, false,
+                            pet.HealthPercent, false, false, false, kind == PvpActionKind.Damage && pet.IsMezzed, Body.ManaPercent, cost,
+                            Math.Max(distance > range ? distance - range + 50 : 0, seen ? 0 : 300))
+                        {
+                            Instant = instant, PetOnBackline = true, Caught = caught, CatchesKill = catchesKill,
+                        });
+                    }
+                }
+                targets.AddRange(pets);
             }
             if (tooFar > 0)
                 blocked["too far"] = tooFar.ToString();
@@ -469,6 +712,11 @@ namespace DOL.AI.Brain
                 // (It still walks to wake a groupmate.)
                 bool fighterShout = PvpBuffPlan.ArchetypeOf(characterClass) == PvpBuffArchetype.Melee && scored.Option.Kind != PvpActionKind.CureMez;
                 if ((midCast || PvpHolding() || fighterShout) && scored.Option.Short > 0)
+                    continue;
+                // Before the first blow a healer or caster does not walk in to cast: it stands at range and
+                // the enemy comes to it (PvpPositionWeights.BackRowStopsAt). It still walks to wake a groupmate.
+                if (scored.Option.Short > 0 && scored.Option.Kind != PvpActionKind.CureMez && PvpSquad is { FightStarted: false } &&
+                    weights.Position.BackRowStopsAt > 0 && PvpBuffPlan.ArchetypeOf(characterClass) != PvpBuffArchetype.Melee)
                     continue;
                 if (aim is GameBot && !friends.Contains(aim))
                     (PvpWorkTarget, PvpWorkRange, PvpWorkTick) = (aim,
@@ -553,7 +801,59 @@ namespace DOL.AI.Brain
                     blocked["best score too low"] = ranked[0].Score.ToString();
                 PvpRecorder.Decision(BotBody, null, ranked.Take(5).Select(Describe), blocked);
             }
-            return false;
+            return !midCast && PvpStaffThePet(weights);
+        }
+
+        private static bool PvpPetMezzedOrImmune(GameNPC pet) => pet.IsMezzed ||
+            pet.effectListComponent.ContainsEffectForEffectType(eEffect.MezImmunity) ||
+            pet.effectListComponent.ContainsEffectForEffectType(eEffect.NPCMezImmunity);
+
+        /// <summary>
+        /// Enemy pets in melee on a healer or caster of this bot's group, the Theurgist's swarm
+        /// included: single spells leave those alone (there are many and they do not last), an
+        /// area mez or a point-blank spell (bots/pvp/PvpPetClear.cs) takes them together.
+        /// </summary>
+        private List<GameNPC> PvpPetsOnBackline() => PvpEnemies == null ? [] : Body.GetNPCsInRadius(2_500)
+            .Where(npc => npc.IsAlive && npc.Brain is IControlledBrain owned &&
+                          owned.GetLivingOwner() is GameBot owner && PvpEnemies.Contains(owner) &&
+                          npc.TargetObject is GameBot { IsAlive: true, PvpBuild: { } build } victim && victim.Realm == Body.Realm &&
+                          PvpBuffPlan.ArchetypeOf(build.Class) != PvpBuffArchetype.Melee && npc.IsWithinRadius(victim, 350))
+            .ToList();
+
+        private GameNPC _pvpStaffedPet;
+
+        /// <summary>
+        /// A healer or caster with nothing it can cast, because an enemy pet is hitting it, hits
+        /// the pet with its staff (<see cref="PvpWeights.StaffThePetOnMe"/>). True while it does.
+        /// </summary>
+        private bool PvpStaffThePet(PvpWeights weights)
+        {
+            if (!weights.StaffThePetOnMe || BotBody.PvpBuild == null || PvpBuffPlan.ArchetypeOf(BotBody.PvpBuild.Class) == PvpBuffArchetype.Melee ||
+                !Body.IsBeingInterrupted || Body.IsMoving)
+                return false;
+            // Not with an enemy fighter on it: then the pet is the least of its troubles. (A Druid with an
+            // Armsman and a Paladin on it was seen fencing with an air spirit, 2026-11-19.)
+            if (PvpEnemies.Any(enemy => enemy.IsAlive && !enemy.IsMezzed && enemy.TargetObject == Body &&
+                    PvpBuffPlan.ArchetypeOf(enemy.PvpBuild.Class) == PvpBuffArchetype.Melee && enemy.IsWithinRadius(Body, 400)))
+                return false;
+            GameNPC pet = Body.GetNPCsInRadius((ushort)(Body.MeleeAttackRange + 100))
+                .Where(npc => npc.IsAlive && !npc.IsMezzed && npc.TargetObject == Body && npc.Brain is IControlledBrain owned &&
+                              owned.GetLivingOwner() is GameBot owner && PvpEnemies.Contains(owner))
+                .OrderBy(npc => npc.HealthPercent).FirstOrDefault();
+            if (pet == null)
+                return false;
+            if (!Body.attackComponent.AttackState || Body.TargetObject != pet)
+            {
+                Body.TargetObject = pet;
+                SwitchToUsableMeleeWeapon();
+                Body.StartAttack(pet);
+            }
+            if (_pvpStaffedPet != pet)
+            {
+                _pvpStaffedPet = pet;
+                PvpRecorder.Decision(BotBody, new { kind = "Staff", d = pet.Name, score = 0 }, [], null);
+            }
+            return true;
         }
     }
 }

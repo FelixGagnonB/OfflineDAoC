@@ -60,7 +60,8 @@ namespace DOL.UnitTests
             // The same nearsight after the same walk: one ends at the edge of range, the other 500 units inside the enemy's reach.
             var atEdge = new PvpOption(PvpActionKind.Nearsight, 0, PvpBuffArchetype.Caster, false, false, 100, false, false, false, false, 100, Short: 300);
             var among = atEdge with { TargetId = 1, WalkInsideEdge = 500 };
-            Assert.That(PvpActionChoice.Score(eCharacterClass.Eldritch, atEdge, weights) - PvpActionChoice.Score(eCharacterClass.Eldritch, among, weights), Is.EqualTo(40));
+            Assert.That(PvpActionChoice.Score(eCharacterClass.Eldritch, atEdge, weights) - PvpActionChoice.Score(eCharacterClass.Eldritch, among, weights),
+                Is.EqualTo((int)(weights.WalkInsideEdgePerHundred * 5)));
             // Standing where it is, how near the enemy is costs nothing here: keeping range is the squad's business.
             Assert.That(PvpActionChoice.Score(eCharacterClass.Eldritch, among with { Short = 0 }, weights),
                 Is.EqualTo(PvpActionChoice.Score(eCharacterClass.Eldritch, atEdge with { Short = 0 }, weights)));
@@ -89,6 +90,87 @@ namespace DOL.UnitTests
         }
 
         private static readonly PvpWeights Weights = new();
+
+        [Test]
+        public void WithTheKillTargetOutOfReachACasterWorksOnWhatItReaches()
+        {
+            // The owner, 2026-11-19: the Enchanter "was standing most of the fight, not doing anything".
+            PvpOption fighter = Option(PvpActionKind.Damage, 0, PvpBuffArchetype.Melee);
+            PvpOption healer = Option(PvpActionKind.Damage, 1, PvpBuffArchetype.Healer);
+            Assert.Multiple(() =>
+            {
+                // The kill target in reach: damage on anybody else is not worth the turn.
+                Assert.That(PvpActionChoice.WorthIt(fighter, PvpActionChoice.Score(eCharacterClass.Enchanter, fighter, Weights), Weights), Is.False);
+                Assert.That(PvpActionChoice.WorthIt(healer, PvpActionChoice.Score(eCharacterClass.Enchanter, healer, Weights), Weights), Is.False);
+                // Out of reach: it is, and a healer or caster that is free to cast comes before a fighter.
+                PvpOption fighterNow = fighter with { KillOutOfReach = true }, healerNow = healer with { KillOutOfReach = true };
+                Assert.That(PvpActionChoice.WorthIt(fighterNow, PvpActionChoice.Score(eCharacterClass.Enchanter, fighterNow, Weights), Weights), Is.True);
+                Assert.That(PvpActionChoice.Score(eCharacterClass.Enchanter, healerNow, Weights),
+                    Is.GreaterThan(PvpActionChoice.Score(eCharacterClass.Enchanter, fighterNow, Weights)));
+                // Never on a rooted enemy: the damage would set it free. Nor on a sleeping one.
+                PvpOption rooted = fighterNow with { Rooted = true }, asleep = fighterNow with { Mezzed = true };
+                Assert.That(PvpActionChoice.WorthIt(rooted, PvpActionChoice.Score(eCharacterClass.Enchanter, rooted, Weights), Weights), Is.False);
+                Assert.That(PvpActionChoice.WorthIt(asleep, PvpActionChoice.Score(eCharacterClass.Enchanter, asleep, Weights), Weights), Is.False);
+                // The kill target still comes first when it can be reached by walking a little.
+                PvpOption kill = Option(PvpActionKind.Damage, 2, PvpBuffArchetype.Healer, kill: true) with { KillOutOfReach = true };
+                Assert.That(PvpActionChoice.Score(eCharacterClass.Enchanter, kill, Weights),
+                    Is.GreaterThan(PvpActionChoice.Score(eCharacterClass.Enchanter, healerNow, Weights)));
+            });
+        }
+
+        [Test]
+        public void TheRunemasterNukesTheAreaWhenTwoPetsAreInIt()
+        {
+            // The owner, 2026-11-19: "Runemaster should have an AoE, similar to the Eldritch."
+            PvpOption one = Option(PvpActionKind.AreaDamage, 0, PvpBuffArchetype.Melee) with { PetOnBackline = true, Caught = 1 };
+            PvpOption two = one with { Caught = 2 }, four = one with { Caught = 4 };
+            Assert.Multiple(() =>
+            {
+                Assert.That(PvpActionChoice.Useful(one), Is.False, "one pet is for a single spell");
+                Assert.That(PvpActionChoice.Useful(two), Is.True);
+                Assert.That(PvpActionChoice.WorthIt(two, PvpActionChoice.Score(eCharacterClass.Runemaster, two, Weights), Weights), Is.True);
+                Assert.That(PvpActionChoice.Score(eCharacterClass.Runemaster, four, Weights), Is.GreaterThan(PvpActionChoice.Score(eCharacterClass.Runemaster, two, Weights)));
+                Assert.That(PvpActionChoice.KindsFor(eCharacterClass.Runemaster, Weights), Does.Contain(PvpActionKind.AreaDamage));
+                Assert.That(PvpActionChoice.KindsFor(eCharacterClass.Sorcerer, Weights), Does.Not.Contain(PvpActionKind.AreaDamage));
+            });
+        }
+
+        [Test]
+        public void APetOnAHealerOrCasterIsWorthANuke()
+        {
+            // The owner, 2026-11-19: a Druid's pet on two Albion casters, and nobody did anything about it.
+            PvpOption pet = Option(PvpActionKind.Damage, 0, PvpBuffArchetype.Melee) with { PetOnBackline = true };
+            PvpOption freshKill = Option(PvpActionKind.Damage, 1, PvpBuffArchetype.Melee, kill: true);
+            PvpOption hurtKill = Option(PvpActionKind.Damage, 1, PvpBuffArchetype.Melee, kill: true, health: 30);
+            Assert.Multiple(() =>
+            {
+                foreach (eCharacterClass caster in new[] { eCharacterClass.Cabalist, eCharacterClass.Theurgist, eCharacterClass.Enchanter, eCharacterClass.Eldritch, eCharacterClass.Runemaster })
+                    Assert.That(PvpActionChoice.WorthIt(pet, PvpActionChoice.Score(caster, pet, Weights), Weights), Is.True, caster.ToString());
+                // The Sorcerer keeps to its crowd control.
+                Assert.That(PvpActionChoice.WorthIt(pet, PvpActionChoice.Score(eCharacterClass.Sorcerer, pet, Weights), Weights), Is.False);
+                // Before a kill target at full health, after one that is nearly dead.
+                Assert.That(PvpActionChoice.Score(eCharacterClass.Enchanter, pet, Weights), Is.GreaterThan(PvpActionChoice.Score(eCharacterClass.Enchanter, freshKill, Weights)));
+                Assert.That(PvpActionChoice.Score(eCharacterClass.Enchanter, pet, Weights), Is.LessThan(PvpActionChoice.Score(eCharacterClass.Enchanter, hurtKill, Weights)));
+                // A sleeping pet is left asleep.
+                PvpOption asleep = pet with { Mezzed = true };
+                Assert.That(PvpActionChoice.WorthIt(asleep, PvpActionChoice.Score(eCharacterClass.Enchanter, asleep, Weights), Weights), Is.False);
+            });
+        }
+
+        [Test]
+        public void AMezOnATargetThatHasBecomeImmuneIsDropped()
+        {
+            // 19 of 78 opening mezzes were finished on a target that had become immune during the cast.
+            Assert.Multiple(() =>
+            {
+                Assert.That(PvpWeights.ControlCastIsWasted(true, false, false, true, true, false, false), Is.True, "mezzed by somebody else, or immune");
+                Assert.That(PvpWeights.ControlCastIsWasted(true, false, false, true, false, true, true), Is.False, "a mez on a stunned or rooted target still lands");
+                Assert.That(PvpWeights.ControlCastIsWasted(false, false, true, true, false, false, true), Is.True, "rooted already, or immune to roots");
+                Assert.That(PvpWeights.ControlCastIsWasted(false, true, false, true, false, true, false), Is.True, "stunned already, or immune to stuns");
+                Assert.That(PvpWeights.ControlCastIsWasted(false, false, true, false, false, false, false), Is.True, "the target died");
+                Assert.That(PvpWeights.ControlCastIsWasted(true, false, false, true, false, false, false), Is.False);
+            });
+        }
 
         private static PvpOption Option(PvpActionKind kind, int id, PvpBuffArchetype archetype = PvpBuffArchetype.Caster, bool kill = false,
             bool assigned = false, int health = 100, bool hasEffect = false, bool casting = false, bool interrupted = false,

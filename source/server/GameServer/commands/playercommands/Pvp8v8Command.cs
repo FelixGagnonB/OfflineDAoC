@@ -9,7 +9,7 @@ namespace DOL.GS.Commands
         "/8v8 clear                     removes every 8v8 bot",
         "/8v8 lanes                     (GM) what is fighting in each lane of the arena",
         "/8v8 watch <lane>              (GM) takes you to the middle of that lane and turns the feed on; then /fly",
-        "/8v8 feed <on|off>             (GM) each group's calls in your chat window while you are near a fight")]
+        "/8v8 feed <on|off>             (GM) each group's calls in your chat window, for the lane you watch or stand in")]
     public sealed class Pvp8v8CommandHandler : AbstractCommandHandler, ICommandHandler
     {
         public void OnCommand(GameClient client, string[] args)
@@ -48,7 +48,7 @@ namespace DOL.GS.Commands
                     {
                         bool on = !(args.Length > 2 && args[2].ToLowerInvariant() == "off");
                         PvpObserver.Set(player, on);
-                        Say(on ? "The feed is on: you read the calls of groups fighting near you." : "The feed is off.");
+                        Say(on ? "The feed is on: you read the calls of the lane you are in." : "The feed is off.");
                         return;
                     }
                     System.Collections.Generic.List<string> lanes = PvpScrim.LaneLines();
@@ -65,9 +65,9 @@ namespace DOL.GS.Commands
                         Say("There are six lanes, 0 to 5.");
                         return;
                     }
-                    PvpObserver.Set(player, true);
+                    PvpObserver.Set(player, true, lane);
                     player.MoveTo(middle.Region, (int)middle.Point.X, (int)middle.Point.Y, (int)middle.Point.Z + 300, player.Heading);
-                    Say($"Lane {lane}. The feed is on; /fly to hover, /8v8 feed off to silence it.");
+                    Say($"Lane {lane}. The feed is on for this lane only; /fly to hover, /8v8 feed off to silence it.");
                     foreach (string line in lanes.Where(line => line.StartsWith($"lane {lane}:")))
                         Say("  " + line);
                     return;

@@ -350,7 +350,17 @@ GM ("Make me GM" in the launcher, with the server stopped):
 - a **time budget** for every build: where its living seconds went (casting which kind of
   spell, walking, standing free, unable to act, dead), with a `?` on lines that look odd;
 - a list of **rules**, each from something the owner said or saw, with what was expected, what
-  was measured, PASS or FAIL, and the worst moments by match and second.
+  was measured, PASS or FAIL, and the worst moments by match and second. One rule is not the
+  owner's: how much of their free time the casters spend casting and walking, which is what
+  the distance rules cost.
+
+`--html page.html` writes the same report as a page for the browser, and `--before <prefix>`
+adds a column with the same rules measured on an earlier batch.
+
+`python source/tools/pvp_replay.py <recording.jsonl>` draws one recorded match from above:
+picture sheets of the fight, six moments to a sheet, and `replay.html`, the fight to play and
+scrub in a browser with each member's health, power, endurance, state and target beside the
+map. It reads the recording only; pets are not recorded and are not drawn.
 
 A new observation becomes a new rule there (a function in `RULES`), so that a thing once fixed
 cannot come back unnoticed. Who beats whom is not among the rules: see the roadmap's "Current

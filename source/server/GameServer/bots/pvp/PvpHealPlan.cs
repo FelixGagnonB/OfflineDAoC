@@ -20,6 +20,34 @@ namespace DOL.GS
         /// spent 29% of the fight under a fifth of its power. 0 = it never saves.
         /// </summary>
         public int SavePowerBelowPercent { get; set; } = 30;
+
+        /// <summary>
+        /// During a fight a healer walks to a dead member of its group that lies within this
+        /// distance, to raise it; 0 = it raises only a corpse that is in reach already. The owner,
+        /// 2026-11-19: "2 teams of equal skill could take 5-10 minutes. I've seen longer fights."
+        /// Here a fight lasted two and a half minutes and the dead stayed dead: in 23 matches at
+        /// rank 5 there were 8.5 deaths a match and 0.2 resurrections. Of 137 deaths with at
+        /// least fifteen seconds of fight left, 41 had a healer alive and awake that was simply
+        /// too far from the corpse (2,900 units at the median), and nothing walked a healer to a
+        /// corpse while its group was in combat.
+        ///
+        /// Off (it was tried at 2,500 the same day): in 24 matches a healer set off for a corpse
+        /// 3.0 times a match and the resurrections finished went from 0.2 to 0.4, while the two
+        /// back lines stood 300 units nearer each other and a group's healers were within 800
+        /// units of each other 17% of the time against 12%: both healers walked to the same
+        /// corpse, toward the enemy, and seldom got the spell off. It wants one healer sent, not
+        /// both, and a look at what stops the cast on arrival, before it is switched on again.
+        /// </summary>
+        public int ResurrectWalkWithin { get; set; } = 0;
+        /// <summary>It does not go while a free enemy fighter is this near the corpse.</summary>
+        public int ResurrectNoFighterWithin { get; set; } = 600;
+        /// <summary>Nor while a living member in its reach is below this health: the living come first.</summary>
+        public int ResurrectIfNobodyBelow { get; set; } = 50;
+
+        /// <summary>True for a healer that should walk to a corpse now, to raise it.</summary>
+        public bool WalksToRaise(int distance, int range, bool hasPower, bool beingHit, int lowestHealthInReach, int freeFightersAtCorpse) =>
+            ResurrectWalkWithin > 0 && distance > range && distance <= ResurrectWalkWithin && hasPower && !beingHit &&
+            lowestHealthInReach >= ResurrectIfNobodyBelow && freeFightersAtCorpse == 0;
         public int SavingHealBelowPercent { get; set; } = 60;
         public int SavingTrainedHealBelowPercent { get; set; } = 85;
         /// <summary>

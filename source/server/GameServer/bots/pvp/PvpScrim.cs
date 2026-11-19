@@ -319,6 +319,7 @@ namespace DOL.GS
         private object _lastReady;
         // Healers that stayed back on incoming in the current match, to record it once each.
         private readonly HashSet<GameBot> _hungBack = [];
+        private readonly HashSet<GameBot> _stoodAtRange = [];
 
         public bool Running => _phase != Phase.Idle;
         public int MatchLimitSeconds { get; }
@@ -366,6 +367,7 @@ namespace DOL.GS
             _buffsCast = new();
             _lastNewBuffTick = new();
             _hungBack.Clear();
+            _stoodAtRange.Clear();
             _members = _teamA.Concat(_teamB).Cast<GameLiving>().ToHashSet();
             SetSelfBuffsOnly(true);
             _phase = Phase.Buffing;
@@ -442,6 +444,8 @@ namespace DOL.GS
                 }
                 March(_teamA, _teamB, _spawnA, _spawnB, ref _waypointA);
                 March(_teamB, _teamA, _spawnB, _spawnA, ref _waypointB);
+                _squadA?.ClearPets();
+                _squadB?.ClearPets();
                 _squadA?.StandOff();
                 _squadB?.StandOff();
                 _squadA?.KeepApart();
@@ -536,7 +540,20 @@ namespace DOL.GS
                     PvpWeights weights = PvpWeights.Of(bot);
                     bool onlyHeals = PvpBuffPlan.ArchetypeOf(bot.PvpBuild.Class) == PvpBuffArchetype.Healer &&
                         weights.HealsFirstBelowFor(bot.PvpBuild.Id, bot.PvpBuild.Class) > 100;
-                    if (weights.Position.HealerHangsBack(onlyHeals, (int)seen.Min(enemy => bot.GetDistanceTo(enemy)),
+                    int nearestSeen = (int)seen.Min(enemy => bot.GetDistanceTo(enemy));
+                    // Before the first blow the whole back row stops at range and its fighters go on (PvpPositionWeights.BackRowStopsAt).
+                    if (weights.Position.BackRowStops(PvpBuffPlan.ArchetypeOf(bot.PvpBuild.Class) == PvpBuffArchetype.Melee, nearestSeen, _contactTick != 0))
+                    {
+                        if (_stoodAtRange.Add(bot))
+                            PvpRecorder.Decision(bot, new { kind = "StopAtRange", score = nearestSeen }, [], null);
+                        if (bot.IsMoving && !bot.IsCasting)
+                        {
+                            bot.StopMovingOnPath();
+                            bot.StopMoving();
+                        }
+                        continue;
+                    }
+                    if (weights.Position.HealerHangsBack(onlyHeals, nearestSeen,
                             _contactTick == 0 ? -1 : (GameLoop.GameLoopTime - _contactTick) / 1000.0))
                     {
                         if (_hungBack.Add(bot))
@@ -674,7 +691,8 @@ namespace DOL.GS
             _recording?.End(result);
             Log.Info($"PVP_SCRIM_MATCH batch={_batch} lane={_lane} number={result.Number} winner={winner} end=\"{end}\" seconds={result.Seconds} contact={result.SecondsToContact} alive={aliveA}/{aliveB}");
             if (_teamA.Count > 0)
-                PvpObserver.Say(_teamA[0], $"Lane {_lane}: match {result.Number} is over, {winner} by {end} in {result.Seconds} s, alive {aliveA}/{aliveB}");
+                PvpObserver.Say(_teamA[0], $"Lane {_lane}: match {result.Number} is over, {winner} by {end} in {result.Seconds} s, alive {aliveA}/{aliveB} " +
+                    $"(recording {_batch}-match-{result.Number:000})");
             PvpArena.Remove(_bots);
             _bots.Clear();
             if (_matchNumber >= _matchesWanted)
@@ -686,7 +704,9 @@ namespace DOL.GS
         }
 
         internal string Describe() =>
-            $"lane {_lane}: {_groupA.Id} against {_groupB.Id}, match {_matchNumber} of {_matchesWanted}, {_phase.ToString().ToLowerInvariant()}";
+            $"lane {_lane}: {_groupA.Id} against {_groupB.Id}, match {_numberOffset + _matchNumber} of {_numberOffset + _matchesWanted}, {_phase.ToString().ToLowerInvariant()}" +
+            // For a watcher who wants a moment looked up in the recording: the same clock the reports use.
+            (_phase == Phase.Fighting && _contactTick > 0 ? $", {(GameLoop.GameLoopTime - _contactTick) / 1000} s after the first blow" : "");
 
         public object Status()
         {

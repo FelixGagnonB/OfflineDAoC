@@ -24,9 +24,22 @@ namespace DOL.GS
     {
         /// <summary>False keeps every group on Engage.</summary>
         public bool Enabled { get; set; } = true;
-        /// <summary>An order stands at least this long.</summary>
+        /// <summary>
+        /// An order stands at least this long. Tried at 8 on 2026-11-19, because a group changed
+        /// its order 3.8 times a minute and an order lasted a median of five to seven seconds (in
+        /// the pictures of one fight Midgard's fighters went to and fro between their kill target
+        /// and their own healers for a minute and a half). In twelve matches the changes fell only
+        /// to 3.3 a minute, and a fighter running at the healers was stopped within three seconds
+        /// 38% of the time against 58%: a group that had to wait to answer. Back at 3; the to and
+        /// fro wants another cure than time.
+        /// </summary>
         public int KeepSeconds { get; set; } = 3;
-        /// <summary>What the order in force scores above its reading, so the group does not flip on every small change.</summary>
+        /// <summary>
+        /// What the order in force scores above its reading, so the group does not flip on every
+        /// small change. Not raised with <see cref="KeepSeconds"/>: at 25 a group that had gone to
+        /// Extend never left it while the enemy's fighters were free, and one whose fighters were
+        /// strung out no longer regrouped.
+        /// </summary>
         public int KeepCurrent { get; set; } = 15;
 
         public int PushBase { get; set; } = -45;
@@ -47,9 +60,18 @@ namespace DOL.GS
 
         /// <summary>
         /// On incoming a group holds when its longest mez outranges the enemy's by at least this
-        /// much (the Sorcerer's 1,875 against 1,500 for every Healer and Bard mez). 0 turns holding off.
+        /// much (the Sorcerer's 1,875 against 1,500 for every Healer and Bard mez). 0 turns holding off,
+        /// and the outranged group's wait with it.
+        ///
+        /// Off since 2026-11-19 (it was 200). The owner, watching on 2026-11-18: "Mids are just
+        /// standing there, doing nothing, until the Sorcerer is in range"; and on 2026-11-19, of a
+        /// match in which Albion held: it "made no sense", and of another: "Both stood still,
+        /// waiting for the other to push in. Then at some point Albs pushed and mezzed all 3
+        /// fighters." And: "we were using speed + sprint all the time until initial contact."
+        /// Nobody stood and waited in the open; until the opening is rebuilt (roadmap, open
+        /// questions) both groups run in, and the mezzer casts when it is in range.
         /// </summary>
-        public int HoldRangeAdvantage { get; set; } = 200;
+        public int HoldRangeAdvantage { get; set; } = 0;
         /// <summary>A hold ends after this long: the enemy is holding too, or not coming.</summary>
         public int HoldMaxSeconds { get; set; } = 10;
         /// <summary>A hold ends when an enemy is this close to a member: they are on the group.</summary>
@@ -92,10 +114,31 @@ namespace DOL.GS
         /// </summary>
         public int RegroupBase { get; set; } = -45;
         public int RegroupPerFighterFar { get; set; } = 130;
-        /// <summary>A fighter this far from the middle of its healers and casters is out of their reach (heals reach about 1,700).</summary>
-        public int RegroupFighterIsFarAt { get; set; } = 1_800;
-        /// <summary>Under Regroup a fighter farther than this from them leaves its target and comes back.</summary>
-        public int RegroupWithin { get; set; } = 1_100;
+        /// <summary>
+        /// A fighter this far from the nearest living healer of its group is out of reach. It was
+        /// 1,800 from the middle of the group's healers and casters. The owner, watching Hibernia
+        /// against Albion on 2026-11-19: the two Blademasters "are mostly running forward then
+        /// back then forward then back". In that match Hibernia went Engage, Regroup, Engage,
+        /// Regroup, Engage, Regroup, Engage in the first 28 seconds and the Blademasters were
+        /// called back 11 times. Since the two back lines stand 1,300 to 1,600 apart, a fighter on
+        /// a target in the enemy's back row was always more than 1,800 from the middle of its own,
+        /// so the group regrouped, the fighters came back to 1,100, the order lapsed, and they
+        /// went again. Now it is measured from a healer, healers follow their group
+        /// (<see cref="PvpPositionWeights.HealerFollowsAtMembersOutOfRange"/>), and regrouping is
+        /// for a group that is really strung out.
+        /// </summary>
+        public int RegroupFighterIsFarAt { get; set; } = 2_300;
+        /// <summary>Under Regroup a fighter farther than this from its nearest living healer leaves its target and comes back (it was 1,100 from the middle).</summary>
+        public int RegroupWithin { get; set; } = 1_700;
+
+        /// <summary>
+        /// The share of a group's living fighters that are out of its healers' reach: farther
+        /// than <see cref="RegroupFighterIsFarAt"/> from the nearest living healer. 0 with no
+        /// fighter or no healer alive: there is nobody to regroup with.
+        /// </summary>
+        public double FightersFarShare(IReadOnlyList<System.Numerics.Vector2> fighters, IReadOnlyList<System.Numerics.Vector2> healers) =>
+            fighters.Count == 0 || healers.Count == 0 ? 0
+                : fighters.Count(fighter => healers.Min(healer => System.Numerics.Vector2.Distance(fighter, healer)) > RegroupFighterIsFarAt) / (double)fighters.Count;
     }
 
     /// <summary>One member as the reading counts it.</summary>
@@ -189,6 +232,30 @@ namespace DOL.GS
             theirMezRange - ownMezRange >= weights.HoldRangeAdvantage &&
             secondsHeld < weights.HoldWhenOutrangedMaxSeconds &&
             nearestEnemy > Math.Max(weights.HoldBreakDistance, theirMezRange + weights.HoldWhenOutrangedBreakMargin);
+
+        /// <summary>
+        /// Which enemy on the group's healers and casters a fighter turns on under Extend: the
+        /// one it is on already while that one is still there; else the nearest that no other
+        /// fighter of the group has taken; else the nearest. -1 with nobody to turn on.
+        /// The owner, watching on 2026-11-19: the two Blademasters run "forward then back then
+        /// forward then back" and "are also stuck to each other". Each took the nearest such
+        /// enemy anew every second, so in that match both went Armsman, Minstrel, Armsman,
+        /// Minstrel, Paladin... a new target every one to three seconds for forty seconds.
+        /// </summary>
+        public static int ChoosePursuer(IReadOnlyList<int> distances, int current, IReadOnlyCollection<int> taken)
+        {
+            if (current >= 0 && current < distances.Count)
+                return current;
+            int best = -1, bestFree = -1;
+            for (int id = 0; id < distances.Count; id++)
+            {
+                if (best < 0 || distances[id] < distances[best])
+                    best = id;
+                if (!taken.Contains(id) && (bestFree < 0 || distances[id] < distances[bestFree]))
+                    bestFree = id;
+            }
+            return bestFree >= 0 ? bestFree : best;
+        }
 
         /// <summary>The order for this second, given the one in force and how long it has stood.</summary>
         public static PvpOrder Choose(PvpReading own, PvpReading theirs, int backlineUnderAttack, PvpOrder current, double secondsInForce, PvpOrderWeights weights,

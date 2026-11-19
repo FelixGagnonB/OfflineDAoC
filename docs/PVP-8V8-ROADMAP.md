@@ -14,7 +14,23 @@ Bots first. Everything that needs a human at the keyboard waits until the bots f
 path now is M2 (arena and match loop), M3 (recorder, analyzer, baseline), then M4 to M8, each
 measured by scrims. M1 counts as finished for that purpose.
 
-## Current focus (owner, 2026-11-18)
+## Current focus (owner, 2026-11-19, afternoon): to where the owner can play
+
+After a day of watching, and a loop of seven recorded rounds (below), the owner: "Maybe the best
+course of action, at this point, would be to leave the optimization as it is, and continue with
+milestone until the point where I can play and resume the optimization." And what that play
+should be: "7 bots vs 8 bots in a 'let's roam around an area until we contact the opponent team'
+and record how it goes."
+
+So the tuning stops where it stands, and the work is M9 (the owner's group: a play session, the
+recorder taking a human member, calls) with the roaming start of M8.4. The owner's own reading of
+the bots that day, to keep for M10: "maybe the bots are already better than human. We do not
+have a set watch with a countdown for each immune. We have a feeling when it runs out, but
+that's pretty much it. Similarly, we sometimes focus on something and forget to lock down the
+Theurgist until there are pets... But I think we are still much better than what I can observe."
+A bot knows every immunity timer to the tick; a setting that blurs that belongs to M10.1.
+
+## Focus of 2026-11-18: movement and positioning
 
 After an evening watching scrims as a GM, the owner: "the biggest takeaway at the moment is the
 movement and positioning." What they saw, each checked against the recordings the same evening:
@@ -50,8 +66,9 @@ ground is one opening among many, and the Sorcerer's best. Agreed the same eveni
 
 ### Built the same evening and night
 
-All of it is on the scrim server, with 3,277 automated tests passing. None of it has been seen
-by the owner in the game yet. Each line names the weight that switches it, where there is one.
+All of it is on the scrim server. The owner watched the build of that night on the morning of
+2026-11-19 ("the spacing and positioning looks better") and what was seen then is the next
+section but one. Each line names the weight that switches it, where there is one.
 
 - **The Bard's songs** (`SongInFightEverySeconds`): in a fight it starts only its endurance song,
   only when that is not playing, at most once in 20 seconds, not while it is hit or a groupmate
@@ -78,9 +95,10 @@ by the owner in the game yet. Each line names the weight that switches it, where
   another and travel at the two ends of the back row.
 - **The edge of range** (`Position.EdgeDistance`, `PerUnitInsideEdge`, `KillTargetRangeWeight`,
   `DutyTargetRangeWeight`, `WalkInsideEdgePerHundred`): healers and casters want every enemy at
-  least 1,200 units away while their work stays in reach; a walk that would end inside that
-  distance of an enemy costs score; being in range of the kill target counts for a quarter of
-  what being in range of one's own target does.
+  least 1,350 units away while their work stays in reach; a walk that would end inside that
+  distance of an enemy healer or caster costs score; being in range of the kill target counts
+  for a tenth of what being in range of one's own target does. (1,200, a quarter and half the
+  walk cost in the evening; the values here are the night's, below.)
 - **Realm colours** (`PvpTemplateOutfitter.RealmColour`): armour and cloak red for Albion, blue
   for Midgard, green for Hibernia. Looks only.
 
@@ -88,27 +106,374 @@ by the owner in the game yet. Each line names the weight that switches it, where
 of the owner watching every fight. It prints a time budget for every build (where its living
 seconds went, with a mark on the lines that look odd) and a list of rules, each from something
 the owner said, with what was measured and the worst moments by match and second. First
-readings (150 matches from before that evening; 12 check matches on the build before the last
-positioning change):
+readings are in the table further down.
 
-| Rule | Before | 12 check matches |
+### The night of 2026-11-19: what moved the two back lines apart, and what it cost
+
+Positioning only, judged by the referee, in rounds of 12, 24 and 48 matches. In order:
+
+1. **Four sets of weights, twelve matches each.** A wider edge, the edge counting more with a
+   step every 2.5 s, and walks costing double each moved the lines a little. All three together
+   passed the distance marks (1,514 units at 20 s, 1,651 at 45 s, casts from a median of 1,346)
+   and became the defaults. They also cost the most: casters cast 17% of their living time
+   against 25%, a third of their idle time was spent with no enemy within 1,500 units, and
+   three matches of twelve ran to the time limit.
+2. **A caster with no enemy in reach closes up to the edge** (`Position.PerUnitOutOfReach`).
+   Nothing had brought a caster forward again but a cast worth a walk, and the walk was being
+   charged for ending near *any* enemy, the fighters on the group's own front included; it is
+   now charged for the enemy's healers and casters only. Idle time with nothing in range fell
+   from 33% to 8%.
+3. **A healer stepping away does not step beside the other healer** (the step's score now
+   knows `Spread.HealerSpacing`). Healers within 800 units of each other: 30% of the time in
+   the first set, 5 to 9% since.
+4. **No speed spell or speed song once the fight is on.** They are pulsing spells, which the
+   evening's rule let through: about one a match, with an enemy 600 to 1,300 units away. Now 0.
+5. **A member that can cure mez takes no step while a groupmate sleeps**
+   (`Position.CurerStaysForSleeper`). Recorded: a Bard walking to a sleeping Druid was sent the
+   other way by five steps in a row, twelve seconds; a Pacification Healer stepped away for ten
+   seconds with both other healers asleep.
+6. **The wait after a step counts from the arrival** (`Position.StepWaitCountsFromArrival`) and
+   **a caster on its way in to cast is not stepped back out** (`ApproachLeftAloneMilliseconds`).
+   The six casters had taken a step straight after a step, nothing cast between, 20 times a
+   match, and walked in and been sent back before casting 7.8 times a match. Casting went back
+   up (20% to 28% of free time) and the lines came back together (1,157 and 939): the stepping
+   had been what kept them apart.
+7. **No step ends nearer the enemy's healers and casters than the edge**
+   (`Position.StepNearerTheirBackLineAtMost`), and healers stand 150 units nearer the end of
+   their heals' reach (`HealRange` 1,850). This was the cause under the others: a step is scored
+   by what it gains from a fighter against what it costs in range to the member's work, range
+   counts double, and so four steps in ten taken to get away from an enemy fighter went toward
+   the enemy's back line. Such steps were half of all the times two back lines came within
+   1,000 units of each other in the first minute (19 a match; 12.7 after).
+
+| Rule | Before (150 matches) | Evening (12) | End of the night (48) |
+|---|---|---|---|
+| A group does not stand inside the enemy mezzer's reach before the fight | 2.2 s a match | 0.5 s | 1.0 s: at the mark |
+| The two back lines keep their distance (20 s, 45 s after contact; mark 1,500) | 912, 695 units | 1,183, 875 | 1,578, 1,248: the second fails |
+| Casters cast on healers and casters from the edge of their range | median 810, 40% under 700 | median 867, 36% | median 1,237, 14%: fails by the mark of 10% |
+| A group's healers do not stand together (closer than 800) | 61% of the time | 19% | 8%, pass |
+| A fighter that reaches a healer or caster is stopped within 3 s | 36% of 607 | 47% of 34 | 48% of 120: fail |
+| A shield fighter told to stay has no attack target | 35% of the time | 0% | 1%, pass |
+| Nobody stops to buff once the fight has started | 11.2 a match | 0.3 | 0, pass |
+| A healer does not call its pet in a fight | 4.9 a match | 0 | 0, pass |
+| The Bard does not spend the fight singing | 17 s a match | 0.8 s | 1.9 s, pass |
+| A sleeping healer is woken within 8 s, when a curer is up | 22% of 101 | 45% of 11 | 35% of 62: fail |
+| Casters still cast (of their free seconds: casting, walking; mark 30% and 40%) | 34%, 34% | 31%, 33% | 26%, 34%: fail |
+
+The marks of 1,500 units and of two times in three are mine, not the owner's. The last rule is
+mine too: it is the cost side of the distance rules, added that night because the first build
+to pass them had the casters casting 20% of their free time and walking 43%.
+
+What the table does not settle:
+
+- **Distance was bought with casting.** Casters cast 26% of their free seconds against 34%
+  before any of this. Part of it is the kill target standing beyond a caster's range (it did
+  for 34 to 62% of the turns a caster found nothing to cast, by class): the fighters' target
+  is in the enemy's back row, the casters now stand off, and damage off the kill target scores
+  too low to be cast. Four matches of 48 ran to the five-minute limit; none of 150 did before.
+- **Fighters reaching the healers.** In the 48: Midgard stops 24 of 34, Hibernia 24 of 53,
+  Albion 10 of 33. Of the 62 not stopped, 32 were already immune to mez or stun when they
+  arrived (from the opening), and 12 had nothing aimed at them at all. One shield fighter faces
+  up to three fighters, and its Slam misses or is evaded often; Blademasters and the Armsman
+  do not turn on them. This wants an answer by the whole group (the trained member running,
+  the others slowing what follows), not a better peel.
+- **Sleeping healers.** Counting each curer of a group whose healer slept more than eight
+  seconds (in the 48; before the rule's "when a curer is up"): itself asleep or stunned 56
+  times, began the cure and did not finish it in time 28, kept from casting 18, out of range
+  16, free and doing nothing 15, dead 9.
+- **Sample size.** Twelve matches swing a rule by a third either way; the same build measured
+  52%, 50% and 35% on sleeping healers in three runs. The 48 are firmer, not firm.
+
+The referee's page for that last run, with the time budget of every build, is written beside
+the scrim server's logs (`runtime\logs\referee-2026-11-19.html`; not in the repository).
+
+### The morning of 2026-11-19: what the owner saw, and what was built from it
+
+The owner watched Albion against Hibernia as a GM. Each line below is what was said, what the
+recordings showed about it, and what was changed. Everything is on the scrim server with 3,312
+automated tests passing; the owner has seen none of these changes in the game yet, and the
+figures "after" are from twelve watched matches only, so they are a first reading.
+
+- **"The Hero definitely needs to use the level 50 Large Weapons style."** The Hero was built on
+  50 Blades and never left its shield; the Armsman never left its polearm (no Slam in 908
+  recorded hits). Now the Hero is 50 Large Weapons, 42 Shields, 39 Parry, and the Hero, the
+  Warrior (two-handed hammer) and the Armsman fight two-handed and take the shield out for the
+  Slam and, with nobody to attack, for guard (`PvpWeaponSwap.cs`). The Paladin stays one-hand
+  and shield (owner). First reading: the Armsman lands 1.9 Slams a match, the Warrior 1.5, the
+  Hero 2.2; four or five swaps each way a match.
+- **The style from behind.** A bot stood wherever it had arrived from, so it had its style
+  from behind only by chance: no Annihilation in the first eight matches of the new Hero. A
+  fighter in reach of a stunned target now walks behind it (`Position.FightersStepBehindStunned`).
+  The Armsman does so 3.5 times a match and the Warrior 1.5. The Hero hardly ever (five
+  Annihilations in eight matches), because of the next point: once its Slam lands it goes for
+  the next enemy. It also runs short of endurance: under 25 for 23% of its fights against 12%
+  before, and a quarter of its swings are without a style.
+- **"Minstrel using stealth. It should not."** The older bot logic walks any class with Stealth
+  up to an enemy unseen. No 8v8 bot does now (`BotRvrAmbush.CanApproach`).
+- **"Paladin went to peel both Blademasters. It slammed one and kept attacking it, not handling
+  the second."** The one it was on kept 115 against 120 for the other, and 125 units more from
+  the ward lost that. A stunned enemy now counts 40 less (`Peel.Stunned`). On a stunned enemy
+  while another fighter was free on its healers and casters: 25% of the time it spent on
+  stunned enemies before, 5% in the first reading.
+- **"Once the second Blademaster got mezzed, the Paladin could have gone on another duty", and
+  it stood beside a caster that enemy casters were hitting, "which was useless".** A shield
+  fighter helped with the kill only within 625 units of its ward, and with the back lines
+  apart that was never: the Paladin had nobody to go for during 52% of its fights. Distance
+  from the ward now costs the kill target a quarter of what it did
+  (`Peel.KillPerHundredUnitsFromWard`), an enemy on or running at the back line still scores
+  higher, and a groupmate's missing health draws guard only when an enemy is in melee on it.
+  First reading: no target 7% of the time. **To watch for:** this takes the shield fighter
+  away from its healers; whether more fighters get through is not measured yet. The owner on
+  the Hero the same day: when it peels it should "slam / snare / slow targets then back to his
+  duty", so that the Druid can move away; an enemy immune to all of that is rare, is close to
+  the back line, and is for the group's kill call. That is what the peel does now (it leaves
+  a stunned enemy for the next one), so the Hero's Annihilation is for the kill target.
+- **"The Enchanter was standing most of the fight, not doing anything."** It stood free to act
+  for 24% of its life and cast for 17%. With the kill target beyond a spell's range, or none
+  called, damage on another enemy now costs 5 and not 60 (`DamageOffKillTargetOutOfReach`),
+  so the caster works on what it reaches, healers and casters that are free to cast first;
+  never on a sleeping enemy, and not on one that a root holds (`DamageBreaksRoot`).
+- **"The feed is receiving info from all lanes."** Two lanes' middles are 6,000 units apart and
+  the feed reached 7,000. A watcher now reads one lane: the one asked for with `/8v8 watch`,
+  else the one stood in (`PvpObserver.LaneOf`).
+- **"Hibernia doesn't seem to know how to handle the Theurgist and clean pets. One of the things
+  we were doing was to stack on the Eldritch and it would PBAoE the pets (and using quick cast
+  if needed)."** In 16 recorded matches the pets attacked Hibernia 63 times a match, the Druids
+  28 times and the Bard 12, and the only answers were a Druid's staff and its root. Now
+  (`PvpPetClear.cs`): with three enemy pets on its healers and casters, those with a pet on
+  them walk to the member that has a point-blank area damage spell, and every member with such
+  a spell casts it once two pets are inside it, unless it would wake a mezzed enemy. Those
+  gathered are left out of the spacing rules until no pet is left. **Not built:** quick cast.
+  No bot has it (it is switched off for every kind of bot), so a caster that the pets are
+  hitting cannot get the spell off.
+- **The Enchanter's spec** (owner: "45 Light / 30 Mana / 4 Enchantment"; it had 29 Enchantments
+  and 6 Mana, so no point-blank spell at all). 45 and 30 cost 1,498 of a caster's 1,494
+  points on this server, so it is 45 Light, 29 Mana, 6 Enchantments: the same 176-damage
+  point-blank spell as the Eldritch. The cost is the group's damage add, which falls from the
+  level 26 one to the level 4 one.
+
+- **"Two Albion casters had a Druid's pet on them, and they just ran away and stood still. They
+  could always quickcast or staff or someone dd or attack the pet. They are really weak."** In
+  that match a lynx was on the Cabalist for 71 seconds and attacked it 24 times; the Cabalist
+  cast nothing in that time and nobody attacked the lynx. Now a pet in melee on a healer or
+  caster is a target for the group's casters, above a kill target at full health
+  (`DamageOnPetOnBackline`; the Theurgist's pets are left to the point-blank spells), and a
+  healer or caster that cannot cast because a pet is hitting it hits the pet with its staff
+  (`StaffThePetOnMe`). **Not built:** a fighter going for the pet, and quick cast.
+- **"Albion will call a regroup and Hibernia will push, but both Druids stay way too far and are
+  out of range to almost any of their teammates."** Recorded: a Druid stood still for 25 seconds
+  while its group went after the enemy, until its fighters were 2,850 to 3,700 units away.
+  Nothing moved a healer forward: a step was only ever taken to get away from an enemy. A
+  healer with two or more living members beyond its heals' reach now follows them, without the
+  wait between steps (`Position.HealerFollowsAtMembersOutOfRange`).
+- **"We were always using speed 6 and sprinting. Everyone always has sprint on. One of the
+  first realm abilities to get is Tireless, and you can perma sprint without issues."** And:
+  "we were using speed + sprint all the time until initial contact". No bot sprinted: every
+  class moved at 185 to 190 units a second in a fight, and a bot's sprint did not change its
+  speed at all. Every 8v8 bot now sprints on the way in, on top of the speed song, and through
+  the fight, 30% faster (`Position.SprintInFights`): 210 to 245 units a second in the first
+  four matches. It costs a bot no endurance, like all of a
+  bot's movement, which stands in for Tireless and the endurance songs; a player in the
+  group pays for sprint as the game has it, which is to be settled before M9.
+- **The start of a fight** (owner, on a match where Albion held and its Sorcerer put four of
+  Hibernia to sleep in ten seconds): "the way the tests are designed is not what a real 8v8
+  fight would look like... If you can AoE mez the Bard on initial contact then I assume it is
+  normal you wipe them, if no one breaks the mez." The recording agreed with the mechanics:
+  Albion held because its mez reaches 1,875 units against the Bard's 1,500, the first area mez
+  caught the Bard, the Bard is Hibernia's only cure, and at realm rank 1 nobody has Purge. What
+  is wrong is the setting: two groups placed 6,000 units apart that walk straight at each
+  other and meet in six to ten seconds. Not changed yet; see the open questions.
+
+- **"The two Blademasters are mostly running forward then back then forward then back. They are
+  also stuck to each other."** Two causes in that match. Hibernia went Engage, Regroup, Engage,
+  Regroup, Engage, Regroup, Engage in its first 28 seconds and called the Blademasters back 11
+  times: "regroup" fired with fighters 1,800 units from the middle of the group's healers and
+  casters, which a fighter on a target in the enemy's back row always is now that the back
+  lines stand apart. It is now measured from the nearest healer, at 2,300
+  (`Order.RegroupFighterIsFarAt`, `RegroupWithin`). And under Extend each fighter took the
+  nearest enemy on its healers anew every second, so both went Armsman, Minstrel, Armsman,
+  Minstrel, Paladin together for forty seconds; now a fighter stays on the one it has and two
+  fighters take two (`PvpOrders.ChoosePursuer`). On the kill target they stand together by
+  design: the same target 84% of the time.
+- **"Both stood still, waiting for the other to push in. Then at some point Albs pushed and
+  mezzed all 3 fighters."** The hold on a longer mez range, and the outranged group's wait,
+  were the assistant's reading of an earlier remark. Both are off (`Order.HoldRangeAdvantage`
+  0): both groups run in, and the mezzer casts when it is in range.
+- **"Both Blademasters were back-styling (snare) the Armsman on the Druid, and the Druid just
+  stood still. There was the Paladin also attacking the Druid and neither Blademaster switched
+  target. The Druid could have kited away. If the Paladin would have followed and extended,
+  Hibs could have collapsed on it."** A healer with a free enemy fighter on it and close was
+  "pinned" and stood, because both run at the same speed. Now, with one of its attackers
+  held or slowed, it runs from the others (`Position.RunsWhenOneAttackerIsHeld`); the two
+  fighters taking two pursuers is the point above.
+- **"Oserenmund stood way off during the fight and stood still, not doing anything."** The
+  Theurgist, out of power after 48 seconds: a pet costs 12% of its pool. In 50 matches at
+  rank 5 the Theurgist was under 10% power for 42% of its living fight time (dry at a median
+  of 61 seconds), the Bard 39%, the Skald 31%, the Minstrel 30%, the Druid 12%, the Cleric
+  10%. "If the Theurgist was out of mana, that explains it. I do not have that information
+  when I observe": the feed now says when a member runs out of power. Nobody gave a group
+  power regeneration: before the fight a member cast only what was its own, and in a fight no
+  buff is begun. The owner: "Sorc should cast that buff before the fight, for sure. All realms
+  that have a mana regen buff should cast it before fight." A power regeneration buff is now
+  cast on the members that use power before the fight; in the first match after, the Sorcerer
+  cast Cognition of Power seven times and all of Albion held it. The songs are no answer: "Neither Bard or Minstrel were playing the mana song. Back in 1.65
+  we had to rely on mana potions (from alchemists, if I remember correctly), Mystic Crystal
+  Lore and Raging Power. Before having access to MCL and RP was a rough time." So every 8v8
+  class that has Mystic Crystal Lore now buys it to level 2 right after its Purge and uses it
+  when it is low on power and out of combat (the ability cannot be used in combat), and
+  Raging Power, which needs Mystic Crystal Lore 2 and ten points more, is bought when the
+  points are there and used when the pool is nearly empty
+  (`AutonomousBotRealmAbilities.PvpFirst`, `PvpActives`). Built and tested; not yet on the
+  scrim server when this was written. **Not built:** mana potions. **Not solved:** the pace at
+  which a Theurgist spends its pool.
+- **"You would gain so much more insight from seeing the fight... a picture is worth 1000
+  words."** `source/tools/pvp_replay.py` draws a recorded match from above: picture sheets
+  (six moments each) that the assistant can look at, and a page to play and scrub in a browser
+  with every member's health, power and state beside the map. The first two sheets showed
+  four things no count had: both groups arrive in a rigid line abreast; a Cleric walked into a
+  brawl because a healer going to a patient out of range walked to the patient's very place
+  (now it stops where its spell reaches); a Druid with two fighters on it was told to gather
+  on the Eldritch, to get away, and to hit a pet with its staff, in turn (the last two are now
+  left out while a fighter is on it); and a group's casters falling back end up within 200
+  units of each other.
+
+### The loop of 2026-11-19: record, draw, look, measure, change
+
+The owner, away for three hours: "Could you keep running tests, generate the images, review the
+replay and generate insight to improve the bot skills?" Each round is twelve recorded matches at
+realm rank 5, picture sheets of a few of them (`pvp_replay.py`), a count over all of them for
+whatever the pictures suggest, and then a change. A picture shows one fight; two things seen in
+pictures turned out to be rare when counted, and are noted as such.
+
+1. **The back row stops at range before the first blow** (`Position.BackRowStopsAt`, 3,200). An
+   opening drawn second by second: with the speed song and sprint the two groups close at about
+   1,000 units a second, the travelling formation aims the back row at a place 700 units short
+   of the middle of the enemy, and both back rows ran in with their fighters to about 1,000
+   units from the enemy's. Two seconds after the first blow the fight was one ball 1,300 units
+   across. Now healers and casters stop about 2,700 units out and their fighters go on; a
+   caster does not walk in to cast before the first blow either. Twelve matches each side: a
+   mez, root or stun was begun on an incoming fighter before it arrived 40% of the time before
+   and 63% after (the Sorcerer: 1 cast, then 7); back lines apart at 20 s, 1,411 and 1,662.
+   A fighter running at the healers was stopped within 3 s 47% of 60 before and 58% of 52
+   after, and then 38% of 53 and 38% of 119 in the next two rounds: the 58% was a small
+   sample, and the rule has not moved. A group's healers within 800 units of each other went
+   from 4% to 12%.
+2. **What becomes of a mez on a fighter at rank 5.** Of 78 mezzes begun on an enemy fighter in
+   the first fifteen seconds (24 matches): 21 never finished, 19 were finished on a target that
+   had become immune during the cast, 7 did not take, and of the 31 that did, 30 were purged
+   within three seconds. None held three seconds. Of 71 roots, 34 held three seconds or longer.
+   So the first mez on a fighter buys its Purge and nothing else, and a root after that holds.
+   A caster now drops the mez, stun or root it is casting when the target has meanwhile been
+   dealt with or has become immune (`DropsAWastedControlCast`).
+3. **An order held at least eight seconds: tried, and taken back.** A group changed its order
+   3.8 times a minute, an order lasted a median of five to seven seconds, and more than half
+   the changes were Engage to Extend or back; in the pictures of one fight Midgard's fighters
+   went to and fro between their kill target and their own healers for ninety seconds and did
+   neither. With `Order.KeepSeconds` at 8 the changes fell only to 3.3 a minute. It is back at
+   3; the to and fro is still there and wants another cure than time.
+4. **The owner's bar, said during the loop:** "At some point, a healer will be out of position
+   or out of mana or interrupted and someone will die. Similarly, a team has to wipe at some
+   point. It just needs to not be from obvious 'dumb' play or within few seconds of contact."
+   And: "the real difference was how each team reacted to the situation... 2 teams of equal
+   skill could take 5-10 minutes. I've seen longer fights." The referee has the rule now
+   (`rule_nobody_dies_at_once`): the first death comes at a median of 53 to 61 seconds and
+   within 20 seconds in 0 or 1 of 12 matches, so that part holds at rank 5. A fight lasts
+   about two and a half minutes.
+5. **Each group's first death** (30 in 24 matches): in the six seconds before it the group's
+   other healers were being interrupted and not casting for 27% of their seconds (the last
+   thing to hit them: a pet 41 times, a spell 16, a fighter 11), walking 16% (half of it a
+   step to stand off, keep range or keep apart), asleep 15%, casting 12%, out of range 11%,
+   stunned 8%. No heal landed on the one that died in 17 of the 30. A healer on a step of
+   position now breaks it off to heal a member under 60% health, unless a fighter is on it,
+   and takes no step to keep apart then (`Position.HealerBreaksOffAStepToHeal`).
+6. **Pets on the healers.** In Albion against Midgard Albion's pets attacked Midgard's three
+   healers 144 times a match (the Theurgist's 100, the Cabalist's 44) and Midgard did nothing
+   about them; on Hibernia's, 69. A mezzer may now put pets to sleep (a pet has no Purge): a
+   single mez on a pet that is not the Theurgist's, an area mez on any, two pets counting as
+   one enemy (`PvpPetClear.MezCount`). In 24 matches that was cast 1.3 times a match and the
+   attacks on Midgard's healers did not move (143): the mezzing Healer is seldom free to do
+   it. Then the other end: against Midgard the Theurgist lived 164 seconds a match, was
+   being interrupted for 14% of them, called 21.6 pets, and Midgard's Savage and Berserker
+   never had it as their target. Whoever owns the pets that are on the group's healers and
+   casters is now a better kill (`Kill.PerPetOnOurBackline`, up to four pets). Round four, 24
+   matches: Midgard's kill target was the Cleric 46% of the time and the Theurgist 36% (97%
+   and 1% before), its three fighters each had the Theurgist as their target for 20 to 24
+   seconds a match (0 before), and the Theurgist was being interrupted for 21% of its life
+   against 13%. It still called 22.5 pets a match, died in one match of eight, and its pets'
+   attacks on Midgard's healers went from 143 to 135. So the group now goes for it and does
+   not get it killed: an open point, not a fixed one.
+7. **Resurrection.** 8.5 deaths a match and 0.2 resurrections. Of 137 deaths with fifteen
+   seconds of fight left: no healer of the group alive 48, a healer too far from the corpse
+   (2,900 units at the median) 41, asleep or stunned 28, could have and did not 9, short of
+   the half of its power it costs 8. Walking a healer to a corpse during a fight
+   (`Heal.ResurrectWalkWithin`) was tried and is off again: 3.0 walks a match for 0.2 more
+   resurrections, the back lines 300 units nearer each other, the healers together 17% of the
+   time against 12%.
+8. Nobody gathers on a caster that has a free enemy fighter beside it
+   (`Pets.NoGatherWithFighterWithin`): 22% of Hibernia's walks to gather went to one.
+9. **How a kill call ends** (467 calls in 48 matches): the target died in 68%, after a median
+   of 9 seconds; it was given up alive in 31%, after a median of 27 seconds and at a median
+   of 94% health, most often a Druid, Cleric or Healer. A leaning to give up a target that is
+   not losing health (`Kill.PerStaleSecond`, `RecentlyAbandoned`) was tried and is off again:
+   the calls were given up after 21 seconds against 25, there were 12 a match against 9 for
+   the same number of kills, and a fighter running at the healers was stopped 31% of the time
+   against 45%. Whom to call, and when, is the question; giving up sooner is not the answer.
+10. **The shield fighter away on the kill.** The morning's change let a shield fighter with
+   nobody to peel help with the kill at any distance. In 24 matches shield fighters were on
+   the kill target 44% of their time, and for a quarter of that a free enemy fighter was on a
+   healer or caster of their own group (11% of all their time); in the pictures of one fight
+   a Warrior hit the enemy's Druid while a Blademaster killed a Healer it did not guard. Now
+   the cheap distance applies only while no enemy that is awake and free is on, or running at,
+   any healer or caster of the group (`PvpPeel.Threatened`).
+
+Where the loop ended, on 24 matches of the last build against the 41 rank 5 matches of that
+morning (many changes lie between the two columns, so no single one can be credited):
+
+| Rule | That morning (41) | After the loop (24) |
 |---|---|---|
-| A group does not stand inside the enemy mezzer's reach before the fight | 2.2 s a match | 0.5 s, pass |
-| The two back lines keep their distance (20 s, 45 s after contact) | 912, 695 units | 1,183, 875: fail |
-| Casters cast on healers and casters from the edge of their range | (all targets) median 781 | median 867, a third under 700: fail |
-| A group's healers do not stand together (closer than 800) | 61% of the time | 19%: fail by the mark of 10% |
-| A fighter that reaches a healer or caster is stopped within 3 s | 36% | 47% of 34: fail |
-| A shield fighter told to stay has no attack target | 35% of the time | 0%, pass |
-| Nobody stops to buff once the fight has started | 11.2 a match | 0.3, pass |
-| A healer does not call its pet in a fight | 4.9 a match | 0, pass |
-| The Bard does not spend the fight singing | 17 s a match | 0.8 s, pass |
-| A sleeping healer is woken within 8 s | 20% | 31% of 29: fail |
+| Nobody dies within seconds of contact | first death at a median of 40 s; within 20 s in 4 matches, the earliest at 2 s | 57 s; within 20 s in none, the earliest at 28 s |
+| A fighter running at the healers is stopped within 3 s | 30% of 168 | 48% of 113 |
+| A sleeping healer is woken within 8 s | 71% of 31 | 89% of 36 |
+| Back lines apart at 20 s and 45 s | 1,539 and 1,344 | 1,512 and 1,421 |
+| Casters cast from the edge of their range | median 1,376; under 700 units 7% | median 1,255; 13%: worse |
+| A group's healers within 800 units of each other | 10% | 12% |
+| Casters' free time: casting, walking | 32%, 26% | 33%, 26% |
+| A shield fighter on the kill with a free enemy fighter on its own healers | 9% of its time | 7% |
+| Length of a fight | 127 s | 143 s |
 
-Twelve matches are a check, not a result. What still pulled the back lines together in those
-twelve: in the first minute a caster walked toward a target 23 times a match and stepped back
-8 times, and a step taken to "keep range" ended nearer the enemy more often than not, because
-being in range of a kill target in the enemy's back row was worth four times what the edge
-was. The last change of the night addresses that; its reading is below when there is one.
+The automated tests stand at 3,321. The owner has seen none of the loop's changes in the game.
+
+11. **The Runemaster's area nuke** (owner, on what Midgard did about a Theurgist: "the idea
+   would be to have Midgard push hard on Albs and try to catch the Theurgist. Theurgist always
+   been a tricky target... Runemaster should have an AoE, similar to the Eldritch"). On this
+   server it is not point-blank: Odin's Hatred, level 44 of the Runecarving line, 158 damage
+   350 units around an enemy up to 1,500 away. The Runemaster casts it on two or more pets that
+   are on its group's healers and casters, when nothing sleeps inside it (a new kind of scored
+   choice, `AreaDamage`; `AreaDamagePerPet`). Two things stood in the way and are fixed: the bot
+   did not hold the spell at all (a caster bot keeps one spell of each type and target for a
+   line, and the line's level 48 single nuke won), and the first version picked a
+   ground-targeted spell of the same line that a bot cannot aim (21 casts begun in two matches,
+   none finished). Checked in one match only: chosen twice, three hits on pets.
+
+**The rule that swings most** is the fighter running at the healers being stopped
+within three seconds: 47, 58, 38, 38, 45, 31 and 48% over the seven rounds. At rank 5 a stop is
+purged at once (finding 2), so the mark may be asking for something a group with Purge on the
+other side cannot do; what it should count instead (the fighter held after its Purge is
+spent, or the healer getting away) is to be settled with the owner.
+
+Seen in a picture and rare when counted: a group's fighters standing idle while stunned enemy
+fighters sat on their healer (5% of such seconds under Extend); a caster that had drifted out
+of the fight (no enemy within 1,600 units for 11% of a Theurgist's fight, 2 to 5% of the
+others'). Seen and not yet acted on: the
+mezzing Healer of Midgard stands level with its fighters at contact (it has to be within 1,500
+units to mez) and is in melee within five seconds in 46% of matches; three or more of a group's
+healers and casters stand inside one area mez 12% of the time for Hibernia and 6% for Albion.
+
+Still open from that morning: power regeneration and the pace at which casters spend their
+power; quick cast for 8v8 bots; a fighter going for a pet; whether the
+Paladin away on the kill lets fighters through; the Hero's endurance with a two-hander; the
+Slam that misses (a fifth to a quarter of them against fighters: plain misses, not blocks);
+and how a fight should start.
 
 ## Measuring progress (owner, 2026-11-16)
 
@@ -1665,6 +2030,37 @@ Targets are first guesses and will be reset once the M3 baseline exists.
 - **Battlegrounds and other zones:** only the Old Frontier zones have navmeshes. A second arena
   outside them would need a mesh built.
 - **Sluaghbinder:** left out of the meta groups unless the owner wants it in.
+- **How a fight starts (owner, 2026-11-19):** the scrims' opening "is not what a real 8v8 fight
+  would look like". Today the groups stand 6,000 units apart, buff, and run straight at each
+  other; the side whose mez reaches farther holds and the other runs into it. What the owner
+  described, to build from:
+  - Groups roamed Emain Macha on known routes (in the Old Frontier: Albion's main keep, the
+    Albion gate, the Midgard gate, Midgard's main keep, and back), with a few routes that
+    left that line; "it was mainly a game of cat and mouse".
+  - Contact "really depends on if we sneaked in, head-on, angle on contact". Players pan the
+    camera so as not to be jumped, so the angle matters. "Mostly the team getting jumped would
+    spread in the opposite direction and try to react while the aggressor team would try to
+    push and pick a target."
+  - "There's no black and white answers. It's a game of reaction, crowd controlling and the
+    right timing to collapse on a target." The group that is jumped may use an instant area
+    mez to buy time or to break up the aggressor, or Speed of Sound to take its places or to
+    run through the enemy. "Sometimes it works, sometimes it doesn't... Sometimes you will lose
+    because your realm abilities are down and you just have to accept it."
+  So: no single scripted answer. The opening is to be varied (who sees whom first and from
+  which side), each answer is one more scored choice, and realm abilities are sometimes down
+  at the start of a match. Not built yet.
+- **Realm rank for testing (owner, 2026-11-19):** "testing with no realm abilities might be
+  silly." Scrims for watching now run at realm rank 5 (40 points): everyone has Purge, the
+  Druids Group Purge, Blademasters, Berserkers and the Savage Charge, and the passives.
+  Missing at any rank, because bots cannot use them: Speed of Sound, Mastery of
+  Concentration, quick cast. The night's referee figures were all at rank 1.
+- **Speed of Sound (owner, several times):** the Bard, Skald and Minstrel's realm ability; a
+  group that is jumped uses it to reposition or to run through, and a group that is kited
+  uses it to get in. No bot has it.
+- **Quick cast (owner, 2026-11-19):** used by the Eldritch to get its point-blank spell off
+  on enemy pets while they hit it. Bots have none: it is switched off for every kind of bot
+  (`GameBot`, "Quickcast is explicitly disabled for all bot kinds"), and the ability's handler
+  takes a player. To be built for 8v8 bots only.
 - **Races (owner, 2026-11-18, "for later"):** the race of each class needs reworking. Today every
   class has one fixed race (`PvpBuildCatalog.RaceOf`): Hibernia's casters are Elves and Albion's
   are Avalonians. The owner: a Hibernian caster should be a Lurikeen, and an Albion caster a

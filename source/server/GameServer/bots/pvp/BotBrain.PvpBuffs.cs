@@ -75,6 +75,12 @@ namespace DOL.AI.Brain
                 return false;
             if (PvpHeldBackInFight(spell))
                 return true;
+            // Power regeneration is cast on the group before the fight by whoever has it (owner,
+            // 2026-11-19: "Sorc should cast that buff before the fight, for sure. All realms that
+            // have a mana regen buff should cast it before fight"). It was held back with every
+            // other buff on others, so nobody had it: a Theurgist was out of power 42% of its fights.
+            if (spell.SpellType == eSpellType.PowerRegenBuff && !PvpGroupIsFighting())
+                return false;
             return IsBuffOnOthers(spell.Target, spell.Duration, spell.Concentration, spell.IsPulsing) &&
                    (PvpSelfBuffsOnly || PvpFightIsOn());
         }
@@ -93,6 +99,11 @@ namespace DOL.AI.Brain
                 return false;
             if (spell.SpellType.ToString().StartsWith("Summon", StringComparison.Ordinal))
                 return IsBuffHeldBackInFight(spell.CastTime, false, 0, 0, PvpIsHealer() && AutonomousPetSupport.IsMainPetSummon(spell.SpellType));
+            // Speed is for the run to the fight. It is a pulsing spell, so the rule below lets it through; in the
+            // night of 2026-11-19 a Theurgist, Sorcerer, Runemaster or Healer still stopped to cast it about once
+            // a match, with the nearest enemy 600 to 1,300 units away.
+            if (spell.SpellType == eSpellType.SpeedEnhancement && spell.CastTime > 0)
+                return true;
             return IsBuffHeldBackInFight(spell.CastTime, spell.IsPulsing, spell.Duration, spell.Concentration, false);
         }
 

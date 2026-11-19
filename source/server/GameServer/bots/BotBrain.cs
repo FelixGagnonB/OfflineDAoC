@@ -2231,6 +2231,8 @@ namespace DOL.AI.Brain
                                     (eCharacterClass)bot.CharacterClass.ID, spell.SpellType)))
                 .DistinctBy(spell => spell.ID)
                 .Where(spell => spell.SpellType != eSpellType.SpeedEnhancement || !immediateCombat && (traveling || groupedSupport))
+                // No speed song once an 8v8 fight is on (a Minstrel began one 37 s into a fight, an enemy 275 units away).
+                .Where(spell => spell.SpellType != eSpellType.SpeedEnhancement || !PvpHeldBackInFight(spell))
                 .Where(spell => !pvpSongBounded || spell.SpellType == eSpellType.EnduranceRegenBuff);
             if (ownerMoving)
                 songCandidates = songCandidates.GroupBy(spell => spell.SpellType)
@@ -2505,6 +2507,9 @@ namespace DOL.AI.Brain
             return BotBuffReservations<GameLiving>.Choose(
                 members.Concat(BotGroupPetBuffTargets.Enumerate(BotBody, spell)),
                 target => target.IsAlive && Body.IsWithinRadius(target, range) &&
+                    // An 8v8 group's power regeneration goes to the members that use power.
+                    (BotBody?.IsPvpBot != true || spell.SpellType != eSpellType.PowerRegenBuff ||
+                     target is GameBot { CharacterClass.ManaStat: not eStat.UNDEFINED }) &&
                     !LivingHasEffect(target, spell) && !(claims?.IsReserved(target, family, now) ?? false));
         }
 
@@ -3320,6 +3325,9 @@ namespace DOL.AI.Brain
                                 return;
                             }
                             QueueUsableMeleeStyle();
+                            // An 8v8 fighter walks behind a stunned target for its style from behind.
+                            if (PvpStepBehind(Body.TargetObject as GameLiving))
+                                return;
                         }
                     }
 
@@ -3582,6 +3590,9 @@ namespace DOL.AI.Brain
 
         private bool SwitchToUsableMeleeWeapon()
         {
+            if (PvpChooseHands())
+                return true;
+
             if (BotBody?.CharacterClass?.ID == (int)eCharacterClass.Savage)
             {
                 if (!SavageBotWeaponPolicy.TryBestActiveSlot(BotBody, out eActiveWeaponSlot savageSlot))
@@ -4843,11 +4854,22 @@ namespace DOL.AI.Brain
         /// Walks toward a group member that is out of range of a heal or buff. False once the
         /// walk has made no progress for 12 seconds (that member is then skipped for 30).
         /// </summary>
-        private bool ApproachSupportTarget(GameLiving target)
+        private bool ApproachSupportTarget(GameLiving target, int range = 0)
         {
             if (target == null || target == Body || !InSupportReach(target) ||
                 !_supportReach.KeepApproaching(target, Body.GetDistanceTo(target), GameLoop.GameLoopTime))
                 return false;
+            // An 8v8 healer walks to where its spell reaches the patient, not onto the patient. Seen in
+            // the first picture sheets (2026-11-19): a Cleric whose patient was in a brawl kept walking
+            // while it was being interrupted, ended in the middle of three enemy fighters, and was mezzed.
+            double distance = Body.GetDistanceTo(target);
+            if (BotBody.IsPvpBot && range > 300 && distance > 1)
+            {
+                double keep = (range - 150) / distance;
+                if (keep < 1)
+                    BotBody.WalkTo(new Point3D((int)(target.X + (Body.X - target.X) * keep), (int)(target.Y + (Body.Y - target.Y) * keep), Body.Z), BotBody.MaxSpeed);
+                return true;
+            }
             BotBody.WalkTo(new Point3D(target.X, target.Y, target.Z), BotBody.MaxSpeed);
             return true;
         }
@@ -5231,7 +5253,7 @@ namespace DOL.AI.Brain
                 if (!BotBody.IsWithinRadius(spellTarget, BotBody.castingComponent.CalculateSpellRange(spellToCast)))
                 {
                     // Walk into range; give up on a member it cannot get closer to.
-                    return ApproachSupportTarget(spellTarget) || isCastingHeal;
+                    return ApproachSupportTarget(spellTarget, BotBody.castingComponent.CalculateSpellRange(spellToCast)) || isCastingHeal;
                 }
                 _supportReach.Reached(spellTarget);
 
@@ -5470,6 +5492,9 @@ namespace DOL.AI.Brain
                     return false;
                 }
                 ReportResurrectionBlock(resurrection, null);
+                // An 8v8 healer walks to a corpse that is out of its reach (bots/pvp/PvpHealPlan.cs).
+                if (PvpWalkToRaise(resurrection))
+                    return true;
             }
             if (resurrection == null || Body.Group == null || Body.InCombat || Body.Group.GetMembersInTheGroup().Any(m => m.IsAlive && m.InCombat) || Body.IsCasting || !CheckHealSpell(resurrection))
                 return false;

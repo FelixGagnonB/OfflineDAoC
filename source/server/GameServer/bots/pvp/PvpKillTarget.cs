@@ -6,7 +6,11 @@ namespace DOL.GS
 {
     /// <summary>What a group knows about one enemy when it picks whom to kill.</summary>
     /// <param name="FromItsHealers">How far it stands from the middle of its own group's healers; 0 when none of them is known.</param>
-    public readonly record struct PvpTargetView(int Id, PvpBuffArchetype Archetype, int HealthPercent, bool Mezzed, int Distance, int FromItsHealers = 0);
+    /// <param name="PetsOnOurBackline">How many of its pets are in melee on the group's healers and casters.</param>
+    /// <param name="StaleSeconds">For the target being killed: how long it has been the target, beyond the grace time, without its health coming down.</param>
+    /// <param name="Abandoned">It was the target a moment ago and was given up alive.</param>
+    public readonly record struct PvpTargetView(int Id, PvpBuffArchetype Archetype, int HealthPercent, bool Mezzed, int Distance, int FromItsHealers = 0,
+        int PetsOnOurBackline = 0, int StaleSeconds = 0, bool Abandoned = false);
 
     /// <summary>
     /// What the choice of a kill target weighs. None of it is a rule (the owner, 2026-11-18:
@@ -39,6 +43,36 @@ namespace DOL.GS
         /// too far forward is jumped.
         /// </summary>
         public double PerHundredUnitsFromItsHealers { get; set; } = 5;
+        /// <summary>
+        /// For each of the enemy's pets that is in melee on the group's healers and casters, up to
+        /// four: whoever keeps the healers from healing is worth killing. Counted on 2026-11-19
+        /// over eight matches of Albion against Midgard at rank 5: the Theurgist lived 164
+        /// seconds a match, was being interrupted for 14% of them, called 21.6 pets, and its pets
+        /// attacked Midgard's healers 100 times a match; Midgard's Savage and Berserker never had
+        /// it as their target. With four pets out a Theurgist now outscores a healer.
+        /// </summary>
+        public int PerPetOnOurBackline { get; set; } = 25;
+        /// <summary>
+        /// A target that is not going down is given up sooner. For each second it has been the
+        /// target beyond <see cref="StaleAfterSeconds"/> while its health stayed above
+        /// <see cref="StaleIfHealthAbove"/>. Counted on 2026-11-19 over 48 matches at rank 5: of
+        /// 467 kill calls 68% ended with the target dead, after a median of 9 seconds, and 31%
+        /// were given up with the target alive, after a median of 27 seconds and at a median of
+        /// 94% health; most were a Druid, Cleric or Healer that was healed, guarded or ran. The
+        /// owner the same day: it is "the right timing to collapse on a target".
+        ///
+        /// Off (0; tried at -4 with -80 for a target just given up): in 24 matches a call was
+        /// given up after 21 seconds against 25, there were 12 calls a match against 9 for the
+        /// same number of kills, and a fighter running at the healers was stopped within three
+        /// seconds 31% of the time against 45%. Giving up a little sooner and calling more often
+        /// is not the cure; the question is whom to call, and when.
+        /// </summary>
+        public double PerStaleSecond { get; set; } = 0;
+        public int StaleAfterSeconds { get; set; } = 10;
+        public int StaleIfHealthAbove { get; set; } = 80;
+        /// <summary>A target given up alive is not called again for <see cref="AbandonedForSeconds"/>. Off with the above.</summary>
+        public int RecentlyAbandoned { get; set; } = 0;
+        public int AbandonedForSeconds { get; set; } = 20;
         /// <summary>The current target is kept unless another scores this much higher.</summary>
         public int SwitchMargin { get; set; } = 60;
         /// <summary>Enemies farther than this from the damage dealers are not called.</summary>
@@ -54,6 +88,7 @@ namespace DOL.GS
     {
         private static readonly PvpKillWeights Defaults = new();
         private const int ExposureCap = 2_000;
+        private const int PetCap = 4;
 
         /// <summary>
         /// Higher is a better kill. Healers first, then casters: they are the softest and matter
@@ -67,8 +102,18 @@ namespace DOL.GS
                 + (int)(weights.PerMissingHealthPercent * (100 - enemy.HealthPercent))
                 + (enemy.Mezzed ? weights.Mezzed : 0)
                 + (int)(weights.PerHundredUnits * enemy.Distance / 100.0)
-                + (int)(weights.PerHundredUnitsFromItsHealers * Math.Min(enemy.FromItsHealers, ExposureCap) / 100.0);
+                + (int)(weights.PerHundredUnitsFromItsHealers * Math.Min(enemy.FromItsHealers, ExposureCap) / 100.0)
+                + weights.PerPetOnOurBackline * Math.Min(enemy.PetsOnOurBackline, PetCap)
+                + (int)(weights.PerStaleSecond * enemy.StaleSeconds)
+                + (enemy.Abandoned ? weights.RecentlyAbandoned : 0);
         }
+
+        /// <summary>
+        /// How long a target has gone stale: the seconds it has been the target beyond the grace
+        /// time, counted only while its health is above the mark.
+        /// </summary>
+        public static int StaleSeconds(double secondsOnTarget, int healthPercent, PvpKillWeights weights) =>
+            healthPercent <= weights.StaleIfHealthAbove ? 0 : (int)Math.Max(0, secondsOnTarget - weights.StaleAfterSeconds);
 
         /// <summary>The enemy to kill now, given the one being killed already (-1 for none).</summary>
         public static int Choose(IReadOnlyList<PvpTargetView> enemies, int currentId, PvpKillWeights weights = null)

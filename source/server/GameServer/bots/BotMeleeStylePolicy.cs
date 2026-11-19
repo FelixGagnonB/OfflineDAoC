@@ -59,6 +59,9 @@ namespace DOL.GS
             // for the fighter's last target is not kept when this one is to be stopped and that
             // style does not stop it: the first swing of a peel is the Slam, not what was left over.
             Style queued = bot.styleComponent.NextCombatStyle;
+            // An 8v8 fighter that took its shield out for the Slam throws the Slam (PvpWeaponSwap.cs).
+            if (bot.IsPvpBot && PvpWeaponSwap.SlamNow(bot) is { } slam && Usable(bot, slam, lastAttack))
+                return slam;
             if (preserveQueued && Usable(bot, queued, lastAttack) && !(control && !PvpStylePolicy.Stops(bot, queued))) return queued;
             Style best = null;
             Style anytime = null;

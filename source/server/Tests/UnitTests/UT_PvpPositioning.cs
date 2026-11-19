@@ -56,6 +56,117 @@ namespace DOL.UnitTests
             Assert.That(Vector2.Distance(fromFighter[0], fighter[0].At), Is.GreaterThan(700));
         }
 
+        [Test]
+        public void AHealerBreaksOffAStepForAMemberThatIsBadlyHurt()
+        {
+            // Before a group's first death its other healers were walking 16% of the time, half of it on steps of position.
+            var weights = new PvpPositionWeights();
+            Assert.Multiple(() =>
+            {
+                Assert.That(weights.BreaksOffToHeal(true, false, 45), Is.True);
+                Assert.That(weights.BreaksOffToHeal(true, false, 80), Is.False, "nobody badly hurt: it finishes its step");
+                Assert.That(weights.BreaksOffToHeal(true, true, 20), Is.False, "a fighter is on it: it keeps running");
+                Assert.That(weights.BreaksOffToHeal(false, false, 20), Is.False, "a caster is not a healer");
+                Assert.That(new PvpPositionWeights { HealerBreaksOffAStepToHeal = false }.BreaksOffToHeal(true, false, 20), Is.False);
+            });
+        }
+
+        [Test]
+        public void TheBackRowStopsAtRangeBeforeTheFirstBlow()
+        {
+            // Seen in the pictures of an opening, 2026-11-19: healers and casters ran in with their fighters.
+            var weights = new PvpPositionWeights();
+            Assert.Multiple(() =>
+            {
+                Assert.That(weights.BackRowStops(false, 3_000, false), Is.True, "a healer or caster with the enemy coming");
+                Assert.That(weights.BackRowStops(false, 4_000, false), Is.False, "still far: it keeps its place in the formation");
+                Assert.That(weights.BackRowStops(true, 3_000, false), Is.False, "a fighter goes on");
+                Assert.That(weights.BackRowStops(false, 3_000, true), Is.False, "once the fight is on its brain decides");
+                Assert.That(new PvpPositionWeights { BackRowStopsAt = 0 }.BackRowStops(false, 500, false), Is.False, "switched off");
+            });
+        }
+
+        [Test]
+        public void AHealerLeftBehindFollowsItsGroup()
+        {
+            // The owner, 2026-11-19: Hibernia pushes and both Druids stay out of range of almost all their teammates.
+            var weights = new PvpPositionWeights();
+            var self = new Vector2(0, 0);
+            Vector2[] group = [new(2_600, 0), new(2_900, 200), new(3_200, -200), new(900, 0)];
+            List<PvpWorkPoint> work = group.Select(member => new PvpWorkPoint(member, weights.HealRange, 0.5)).ToList();
+            Assert.That(PvpPositioning.LeftBehind(self, group, weights), Is.True);
+            Assert.That(PvpPositioning.LeftBehind(self, [new(2_600, 0), new(900, 0)], weights), Is.False, "one member gone deep is not the group");
+            List<Vector2> steps = PvpPositioning.Steps(self, [], work, [], 350, weights.SafeDistance, weights, out _, leftBehind: true);
+            Assert.That(steps, Is.Not.Empty);
+            Assert.That(steps[0].X, Is.GreaterThan(300), "toward the members it cannot reach");
+            // As it was: with no enemy near, no step at all.
+            Assert.That(PvpPositioning.Steps(self, [], work, [], 350, weights.SafeDistance, weights, out _), Is.Empty);
+        }
+
+        [Test]
+        public void ACasterWithNoEnemyInReachClosesUpToTheEdge()
+        {
+            var weights = new PvpPositionWeights();
+            // The nearest enemy, a caster, is 1,900 units away; the kill target stands behind it.
+            Vector2[] others = [new Vector2(1_900, 0), new Vector2(2_400, 300)];
+            PvpWorkPoint[] work = [new(new Vector2(2_400, 300), weights.WorkRange, weights.KillTargetRangeWeight)];
+            Assert.That(PvpPositioning.Steps(Vector2.Zero, [], work, [], 400, 900, weights, out _, default, others, weights.EdgeDistance), Is.Empty,
+                "as it was: nothing brought it forward");
+            List<Vector2> steps = PvpPositioning.Steps(Vector2.Zero, [], work, [], 400, 900, weights, out var verdict, default, others,
+                weights.EdgeDistance, weights.WorkRange);
+            Assert.That(verdict, Is.EqualTo(PvpPositioning.Verdict.Step));
+            float after = Vector2.Distance(steps[0], others[0]);
+            Assert.That(after, Is.LessThan(1_900 - 300), "it walks toward them");
+            Assert.That(after, Is.GreaterThanOrEqualTo(weights.EdgeDistance - 200), "and no farther than the edge");
+            // In reach already, it stays; and so does a healer (no reach given), wherever the enemy is.
+            Assert.That(PvpPositioning.Steps(new Vector2(500, 0), [], work, [], 400, 900, weights, out _, default, others,
+                weights.EdgeDistance, weights.WorkRange), Is.Empty);
+            // With the weight at nothing it stands as before.
+            var off = new PvpPositionWeights { PerUnitOutOfReach = 0 };
+            Assert.That(PvpPositioning.Steps(Vector2.Zero, [], work, [], 400, 900, off, out _, default, others, off.EdgeDistance, off.WorkRange), Is.Empty);
+        }
+
+        [Test]
+        public void AHealerSteppingAwayDoesNotStepBesideTheOtherHealer()
+        {
+            var weights = new PvpPositionWeights();
+            // A fighter comes at the healer from the east; the other healer stands 700 units to the west.
+            PvpThreat[] fighter = [new(new Vector2(500, 0), true, false, false)];
+            Vector2[] otherHealer = [new Vector2(-700, 0)];
+            // As it was, the place beside the other healer was as good as any other that far from the fighter.
+            var beside = new Vector2(-700, 100);
+            var clear = new Vector2(-300, 700);
+            Assert.That(PvpPositioning.Score(beside, fighter, [], [], 400, 900, weights), Is.EqualTo(PvpPositioning.Score(clear, fighter, [], [], 400, 900, weights)));
+            Assert.That(PvpPositioning.Score(beside, fighter, [], [], 400, 900, weights, null, 0, 0, otherHealer, 1_000),
+                Is.LessThan(PvpPositioning.Score(clear, fighter, [], [], 400, 900, weights, null, 0, 0, otherHealer, 1_000) - 500));
+            List<Vector2> steps = PvpPositioning.Steps(Vector2.Zero, fighter, [], [], 400, 900, weights, out var verdict, default, null, 0, 0, otherHealer, 1_000);
+            Assert.That(verdict, Is.EqualTo(PvpPositioning.Verdict.Step));
+            Assert.That(Vector2.Distance(steps[0], otherHealer[0]), Is.GreaterThan(700), "it steps away from both");
+            Assert.That(Vector2.Distance(steps[0], fighter[0].At), Is.GreaterThan(500));
+        }
+
+        [Test]
+        public void AStepAwayFromAFighterDoesNotEndAmongTheEnemysCasters()
+        {
+            var weights = new PvpPositionWeights();
+            // A Sorcerer with an enemy fighter 500 units behind it, and the enemy caster it works on 1,900 ahead: out of its range.
+            PvpThreat[] fighter = [new(new Vector2(-500, 0), false, false, false)];
+            Vector2[] others = [new Vector2(1_900, 0)];
+            PvpWorkPoint[] work = [new(others[0], weights.WorkRange)];
+            var asBefore = new PvpPositionWeights { StepNearerTheirBackLineAtMost = -1 };
+            List<Vector2> was = PvpPositioning.Steps(Vector2.Zero, fighter, work, [], 400, 900, asBefore, out _, default, others, asBefore.EdgeDistance);
+            Assert.That(Vector2.Distance(was[0], others[0]), Is.LessThan(asBefore.EdgeDistance - 100), "as it was: away from the fighter and into its target's range, among them");
+            List<Vector2> steps = PvpPositioning.Steps(Vector2.Zero, fighter, work, [], 400, 900, weights, out var verdict, default, others, weights.EdgeDistance);
+            Assert.That(verdict, Is.EqualTo(PvpPositioning.Verdict.Step));
+            Assert.That(steps.All(step => Vector2.Distance(step, others[0]) >= weights.EdgeDistance - weights.StepNearerTheirBackLineAtMost), Is.True);
+            Assert.That(Vector2.Distance(steps[0], fighter[0].At), Is.GreaterThan(600), "and still away from the fighter");
+            // One already among them does not go deeper.
+            Vector2[] close = [new Vector2(600, 0)];
+            List<Vector2> deep = PvpPositioning.Steps(Vector2.Zero, fighter, [], [], 400, 900, weights, out _, default, close, weights.EdgeDistance);
+            Assert.That(deep, Is.Not.Empty);
+            Assert.That(deep.All(step => Vector2.Distance(step, close[0]) >= 500), Is.True);
+        }
+
         private static readonly PvpPositionWeights Weights = new();
 
         private static List<Vector2> Steps(Vector2 self, PvpThreat[] threats, PvpWorkPoint[] work, out PvpPositioning.Verdict verdict,
@@ -77,6 +188,17 @@ namespace DOL.UnitTests
             List<Vector2> steps = Steps(Vector2.Zero, [new PvpThreat(fighter, false, false, false)], [], out var verdict);
             Assert.That(verdict, Is.EqualTo(PvpPositioning.Verdict.Step));
             Assert.That(Vector2.Distance(steps[0], fighter), Is.GreaterThanOrEqualTo(900), "to a safe distance in one go");
+        }
+
+        [Test]
+        public void WithOneOfItsAttackersSnaredItRunsFromTheOther()
+        {
+            // The owner, 2026-11-19: the Armsman on the Druid was snared, the Paladin was on it too, and the Druid stood still.
+            PvpThreat snared = new(new Vector2(150, 0), false, true, true), free = new(new Vector2(200, 100), false, false, true);
+            List<Vector2> steps = Steps(Vector2.Zero, [snared, free], [], out var verdict);
+            Assert.That(verdict, Is.EqualTo(PvpPositioning.Verdict.Step));
+            Assert.That(steps, Is.Not.Empty);
+            Assert.That(steps[0].X, Is.LessThan(0), "away from both");
         }
 
         [TestCase(150)]

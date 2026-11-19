@@ -8,6 +8,16 @@ namespace DOL.UnitTests
     public class UT_PvpReading
     {
         private static readonly PvpOrderWeights Weights = new();
+        // Holding as it was before 2026-11-19: on when a group's mez outranges the enemy's by 200.
+        private static readonly PvpOrderWeights Holding = new() { HoldRangeAdvantage = 200 };
+
+        [Test]
+        public void NobodyStandsAndWaitsAsTheWeightsAre()
+        {
+            // The owner, 2026-11-19: "Both stood still, waiting for the other to push in."
+            Assert.That(PvpOrders.Holds(1875, 1500, 2, 3000, Weights), Is.False);
+            Assert.That(PvpOrders.WaitsOutAHold(1500, 1875, 2, 3000, 10, Weights), Is.False);
+        }
 
         private static PvpMemberState Fighter(bool held = false, bool slowed = false, bool alive = true) => new(true, false, alive, held, slowed, false);
         private static PvpMemberState Healer(bool alive = true, bool held = false, bool interrupted = false) => new(false, true, alive, held, false, interrupted);
@@ -83,16 +93,16 @@ namespace DOL.UnitTests
         [Test]
         public void AGroupWhoseMezOutrangesTheEnemysHolds()
         {
-            Assert.That(PvpOrders.Holds(1875, 1500, 2, 3000, Weights), Is.True, "a Sorcerer against a Healer or a Bard");
-            Assert.That(PvpOrders.Holds(1500, 1500, 2, 3000, Weights), Is.False, "no advantage");
-            Assert.That(PvpOrders.Holds(1500, 1875, 2, 3000, Weights), Is.False, "outranged: it has to close");
+            Assert.That(PvpOrders.Holds(1875, 1500, 2, 3000, Holding), Is.True, "a Sorcerer against a Healer or a Bard");
+            Assert.That(PvpOrders.Holds(1500, 1500, 2, 3000, Holding), Is.False, "no advantage");
+            Assert.That(PvpOrders.Holds(1500, 1875, 2, 3000, Holding), Is.False, "outranged: it has to close");
         }
 
         [Test]
         public void AHoldEndsWhenTheEnemyIsOnTheGroupOrDoesNotCome()
         {
-            Assert.That(PvpOrders.Holds(1875, 1500, 2, 1000, Weights), Is.False, "they are on the group");
-            Assert.That(PvpOrders.Holds(1875, 1500, 11, 3000, Weights), Is.False, "they are not coming");
+            Assert.That(PvpOrders.Holds(1875, 1500, 2, 1000, Holding), Is.False, "they are on the group");
+            Assert.That(PvpOrders.Holds(1875, 1500, 11, 3000, Holding), Is.False, "they are not coming");
             Assert.That(PvpOrders.Holds(1875, 1500, 2, 3000, new PvpOrderWeights { HoldRangeAdvantage = 0 }), Is.False, "holding turned off");
         }
 
@@ -100,15 +110,15 @@ namespace DOL.UnitTests
         public void AnOutrangedGroupSometimesWaitsForTheHolderToCome()
         {
             // A Healer's or Bard's group against a Sorcerer's: in half the matches it stands as well.
-            Assert.That(PvpOrders.WaitsOutAHold(1500, 1875, 2, 3000, 10, Weights), Is.True);
-            Assert.That(PvpOrders.WaitsOutAHold(1500, 1875, 2, 3000, 80, Weights), Is.False, "in the other half it walks in");
-            Assert.That(PvpOrders.WaitsOutAHold(1875, 1500, 2, 3000, 10, Weights), Is.False, "the group with the longer mez holds for its own reason");
-            Assert.That(PvpOrders.WaitsOutAHold(1500, 1875, 15, 3000, 10, Weights), Is.True, "it outlasts the holder's ten seconds");
-            Assert.That(PvpOrders.WaitsOutAHold(1500, 1875, 26, 3000, 10, Weights), Is.False);
-            Assert.That(PvpOrders.WaitsOutAHold(1500, 1875, 2, 1000, 10, Weights), Is.False, "the enemy is on the group");
+            Assert.That(PvpOrders.WaitsOutAHold(1500, 1875, 2, 3000, 10, Holding), Is.True);
+            Assert.That(PvpOrders.WaitsOutAHold(1500, 1875, 2, 3000, 80, Holding), Is.False, "in the other half it walks in");
+            Assert.That(PvpOrders.WaitsOutAHold(1875, 1500, 2, 3000, 10, Holding), Is.False, "the group with the longer mez holds for its own reason");
+            Assert.That(PvpOrders.WaitsOutAHold(1500, 1875, 15, 3000, 10, Holding), Is.True, "it outlasts the holder's ten seconds");
+            Assert.That(PvpOrders.WaitsOutAHold(1500, 1875, 26, 3000, 10, Holding), Is.False);
+            Assert.That(PvpOrders.WaitsOutAHold(1500, 1875, 2, 1000, 10, Holding), Is.False, "the enemy is on the group");
             // It does not stand until the Sorcerer is in range: the wait is over while the enemy is still outside its mez reach.
-            Assert.That(PvpOrders.WaitsOutAHold(1500, 1875, 2, 2400, 10, Weights), Is.True);
-            Assert.That(PvpOrders.WaitsOutAHold(1500, 1875, 2, 2300, 10, Weights), Is.False);
+            Assert.That(PvpOrders.WaitsOutAHold(1500, 1875, 2, 2400, 10, Holding), Is.True);
+            Assert.That(PvpOrders.WaitsOutAHold(1500, 1875, 2, 2300, 10, Holding), Is.False);
         }
 
         [Test]
@@ -118,6 +128,34 @@ namespace DOL.UnitTests
             var caster = new PvpOption(PvpActionKind.Nearsight, 0, PvpBuffArchetype.Caster, false, false, 100, false, false, false, false, 100);
             Assert.That(PvpActionChoice.Score(eCharacterClass.Runemaster, caster with { OnController = true }, weights),
                 Is.GreaterThan(PvpActionChoice.Score(eCharacterClass.Runemaster, caster, weights)));
+        }
+
+        [Test]
+        public void AFighterTurningOnAPursuerStaysOnItAndTwoFightersTakeTwo()
+        {
+            // The owner, 2026-11-19: the two Blademasters swapped targets together every second or two.
+            Assert.Multiple(() =>
+            {
+                Assert.That(PvpOrders.ChoosePursuer([900, 300, 600], 0, []), Is.EqualTo(0), "the one it is on, though another is nearer");
+                Assert.That(PvpOrders.ChoosePursuer([900, 300, 600], -1, []), Is.EqualTo(1), "nobody yet: the nearest");
+                Assert.That(PvpOrders.ChoosePursuer([900, 300, 600], -1, [1]), Is.EqualTo(2), "the nearest is taken: the next");
+                Assert.That(PvpOrders.ChoosePursuer([900], -1, [0]), Is.EqualTo(0), "only one of them: both go for it");
+                Assert.That(PvpOrders.ChoosePursuer([], -1, []), Is.EqualTo(-1));
+            });
+        }
+
+        [Test]
+        public void FightersOnATargetInTheEnemysBackRowAreNotStrungOut()
+        {
+            // The owner, 2026-11-19: the Blademasters "running forward then back then forward then back".
+            var weights = new PvpOrderWeights();
+            System.Numerics.Vector2[] healers = [new(0, 0), new(400, 600)];
+            // On a target 1,900 units from the nearest healer: in reach, no regrouping. It was called at 1,800 from the middle.
+            Assert.That(weights.FightersFarShare([new(1_900, 0), new(1_900, 100), new(300, 0)], healers), Is.EqualTo(0));
+            // A real chase: two of three out of every healer's reach.
+            Assert.That(weights.FightersFarShare([new(3_000, 0), new(2_900, 500), new(300, 0)], healers), Is.EqualTo(2 / 3.0).Within(0.001));
+            // Nobody to regroup with.
+            Assert.That(weights.FightersFarShare([new(3_000, 0)], []), Is.EqualTo(0));
         }
 
         [Test]

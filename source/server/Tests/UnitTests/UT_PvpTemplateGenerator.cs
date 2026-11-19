@@ -25,6 +25,7 @@ namespace DOL.UnitTests
         private static readonly Dictionary<string, eProperty> SkillOf = new()
         {
             [Specs.Blades] = eProperty.Skill_Blades, [Specs.Shields] = eProperty.Skill_Shields, [Specs.Parry] = eProperty.Skill_Parry,
+            [Specs.Large_Weapons] = eProperty.Skill_Large_Weapon,
         };
 
         private static eProperty SpecToSkill(string spec)
@@ -167,7 +168,7 @@ namespace DOL.UnitTests
                 Is.EquivalentTo(new[] { eProperty.Strength, eProperty.Constitution, eProperty.Dexterity }));
             Assert.That(sorcerer.Where(need => need.Priority == 1 && need.Kind == PvpBonusKind.Stat).Select(need => need.Property),
                 Is.EquivalentTo(new[] { eProperty.Intelligence, eProperty.Dexterity, eProperty.Constitution }));
-            Assert.That(hero.Select(need => need.Property), Does.Contain(eProperty.Skill_Blades).And.Contain(eProperty.Skill_Shields));
+            Assert.That(hero.Select(need => need.Property), Does.Contain(eProperty.Skill_Large_Weapon).And.Contain(eProperty.Skill_Shields));
             Assert.That(sorcerer.Select(need => need.Property), Has.None.EqualTo(eProperty.Strength));
         }
     }
