@@ -42,7 +42,8 @@ namespace DOL.GS.Commands
                    "Lane: face to face, 6,000 units apart. Basin: opposite ends, out of sight; the enemy roams and you find it.\n\n" +
                    $"Realm rank of every bot:   {string.Join("   ", Ranks.Select(rank => Pick("Rank" + rank, rank == Rank)))}\n\n" +
                    "What is in <> is chosen. Click another to change it, then:\n\n[Start]\n\n" +
-                   "Your own character is not changed here: /8v8 ready makes it level 50 with a build's spec and gear.";
+                   "Picking a rank above your own gives you that rank and its realm ability points (/train to spend them). " +
+                   "/8v8 ready makes your character level 50 with a build's spec and gear.";
         }
     }
 
@@ -123,7 +124,11 @@ namespace DOL.GS.Commands
                     said => owner.Out.SendMessage(said, eChatType.CT_System, eChatLoc.CL_SystemWindow));
                 return true;
             }
+            int rankBefore = _setup.Rank;
             _setup = _setup.After(text, _owner.Realm);
+            // A higher rank picked: the player has its points at once, to train before clicking Start.
+            if (_setup.Rank != rankBefore && PvpPlayerReady.RaiseRealmRank(_owner, (_setup.Rank - 1) * 10) is { } raised)
+                _owner.Out.SendMessage(raised, eChatType.CT_Important, eChatLoc.CL_SystemWindow);
             // The client closes an NPC's choices after a click: show the window again with the new pick.
             if (_owner.ObjectState is eObjectState.Active && _owner.CurrentRegion == CurrentRegion)
                 Show();

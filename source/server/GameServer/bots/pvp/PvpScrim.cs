@@ -191,6 +191,9 @@ namespace DOL.GS
         public static void TravelAndStartPlay(GamePlayer player, PvpGroupTemplate enemy, int realmLevel, string start, Action<string> say)
         {
             PvpArenaBox box = PlayBox(start);
+            // The player fights at the rank of the bots: the points are there to spend (before or after this fight).
+            if (PvpPlayerReady.RaiseRealmRank(player, realmLevel) is { } raised)
+                say(raised);
             (ushort region, Vector3 point) = PlayStart(box);
             var spot = new Point3D((int)point.X, (int)point.Y, (int)point.Z);
             bool There() => player.ObjectState == GameObject.eObjectState.Active && player.CurrentRegionID == region && player.IsWithinRadius(spot, 2_500);

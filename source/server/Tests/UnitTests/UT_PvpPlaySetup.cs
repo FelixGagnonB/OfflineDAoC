@@ -67,6 +67,16 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void ARankStandsForItsRealmPoints()
+        {
+            // Rank 5 is realm level 40; rank 1 level 0 is nothing.
+            Assert.That(PvpPlayerReady.RealmPointsFor(40), Is.EqualTo(GamePlayer.REALMPOINTS_FOR_LEVEL[40]));
+            Assert.That(PvpPlayerReady.RealmPointsFor(40), Is.GreaterThan(PvpPlayerReady.RealmPointsFor(20)));
+            Assert.That(PvpPlayerReady.RealmPointsFor(0), Is.EqualTo(0));
+            Assert.That(PvpPlayerReady.RaiseRealmRank(null, 40), Is.Null);
+        }
+
+        [Test]
         public void TheWindowStartsOnAnotherRealmFaceToFaceAtRankOne()
         {
             foreach (eRealm own in new[] { eRealm.Albion, eRealm.Midgard, eRealm.Hibernia })

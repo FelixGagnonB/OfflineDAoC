@@ -38,6 +38,30 @@ namespace DOL.GS
             BuildsFor(realm).FirstOrDefault(build => string.Equals(build.Id, asked, StringComparison.OrdinalIgnoreCase)) ??
             BuildsFor(realm).FirstOrDefault(build => string.Equals(build.Class.ToString(), asked, StringComparison.OrdinalIgnoreCase));
 
+        /// <summary>The realm points a realm level stands for (rank 5 is level 40), and 0 below rank 1 level 1.</summary>
+        public static long RealmPointsFor(int realmLevel) =>
+            realmLevel <= 0 ? 0 : GamePlayer.REALMPOINTS_FOR_LEVEL[Math.Min(realmLevel, GamePlayer.REALMPOINTS_FOR_LEVEL.Length - 1)];
+
+        /// <summary>
+        /// Gives the player the realm rank a session is played at, when it is higher than the
+        /// player's own, so there are realm ability points to spend as the bots of that rank have
+        /// (owner, 2026-11-19: "even if I pick realm rank 5, I have no realm points and can't train
+        /// purge"). Never lowers a rank: abilities already bought stay bought. Returns what to tell
+        /// the player, or null when nothing changed.
+        /// </summary>
+        public static string RaiseRealmRank(GamePlayer player, int realmLevel)
+        {
+            if (player == null || realmLevel <= player.RealmLevel)
+                return null;
+            player.RealmPoints = Math.Max(player.RealmPoints, RealmPointsFor(realmLevel));
+            player.RealmLevel = realmLevel;
+            player.Out.SendUpdatePlayer();
+            player.Out.SendUpdatePoints();
+            player.Out.SendUpdatePlayerSkills(true);
+            player.SaveIntoDatabase();
+            return $"You are now realm rank {realmLevel / 10 + 1} with {player.RealmSpecialtyPoints} realm ability points to spend: /train opens the trainer window.";
+        }
+
         /// <summary>Null when the player may take the build, otherwise why not.</summary>
         public static string Refusal(eRealm realm, bool inCombat, bool alive, PvpBuild build)
         {
