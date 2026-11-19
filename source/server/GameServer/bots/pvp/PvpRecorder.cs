@@ -43,7 +43,7 @@ namespace DOL.GS
         public static string Folder => Path.Combine(AppContext.BaseDirectory, "logs", "scrims");
 
         public static PvpRecording Begin(int number, PvpGroupTemplate groupA, PvpGroupTemplate groupB,
-            IReadOnlyList<GameBot> teamA, IReadOnlyList<GameBot> teamB, int realmLevel, string batch)
+            IReadOnlyList<GameBot> teamA, IReadOnlyList<GameBot> teamB, int realmLevel, string batch, GamePlayer leader = null)
         {
             if (!_hooked)
             {
@@ -53,9 +53,20 @@ namespace DOL.GS
                 _hooked = true;
             }
             Directory.CreateDirectory(Folder);
-            var recording = new PvpRecording(Path.Combine(Folder, $"{batch}-match-{number:000}.jsonl"), teamA, teamB);
-            foreach (GameBot bot in teamA.Concat(teamB))
-                ByBot[bot] = recording;
+            var recording = new PvpRecording(Path.Combine(Folder, $"{batch}-match-{number:000}.jsonl"), teamA, teamB, leader);
+            foreach (GameLiving member in recording.Teams.Keys)
+                ByBot[member] = recording;
+            // A play session: the player is a member of side A like the bots, with "player" set and no weights of its own.
+            object[] players = leader == null ? [] :
+            [
+                new
+                {
+                    n = leader.Name, team = "A", build = PvpMember.BuildOf(leader), cls = PvpMember.ClassOf(leader).ToString(),
+                    hp = leader.MaxHealth, pow = leader.MaxMana, player = true, level = (int)leader.Level,
+                    af = (int)leader.GetArmorAF(eArmorSlot.TORSO), abs = (int)Math.Round(leader.GetArmorAbsorb(eArmorSlot.TORSO) * 100),
+                    qui = leader.GetModified(eProperty.Quickness),
+                },
+            ];
             recording.Line(new
             {
                 k = "match", v = FormatVersion, batch, number, utc = DateTime.UtcNow, realmLevel,
@@ -63,7 +74,7 @@ namespace DOL.GS
                 // In a comparison of two sets of weights the teams fight with different ones.
                 weights = PvpWeights.Of(teamA[0]), weightsB = PvpWeights.Of(teamB[0]) == PvpWeights.Of(teamA[0]) ? null : PvpWeights.Of(teamB[0]),
                 setA = SetName(teamA[0]), setB = SetName(teamB[0]),
-                bots = teamA.Concat(teamB).Select(bot => new
+                bots = teamA.Concat(teamB).Select(bot => (object)new
                 {
                     n = bot.Name, team = recording.Teams[bot], build = bot.PvpBuild.Id, cls = ((eCharacterClass)bot.ClassId).ToString(),
                     hp = bot.MaxHealth, pow = bot.MaxMana,
@@ -71,7 +82,7 @@ namespace DOL.GS
                     af = (int)bot.GetArmorAF(eArmorSlot.TORSO), abs = (int)Math.Round(bot.GetArmorAbsorb(eArmorSlot.TORSO) * 100),
                     qui = bot.GetModified(eProperty.Quickness), swing = bot.AttackSpeed(bot.ActiveWeapon),
                     crit = bot.GetModified(eProperty.CriticalMeleeHitChance), spellCrit = bot.GetModified(eProperty.CriticalSpellHitChance),
-                }),
+                }).Concat(players),
             });
             return recording;
         }
@@ -264,13 +275,15 @@ namespace DOL.GS
         public string File { get; }
         internal Dictionary<GameLiving, string> Teams { get; }
 
-        internal PvpRecording(string file, IReadOnlyList<GameBot> teamA, IReadOnlyList<GameBot> teamB)
+        internal PvpRecording(string file, IReadOnlyList<GameBot> teamA, IReadOnlyList<GameBot> teamB, GamePlayer leader = null)
         {
             File = file;
             _writer = new StreamWriter(file, false) { AutoFlush = false };
             Teams = teamA.ToDictionary(bot => (GameLiving)bot, _ => "A")
                 .Concat(teamB.ToDictionary(bot => (GameLiving)bot, _ => "B"))
                 .ToDictionary(pair => pair.Key, pair => pair.Value);
+            if (leader != null)
+                Teams[leader] = "A";
         }
 
         internal long Now => GameLoop.GameLoopTime - _startTick;
@@ -293,17 +306,17 @@ namespace DOL.GS
         {
             if (!_open)
                 return;
-            foreach ((GameLiving living, string _) in Teams)
+            foreach ((GameLiving bot, string _) in Teams)
             {
-                var bot = (GameBot)living;
-                var brain = bot.Brain as BotBrain;
+                // A player in the match has every row a bot has; what a brain decides (aim, ward, duty, state) stays empty.
+                var brain = (bot as GameBot)?.Brain as BotBrain;
                 Line(new
                 {
                     k = "snap", t = Now, n = bot.Name, x = bot.X, y = bot.Y, z = bot.Z,
                     ns = bot.effectListComponent.ContainsEffectForEffectType(eEffect.Nearsight),
                     dis = bot.IsDiseased, sil = bot.IsSilenced, intr = bot.IsBeingInterrupted,
                     // Whom it is on, whom it guards, whom it has interrupt duty for.
-                    aim = brain?.PvpAssignedTarget?.Name, ward = brain?.PvpSquad?.WardOf(bot)?.Name, duty = brain?.PvpDutyTarget?.Name,
+                    aim = brain?.PvpAssignedTarget?.Name, ward = bot is GameBot own ? brain?.PvpSquad?.WardOf(own)?.Name : null, duty = brain?.PvpDutyTarget?.Name,
                     hp = bot.IsAlive ? bot.Health : 0, pow = bot.Mana, end = bot.Endurance,
                     alive = bot.IsAlive, mez = bot.IsMezzed, stun = bot.IsStunned,
                     root = bot.effectListComponent.ContainsEffectForEffectType(eEffect.MovementSpeedDebuff) ||
@@ -315,7 +328,7 @@ namespace DOL.GS
                     combat = bot.InCombat, moving = bot.IsMoving,
                     casting = bot.IsCasting ? bot.castingComponent?.SpellHandler?.Spell?.Name : null,
                     target = (bot.TargetObject as GameLiving)?.Name,
-                    state = (bot.Brain as BotBrain)?.FSM?.GetCurrentState()?.StateType.ToString(),
+                    state = brain?.FSM?.GetCurrentState()?.StateType.ToString(),
                 });
             }
             // What each group has decided, so any second of the fight can be read on its own.

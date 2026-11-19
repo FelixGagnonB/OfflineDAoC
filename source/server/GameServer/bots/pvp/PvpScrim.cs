@@ -439,7 +439,7 @@ namespace DOL.GS
             _phase = Phase.Buffing;
             _phaseStartTick = _matchStartTick = GameLoop.GameLoopTime;
             _contactTick = 0;
-            _recording = PvpRecorder.Begin(_numberOffset + _matchNumber, _groupA, _groupB, _teamA, _teamB, _realmLevel, _batch);
+            _recording = PvpRecorder.Begin(_numberOffset + _matchNumber, _groupA, _groupB, _teamA, _teamB, _realmLevel, _batch, _leader);
             if (_teamA.Count > 0)
                 PvpObserver.Say(_teamA[0], $"Lane {_lane}: match {_numberOffset + _matchNumber}, {_groupA.Id} against {_groupB.Id}, is buffing " +
                     $"(recording {_batch}-match-{_numberOffset + _matchNumber:000})");

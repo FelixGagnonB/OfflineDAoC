@@ -2007,10 +2007,17 @@ In order:
    command again is the rematch; `/8v8 stop` ends it. A GM character can be attacked while its
    session runs (it cannot otherwise). Checked only by the 3,322 automated tests and three
    bots-against-bots matches that ran as before; nothing here has run with a player in it.
-   Known gaps: the player is not in the recording yet (step 5); the player's own character has
-   to be level 50 with a build and gear, which is M1.4 and not built.
+   Known gap: the player's own character has to be level 50 with a build and gear, which is
+   M1.4 and not built. Found on the way: a real player's class was not read at all
+   (`GamePlayer` is not an `IGamePlayer`), so the player counted as a fighter of no class;
+   fixed, with a test.
 5. [ ] The recorder takes the human member (M9.5): the owner in the match's list and in every
    second's rows, so the referee and `pvp_replay.py` read a session like a scrim.
+   *Built 2026-11-19, not yet tried with a player.* In a play session the player is in the
+   match's member list (`player: true`, build `player-<class>`), has a row every second like a
+   bot (what a brain decides stays empty) and is the named actor of its hits, casts and death.
+   Three bots-against-bots recordings after the change hold the same rows as before. Whether
+   the referee and `pvp_replay.py` read a session cleanly waits for the first real one.
 6. [ ] The roaming start for both sides (M8.4): who sees whom first depends on where a group
    is facing.
 7. [ ] Calls (M9.2, M9.3).
