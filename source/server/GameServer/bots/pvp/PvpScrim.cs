@@ -469,7 +469,7 @@ namespace DOL.GS
             {
                 // A shield fighter staying beside its ward has chosen not to attack.
                 if (!bot.IsAlive || bot.Brain is not BotBrain brain || brain.HasAggro || _squadA?.IsHolding(bot) == true || _squadB?.IsHolding(bot) == true ||
-                    holds && PvpBuffPlan.ArchetypeOf(bot.PvpBuild.Class) == PvpBuffArchetype.Melee)
+                    holds && PvpMember.ArchetypeOf(bot) == PvpBuffArchetype.Melee)
                     continue;
                 GameBot target = enemies
                     .Where(enemy => enemy.IsAlive && bot.IsWithinRadius(enemy, SightRange))
@@ -538,11 +538,11 @@ namespace DOL.GS
                 if (seen.Count > 0 && (team == _teamA ? _squadA : _squadB) != null)
                 {
                     PvpWeights weights = PvpWeights.Of(bot);
-                    bool onlyHeals = PvpBuffPlan.ArchetypeOf(bot.PvpBuild.Class) == PvpBuffArchetype.Healer &&
-                        weights.HealsFirstBelowFor(bot.PvpBuild.Id, bot.PvpBuild.Class) > 100;
+                    bool onlyHeals = PvpMember.ArchetypeOf(bot) == PvpBuffArchetype.Healer &&
+                        weights.HealsFirstBelowFor(bot.PvpBuild.Id, PvpMember.ClassOf(bot)) > 100;
                     int nearestSeen = (int)seen.Min(enemy => bot.GetDistanceTo(enemy));
                     // Before the first blow the whole back row stops at range and its fighters go on (PvpPositionWeights.BackRowStopsAt).
-                    if (weights.Position.BackRowStops(PvpBuffPlan.ArchetypeOf(bot.PvpBuild.Class) == PvpBuffArchetype.Melee, nearestSeen, _contactTick != 0))
+                    if (weights.Position.BackRowStops(PvpMember.ArchetypeOf(bot) == PvpBuffArchetype.Melee, nearestSeen, _contactTick != 0))
                     {
                         if (_stoodAtRange.Add(bot))
                             PvpRecorder.Decision(bot, new { kind = "StopAtRange", score = nearestSeen }, [], null);
@@ -601,13 +601,13 @@ namespace DOL.GS
             var across = new Vector2(-toward.Y, toward.X);
             var nav = PathfindingProvider.Instance;
             var places = new Dictionary<GameBot, Vector3>();
-            foreach (IGrouping<bool, GameBot> row in members.GroupBy(bot => PvpBuffPlan.ArchetypeOf(bot.PvpBuild.Class) == PvpBuffArchetype.Melee))
+            foreach (IGrouping<bool, GameBot> row in members.GroupBy(bot => PvpMember.ArchetypeOf(bot) == PvpBuffArchetype.Melee))
             {
                 List<GameBot> inRow = row.ToList();
                 // The back row: one healer at each end, the casters between them (PvpSpreadWeights.HealerSpacing).
                 if (!row.Key)
                 {
-                    List<GameBot> healers = inRow.Where(bot => PvpRoles.Of(bot.PvpBuild.Class) == PvpRole.Heal).ToList();
+                    List<GameBot> healers = inRow.Where(bot => PvpMember.RoleOf(bot) == PvpRole.Heal).ToList();
                     if (healers.Count >= 2)
                         inRow = [healers[0], .. inRow.Where(bot => !healers.Contains(bot)), .. healers.Skip(1)];
                 }

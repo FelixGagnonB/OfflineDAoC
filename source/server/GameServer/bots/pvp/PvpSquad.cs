@@ -89,7 +89,7 @@ namespace DOL.GS
                     return own;
                 List<PvpPatient> patients = reach.Select((member, id) => new PvpPatient(id, member.Health, member.MaxHealth,
                     (int)_heals.Values.Where(heal => heal.Target == member).Sum(heal => Math.Max(0, GameBot.HealAmount(heal.Spell, member))),
-                    PvpBuffPlan.ArchetypeOf(member.PvpBuild.Class), member == Trained)).ToList();
+                    PvpMember.ArchetypeOf(member), member == Trained)).ToList();
                 int chosen = PvpHealPlan.Choose(patients, reach.IndexOf(pick), weights, healer.ManaPercent);
                 if (chosen < 0)
                     return null;
@@ -182,10 +182,10 @@ namespace DOL.GS
             bot.effectListComponent.ContainsEffectForEffectType(eEffect.MovementSpeedDebuff) ||
             bot.effectListComponent.ContainsEffectForEffectType(eEffect.Snare);
 
-        private static bool IsFighter(GameBot bot) => PvpBuffPlan.ArchetypeOf(bot.PvpBuild.Class) == PvpBuffArchetype.Melee;
+        private static bool IsFighter(GameBot bot) => PvpMember.ArchetypeOf(bot) == PvpBuffArchetype.Melee;
 
         private static PvpMemberState StateOf(GameBot bot, bool seen = true) => new(IsFighter(bot),
-            bot.PvpBuild.Class is eCharacterClass.Cleric or eCharacterClass.Druid or eCharacterClass.Healer or eCharacterClass.Friar,
+            PvpMember.ClassOf(bot) is eCharacterClass.Cleric or eCharacterClass.Druid or eCharacterClass.Healer or eCharacterClass.Friar,
             bot.IsAlive, seen && (bot.IsMezzed || bot.IsStunned), seen && IsSlowed(bot), seen && (bot.IsBeingInterrupted || bot.IsSilenced));
 
         /// <summary>Takes the readings for both groups and chooses the order from them.</summary>
@@ -212,7 +212,7 @@ namespace DOL.GS
                 // Strung out: the share of the living fighters that are out of the healers' reach.
                 double far = weights.Order.FightersFarShare(
                     _members.Where(member => member.IsAlive && IsFighter(member)).Select(member => new Vector2(member.X, member.Y)).ToList(),
-                    _members.Where(member => member.IsAlive && PvpRoles.Of(member.PvpBuild.Class) == PvpRole.Heal).Select(member => new Vector2(member.X, member.Y)).ToList());
+                    _members.Where(member => member.IsAlive && PvpMember.RoleOf(member) == PvpRole.Heal).Select(member => new Vector2(member.X, member.Y)).ToList());
                 order = PvpOrders.Choose(Own, Theirs, _pursuers.Select(enemy => enemy.TargetObject).Distinct().Count(),
                     Order == PvpOrder.Hold ? PvpOrder.Engage : Order, (now - _orderSince) / 1000.0, weights.Order, far);
             }
@@ -254,7 +254,7 @@ namespace DOL.GS
                 HashSet<GameBot> on = known.Where(enemy =>
                     enemy.IsAlive && !enemy.IsMezzed && !enemy.IsStunned && enemy.TargetObject == member &&
                     enemy.IsWithinRadius(member, weights.Peel.MeleeReach) &&
-                    (PvpBuffPlan.ArchetypeOf(enemy.PvpBuild.Class) == PvpBuffArchetype.Melee || enemy.attackComponent?.AttackState == true)).ToHashSet();
+                    (PvpMember.ArchetypeOf(enemy) == PvpBuffArchetype.Melee || enemy.attackComponent?.AttackState == true)).ToHashSet();
                 if (!weights.Heal.TrainCountsEveryAttacker)
                     return on;
                 // Whoever hit it in the last few seconds, as its own combat log would show: a
@@ -296,7 +296,7 @@ namespace DOL.GS
         /// </summary>
         private GameBot CallTarget(List<GameBot> team, List<GameBot> enemies, GameBot current)
         {
-            List<GameBot> dealers = team.Where(bot => bot.IsAlive && PvpRoles.Of(bot.PvpBuild.Class) == PvpRole.Assist).ToList();
+            List<GameBot> dealers = team.Where(bot => bot.IsAlive && PvpMember.RoleOf(bot) == PvpRole.Assist).ToList();
             List<GameBot> alive = enemies.Where(enemy => enemy.IsAlive).ToList();
             GameBot target = null;
             if (dealers.Count > 0 && alive.Count > 0)
@@ -304,7 +304,7 @@ namespace DOL.GS
                 double x = dealers.Average(bot => bot.X), y = dealers.Average(bot => bot.Y);
                 PvpKillWeights kill = PvpWeights.Of(team[0]).Kill;
                 // Out of position: how far each enemy stands from the middle of its own healers, the ones in sight.
-                List<GameBot> theirHealers = alive.Where(enemy => PvpBuffPlan.ArchetypeOf(enemy.PvpBuild.Class) == PvpBuffArchetype.Healer).ToList();
+                List<GameBot> theirHealers = alive.Where(enemy => PvpMember.ArchetypeOf(enemy) == PvpBuffArchetype.Healer).ToList();
                 double hx = theirHealers.Count == 0 ? 0 : theirHealers.Average(bot => bot.X), hy = theirHealers.Count == 0 ? 0 : theirHealers.Average(bot => bot.Y);
                 // Whose pets are in melee on this group's healers and casters (PvpKillWeights.PerPetOnOurBackline).
                 var petsOf = new Dictionary<GameLiving, int>();
@@ -323,7 +323,7 @@ namespace DOL.GS
                 long tick = GameLoop.GameLoopTime;
                 if (current == null || current.HealthPercent <= kill.StaleIfHealthAbove)
                     _killProgressTick = tick;
-                var views = alive.Select((enemy, id) => new PvpTargetView(id, PvpBuffPlan.ArchetypeOf(enemy.PvpBuild.Class),
+                var views = alive.Select((enemy, id) => new PvpTargetView(id, PvpMember.ArchetypeOf(enemy),
                     enemy.HealthPercent, enemy.IsMezzed, (int)Math.Sqrt(Math.Pow(enemy.X - x, 2) + Math.Pow(enemy.Y - y, 2)),
                     theirHealers.Count == 0 ? 0 : (int)Math.Sqrt(Math.Pow(enemy.X - hx, 2) + Math.Pow(enemy.Y - hy, 2)),
                     petsOf.GetValueOrDefault(enemy),
@@ -365,7 +365,7 @@ namespace DOL.GS
                 // cuts across the roles: pets and fighters with duty go to their enemy and join
                 // the kill only once the target is nearly dead, while a spell caster keeps its
                 // target and gets the duty as a leaning in its scored choice.
-                PvpRole role = PvpRoles.Of(bot.PvpBuild.Class);
+                PvpRole role = PvpMember.RoleOf(bot);
                 brain.PvpSquad = this;
                 // From the run-in on: the owner, 2026-11-19, "we were using speed + sprint all the time until initial contact", and after it.
                 bot.PvpSprinting = bot.IsAlive && PvpWeights.Of(bot).Position.SprintInFights;
@@ -382,7 +382,7 @@ namespace DOL.GS
                 brain.PvpKillTarget = target;
                 duty.TryGetValue(bot, out GameBot onDuty);
                 brain.PvpDutyTarget = onDuty;
-                PvpInterruptMeans means = PvpInterruptDuty.MeansOf(bot.PvpBuild.Class, PvpWeights.Of(bot).Interrupt);
+                PvpInterruptMeans means = PvpInterruptDuty.MeansOf(PvpMember.ClassOf(bot), PvpWeights.Of(bot).Interrupt);
                 GameBot aim = null;
                 if (onDuty != null && means is PvpInterruptMeans.Pets or PvpInterruptMeans.Melee && !critical && bot.IsAlive)
                     aim = onDuty;
@@ -431,7 +431,7 @@ namespace DOL.GS
                 // else the kill target. (It was summoned and buffed and then never attacked: the
                 // owner's scored casts take every turn, and the old brain ordered the pet only on
                 // a turn it took itself.) Never left on an enemy that has since been mezzed.
-                if (FightStarted && bot.IsAlive && bot.PvpBuild.Class is eCharacterClass.Cabalist or eCharacterClass.Enchanter or eCharacterClass.Spiritmaster &&
+                if (FightStarted && bot.IsAlive && PvpMember.ClassOf(bot) is eCharacterClass.Cabalist or eCharacterClass.Enchanter or eCharacterClass.Spiritmaster &&
                     bot.ControlledBrain is ControlledMobBrain { Body: { IsAlive: true } } pet)
                 {
                     // Its brain runs with no player near (AutonomousSummonActivity.IsPvpBotSummon); started here if it is not.
@@ -464,7 +464,7 @@ namespace DOL.GS
                 // A fighter on the kill: its target is recorded when it changes (guards and
                 // interrupters record their own choices).
                 if (FightStarted && bot.IsAlive && role == PvpRole.Assist && onDuty == null &&
-                    PvpBuffPlan.ArchetypeOf(bot.PvpBuild.Class) == PvpBuffArchetype.Melee &&
+                    PvpMember.ArchetypeOf(bot) == PvpBuffArchetype.Melee &&
                     aim != null && _lastAim.GetValueOrDefault(bot) != aim)
                 {
                     _lastAim[bot] = aim;
@@ -492,21 +492,21 @@ namespace DOL.GS
         {
             PvpInterruptWeights weights = PvpWeights.Of(team.FirstOrDefault()).Interrupt;
             List<GameBot> interrupters = team.Where(bot => bot.IsAlive && bot.Brain is BotBrain &&
-                PvpInterruptDuty.MeansOf(bot.PvpBuild.Class, weights) != PvpInterruptMeans.None).ToList();
+                PvpInterruptDuty.MeansOf(PvpMember.ClassOf(bot), weights) != PvpInterruptMeans.None).ToList();
             // Not one a mezzer of this team is putting to sleep right now either: the interrupter's
             // first hit would wake it and leave it immune.
             eRealm realm = team.Count > 0 ? team[0].Realm : eRealm.None;
             List<GameBot> open = enemies.Where(enemy => enemy != kill && !enemy.IsMezzed &&
                 !BotPvpCrowdControl.Claimed(realm, enemy) &&
-                PvpBuffPlan.ArchetypeOf(enemy.PvpBuild.Class) != PvpBuffArchetype.Melee).ToList();
+                PvpMember.ArchetypeOf(enemy) != PvpBuffArchetype.Melee).ToList();
             var pairs = new List<PvpDutyPair>();
             for (int i = 0; i < interrupters.Count; i++)
             {
                 Duties.TryGetValue(interrupters[i], out GameBot current);
                 for (int e = 0; e < open.Count; e++)
-                    pairs.Add(new PvpDutyPair(i, e, PvpBuffPlan.ArchetypeOf(open[e].PvpBuild.Class), open[e].IsCasting,
+                    pairs.Add(new PvpDutyPair(i, e, PvpMember.ArchetypeOf(open[e]), open[e].IsCasting,
                         !open[e].IsBeingInterrupted, open[e] == current, (int)interrupters[i].GetDistanceTo(open[e]),
-                        PvpActionChoice.IsController(open[e].PvpBuild.Class, PvpWeights.Of(interrupters[i]))));
+                        PvpActionChoice.IsController(PvpMember.ClassOf(open[e]), PvpWeights.Of(interrupters[i]))));
             }
             Dictionary<int, int> assigned = PvpInterruptDuty.Assign(pairs, weights);
             var duty = new Dictionary<GameBot, GameBot>();
@@ -542,7 +542,7 @@ namespace DOL.GS
             PvpPeelWeights weights = PvpWeights.Of(bot).Peel;
             Holding.Remove(bot);
             List<GameBot> backline = team.Where(member => member.IsAlive && member != bot &&
-                PvpBuffPlan.ArchetypeOf(member.PvpBuild.Class) != PvpBuffArchetype.Melee).ToList();
+                PvpMember.ArchetypeOf(member) != PvpBuffArchetype.Melee).ToList();
             Wards.TryGetValue(bot, out GameBot current);
             if (backline.Count == 0)
             {
@@ -558,14 +558,14 @@ namespace DOL.GS
 
             bool InMeleeOn(GameBot enemy, GameBot member) =>
                 !enemy.IsMezzed && enemy.TargetObject == member && enemy.IsWithinRadius(member, weights.MeleeReach) &&
-                (PvpBuffPlan.ArchetypeOf(enemy.PvpBuild.Class) == PvpBuffArchetype.Melee || enemy.attackComponent?.AttackState == true);
+                (PvpMember.ArchetypeOf(enemy) == PvpBuffArchetype.Melee || enemy.attackComponent?.AttackState == true);
 
             bool ComingFor(GameBot enemy, GameBot member) =>
                 weights.InterceptWithin > 0 && !enemy.IsMezzed && !enemy.IsStunned && enemy.TargetObject == member &&
-                PvpBuffPlan.ArchetypeOf(enemy.PvpBuild.Class) == PvpBuffArchetype.Melee &&
+                PvpMember.ArchetypeOf(enemy) == PvpBuffArchetype.Melee &&
                 enemy.IsWithinRadius(member, weights.InterceptWithin) && !enemy.IsWithinRadius(member, weights.MeleeReach);
 
-            List<PvpWardView> wards = backline.Select((member, id) => new PvpWardView(id, PvpBuffPlan.ArchetypeOf(member.PvpBuild.Class),
+            List<PvpWardView> wards = backline.Select((member, id) => new PvpWardView(id, PvpMember.ArchetypeOf(member),
                 enemies.Count(enemy => InMeleeOn(enemy, member)), member.HealthPercent, (int)bot.GetDistanceTo(member),
                 member == current, guarded.Contains(member))).ToList();
             GameBot ward = backline[PvpPeel.ChooseWard(wards, weights)];
@@ -630,7 +630,7 @@ namespace DOL.GS
             float nearest = float.MaxValue;
             foreach (GameBot member in team)
             {
-                if (member != bot && member.IsAlive && PvpRoles.Of(member.PvpBuild.Class) == PvpRole.Heal)
+                if (member != bot && member.IsAlive && PvpMember.RoleOf(member) == PvpRole.Heal)
                     nearest = Math.Min(nearest, (float)bot.GetDistanceTo(member));
             }
             return nearest == float.MaxValue ? 0 : nearest;
@@ -763,7 +763,7 @@ namespace DOL.GS
             if (weights.MinSpacing <= 0 || foes.Count == 0 || Order == PvpOrder.Hold)
                 return;
             List<GameBot> backline = _members.Where(bot => bot.IsAlive &&
-                PvpBuffPlan.ArchetypeOf(bot.PvpBuild.Class) != PvpBuffArchetype.Melee).ToList();
+                PvpMember.ArchetypeOf(bot) != PvpBuffArchetype.Melee).ToList();
             var enemyCentre = new Vector2((float)foes.Average(enemy => enemy.X), (float)foes.Average(enemy => enemy.Y));
             long now = GameLoop.GameLoopTime;
             var nav = PathfindingProvider.Instance;
@@ -782,8 +782,8 @@ namespace DOL.GS
                     continue;
                 List<Vector2> mates = backline.Where(member => member != bot).Select(member => new Vector2(member.X, member.Y)).ToList();
                 // A healer also keeps well away from the group's other healers (PvpSpreadWeights.HealerSpacing).
-                List<Vector2> otherHealers = weights.HealerSpacing <= 0 || PvpRoles.Of(bot.PvpBuild.Class) != PvpRole.Heal ? []
-                    : backline.Where(member => member != bot && PvpRoles.Of(member.PvpBuild.Class) == PvpRole.Heal)
+                List<Vector2> otherHealers = weights.HealerSpacing <= 0 || PvpMember.RoleOf(bot) != PvpRole.Heal ? []
+                    : backline.Where(member => member != bot && PvpMember.RoleOf(member) == PvpRole.Heal)
                         .Select(member => new Vector2(member.X, member.Y)).ToList();
                 var self = new Vector2(bot.X, bot.Y);
                 if ((PvpSpacing.StepApart(self, mates, enemyCentre, weights.MinSpacing, weights.Step) ??
@@ -821,7 +821,7 @@ namespace DOL.GS
             int edge = (int)(weights.EdgeDistance * byOrder);
             List<GameBot> alive = _members.Where(bot => bot.IsAlive).ToList();
             List<GameBot> backline = alive.Where(bot => !IsFighter(bot)).ToList();
-            List<GameBot> healers = backline.Where(bot => PvpRoles.Of(bot.PvpBuild.Class) == PvpRole.Heal).ToList();
+            List<GameBot> healers = backline.Where(bot => PvpMember.RoleOf(bot) == PvpRole.Heal).ToList();
             static Vector2 At(GameObject thing) => new(thing.X, thing.Y);
             long now = GameLoop.GameLoopTime;
             var nav = PathfindingProvider.Instance;
@@ -869,7 +869,7 @@ namespace DOL.GS
                 // Pacification Healer stepped away for ten seconds with both other healers asleep. Of 47
                 // healers left asleep for more than eight seconds, nine had a curer free like that.
                 if (weights.CurerStaysForSleeper && !bot.IsBeingInterrupted && alive.Any(member => member != bot && member.IsMezzed) &&
-                    PvpActionChoice.KindsFor(bot.PvpBuild.Class, all).Contains(PvpActionKind.CureMez))
+                    PvpActionChoice.KindsFor(PvpMember.ClassOf(bot), all).Contains(PvpActionKind.CureMez))
                     continue;
                 var work = new List<PvpWorkPoint>();
                 // A caster with no enemy in reach closes up to the edge of its range; not while the group

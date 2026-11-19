@@ -1975,6 +1975,29 @@ recorder taking a human member (today a team is bots only), and a report written
 spot, what the enemy did to them). The owner also remembers a captioned video explaining the
 basics of an 8v8 fight and will look for it: an outside reference to check the bots against.
 
+*The way to a first session the owner can play (2026-11-19).* What exists: `/8v8 group [rank]`
+puts seven companions of the realm's main group around the player, buffed, following. What is
+missing is that the 8v8 brain knows bots only: a squad is a list of bots, its enemies are a list
+of bots, and a kill call, a mez, a peel or a guard reads a bot's build. An enemy group would
+never call, mez or train the owner, and the owner's companions do not fight as a squad at all.
+In order:
+
+1. [x] A member is a bot or a player (`PvpMember`: class, archetype, role, build name). Every
+   place that read a bot's build asks it now. No behaviour changes for bots.
+2. [ ] The enemy sees the player: the squad's lists of enemies, the kill call, the scored
+   choices of crowd control and damage, interrupt duty and the peel take any living thing, so an
+   enemy group calls, mezzes and trains the owner like any other healer.
+3. [ ] The owner's side fights as a squad: seven bots under a squad brain that counts the owner
+   among its healers and casters (guarded, healed, woken, defended when trained).
+4. [ ] `/8v8 play <enemy realm> [rank]` (M9.4): both groups in the open basin of Emain Macha,
+   the enemy roaming a route, the companions travelling with the owner until the enemy is in
+   sight, a rematch after each fight, `/8v8 stop`.
+5. [ ] The recorder takes the human member (M9.5): the owner in the match's list and in every
+   second's rows, so the referee and `pvp_replay.py` read a session like a scrim.
+6. [ ] The roaming start for both sides (M8.4): who sees whom first depends on where a group
+   is facing.
+7. [ ] Calls (M9.2, M9.3).
+
 - [ ] **M9.1** (M) A lasting companion roster built around the owner's class, earning realm points
   with the owner.
 - [ ] **M9.2** (M) Bot shot-caller: calls announced in group chat (assist target, mez landed,

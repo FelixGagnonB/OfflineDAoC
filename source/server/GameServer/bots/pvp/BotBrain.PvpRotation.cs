@@ -68,12 +68,12 @@ namespace DOL.AI.Brain
         private bool PvpWalkToRaise(Spell resurrection)
         {
             if (BotBody?.IsPvpBot != true || PvpEnemies == null || Body.Group == null || resurrection == null ||
-                PvpRoles.Of(BotBody.PvpBuild.Class) != PvpRole.Heal || Body.IsCasting || Body.IsIncapacitated)
+                PvpMember.RoleOf(BotBody) != PvpRole.Heal || Body.IsCasting || Body.IsIncapacitated)
                 return false;
             PvpWeights all = PvpWeights.Of(BotBody);
             int range = BotBody.castingComponent.CalculateSpellRange(resurrection);
             bool beingHit = Body.IsBeingInterruptedByOther || PvpEnemies.Any(enemy => enemy.IsAlive && !enemy.IsMezzed && !enemy.IsStunned &&
-                enemy.TargetObject == Body && PvpBuffPlan.ArchetypeOf(enemy.PvpBuild.Class) == PvpBuffArchetype.Melee && enemy.IsWithinRadius(Body, 500));
+                enemy.TargetObject == Body && PvpMember.ArchetypeOf(enemy) == PvpBuffArchetype.Melee && enemy.IsWithinRadius(Body, 500));
             int lowest = 100;
             foreach (GameLiving member in Body.Group.GetMembersInTheGroup())
             {
@@ -89,7 +89,7 @@ namespace DOL.AI.Brain
                     Body.Mana >= (int)(Body.MaxMana * Math.Max(.1f, .5f + (member.Level - Body.Level) / (float)Math.Max(1, (int)Body.Level))),
                     beingHit, lowest,
                     PvpEnemies.Count(enemy => enemy.IsAlive && !enemy.IsMezzed && !enemy.IsStunned &&
-                        PvpBuffPlan.ArchetypeOf(enemy.PvpBuild.Class) == PvpBuffArchetype.Melee &&
+                        PvpMember.ArchetypeOf(enemy) == PvpBuffArchetype.Melee &&
                         enemy.IsWithinRadius(member, all.Heal.ResurrectNoFighterWithin))));
             if (corpse == null)
                 return false;
@@ -108,7 +108,7 @@ namespace DOL.AI.Brain
         /// <summary>True for a healer with a badly hurt groupmate in reach and no enemy fighter on itself.</summary>
         public bool PvpBreaksOffToHeal()
         {
-            if (BotBody?.PvpBuild == null || PvpEnemies == null || Body.Group == null || PvpRoles.Of(BotBody.PvpBuild.Class) != PvpRole.Heal)
+            if (BotBody?.PvpBuild == null || PvpEnemies == null || Body.Group == null || PvpMember.RoleOf(BotBody) != PvpRole.Heal)
                 return false;
             PvpPositionWeights weights = PvpWeights.Of(BotBody).Position;
             int lowest = 100;
@@ -118,7 +118,7 @@ namespace DOL.AI.Brain
                     lowest = member.HealthPercent;
             }
             bool hunted = PvpEnemies.Any(enemy => enemy.IsAlive && !enemy.IsMezzed && !enemy.IsStunned && enemy.TargetObject == Body &&
-                PvpBuffPlan.ArchetypeOf(enemy.PvpBuild.Class) == PvpBuffArchetype.Melee && enemy.IsWithinRadius(Body, 500));
+                PvpMember.ArchetypeOf(enemy) == PvpBuffArchetype.Melee && enemy.IsWithinRadius(Body, 500));
             return weights.BreaksOffToHeal(true, hunted, lowest);
         }
 
@@ -363,13 +363,13 @@ namespace DOL.AI.Brain
             if (BotBody?.IsPvpBot != true || PvpEnemies == null || BotBody.PvpBuild == null)
                 return false;
             PvpWeights weights = PvpWeights.Of(BotBody);
-            int below = weights.HealsFirstBelowFor(BotBody.PvpBuild.Id, BotBody.PvpBuild.Class);
+            int below = weights.HealsFirstBelowFor(BotBody.PvpBuild.Id, PvpMember.ClassOf(BotBody));
             if (below > 100)
                 return false;
             // With the group's healers dead, asleep or kept from casting, this one takes over.
             bool aHealerCanHeal = Body.Group?.GetMembersInTheGroup().OfType<GameBot>().Any(member =>
-                member != Body && member.PvpBuild != null && PvpBuffPlan.ArchetypeOf(member.PvpBuild.Class) == PvpBuffArchetype.Healer &&
-                weights.HealsFirstBelowFor(member.PvpBuild.Id, member.PvpBuild.Class) > 100 &&
+                member != Body && member.PvpBuild != null && PvpMember.ArchetypeOf(member) == PvpBuffArchetype.Healer &&
+                weights.HealsFirstBelowFor(member.PvpBuild.Id, PvpMember.ClassOf(member)) > 100 &&
                 member.IsAlive && !member.IsMezzed && !member.IsStunned && !member.IsSilenced && !member.IsBeingInterrupted) == true;
             below = PvpHealPlan.BackupHealsBelow(below, aHealerCanHeal, weights.Heal);
             // The trained member too only claims this healer's turn below that mark: healing it
@@ -388,11 +388,11 @@ namespace DOL.AI.Brain
                 return false;
             PvpWeights weights = PvpWeights.Of(BotBody);
             if (!weights.Heal.HealerLeavesCureMezToController ||
-                weights.HealsFirstBelowFor(BotBody.PvpBuild.Id, BotBody.PvpBuild.Class) <= 100)
+                weights.HealsFirstBelowFor(BotBody.PvpBuild.Id, PvpMember.ClassOf(BotBody)) <= 100)
                 return false;
             return Body.Group?.GetMembersInTheGroup().OfType<GameBot>().Any(mate =>
                 mate != BotBody && mate != sleeper && mate.IsAlive && !mate.IsMezzed && !mate.IsStunned && mate.CureMezz != null &&
-                mate.PvpBuild != null && weights.HealsFirstBelowFor(mate.PvpBuild.Id, mate.PvpBuild.Class) <= 100 &&
+                mate.PvpBuild != null && weights.HealsFirstBelowFor(mate.PvpBuild.Id, PvpMember.ClassOf(mate)) <= 100 &&
                 mate.IsWithinRadius(sleeper, 2_000)) == true;
         }
 
@@ -577,11 +577,11 @@ namespace DOL.AI.Brain
                         float nearest = float.MaxValue;
                         foreach (GameBot other in enemies)
                         {
-                            if (other.IsAlive && !other.IsMezzed && PvpBuffPlan.ArchetypeOf(other.PvpBuild.Class) != PvpBuffArchetype.Melee)
+                            if (other.IsAlive && !other.IsMezzed && PvpMember.ArchetypeOf(other) != PvpBuffArchetype.Melee)
                                 nearest = Math.Min(nearest, Vector2.Distance(end, new Vector2(other.X, other.Y)));
                         }
                         walkInsideEdge = (int)Math.Max(0, edge - nearest);
-                        walkDanger = enemies.Count(other => PvpBuffPlan.ArchetypeOf(other.PvpBuild.Class) == PvpBuffArchetype.Melee &&
+                        walkDanger = enemies.Count(other => PvpMember.ArchetypeOf(other) == PvpBuffArchetype.Melee &&
                             !other.IsMezzed && !other.IsStunned && !other.effectListComponent.ContainsEffectForEffectType(eEffect.MovementSpeedDebuff) &&
                             Vector2.Distance(end, new Vector2(other.X, other.Y)) <= weights.WalkDangerWithin);
                     }
@@ -623,10 +623,10 @@ namespace DOL.AI.Brain
                         caught = inside.Count(other => !other.IsMezzed && other.IsCasting && other.CurrentSpellHandler?.Spell.InstrumentRequirement == 0);
                         wakes = inside.Count(other => other.IsMezzed && other != kill);
                     }
-                    options.Add(new PvpOption(kind, id, PvpBuffPlan.ArchetypeOf(enemy.PvpBuild.Class), enemy == kill,
+                    options.Add(new PvpOption(kind, id, PvpMember.ArchetypeOf(enemy), enemy == kill,
                         enemy == PvpAssignedTarget || enemy == PvpDutyTarget, enemy.HealthPercent, hasEffect,
                         enemy.IsCasting, enemy.IsBeingInterrupted, !mez && enemy.IsMezzed, Body.ManaPercent, cost, walk, caught, catchesKill, wakes,
-                        instant, PvpActionChoice.IsController(enemy.PvpBuild.Class, weights),
+                        instant, PvpActionChoice.IsController(PvpMember.ClassOf(enemy), weights),
                         PvpSquad?.IsPursuer(enemy) == true, PvpSquad?.Order == PvpOrder.Extend, walkDanger,
                         PvpSquad?.IsOnTrained(enemy) == true, walkInsideEdge, killOutOfReach,
                         enemy.effectListComponent.ContainsEffectForEffectType(eEffect.MovementSpeedDebuff)));
@@ -828,13 +828,13 @@ namespace DOL.AI.Brain
         /// </summary>
         private bool PvpStaffThePet(PvpWeights weights)
         {
-            if (!weights.StaffThePetOnMe || BotBody.PvpBuild == null || PvpBuffPlan.ArchetypeOf(BotBody.PvpBuild.Class) == PvpBuffArchetype.Melee ||
+            if (!weights.StaffThePetOnMe || BotBody.PvpBuild == null || PvpMember.ArchetypeOf(BotBody) == PvpBuffArchetype.Melee ||
                 !Body.IsBeingInterrupted || Body.IsMoving)
                 return false;
             // Not with an enemy fighter on it: then the pet is the least of its troubles. (A Druid with an
             // Armsman and a Paladin on it was seen fencing with an air spirit, 2026-11-19.)
             if (PvpEnemies.Any(enemy => enemy.IsAlive && !enemy.IsMezzed && enemy.TargetObject == Body &&
-                    PvpBuffPlan.ArchetypeOf(enemy.PvpBuild.Class) == PvpBuffArchetype.Melee && enemy.IsWithinRadius(Body, 400)))
+                    PvpMember.ArchetypeOf(enemy) == PvpBuffArchetype.Melee && enemy.IsWithinRadius(Body, 400)))
                 return false;
             GameNPC pet = Body.GetNPCsInRadius((ushort)(Body.MeleeAttackRange + 100))
                 .Where(npc => npc.IsAlive && !npc.IsMezzed && npc.TargetObject == Body && npc.Brain is IControlledBrain owned &&
