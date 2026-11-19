@@ -52,7 +52,9 @@ namespace DOL.GS
         bool OnController = false, // the target is one of the enemy's mezzers
         bool Pursuer = false,     // an enemy fighter in melee on one of the group's healers or casters
         bool Extending = false,   // the group's order is Extend
-        int WalkDanger = 0);      // free enemy fighters near the place the caster would have to walk to
+        int WalkDanger = 0,       // free enemy fighters near the place the caster would have to walk to
+        bool OnTrained = false,   // one of the enemies on the member of the group that is being trained
+        int WalkInsideEdge = 0);  // how far inside the edge distance of the nearest awake enemy the walk would end
 
     /// <summary>
     /// The numbers behind the choice. Every one is a weight added to an option's score, so none is
@@ -99,6 +101,12 @@ namespace DOL.GS
             // is a song that began ninety times a match and never finished, where the old brain had
             // been landing six mezzes a match with its area lullaby.
             ["Minstrel"] = new() { ["CureMez"] = 130 },
+            // A Druid's base line has a 70-second root with the range of a nuke. The owner, watching on
+            // 2026-11-18: "the Druid has a Skald on himself and never tried to cast a root while the
+            // Skald was running toward him." Heals still come first; with nobody to heal, a root on a
+            // fighter that is on, or running at, the group's healers and casters reaches the bar
+            // (30 here and RootOnPursuer), and one on a fighter that is on nobody does not.
+            ["Druid"] = new() { ["Root"] = 30 },
             // The owner, 2026-11-18: the Skald is an interrupt class. Target a caster, instant damage
             // shout, switch to another caster, healer or mezzer, second shout; a snare on a fighter in
             // passing; its instant mez on a free enemy that is not a fighter. Changing target often
@@ -186,6 +194,13 @@ namespace DOL.GS
         /// a Healer has a hard time against a Sorcerer's mez range, so it goes in and puts its instant mez on the Sorcerer.
         /// </summary>
         public int ControlOnEnemyController { get; set; } = 40;
+        /// <summary>
+        /// A mez or stun on an enemy that is on the group's trained member, and a nearsight on a
+        /// caster or healer that is: the owner, 2026-11-17, on being trained: all heals went to
+        /// that member "until a peel, mez or stun" let it get away. Without this nothing told a
+        /// mezzer which enemies those were; its control went wherever it caught the most.
+        /// </summary>
+        public int ControlOnTrainer { get; set; } = 40;
         /// <summary>An instant mez or stun on a target that is casting: it lands before that cast does, a spell with a cast time would not.</summary>
         public int InstantOnCastingTarget { get; set; } = 40;
         /// <summary>An instant mez or stun is gone for ten minutes once used, so the cast-time spell is taken when nothing presses.</summary>
@@ -247,8 +262,34 @@ namespace DOL.GS
         /// </summary>
         public int WalkEndsNearFighter { get; set; } = -30;
         public int WalkDangerWithin { get; set; } = 600;
+        /// <summary>
+        /// Lost by an option the caster would have to walk for, for every 100 units by which the
+        /// place it would stop lies inside <see cref="PvpPositionWeights.EdgeDistance"/> of the
+        /// nearest enemy that is awake. A target deep in the enemy's back row is in range only
+        /// from among their front casters: in the twelve check matches of the night of 2026-11-18
+        /// a caster walked toward a target 23 times in the first minute, and the two back lines
+        /// still closed from 1,180 units at twenty seconds to 875 at forty-five. 0 = as before.
+        /// </summary>
+        public double WalkInsideEdgePerHundred { get; set; } = 8;
         /// <summary>Enemies farther than this are not considered at all.</summary>
         public int ConsiderRange { get; set; } = 3_500;
+        /// <summary>
+        /// Off: once the group's fight has begun no buff with a cast time is begun, on a member
+        /// or on the caster itself, and a healer does not summon its pet
+        /// (BotBrain.IsBuffHeldBackInFight). On: as it was until 2026-11-18.
+        /// </summary>
+        public bool BuffsInFight { get; set; } = false;
+        /// <summary>
+        /// An 8v8 Bard in a fight starts its endurance song at most once in this many seconds,
+        /// only that song, and not while it is being hit or a groupmate is asleep. 0: no song is
+        /// started during a fight. -1: as it was from the morning of 2026-11-18, when the Bard
+        /// was told to keep its songs up in combat: every song is a three-second cast, and in the
+        /// 150 matches of that evening it began one 20 times a match (endurance and the three
+        /// resistance songs in turn), finished 7, and was refused 13 times while being hit: about
+        /// 22 of the 46 seconds it lived, from the first second of the fight. It cast cure mez
+        /// 0.0 times a match against Albion.
+        /// </summary>
+        public int SongInFightEverySeconds { get; set; } = 20;
 
         /// <summary>What a shield fighter weighs when it picks whom to guard and whom to go for.</summary>
         public PvpPeelWeights Peel { get; set; } = new();
@@ -391,6 +432,7 @@ namespace DOL.GS
                 case PvpActionKind.Nearsight:
                     score += option.Archetype == PvpBuffArchetype.Caster ? weights.NearsightOnCaster : weights.NearsightOnHealer;
                     score += option.OnController ? weights.NearsightOnEnemyController : 0;
+                    score += option.OnTrained ? weights.ControlOnTrainer : 0;
                     break;
                 case PvpActionKind.Disease:
                     score += option.IsKill ? weights.DiseaseOnKillTarget : 0;
@@ -433,13 +475,14 @@ namespace DOL.GS
             if (option.Kind is PvpActionKind.Mez or PvpActionKind.MezArea or PvpActionKind.Stun)
             {
                 score += option.OnController ? weights.ControlOnEnemyController : 0;
+                score += option.OnTrained ? weights.ControlOnTrainer : 0;
                 if (option.Instant)
                     score += weights.InstantSpent + (option.Casting ? weights.InstantOnCastingTarget : 0);
             }
             score -= weights.PowerScarcity * option.CostPercent * (100 - option.PowerPercent) / 100.0;
             score -= weights.PerHundredUnitsShort * option.Short / 100.0 - (option.Short > 0 ? weights.NeedsWalk : 0);
             if (option.Short > 0)
-                score += weights.WalkEndsNearFighter * Math.Min(3, option.WalkDanger);
+                score += weights.WalkEndsNearFighter * Math.Min(3, option.WalkDanger) - weights.WalkInsideEdgePerHundred * option.WalkInsideEdge / 100.0;
             if (option.IsAssigned)
                 score += weights.OnAssignedTarget;
             if (soft && !option.Interrupted)

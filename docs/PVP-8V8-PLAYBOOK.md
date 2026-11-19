@@ -108,6 +108,36 @@ script. Under "extend" a Skald still shouts at a caster if that is the best thin
 | During | Buffs, songs and chants kept up; a member that died and was raised is rebuffed | owner | partly: songs and chants are kept up (the Paladin twists three chants, all instants); rebuffing a raised member is not checked in fights |
 | During | Dead members are raised when it is safe | recall | done in the shared healing routine: a healer that is not under attack, has half its power (what a resurrection costs) and has a corpse in reach and sight raises it, while at least half the healers keep healing. Rare in fights for those reasons: 0.3 begun a match against 8 deaths |
 
+## 4a. Situations and answers
+
+The owner, 2026-11-18: "There are general basics but then everything goes out the window and you
+need to react. The enemies are kiting? Let's SoS in. They push you? Should we kite? Push to
+somewhat nullify their push? Lots of variables for a good answer."
+
+This table is where those reactions are collected. A row is a situation the group brain must be
+able to recognise, and the answers a real group has for it. **Nobody has to know in advance which
+answer is right:** the brain gets every answer, weights choose between them, and recorded batches
+show which answer wins under which conditions. What the owner adds here is situations and
+answers ("when X, we did Y"); when each answer is the right one is for the recordings to show.
+
+First draft by the assistant, 2026-11-18. Answers marked `recall` are its memory of 1.65 play and
+are unverified.
+
+| Situation | Answers a group has | Source | What the bots do today |
+|---|---|---|---|
+| The enemy stands at its range and will not come | Speed of Sound in; sprint in; hold as well and trade at range; nearsight its mezzer first | owner, recall | Half the time they hold as well and nearsight the mezzer, half the time they walk in. Speed of Sound and sprint are missing |
+| The enemy pushes onto the group's healers and casters | Kite together; push back onto their healers so both sides are under the same pressure; hold the ground and peel | owner | Kite (the Extend order) when its healers cannot heal and fighters are on them. Pushing back is not weighed as an answer to a push: Push is only chosen when ahead |
+| A member is trained | All heals on it; guard and peel; mez, stun or root the ones on it; once they are held it runs | owner | Heals, guard, peel and running are built. Until 2026-11-18 the train was only seen when two fighters were in melee on the member: a train of one fighter, casters and pets went unseen (the Bard was Albion's kill target 63% of its life and its group saw it 9%). Now every enemy that hit it counts, and control leans toward those enemies. Both are being measured |
+| The group's healers are asleep | Whoever has cure mez wakes them; Purge, Group Purge; keep that member alive and free to cast; kite until they are awake | owner, data | The cure is cast when its holder is free. Against Albion it rarely is: while a Druid sleeps the Bard is dead 52% of the time and interrupted, asleep or stunned for most of the rest. Nothing protects it in particular |
+| The kill target is not dropping | Switch to one that can be killed; shut the healer that keeps it up (mez, nearsight, interrupt, pets) | data, recall | Interrupt duty is handed out. The call is kept until something beats it by a margin, with no look at whether the target is losing health. Nobody is told to shut the second healer |
+| An enemy healer or caster came too far forward | Jump it | owner | Weighed in the kill target (distance and distance from its own healers) |
+| The group killed one | Push | recall | Push is chosen when ahead in numbers and readings |
+| The group lost one | Unknown: kite and reset, or trade a kill quickly | none | Nothing in particular. The side that loses the first member loses 93% of fights |
+| Enemy pets are on the group's healers | Kill them; mez or root them; kill their owner; ignore them | none: asked of the owner | Nothing. From 2026-11-18 a pet's owner counts as one of the enemies on a trained member |
+| The enemy mezzer is about to cast | Instant mez or amnesia on it; nearsight it from range | owner | Done |
+| The group's fighters are strung out after a kill | Regroup | draft | Done, rarely needed in the lanes |
+| The group is out of power or endurance | Unknown | none | Healers save power below 30%; fighters do not budget endurance |
+
 ## 5. Roles
 
 For each role: what it leans toward, and what shifts it. "Leans" means a weight, per section 1.
@@ -172,7 +202,7 @@ Main: Sorcerer, Bard, Pacification Healer. Backup: Minstrel, Mending Healer. (ow
 | Sorcerer | Is woken first when mezzed (it then has a minute of immunity) | data | done |
 | Bard | May run in and use instant amnesia while it casts its mez. Not always: see section 4 | owner | partly: it always runs in |
 | Bard | Instant mez (single and small area) on the enemy mezzer; cast mez and area mez; cure mez | data | done |
-| Bard | Speed and endurance songs kept up | recall | done: in a fight it keeps its drum out and plays the endurance song, twisting its resistance songs in (five endurance songs begun a match; before, none, because it put the drum away to fight with its blade). Its mezzes: 2.8 a match against 3.5 in the run before, too few matches to say whether the songs cost it any |
+| Bard | Speed and endurance songs while the group runs around, until contact. In the fight only the endurance song matters: if it is already up it stays up and needs no recasting, unlike a Paladin's chants | owner, 2026-11-18 | partly: the first version (morning of 2026-11-18) kept every song up in the fight and was a mistake: each song is a three-second cast, the Bard cycled endurance and three resistance songs from the first second, and spent about 22 of the 46 seconds it lived singing, with no cure mez against Albion. Since that evening it starts only the endurance song in a fight, only when it is not playing, at most once in 20 seconds, and not while it is being hit or a groupmate is asleep. Unit-tested build, not yet measured in matches. Not checked: whether the song stops when the Bard changes instrument to mez |
 | Bard | Heals only as a last backup; it is a mezzer first | recall | done as a guess: control comes first unless somebody in reach is below 75% health. In the first run it cast no heal at all. Owner to confirm |
 | Any mezzer | Single mez when an area mez would catch the kill target or wake nobody new; area mez when it catches more | draft | done |
 | Any mezzer | Re-mezzes an enemy when its mez immunity ends | recall | done: the scored choice looks at immunity every turn, so the mez is an option again the moment it ends (28 times in 18 recorded matches) |
@@ -313,6 +343,19 @@ GM ("Make me GM" in the launcher, with the server stopped):
 5. Ctrl+C in the terminal, or `pvp_watch.py stop`, ends the fights. The server stays up.
 
 ## 9. What is measured
+
+**The referee** (`python source/tools/pvp_referee.py <scrims folder> --batch <prefix>`, from
+2026-11-18) is the first thing to run on any batch. It needs nobody to watch a fight:
+
+- a **time budget** for every build: where its living seconds went (casting which kind of
+  spell, walking, standing free, unable to act, dead), with a `?` on lines that look odd;
+- a list of **rules**, each from something the owner said or saw, with what was expected, what
+  was measured, PASS or FAIL, and the worst moments by match and second.
+
+A new observation becomes a new rule there (a function in `RULES`), so that a thing once fixed
+cannot come back unnoticed. Who beats whom is not among the rules: see the roadmap's "Current
+focus". Lines of sections 3 to 5 whose status changed on the evening of 2026-11-18 are listed
+there too, under "Built the same evening and night", until they are folded into the tables here.
 
 Everything that happens in a fight is recorded, so a new question can be asked of old
 recordings. Nothing has to be decided in advance. The measures follow the three readings:

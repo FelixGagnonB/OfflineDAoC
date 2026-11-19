@@ -10,6 +10,28 @@ namespace DOL.GS
     {
         /// <summary>A healer or caster wants every enemy fighter at least this far away. 0 turns positioning off.</summary>
         public int SafeDistance { get; set; } = 900;
+        /// <summary>
+        /// And it wants every enemy of any kind at least this far away, as long as its work stays
+        /// in reach: it stands at the edge of its range, not in the middle of it. The owner,
+        /// watching on 2026-11-18: "The fight is way too tight. There are casters in the middle of
+        /// melee." Recordings of that evening: the middles of the two groups' healers and casters
+        /// were 1,870 units apart five seconds after contact, 1,125 at twenty and 850 at forty-five;
+        /// casters began their casts from a median of 740 to 925 units with spells that reach
+        /// 1,500. Nothing moved a caster back: only an enemy fighter within
+        /// <see cref="SafeDistance"/> made it step. 0 = as before.
+        /// </summary>
+        public int EdgeDistance { get; set; } = 1_200;
+        /// <summary>What a unit inside that distance costs, against a unit gained from an enemy fighter.</summary>
+        public double PerUnitInsideEdge { get; set; } = 0.75;
+        /// <summary>
+        /// How much staying in range of the group's kill target counts when a caster chooses where
+        /// to stand, against 1 for the enemy it is itself casting on, and the same for the enemy
+        /// it has interrupt duty for. At 1 (as it was) being in range of a kill target in the
+        /// enemy's back row outweighed the edge four to one and stood the casters among the
+        /// enemy's front casters.
+        /// </summary>
+        public double KillTargetRangeWeight { get; set; } = 0.25;
+        public double DutyTargetRangeWeight { get; set; } = 0.5;
         /// <summary>How far one step is.</summary>
         public int Step { get; set; } = 350;
         /// <summary>
@@ -49,6 +71,15 @@ namespace DOL.GS
         /// not eight paths". 0 = each steps wherever it is safest for itself.
         /// </summary>
         public double PerUnitAlongRetreat { get; set; } = 0.3;
+        /// <summary>
+        /// A caster or control healer whose scored choice finds nothing worth casting stands where
+        /// it is. Otherwise the old brain takes the turn and walks it to spell range of its attack
+        /// target, which for a kill target in the enemy's back row means into the enemy: in the
+        /// 150 matches of 2026-11-18 casters stood 41 to 56% of the way to where the enemy group
+        /// had been, the Bard and the Pacification Healer died first, and with them the only cure
+        /// for their healers' mez. It still walks when a cast that needs a walk is worth it.
+        /// </summary>
+        public bool CastersStandWithNothingToCast { get; set; } = true;
         /// <summary>
         /// On incoming a healer that only heals (Cleric, Druid, Mending Healer) walks no closer to
         /// the nearest enemy than this: outside the longest mez (1,875 and the width of its area),
@@ -97,11 +128,16 @@ namespace DOL.GS
         /// has scaled it.
         /// </summary>
         /// <param name="retreat">The group's line of retreat as a vector of length one; zero when it is not falling back.</param>
+        /// <param name="others">The enemy's healers and casters, the ones awake.</param>
+        /// <param name="edge">How far the bot wants every enemy, as the group's order has scaled it; 0 = only fighters count.</param>
         public static List<Vector2> Steps(Vector2 self, IReadOnlyList<PvpThreat> threats, IReadOnlyList<PvpWorkPoint> work,
-            IReadOnlyList<Vector2> mates, int minSpacing, int safeDistance, PvpPositionWeights weights, out Verdict verdict, Vector2 retreat = default)
+            IReadOnlyList<Vector2> mates, int minSpacing, int safeDistance, PvpPositionWeights weights, out Verdict verdict, Vector2 retreat = default,
+            IReadOnlyList<Vector2> others = null, int edge = 0)
         {
             verdict = Verdict.Safe;
-            if (safeDistance <= 0 || threats.Count == 0 || threats.Min(threat => Vector2.Distance(self, threat.At)) >= safeDistance)
+            bool fighterNear = threats.Count > 0 && threats.Min(threat => Vector2.Distance(self, threat.At)) < safeDistance;
+            bool insideEdge = edge > 0 && NearestEnemy(self, threats, others) < edge;
+            if (safeDistance <= 0 || !fighterNear && !insideEdge)
                 return [];
             // A fighter that can follow is on it and close: running gains nothing.
             if (threats.Any(threat => threat.OnMe && !threat.Held && !threat.Slowed && Vector2.Distance(self, threat.At) <= weights.PinnedWithin))
@@ -109,7 +145,7 @@ namespace DOL.GS
                 verdict = Verdict.Pinned;
                 return [];
             }
-            double here = Score(self, threats, work, mates, minSpacing, safeDistance, weights);
+            double here = Score(self, threats, work, mates, minSpacing, safeDistance, weights, others, edge);
             double Along(Vector2 point) => Vector2.Dot(point - self, retreat) * weights.PerUnitAlongRetreat;
             var better = new List<(Vector2 Point, double Score)>();
             foreach (int length in weights.LongStep > weights.Step ? new[] { weights.Step, weights.LongStep } : [weights.Step])
@@ -118,7 +154,7 @@ namespace DOL.GS
                 {
                     double angle = 2 * Math.PI * i / Directions;
                     Vector2 point = self + new Vector2((float)Math.Cos(angle), (float)Math.Sin(angle)) * length;
-                    double score = Score(point, threats, work, mates, minSpacing, safeDistance, weights) + Along(point);
+                    double score = Score(point, threats, work, mates, minSpacing, safeDistance, weights, others, edge) + Along(point);
                     if (score - here >= weights.MinGain)
                         better.Add((point, score));
                 }
@@ -127,11 +163,31 @@ namespace DOL.GS
             return better.OrderByDescending(entry => entry.Score).Select(entry => entry.Point).ToList();
         }
 
-        /// <summary>How good a place is: distance from the nearest enemy fighter (no better than safe), less what it costs.</summary>
+        /// <summary>The distance to the nearest enemy of any kind; very far when there is none.</summary>
+        public static double NearestEnemy(Vector2 point, IReadOnlyList<PvpThreat> threats, IReadOnlyList<Vector2> others)
+        {
+            double nearest = double.MaxValue;
+            foreach (PvpThreat threat in threats)
+                nearest = Math.Min(nearest, Vector2.Distance(point, threat.At));
+            if (others != null)
+            {
+                foreach (Vector2 other in others)
+                    nearest = Math.Min(nearest, Vector2.Distance(point, other));
+            }
+            return nearest;
+        }
+
+        /// <summary>
+        /// How good a place is: distance from the nearest enemy fighter (no better than safe) and,
+        /// for less, from the nearest enemy of any kind (no better than the edge), less what it costs.
+        /// </summary>
         public static double Score(Vector2 point, IReadOnlyList<PvpThreat> threats, IReadOnlyList<PvpWorkPoint> work,
-            IReadOnlyList<Vector2> mates, int minSpacing, int safeDistance, PvpPositionWeights weights)
+            IReadOnlyList<Vector2> mates, int minSpacing, int safeDistance, PvpPositionWeights weights,
+            IReadOnlyList<Vector2> others = null, int edge = 0)
         {
             double score = threats.Count == 0 ? safeDistance : Math.Min(safeDistance, threats.Min(threat => Vector2.Distance(point, threat.At)));
+            if (edge > 0)
+                score += weights.PerUnitInsideEdge * Math.Min(edge, NearestEnemy(point, threats, others));
             foreach (PvpWorkPoint item in work)
                 score -= Math.Max(0, Vector2.Distance(point, item.At) - item.Range) * weights.PerUnitOutOfRange * item.Weight;
             foreach (Vector2 mate in mates)

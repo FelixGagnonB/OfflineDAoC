@@ -106,6 +106,9 @@ namespace DOL.UnitTests
             Assert.That(PvpOrders.WaitsOutAHold(1500, 1875, 15, 3000, 10, Weights), Is.True, "it outlasts the holder's ten seconds");
             Assert.That(PvpOrders.WaitsOutAHold(1500, 1875, 26, 3000, 10, Weights), Is.False);
             Assert.That(PvpOrders.WaitsOutAHold(1500, 1875, 2, 1000, 10, Weights), Is.False, "the enemy is on the group");
+            // It does not stand until the Sorcerer is in range: the wait is over while the enemy is still outside its mez reach.
+            Assert.That(PvpOrders.WaitsOutAHold(1500, 1875, 2, 2400, 10, Weights), Is.True);
+            Assert.That(PvpOrders.WaitsOutAHold(1500, 1875, 2, 2300, 10, Weights), Is.False);
         }
 
         [Test]

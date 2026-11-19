@@ -35,6 +35,19 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void TwoHealersKeepFartherApartThanTwoCasters()
+        {
+            var weights = new PvpSpreadWeights();
+            // 450 apart: fine for two casters, too close for the group's two healers.
+            Vector2[] other = [new Vector2(0, 450)];
+            Assert.That(PvpSpacing.StepApart(Vector2.Zero, other, new Vector2(2000, 0), weights.MinSpacing, weights.Step), Is.Null);
+            Vector2? step = PvpSpacing.StepApart(Vector2.Zero, other, new Vector2(2000, 0), weights.HealerSpacing, weights.Step);
+            Assert.That(step, Is.Not.Null);
+            Assert.That(Vector2.Distance(step.Value, other[0]), Is.GreaterThan(450));
+            Assert.That(PvpSpacing.StepApart(Vector2.Zero, [new Vector2(0, 1_050)], new Vector2(2000, 0), weights.HealerSpacing, weights.Step), Is.Null);
+        }
+
+        [Test]
         public void NobodyCloseMeansNoStep()
         {
             Assert.That(PvpSpacing.StepApart(new Vector2(0, 0), [new Vector2(0, 500)], new Vector2(2000, 0), 400, 200), Is.Null);

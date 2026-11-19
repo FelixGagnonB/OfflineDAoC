@@ -39,6 +39,14 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void ADruidRootsOnlyWhatIsComingForItsGroup()
+        {
+            // A fighter that is on nobody is not worth a healer's turn.
+            PvpOption idle = Root(pursuer: false);
+            Assert.That(PvpActionChoice.WorthIt(idle, PvpActionChoice.Score(eCharacterClass.Druid, idle, Weights), Weights), Is.False);
+        }
+
+        [Test]
         public void WhileTheGroupExtendsItIsWorthMore()
         {
             Assert.That(PvpActionChoice.Score(eCharacterClass.Shaman, Root(true, extending: true), Weights),
@@ -55,6 +63,7 @@ namespace DOL.UnitTests
         [TestCase(eCharacterClass.Cabalist)]
         [TestCase(eCharacterClass.Eldritch)]
         [TestCase(eCharacterClass.Runemaster)]
+        [TestCase(eCharacterClass.Druid)]
         public void ACasterWithARootUsesItOnAPursuer(eCharacterClass caster)
         {
             PvpOption option = Root(pursuer: true);

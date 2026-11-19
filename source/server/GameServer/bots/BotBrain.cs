@@ -587,6 +587,7 @@ namespace DOL.AI.Brain
         private long _nextCombatProgressTick;
         private long _nextMaintenanceBuffTick;
         private long _nextSongTwistTick;
+        private long _pvpSongStartedTick;
         private bool _companionPerformerBuffBatch;
         private long _lastPerformerFollowTick = long.MinValue;
         private long _nextInstrumentKitCheck;
@@ -1464,7 +1465,8 @@ namespace DOL.AI.Brain
             if ((!archerCombatOwnsPetUpkeep || requiredPetUpkeep) &&
                 (BotAnimistPolicy.AppliesTo(BotBody) || requiredPetUpkeep ||
                  (!movementFirstPetClass && !deferCasterUpkeep)) &&
-                AutonomousPetSupport.Maintain(Body, petCombatTarget, ref _nextDeployablePetTick, out _))
+                !PvpSkipsPetUpkeep() &&
+                AutonomousPetSupport.Maintain(Body, petCombatTarget, ref _nextDeployablePetTick, out _, PvpPetUpkeepFilter()))
                 return;
 
             // A controlled pet may reach the camp first while its persistent
@@ -1916,6 +1918,10 @@ namespace DOL.AI.Brain
                 GameLoop.GameLoopTime < _nextMaintenanceBuffTick)
                 return false;
 
+            // Once an 8v8 group's fight has begun nobody stops to buff (BotBrain.PvpBuffs.cs).
+            if (bot.IsPvpBot && PvpGroupIsFighting() && !PvpWeights.Of(bot).BuffsInFight)
+                return false;
+
             // An 8v8 group shares one buff plan (BotBrain.PvpBuffs.cs). The planned buffs come
             // first and are left out of the generic pass below.
             if (bot.IsPvpBot && TryCastPlannedPvpBuff())
@@ -2199,6 +2205,17 @@ namespace DOL.AI.Brain
                 _nextSongTwistTick = GameLoop.GameLoopTime + 1_000;
                 return false;
             }
+            // In a fight a song is a three-second cast like any other, and the Bard is its group's
+            // mezzer and its only cure for mez (PvpWeights.SongInFightEverySeconds).
+            int pvpSongEvery = pvpBardPlays && immediateCombat ? PvpWeights.Of(bot).SongInFightEverySeconds : -1;
+            bool pvpSongBounded = pvpSongEvery >= 0;
+            if (pvpSongBounded && (pvpSongEvery == 0 || bot.IsBeingInterrupted ||
+                    GameLoop.GameLoopTime - _pvpSongStartedTick < pvpSongEvery * 1_000L ||
+                    bot.Group?.GetMembersInTheGroup().Any(member => member.IsAlive && member.IsMezzed) == true))
+            {
+                _nextSongTwistTick = GameLoop.GameLoopTime + 1_000;
+                return false;
+            }
 
             bool traveling = bot.IsMoving || bot.IsReturningAfterRelease ||
                              bot.Group?.LivingLeader?.IsMoving == true ||
@@ -2213,13 +2230,18 @@ namespace DOL.AI.Brain
                                 (!ownerMoving || BotSongTwistPolicy.IsCompanionTravelSong(
                                     (eCharacterClass)bot.CharacterClass.ID, spell.SpellType)))
                 .DistinctBy(spell => spell.ID)
-                .Where(spell => spell.SpellType != eSpellType.SpeedEnhancement || !immediateCombat && (traveling || groupedSupport));
+                .Where(spell => spell.SpellType != eSpellType.SpeedEnhancement || !immediateCombat && (traveling || groupedSupport))
+                .Where(spell => !pvpSongBounded || spell.SpellType == eSpellType.EnduranceRegenBuff);
             if (ownerMoving)
                 songCandidates = songCandidates.GroupBy(spell => spell.SpellType)
                     .Select(group => group.OrderByDescending(spell => spell.Level)
                         .ThenByDescending(spell => spell.Value).First());
             List<Spell> songs = songCandidates
-                .OrderByDescending(spell => pvpBardPlays && immediateCombat && spell.SpellType == eSpellType.EnduranceRegenBuff)
+                // The owner, 2026-11-18: speed and endurance while the group runs around, until contact;
+                // from then on only endurance matters, and a song that is up stays up. So once the
+                // enemy is in sight the endurance song is the one to start: playing when the fight begins.
+                .OrderByDescending(spell => pvpBardPlays && (immediateCombat || PvpSquad?.Known.Count > 0) &&
+                                            spell.SpellType == eSpellType.EnduranceRegenBuff)
                 .ThenByDescending(spell => spell.SpellType == eSpellType.SpeedEnhancement && !immediateCombat)
                 .ThenByDescending(spell => groupedSupport && spell.Target is eSpellTarget.GROUP or eSpellTarget.REALM)
                 .ThenByDescending(spell => spell.Value)
@@ -2241,6 +2263,12 @@ namespace DOL.AI.Brain
                     effect.SpellHandler?.Spell is Spell activeSpell && activeSpell.IsPulsing &&
                     !activeSpell.IsHarmful && IsMaintainableClassBuff(activeSpell));
             _activeTwistedSongId = activePulse?.SpellHandler.Spell.ID ?? 0;
+            // Still playing: nothing to do, and nothing to twist it with in a fight.
+            if (pvpSongBounded && activePulse?.SpellHandler.Spell.SpellType == eSpellType.EnduranceRegenBuff)
+            {
+                _nextSongTwistTick = GameLoop.GameLoopTime + 1_000;
+                return false;
+            }
             int chosenId = BotSongTwistPolicy.Choose(songs[0].ID, _activeTwistedSongId,
                 songs.Select(candidate => new BotSongTwistPolicy.Song(candidate.ID, candidate.CastTime,
                     bot.GetSkillDisabledDuration(candidate), SongRemainingMilliseconds(candidate))).ToArray());
@@ -2276,6 +2304,7 @@ namespace DOL.AI.Brain
             if (cast)
             {
                 _activeTwistedSongId = song.ID;
+                _pvpSongStartedTick = GameLoop.GameLoopTime;
             }
 
             // Actual casts, child lifetimes and skill reuse own the timing, not
@@ -2481,6 +2510,12 @@ namespace DOL.AI.Brain
 
         private bool CastCoordinatedBuff(Spell spell, bool? queued = null)
         {
+            // Every buff path ends here (upkeep, the group plan, the self bladeturn restored "as soon
+            // as it is safe", the defensive pick of the combat routine): once an 8v8 group's fight
+            // has begun none of them stops to buff (BotBrain.PvpBuffs.cs). The first gate, on two
+            // of those paths only, left the Clerics' six buffs a match and the bubble in place.
+            if (PvpHeldBackInFight(spell))
+                return false;
             Group group = Body.Group;
             GameLiving target = Body.TargetObject as GameLiving;
             bool shared = group != null && target != null && spell.Target == eSpellTarget.REALM &&
@@ -2945,6 +2980,13 @@ namespace DOL.AI.Brain
                 // An 8v8 healer or caster stepping away from enemy fighters finishes the step first.
                 if (_brain.PvpOnTheMove())
                     return;
+                // A fighter the squad keeps beside its ward, or has called back, attacks nobody: the squad walks it.
+                if (_brain.PvpStaysPut)
+                {
+                    if (_brain.Body.attackComponent.AttackState)
+                        _brain.Body.StopAttack();
+                    return;
+                }
                 // A group that holds stands and casts what reaches from where it stands.
                 if (_brain.PvpHolding())
                 {
@@ -2965,12 +3007,13 @@ namespace DOL.AI.Brain
                     }
                     else if (_brain.CheckHeals())
                         _brain.RecordPvpTurnTaken("the healing and curing routine");
-                    else if (!_brain.TryPvpRotation())
+                    else if (!_brain.TryPvpRotation() && !_brain.PvpStandsWithNothingToCast())
                         _brain.AttackMostWanted();
                 }
                 // An 8v8 caster under a squad brain picks its cast from every enemy in reach, not
-                // only once it stands in range of an attack target of its own.
-                else if (!_brain.TryPvpRotation())
+                // only once it stands in range of an attack target of its own. With nothing worth
+                // casting it stands: the old brain would walk it toward its target.
+                else if (!_brain.TryPvpRotation() && !_brain.PvpStandsWithNothingToCast())
                     _brain.AttackMostWanted();
             }
         }

@@ -61,6 +61,16 @@ namespace DOL.AI.Brain
         public bool PvpWantsControlStyle { get; set; }
 
         /// <summary>
+        /// Set by the squad for a shield fighter it keeps beside its ward and for a fighter it has
+        /// called back: it attacks nobody on its own. Without this its own brain went for whoever
+        /// had hit it, the squad walked it back a second later, and so on: the owner, watching on
+        /// 2026-11-18, saw the Warrior "walk back and forth between the enemy and the healer
+        /// without doing anything". In the recordings a shield fighter told to stay was moving
+        /// 54 to 64% of that time and had an attack target for 60%.
+        /// </summary>
+        public bool PvpStaysPut { get; set; }
+
+        /// <summary>
         /// The heal for several to cast now, or null: several members in reach are hurt, nobody is
         /// trained, and of the spread and group heals that are ready this one restores the most
         /// health for its power (bots/pvp/PvpHealPlan.cs).
@@ -77,6 +87,21 @@ namespace DOL.AI.Brain
                 ready.Select(spell => (spell.SpellType == eSpellType.SpreadHeal, (int)GameBot.HealAmount(spell, Body), BotBody.PowerCost(spell))).ToList(),
                 Body.Group.MemberCount);
             return best < 0 ? null : ready[best];
+        }
+
+        /// <summary>
+        /// True for an 8v8 caster or control healer under a squad brain: with nothing worth casting it
+        /// stands, and does not hand the turn to the old brain's walk toward its attack target
+        /// (<see cref="PvpPositionWeights.CastersStandWithNothingToCast"/>).
+        /// </summary>
+        public bool PvpStandsWithNothingToCast()
+        {
+            if (BotBody?.IsPvpBot != true || PvpSquad == null || BotBody.PvpBuild == null || PvpEnemies == null)
+                return false;
+            PvpWeights weights = PvpWeights.Of(BotBody);
+            var characterClass = (eCharacterClass)BotBody.CharacterClass.ID;
+            return weights.Position.CastersStandWithNothingToCast && PvpBuffPlan.ArchetypeOf(characterClass) != PvpBuffArchetype.Melee &&
+                PvpActionChoice.ScoresOffense(characterClass, weights);
         }
 
         /// <summary>True while this bot's group holds: it stands and casts what reaches (bots/pvp/PvpReading.cs).</summary>
@@ -354,11 +379,21 @@ namespace DOL.AI.Brain
                     // Out of range or behind something: still an option, at the price of the walk.
                     int walk = Math.Max(distance > range ? distance - range + 50 : 0, seen ? 0 : 300);
                     // Where that walk would end, and how many enemy fighters that are free to act would be beside it there.
-                    int walkDanger = 0;
+                    int walkDanger = 0, walkInsideEdge = 0;
                     if (walk > 0 && distance > 1)
                     {
                         float stop = Math.Max(0, distance - walk) / (float)distance;
                         var end = new Vector2(enemy.X + (Body.X - enemy.X) * stop, enemy.Y + (Body.Y - enemy.Y) * stop);
+                        // The edge as the group's order has scaled it: wider when it falls back, tighter when it pushes.
+                        double edge = weights.Position.EdgeDistance * (PvpSquad?.Order == PvpOrder.Extend ? weights.Order.ExtendSafeFactor
+                            : PvpSquad?.Order == PvpOrder.Push ? weights.Order.PushSafeFactor : 1);
+                        float nearest = float.MaxValue;
+                        foreach (GameBot other in enemies)
+                        {
+                            if (other.IsAlive && !other.IsMezzed)
+                                nearest = Math.Min(nearest, Vector2.Distance(end, new Vector2(other.X, other.Y)));
+                        }
+                        walkInsideEdge = (int)Math.Max(0, edge - nearest);
                         walkDanger = enemies.Count(other => PvpBuffPlan.ArchetypeOf(other.PvpBuild.Class) == PvpBuffArchetype.Melee &&
                             !other.IsMezzed && !other.IsStunned && !other.effectListComponent.ContainsEffectForEffectType(eEffect.MovementSpeedDebuff) &&
                             Vector2.Distance(end, new Vector2(other.X, other.Y)) <= weights.WalkDangerWithin);
@@ -405,7 +440,8 @@ namespace DOL.AI.Brain
                         enemy == PvpAssignedTarget || enemy == PvpDutyTarget, enemy.HealthPercent, hasEffect,
                         enemy.IsCasting, enemy.IsBeingInterrupted, !mez && enemy.IsMezzed, Body.ManaPercent, cost, walk, caught, catchesKill, wakes,
                         instant, PvpActionChoice.IsController(enemy.PvpBuild.Class, weights),
-                        PvpSquad?.IsPursuer(enemy) == true, PvpSquad?.Order == PvpOrder.Extend, walkDanger));
+                        PvpSquad?.IsPursuer(enemy) == true, PvpSquad?.Order == PvpOrder.Extend, walkDanger,
+                        PvpSquad?.IsOnTrained(enemy) == true, walkInsideEdge));
                 }
             }
             if (tooFar > 0)

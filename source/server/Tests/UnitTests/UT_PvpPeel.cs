@@ -14,8 +14,22 @@ namespace DOL.UnitTests
             new(id, archetype, attackers, health, distance, current, guardedByAnother);
 
         private static PvpPeelView Enemy(int id, bool onWard = false, bool onBackline = false, bool onSelf = false, bool kill = false,
-            bool canStun = true, bool mezzed = false, int fromWard = 150, bool current = false) =>
-            new(id, onWard, onBackline, onSelf, kill, canStun, mezzed, fromWard, current);
+            bool canStun = true, bool mezzed = false, int fromWard = 150, bool current = false, bool coming = false) =>
+            new(id, onWard, onBackline, onSelf, kill, canStun, mezzed, fromWard, current, coming);
+
+        [Test]
+        public void AFighterRunningAtTheHealersIsMetOnTheWayIn()
+        {
+            // A Skald 600 units out and running at a Druid: the Hero goes to meet it. Before, nobody looked at it until it was hitting the Druid.
+            Assert.That(PvpPeel.ChooseTarget([Enemy(0, coming: true, fromWard: 600)], Weights, out _), Is.EqualTo(0));
+            Assert.That(PvpPeel.Describe(Enemy(0, coming: true)), Is.EqualTo("Intercept"));
+            // Still far off, the Hero stays where guard works.
+            Assert.That(PvpPeel.ChooseTarget([Enemy(0, coming: true, canStun: false, fromWard: 1_400)], Weights, out _), Is.EqualTo(-1));
+            // One already hitting its ward comes first.
+            Assert.That(PvpPeel.ChooseTarget([Enemy(0, coming: true, fromWard: 600), Enemy(1, onWard: true)], Weights, out _), Is.EqualTo(1));
+            // An enemy that is merely near and on nobody is left alone, as before.
+            Assert.That(PvpPeel.ChooseTarget([Enemy(0, fromWard: 300)], Weights, out _), Is.EqualTo(-1));
+        }
 
         [Test]
         public void WithNobodyAttackedAHealerIsGuardedBeforeACaster()

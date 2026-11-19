@@ -53,13 +53,15 @@ namespace DOL.GS
                     bot.ActiveWeaponSlot == eActiveWeaponSlot.TwoHanded ? eInventorySlot.TwoHandWeapon : eInventorySlot.RightHandWeapon) ||
                 bot.ActiveWeaponSlot == eActiveWeaponSlot.Distance)
                 return null;
-            // Preserve a deliberate tank taunt, but revalidate at the actual swing.
-            Style queued = bot.styleComponent.NextCombatStyle;
-            if (preserveQueued && Usable(bot, queued, lastAttack)) return queued;
-            Style best = null;
-            Style anytime = null;
             // An 8v8 fighter told to stop its target looks for a stun or a snare first.
             bool control = bot.IsPvpBot && bot.Brain is DOL.AI.Brain.BotBrain { PvpWantsControlStyle: true };
+            // Preserve a deliberate tank taunt, but revalidate at the actual swing. A style queued
+            // for the fighter's last target is not kept when this one is to be stopped and that
+            // style does not stop it: the first swing of a peel is the Slam, not what was left over.
+            Style queued = bot.styleComponent.NextCombatStyle;
+            if (preserveQueued && Usable(bot, queued, lastAttack) && !(control && !PvpStylePolicy.Stops(bot, queued))) return queued;
+            Style best = null;
+            Style anytime = null;
             var usable = control ? new System.Collections.Generic.List<Style>() : null;
             foreach (Style style in bot.Styles)
             {

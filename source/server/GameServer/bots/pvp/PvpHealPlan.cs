@@ -54,9 +54,18 @@ namespace DOL.GS
         /// The owner, who played healers, 2026-11-17: the hard part was knowing whether someone was
         /// being trained by the enemy's assist train; once that was called, all focus went to
         /// healing that one until a peel, mez or stun let it get away. A member counts as trained
-        /// with this many enemy fighters in melee on it.
+        /// with this many enemies on it.
         /// </summary>
         public int TrainAttackers { get; set; } = 2;
+        /// <summary>
+        /// Who counts as "on it": with this on, every enemy that hit the member in the last few
+        /// seconds, a caster from range as much as a fighter, and an enemy whose pet hit it. Off,
+        /// only enemy fighters in melee on it, as before. In the 150 matches of 2026-11-18 the
+        /// Bard was Albion's kill target for 63% of its life and its own group saw it trained for
+        /// 9%: the train on it was one fighter, the casters and the pets (1,090 damage a match
+        /// from fighters, 669 from casters, 679 from pets).
+        /// </summary>
+        public bool TrainCountsEveryAttacker { get; set; } = true;
         /// <summary>
         /// The "anytime" heal restores at least this percent of what the big heal does. The owner
         /// healed with two spells, the spec line's Major heal and its Greater heal; the bots'

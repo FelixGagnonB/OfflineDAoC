@@ -22,15 +22,23 @@ namespace DOL.GS
         public double PerMissingHealthPercent { get; set; } = 1;
         /// <summary>Hitting a mezzed enemy wakes it.</summary>
         public int Mezzed { get; set; } = -120;
-        /// <summary>For each hundred units from the middle of the group's damage dealers: running time.</summary>
-        public double PerHundredUnits { get; set; } = -2.5;
+        /// <summary>
+        /// For each hundred units from the middle of the group's damage dealers: running time, and
+        /// the enemy's whole group to get through. It was -2.5 until 2026-11-18. In 150 matches
+        /// Midgard and Hibernia then called an Albion Cleric before contact, from 3,200 units, and
+        /// kept it as their target for 99 to 100% of the opening although it stood at the back,
+        /// guarded and healed by the other Cleric; they lost 95 fights of 100. With -5 here and 5
+        /// for being out of position, in 48 matches with the two scores on opposite teams, their
+        /// target was a caster 54 to 75% of the time and the new score won 28 fights to 20.
+        /// </summary>
+        public double PerHundredUnits { get; set; } = -5;
         /// <summary>
         /// For each hundred units the enemy stands from its own healers, up to 2,000: out of
         /// position, it is harder to heal and easier to reach. The owner, 2026-11-17: the kill
         /// target is whoever is easiest to kill and out of position; a caster or healer that came
         /// too far forward is jumped.
         /// </summary>
-        public double PerHundredUnitsFromItsHealers { get; set; } = 2;
+        public double PerHundredUnitsFromItsHealers { get; set; } = 5;
         /// <summary>The current target is kept unless another scores this much higher.</summary>
         public int SwitchMargin { get; set; } = 60;
         /// <summary>Enemies farther than this from the damage dealers are not called.</summary>

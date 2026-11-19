@@ -64,6 +64,14 @@ namespace DOL.GS
         public int HoldWhenOutrangedChance { get; set; } = 50;
         /// <summary>Such a wait lasts at most this long: longer than the holder's own hold, so the holder moves first.</summary>
         public int HoldWhenOutrangedMaxSeconds { get; set; } = 25;
+        /// <summary>
+        /// And it ends when the nearest enemy is within the enemy's mez reach plus this, when
+        /// that is farther than <see cref="HoldBreakDistance"/>. The owner, watching Albion
+        /// against Midgard on 2026-11-18: "Albion is running toward Mids and Mids are just
+        /// standing there, doing nothing, until the Sorcerer is in range." The wait used to end
+        /// at 1,200 units, and the Sorcerer mezzes from 1,875.
+        /// </summary>
+        public int HoldWhenOutrangedBreakMargin { get; set; } = 500;
 
         /// <summary>Under Extend, healers and casters want this many times the usual distance from enemy fighters.</summary>
         public double ExtendSafeFactor { get; set; } = 1.4;
@@ -179,7 +187,8 @@ namespace DOL.GS
         public static bool WaitsOutAHold(int ownMezRange, int theirMezRange, double secondsHeld, int nearestEnemy, int draw, PvpOrderWeights weights) =>
             weights.Enabled && weights.HoldRangeAdvantage > 0 && draw < weights.HoldWhenOutrangedChance &&
             theirMezRange - ownMezRange >= weights.HoldRangeAdvantage &&
-            secondsHeld < weights.HoldWhenOutrangedMaxSeconds && nearestEnemy > weights.HoldBreakDistance;
+            secondsHeld < weights.HoldWhenOutrangedMaxSeconds &&
+            nearestEnemy > Math.Max(weights.HoldBreakDistance, theirMezRange + weights.HoldWhenOutrangedBreakMargin);
 
         /// <summary>The order for this second, given the one in force and how long it has stood.</summary>
         public static PvpOrder Choose(PvpReading own, PvpReading theirs, int backlineUnderAttack, PvpOrder current, double secondsInForce, PvpOrderWeights weights,

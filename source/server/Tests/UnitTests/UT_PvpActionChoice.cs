@@ -53,6 +53,41 @@ namespace DOL.UnitTests
             Assert.That(onPursuer, Is.GreaterThan(onFighter));
         }
 
+        [Test]
+        public void AWalkThatEndsAmongTheEnemyCostsScore()
+        {
+            var weights = new PvpWeights();
+            // The same nearsight after the same walk: one ends at the edge of range, the other 500 units inside the enemy's reach.
+            var atEdge = new PvpOption(PvpActionKind.Nearsight, 0, PvpBuffArchetype.Caster, false, false, 100, false, false, false, false, 100, Short: 300);
+            var among = atEdge with { TargetId = 1, WalkInsideEdge = 500 };
+            Assert.That(PvpActionChoice.Score(eCharacterClass.Eldritch, atEdge, weights) - PvpActionChoice.Score(eCharacterClass.Eldritch, among, weights), Is.EqualTo(40));
+            // Standing where it is, how near the enemy is costs nothing here: keeping range is the squad's business.
+            Assert.That(PvpActionChoice.Score(eCharacterClass.Eldritch, among with { Short = 0 }, weights),
+                Is.EqualTo(PvpActionChoice.Score(eCharacterClass.Eldritch, atEdge with { Short = 0 }, weights)));
+        }
+
+        [Test]
+        public void ControlGoesToTheEnemiesOnTheTrainedMember()
+        {
+            var weights = new PvpWeights();
+            // Two enemy fighters a Healer could stun; one of them is on the group's trained member.
+            var other = new PvpOption(PvpActionKind.Stun, 0, PvpBuffArchetype.Melee, false, false, 100, false, false, false, false, 100);
+            var trainer = other with { TargetId = 1, OnTrained = true };
+            Assert.That(PvpActionChoice.Rank(eCharacterClass.Healer, [other, trainer], weights)[0].Option.TargetId, Is.EqualTo(1));
+            // The same for a mez, and for a nearsight on a caster that is nuking the trained member.
+            Assert.That(PvpActionChoice.Score(eCharacterClass.Bard, trainer with { Kind = PvpActionKind.Mez }, weights),
+                Is.GreaterThan(PvpActionChoice.Score(eCharacterClass.Bard, other with { Kind = PvpActionKind.Mez }, weights)));
+            var caster = other with { Kind = PvpActionKind.Nearsight, Archetype = PvpBuffArchetype.Caster };
+            Assert.That(PvpActionChoice.Score(eCharacterClass.Eldritch, caster with { OnTrained = true }, weights),
+                Is.GreaterThan(PvpActionChoice.Score(eCharacterClass.Eldritch, caster, weights)));
+            // Damage is not control: it stays on the kill target.
+            Assert.That(PvpActionChoice.Score(eCharacterClass.Eldritch, caster with { Kind = PvpActionKind.Damage, OnTrained = true }, weights),
+                Is.EqualTo(PvpActionChoice.Score(eCharacterClass.Eldritch, caster with { Kind = PvpActionKind.Damage }, weights)));
+            // Switched off by its weight, for a comparison.
+            var off = new PvpWeights { ControlOnTrainer = 0 };
+            Assert.That(PvpActionChoice.Score(eCharacterClass.Healer, trainer, off), Is.EqualTo(PvpActionChoice.Score(eCharacterClass.Healer, other, off)));
+        }
+
         private static readonly PvpWeights Weights = new();
 
         private static PvpOption Option(PvpActionKind kind, int id, PvpBuffArchetype archetype = PvpBuffArchetype.Caster, bool kill = false,

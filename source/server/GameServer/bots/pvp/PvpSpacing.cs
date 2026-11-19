@@ -9,6 +9,15 @@ namespace DOL.GS
     {
         /// <summary>Healers and casters keep at least this far from one another; an area mez reaches 350. 0 turns spreading off.</summary>
         public int MinSpacing { get; set; } = 400;
+        /// <summary>
+        /// The group's healers keep at least this far from one another, so that one enemy running
+        /// in does not have both in front of it. Heals reach 2,000: each still reaches the other
+        /// and the group. The owner, watching Hibernia against Midgard on 2026-11-18: "Both Druids
+        /// are way too close to each other. The Skald ran in, instant mezzed one and the tanks
+        /// trained the other." Until then two healers kept 400 apart like any two casters.
+        /// 0 = as before.
+        /// </summary>
+        public int HealerSpacing { get; set; } = 1_000;
         /// <summary>How far one step apart is.</summary>
         public int Step { get; set; } = 200;
         /// <summary>A caster walking into range stops this far inside it.</summary>

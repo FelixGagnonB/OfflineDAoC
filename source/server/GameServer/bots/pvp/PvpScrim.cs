@@ -587,6 +587,13 @@ namespace DOL.GS
             foreach (IGrouping<bool, GameBot> row in members.GroupBy(bot => PvpBuffPlan.ArchetypeOf(bot.PvpBuild.Class) == PvpBuffArchetype.Melee))
             {
                 List<GameBot> inRow = row.ToList();
+                // The back row: one healer at each end, the casters between them (PvpSpreadWeights.HealerSpacing).
+                if (!row.Key)
+                {
+                    List<GameBot> healers = inRow.Where(bot => PvpRoles.Of(bot.PvpBuild.Class) == PvpRole.Heal).ToList();
+                    if (healers.Count >= 2)
+                        inRow = [healers[0], .. inRow.Where(bot => !healers.Contains(bot)), .. healers.Skip(1)];
+                }
                 for (int slot = 0; slot < inRow.Count; slot++)
                 {
                     Vector2 point = new Vector2(enemyCentre.X, enemyCentre.Y)

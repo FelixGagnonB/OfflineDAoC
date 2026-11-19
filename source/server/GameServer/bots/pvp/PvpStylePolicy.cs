@@ -36,14 +36,20 @@ namespace DOL.GS
         /// </summary>
         public static Style ControlStyle(GameBot bot, System.Collections.Generic.IEnumerable<Style> usable)
         {
-            bool slowed = bot.TargetObject is GameLiving target &&
-                (target.effectListComponent.ContainsEffectForEffectType(eEffect.MovementSpeedDebuff) ||
-                 target.effectListComponent.ContainsEffectForEffectType(eEffect.Snare));
+            bool slowed = TargetSlowed(bot);
             return usable.Select(style => (Style: style, Rank: ControlRank(Stuns(style), Snares(style), slowed)))
                 .Where(entry => entry.Rank > 0)
                 .OrderByDescending(entry => entry.Rank).ThenByDescending(entry => entry.Style.GrowthRate)
                 .Select(entry => entry.Style).FirstOrDefault();
         }
+
+        private static bool TargetSlowed(GameBot bot) => bot.TargetObject is GameLiving target &&
+            (target.effectListComponent.ContainsEffectForEffectType(eEffect.MovementSpeedDebuff) ||
+             target.effectListComponent.ContainsEffectForEffectType(eEffect.Snare));
+
+        /// <summary>True for a style that would stop the fighter's target: a stun, or a snare on one that is not slowed yet.</summary>
+        public static bool Stops(GameBot bot, Style style) =>
+            style != null && ControlRank(Stuns(style), Snares(style), TargetSlowed(bot)) > 0;
 
         public static bool Allows(GameBot bot, Style style)
         {

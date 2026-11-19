@@ -18,8 +18,9 @@ namespace DOL.GS
     /// <param name="CanStun">Neither stunned nor immune: Slam would land.</param>
     /// <param name="FromWard">Distance from the guarded groupmate; guard only works beside it.</param>
     /// <param name="IsCurrent">The one it is on already.</param>
+    /// <param name="Coming">An enemy fighter running at a healer or caster of the group, not yet in melee on it.</param>
     public readonly record struct PvpPeelView(int Id, bool OnWard, bool OnBackline, bool OnSelf, bool IsKill, bool CanStun,
-        bool Mezzed, int FromWard, bool IsCurrent);
+        bool Mezzed, int FromWard, bool IsCurrent, bool Coming = false);
 
     /// <summary>
     /// What a shield fighter weighs (docs/PVP-8V8-ROADMAP.md, M6.3). Part of <see cref="PvpWeights"/>,
@@ -40,6 +41,18 @@ namespace DOL.GS
         /// <summary>An enemy hitting the guarded groupmate: the reason the shield fighter is there.</summary>
         public int OnWard { get; set; } = 100;
         public int OnBackline { get; set; } = 60;
+        /// <summary>
+        /// An enemy fighter running at a healer or caster of the group and within
+        /// <see cref="InterceptWithin"/> of it: the shield fighter goes to meet it. The owner,
+        /// watching Hibernia against Midgard on 2026-11-18: "the Skald simply ran past everything
+        /// to reach both Druids", with a Hero and two Blademasters there. Until then nothing
+        /// looked at an enemy before it was within melee reach of its victim; in the recordings a
+        /// fighter that reached a healer or caster in the opening was first stunned, rooted or
+        /// mezzed a median of two to five seconds after it arrived, and a third not once in fifteen.
+        /// </summary>
+        public int Coming { get; set; } = 65;
+        /// <summary>0 = nobody is met on the way in.</summary>
+        public int InterceptWithin { get; set; } = 1_200;
         public int OnSelf { get; set; } = 40;
         /// <summary>Helping with the kill; it loses to distance, because guard stops working away from the ward.</summary>
         public int KillTarget { get; set; } = 55;
@@ -86,12 +99,13 @@ namespace DOL.GS
             double reason = double.MinValue;
             if (enemy.OnWard) reason = weights.OnWard;
             if (enemy.OnBackline && weights.OnBackline > reason) reason = weights.OnBackline;
+            if (enemy.Coming && weights.Coming > reason) reason = weights.Coming;
             if (enemy.IsKill && weights.KillTarget > reason) reason = weights.KillTarget;
             if (enemy.OnSelf && weights.OnSelf > reason) reason = weights.OnSelf;
             if (reason == double.MinValue)
                 return double.MinValue;
             return reason
-                + (enemy.CanStun && (enemy.OnWard || enemy.OnBackline) ? weights.CanStun : 0)
+                + (enemy.CanStun && (enemy.OnWard || enemy.OnBackline || enemy.Coming) ? weights.CanStun : 0)
                 + (enemy.Mezzed && !enemy.IsKill ? weights.Mezzed : 0)
                 + (enemy.IsCurrent ? weights.IsCurrent : 0)
                 + enemy.FromWard / 100.0 * weights.PerHundredUnitsFromWard;
@@ -110,6 +124,6 @@ namespace DOL.GS
 
         /// <summary>What the choice is called in the recording.</summary>
         public static string Describe(PvpPeelView enemy) =>
-            enemy.OnWard || enemy.OnBackline ? "Peel" : enemy.IsKill ? "Assist" : "Defend";
+            enemy.OnWard || enemy.OnBackline ? "Peel" : enemy.Coming ? "Intercept" : enemy.IsKill ? "Assist" : "Defend";
     }
 }

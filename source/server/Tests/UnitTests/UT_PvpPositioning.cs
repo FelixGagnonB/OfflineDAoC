@@ -34,6 +34,28 @@ namespace DOL.UnitTests
             Assert.That(new PvpPositionWeights { HealerHangsBackAt = 0 }.HealerHangsBack(true, 500, -1), Is.False, "turned off");
         }
 
+        [Test]
+        public void ACasterStandsAtTheEdgeOfItsRange_NotInTheMiddleOfIt()
+        {
+            var weights = new PvpPositionWeights();
+            // An Eldritch 700 units from the enemy caster it is working on; no enemy fighter anywhere near.
+            Vector2[] others = [new Vector2(700, 0)];
+            PvpWorkPoint[] work = [new(new Vector2(700, 0), weights.WorkRange)];
+            Assert.That(PvpPositioning.Steps(Vector2.Zero, [], work, [], 400, 900, weights, out var before), Is.Empty, "as it was: only a fighter made it move");
+            Assert.That(before, Is.EqualTo(PvpPositioning.Verdict.Safe));
+            List<Vector2> steps = PvpPositioning.Steps(Vector2.Zero, [], work, [], 400, 900, weights, out var verdict, default, others, weights.EdgeDistance);
+            Assert.That(verdict, Is.EqualTo(PvpPositioning.Verdict.Step));
+            float after = Vector2.Distance(steps[0], others[0]);
+            Assert.That(after, Is.GreaterThan(1_000), "it backs off");
+            Assert.That(after, Is.LessThanOrEqualTo(weights.WorkRange + 60), "and stays in range of its work");
+            // At the edge already it stays, and it never trades its work for distance.
+            Assert.That(PvpPositioning.Steps(new Vector2(-550, 0), [], work, [], 400, 900, weights, out _, default, others, weights.EdgeDistance), Is.Empty);
+            // A fighter still counts for more: with one beside it, the step is the one that gets away from the fighter.
+            PvpThreat[] fighter = [new(new Vector2(0, 300), false, false, false)];
+            List<Vector2> fromFighter = PvpPositioning.Steps(Vector2.Zero, fighter, work, [], 400, 900, weights, out _, default, others, weights.EdgeDistance);
+            Assert.That(Vector2.Distance(fromFighter[0], fighter[0].At), Is.GreaterThan(700));
+        }
+
         private static readonly PvpPositionWeights Weights = new();
 
         private static List<Vector2> Steps(Vector2 self, PvpThreat[] threats, PvpWorkPoint[] work, out PvpPositioning.Verdict verdict,

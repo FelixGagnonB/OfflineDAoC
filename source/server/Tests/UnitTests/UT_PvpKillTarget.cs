@@ -12,7 +12,12 @@ namespace DOL.UnitTests
         {
             var home = new PvpTargetView(0, PvpBuffArchetype.Caster, 100, false, 1000, 200);
             var forward = new PvpTargetView(1, PvpBuffArchetype.Caster, 100, false, 1000, 1500);
-            Assert.That(PvpKillTarget.Score(forward), Is.EqualTo(PvpKillTarget.Score(home) + 26));
+            Assert.That(PvpKillTarget.Score(forward), Is.EqualTo(PvpKillTarget.Score(home) + 65));
+            // What 150 matches showed: a Cleric at the back, 2,200 units off, against a Sorcerer that
+            // came forward. The Cleric is called first, from afar; the Sorcerer takes the call over.
+            var cleric = new PvpTargetView(3, PvpBuffArchetype.Healer, 100, false, 2200, 200);
+            var sorcerer = new PvpTargetView(4, PvpBuffArchetype.Caster, 100, false, 300, 1300);
+            Assert.That(PvpKillTarget.Choose([cleric, sorcerer], 3), Is.EqualTo(4));
             Assert.That(PvpKillTarget.Choose([home, forward], -1), Is.EqualTo(1));
             // The same two enemies, with weights that favour fighters: none of this is a rule.
             var fighter = new PvpTargetView(2, PvpBuffArchetype.Melee, 100, false, 1000);

@@ -47,12 +47,66 @@ namespace DOL.AI.Brain
             (duration > 0 || concentration > 0) && !pulsing &&
             target is not (eSpellTarget.SELF or eSpellTarget.PET or eSpellTarget.CONTROLLED);
 
+        /// <summary>
+        /// True for a cast that is not begun once the group's fight has started: a buff with a
+        /// cast time on anybody, the caster included, and a healer's pet. The owner, watching on
+        /// 2026-11-18: a Cabalist cast its bubble during a fight, "which should not happen". In
+        /// the 150 matches of that day the two Clerics began eight buffs on others a match after
+        /// contact (health regeneration, defensive proc), two seconds each; the Druids a pet
+        /// three times, four seconds each; the Cabalist a speed buff on itself 1.7 times.
+        /// A song or chant is not meant: those have their own routines.
+        /// </summary>
+        public static bool IsBuffHeldBackInFight(int castTime, bool pulsing, int duration, int concentration, bool healersPetSummon) =>
+            castTime > 0 && !pulsing && (duration > 0 || concentration > 0 || healersPetSummon);
+
+        /// <summary>
+        /// The group's fight has begun: its squad has had its first blow, or an enemy is within
+        /// reach of this bot. A healer standing far back is in the fight all the same; going only
+        /// by its own distance to the enemy is what let the Clerics buff through it.
+        /// </summary>
+        private bool PvpGroupIsFighting() => BotBody?.IsPvpBot == true && (PvpSquad?.FightStarted == true || PvpFightIsOn());
+
         // Before the fight the buffbot has done it; during one, a damage add or resist buff on a
-        // member is not worth the turn or the power (the group plan's rebuff of a member who died
-        // is cast by its own path and is not held back by a fight).
-        private bool HoldsBackPvpBuff(Spell spell) => spell != null && !spell.IsHarmful &&
-            IsBuffOnOthers(spell.Target, spell.Duration, spell.Concentration, spell.IsPulsing) &&
-            (PvpSelfBuffsOnly || PvpFightIsOn());
+        // member is not worth the turn or the power, and with BuffsInFight off nothing with a
+        // cast time is begun at all (the rebuff of a member who was raised included, for now).
+        private bool HoldsBackPvpBuff(Spell spell)
+        {
+            if (spell == null || spell.IsHarmful)
+                return false;
+            if (PvpHeldBackInFight(spell))
+                return true;
+            return IsBuffOnOthers(spell.Target, spell.Duration, spell.Concentration, spell.IsPulsing) &&
+                   (PvpSelfBuffsOnly || PvpFightIsOn());
+        }
+
+        private bool PvpIsHealer() => BotBody?.CharacterClass != null &&
+            PvpBuffPlan.ArchetypeOf((eCharacterClass)BotBody.CharacterClass.ID) == PvpBuffArchetype.Healer;
+
+        /// <summary>
+        /// True for a spell this 8v8 bot does not begin once its group's fight has started
+        /// (<see cref="IsBuffHeldBackInFight"/>). A summon is only held back for a healer: a
+        /// Theurgist's pets and a Cabalist's simulacrum are their damage.
+        /// </summary>
+        private bool PvpHeldBackInFight(Spell spell)
+        {
+            if (spell == null || spell.IsHarmful || !PvpGroupIsFighting() || PvpWeights.Of(BotBody).BuffsInFight)
+                return false;
+            if (spell.SpellType.ToString().StartsWith("Summon", StringComparison.Ordinal))
+                return IsBuffHeldBackInFight(spell.CastTime, false, 0, 0, PvpIsHealer() && AutonomousPetSupport.IsMainPetSummon(spell.SpellType));
+            return IsBuffHeldBackInFight(spell.CastTime, spell.IsPulsing, spell.Duration, spell.Concentration, false);
+        }
+
+        /// <summary>
+        /// Pet upkeep in a fight (the summon, the pet's heals and its buffs have a path of their
+        /// own, AutonomousPetSupport.Maintain). The owner, watching on 2026-11-18: "the Druid
+        /// recast its pet mid fight and both Druid and Bard stopped to buff it." A healer does
+        /// none of it once the fight has started; anybody else still calls a lost pet again but
+        /// does not stop to buff it. Null = no limit (not an 8v8 fight).
+        /// </summary>
+        private bool PvpSkipsPetUpkeep() => PvpIsHealer() && PvpGroupIsFighting() && !PvpWeights.Of(BotBody).BuffsInFight;
+
+        private Func<Spell, bool> PvpPetUpkeepFilter() =>
+            PvpGroupIsFighting() && !PvpWeights.Of(BotBody).BuffsInFight ? spell => !PvpHeldBackInFight(spell) : null;
 
         /// <summary>True for a buff that only the group plan may cast: every generic buff path skips it.</summary>
         private bool IsPlannedPvpBuff(Spell spell) => spell != null && BotBody?.IsPvpBot == true &&

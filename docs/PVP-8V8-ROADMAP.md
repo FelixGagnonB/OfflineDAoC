@@ -14,6 +14,102 @@ Bots first. Everything that needs a human at the keyboard waits until the bots f
 path now is M2 (arena and match loop), M3 (recorder, analyzer, baseline), then M4 to M8, each
 measured by scrims. M1 counts as finished for that purpose.
 
+## Current focus (owner, 2026-11-18)
+
+After an evening watching scrims as a GM, the owner: "the biggest takeaway at the moment is the
+movement and positioning." What they saw, each checked against the recordings the same evening:
+
+- The outranged group stood still until the Sorcerer was in range (it was built to wait until an
+  enemy was within 1,200 units; the Sorcerer mezzes from 1,875).
+- "The fight is way too tight. There are casters in the middle of melee and melee do not react."
+  The middles of the two groups' healers and casters were 1,870 units apart five seconds after
+  contact and 850 at forty-five; casters cast from a median of 740 to 925 units with spells that
+  reach 1,500; a caster had a free enemy fighter within 350 units 21% of the time, and in 40% of
+  those moments no enemy fighter had turned on it.
+- A Skald "ran past everything" to the two Druids (nothing looked at an enemy fighter before it
+  was within 350 units of its victim), and the two Druids stood close together (healers kept 400
+  apart, like any two casters).
+- A Warrior sent to peel walked back and forth between the enemy and its healer (told to stay,
+  its own brain still went for whoever had hit it), often without a Slam.
+- A Cabalist cast its bubble in a fight (bots far from the enemy did not count as fighting; the
+  Clerics began eight buffs a match after contact).
+
+The owner also doubts how much the lane scrims say: two groups walking head-on across open
+ground is one opening among many, and the Sorcerer's best. Agreed the same evening:
+
+- **M7 (movement and positioning) comes first**, ahead of what is left of M6 and of weight tuning.
+- **Who beats whom in the lanes is not a target.** "Albion won 95 of 100" measured that one
+  opening plus bugs (the Bard sang for half its life). The recordings stay the tool for finding
+  what is broken inside a fight; realm win rates are not reported as progress.
+- **The owner watching is the fastest check there is**: in one evening it found things 150
+  recorded matches had not shown as wrong. Fixes go to the scrim server for the owner to look at
+  before any large batch.
+- **No night batch of weight draws** until the positioning looks right and fights start in more
+  than one way (different distances and angles, one group moving, one side seeing the other
+  first, a start inside mez range).
+
+### Built the same evening and night
+
+All of it is on the scrim server, with 3,277 automated tests passing. None of it has been seen
+by the owner in the game yet. Each line names the weight that switches it, where there is one.
+
+- **The Bard's songs** (`SongInFightEverySeconds`): in a fight it starts only its endurance song,
+  only when that is not playing, at most once in 20 seconds, not while it is hit or a groupmate
+  sleeps; once the enemy is in sight the endurance song is the one it starts. The version of
+  that morning had it cycle four songs of three seconds each from the first second of a fight.
+- **Seeing the train** (`Heal.TrainCountsEveryAttacker`): a member counts as trained by every
+  enemy that hit it in the last seconds, casters and the owners of pets included.
+- **Control on the train** (`ControlOnTrainer`): a mez or stun, and a nearsight on a caster, is
+  worth more on an enemy that is on the trained member.
+- **The outranged group's wait** (`Order.HoldWhenOutrangedBreakMargin`): ends while the enemy is
+  still 500 units outside its mez reach.
+- **No buffing in a fight** (`BuffsInFight`): once the group's fight has begun nobody begins a
+  buff with a cast time, on a member, on itself or on a pet; a healer calls no pet and does no
+  pet upkeep. It took three passes: the buffs go through four separate paths (upkeep, the group
+  plan, the self bladeturn restored "as soon as it is safe", the combat routine's defensive
+  pick) and pet upkeep through a fifth. The gate is now in `CastCoordinatedBuff`, where the
+  first four end. Lost for now: a member raised in a fight is not rebuffed.
+- **A shield fighter told to stay stays** (`BotBrain.PvpStaysPut`), and the first swing of a peel
+  is the Slam: a style queued for the last target is dropped when this one is to be stopped.
+- **Intercept** (`Peel.InterceptWithin`, `Peel.Coming`): an enemy fighter running at a healer or
+  caster is noticed from 1,200 units; the shield fighter goes to meet it and casters with a root
+  treat it as a pursuer. The Druid now has its root among its scored casts.
+- **Healers apart** (`Spread.HealerSpacing`): a group's healers keep 1,000 units from one
+  another and travel at the two ends of the back row.
+- **The edge of range** (`Position.EdgeDistance`, `PerUnitInsideEdge`, `KillTargetRangeWeight`,
+  `DutyTargetRangeWeight`, `WalkInsideEdgePerHundred`): healers and casters want every enemy at
+  least 1,200 units away while their work stays in reach; a walk that would end inside that
+  distance of an enemy costs score; being in range of the kill target counts for a quarter of
+  what being in range of one's own target does.
+- **Realm colours** (`PvpTemplateOutfitter.RealmColour`): armour and cloak red for Albion, blue
+  for Midgard, green for Hibernia. Looks only.
+
+**The referee** (`source/tools/pvp_referee.py`) is how these are checked from now on, in place
+of the owner watching every fight. It prints a time budget for every build (where its living
+seconds went, with a mark on the lines that look odd) and a list of rules, each from something
+the owner said, with what was measured and the worst moments by match and second. First
+readings (150 matches from before that evening; 12 check matches on the build before the last
+positioning change):
+
+| Rule | Before | 12 check matches |
+|---|---|---|
+| A group does not stand inside the enemy mezzer's reach before the fight | 2.2 s a match | 0.5 s, pass |
+| The two back lines keep their distance (20 s, 45 s after contact) | 912, 695 units | 1,183, 875: fail |
+| Casters cast on healers and casters from the edge of their range | (all targets) median 781 | median 867, a third under 700: fail |
+| A group's healers do not stand together (closer than 800) | 61% of the time | 19%: fail by the mark of 10% |
+| A fighter that reaches a healer or caster is stopped within 3 s | 36% | 47% of 34: fail |
+| A shield fighter told to stay has no attack target | 35% of the time | 0%, pass |
+| Nobody stops to buff once the fight has started | 11.2 a match | 0.3, pass |
+| A healer does not call its pet in a fight | 4.9 a match | 0, pass |
+| The Bard does not spend the fight singing | 17 s a match | 0.8 s, pass |
+| A sleeping healer is woken within 8 s | 20% | 31% of 29: fail |
+
+Twelve matches are a check, not a result. What still pulled the back lines together in those
+twelve: in the first minute a caster walked toward a target 23 times a match and stepped back
+8 times, and a step taken to "keep range" ended nearer the enemy more often than not, because
+being in range of a kill target in the enemy's back row was worth four times what the edge
+was. The last change of the night addresses that; its reading is below when there is one.
+
 ## Measuring progress (owner, 2026-11-16)
 
 No baseline against the old brain. The squad brain replaces it, so the old brain's numbers are not
@@ -1329,6 +1425,35 @@ checked once for whether it happens in a match, and left.
   (`WalkEndsNearFighter`, -30 for each free enemy fighter within 600 units of the place the
   caster would stop, up to three). It is a weight, so it is measured the designed way: new
   against old inside the same matches (`--versus`).
+  *Result, 48 matches: no effect.* 24 wins each; casters stood 43% of the way to the enemy with
+  it and 39% without; 17 walks a team in the first minute against 18. The scored walks are not
+  what carries the casters forward (each gains about 110 units, and the place they end is
+  seldom beside a free fighter). The weight stays, since it costs nothing and the night batches
+  vary it, but it is not the answer.
+- **Second answer: a caster with nothing worth casting stands** (`CastersStandWithNothingToCast`;
+  the old brain was taking that turn and walking it to spell range of its attack target).
+  *Result, 48 matches:* it does move them, 37% of the way to the enemy against 50%, and changes
+  no result: 23 wins to 25, the curer first to die 12 times on each side. Kept, as the owner's
+  line says casters stand at range; not what decides these fights.
+- **What does decide them: the kill target** (found while writing the analysis document,
+  `docs/PVP-8V8-ANALYSIS-2026-11-18.md`, which holds the whole reading and the tables from the
+  new `pvp_report.py`). Against Albion, Hibernia's kill target in the first 45 seconds is a
+  Cleric 100% of the time and Midgard's 99%: called before contact from 3,200 units, kept by
+  the switch margin, at the back, guarded, and healed by the other Cleric, who is free 75% of
+  the fight. Albion's is the Bard, Pacification Healer or Shaman 59 to 82% of the time: in the
+  middle of the field, with their own healers asleep. The score never asks whether the target
+  can be killed.
+  *First answer, measured:* distance and being out of position weigh twice as much
+  (`PvpKillWeights.PerHundredUnits` -5 from -2.5, `PerHundredUnitsFromItsHealers` 5 from 2).
+  In 48 matches with the two scores on opposite teams the new one won 28 to 20; Midgard's
+  target against Albion was a caster 75% of the time and Hibernia's 54% (a Cleric 99 to 100%
+  before); by group, Albion 16 of 16 with it and 12 of 16 without, Midgard 6 and 3, Hibernia 6
+  and 5. Now the default. 28 to 20 can still be chance, about one time in seven; the night
+  batches vary both weights again. Albion still wins most fights.
+  *Still open from the analysis:* a target that is not losing health should lose value; the
+  healer that is not being killed is never shut (Albion's Clerics are asleep 1% of the fight);
+  the Bard and the Pacification Healer, the only cure for their groups' mez, die first; nobody
+  reacts to enemy pets.
 Order of work agreed with the owner: finish the brain, with the readings, the group orders and
 positioning (hold, kite, extend, push) first; then play matches and record everything; then
 analyze and iterate on behavior as deep as wanted. No measure has to be fixed in advance: the
@@ -1540,3 +1665,10 @@ Targets are first guesses and will be reset once the M3 baseline exists.
 - **Battlegrounds and other zones:** only the Old Frontier zones have navmeshes. A second arena
   outside them would need a mesh built.
 - **Sluaghbinder:** left out of the meta groups unless the owner wants it in.
+- **Races (owner, 2026-11-18, "for later"):** the race of each class needs reworking. Today every
+  class has one fixed race (`PvpBuildCatalog.RaceOf`): Hibernia's casters are Elves and Albion's
+  are Avalonians. The owner: a Hibernian caster should be a Lurikeen, and an Albion caster a
+  Saracen, not an Avalonian. To check against the server's own table of which race may be which
+  class before changing anything: from the assistant's memory of 1.65, unverified, a Saracen can
+  be a Sorcerer or Cabalist but not a Theurgist or Wizard. The rest of the table is to be gone
+  through with the owner class by class; nothing is changed yet.
