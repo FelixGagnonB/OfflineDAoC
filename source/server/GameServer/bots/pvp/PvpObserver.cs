@@ -58,10 +58,10 @@ namespace DOL.GS
         }
 
         /// <summary>"Sigenvar (Midgard healer-pac)": the name over its head, then what it is.</summary>
-        public static string Name(GameBot bot) =>
-            bot == null ? "nobody" : $"{bot.Name} ({GlobalConstants.RealmToName(bot.Realm)} {bot.PvpBuild?.Id ?? "bot"})";
+        public static string Name(GameLiving member) =>
+            member == null ? "nobody" : $"{member.Name} ({GlobalConstants.RealmToName(member.Realm)} {PvpMember.BuildOf(member)})";
 
-        public static string Realm(GameBot bot) => bot == null ? "?" : GlobalConstants.RealmToName(bot.Realm);
+        public static string Realm(GameLiving member) => member == null ? "?" : GlobalConstants.RealmToName(member.Realm);
 
         /// <summary>One line to every watcher near <paramref name="where"/>. Never throws: a watcher must not be able to stop a match.</summary>
         public static void Say(GameObject where, string text)

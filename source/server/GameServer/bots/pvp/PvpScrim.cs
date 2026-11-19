@@ -751,7 +751,7 @@ namespace DOL.GS
                 Results = results,
                 Recording = _recording?.File,
                 SquadBrain = new { A = _squadBrainA, B = _squadBrainB },
-                KillTargets = new { A = _squadA?.KillTarget?.PvpBuild.Id, B = _squadB?.KillTarget?.PvpBuild.Id },
+                KillTargets = new { A = _squadA?.KillTarget is { } killA ? PvpMember.BuildOf(killA) : null, B = _squadB?.KillTarget is { } killB ? PvpMember.BuildOf(killB) : null },
                 LimitSeconds = MatchLimitSeconds,
                 Error = _lastError,
             };

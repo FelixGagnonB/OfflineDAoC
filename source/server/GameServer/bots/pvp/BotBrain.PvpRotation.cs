@@ -15,7 +15,7 @@ namespace DOL.AI.Brain
     public partial class BotBrain
     {
         /// <summary>The enemy group as the squad brain sees it; null without a squad brain.</summary>
-        public IReadOnlyList<GameBot> PvpEnemies { get; set; }
+        public IReadOnlyList<GameLiving> PvpEnemies { get; set; }
         /// <summary>The group's called kill target, for every member (an interrupter's own aim is PvpAssignedTarget).</summary>
         public GameLiving PvpKillTarget { get; set; }
 
@@ -429,7 +429,7 @@ namespace DOL.AI.Brain
             PvpWeights weights = PvpWeights.Of(BotBody);
             // The target of the mez, stun or root it is casting has been dealt with or is immune now: stop, and choose again.
             if (midCast && weights.DropsAWastedControlCast && _pvpLastCast is { Radius: 0, CastTime: > 0 } running &&
-                _pvpLastCastTarget is GameBot aimedAt && Body.castingComponent?.SpellHandler?.Spell?.ID == running.ID &&
+                _pvpLastCastTarget is { } aimedAt && Body.castingComponent?.SpellHandler?.Spell?.ID == running.ID &&
                 running.SpellType is eSpellType.Mesmerize or eSpellType.Stun or eSpellType.SpeedDecrease &&
                 PvpWeights.ControlCastIsWasted(running.SpellType == eSpellType.Mesmerize, running.SpellType == eSpellType.Stun,
                     running.SpellType == eSpellType.SpeedDecrease, aimedAt.IsAlive, PvpMezzedOrImmune(aimedAt), PvpStunnedOrImmune(aimedAt),
@@ -501,15 +501,15 @@ namespace DOL.AI.Brain
                         : Body.IsBeingInterrupted ? "interrupted" : "recast timer";
             }
 
-            List<GameBot> enemies = PvpEnemies.Where(enemy => enemy.IsAlive && enemy.ObjectState == GameObject.eObjectState.Active).ToList();
+            List<GameLiving> enemies = PvpEnemies.Where(enemy => enemy.IsAlive && enemy.ObjectState == GameObject.eObjectState.Active).ToList();
             GameLiving kill = PvpKillTarget is { IsAlive: true } called ? called : null;
             var nav = PathfindingProvider.Instance;
             var here = new Vector3(Body.X, Body.Y, Body.Z);
             int tooFar = 0, offLimitsCount = 0;
             var options = new List<PvpOption>();
-            var sight = new Dictionary<GameBot, bool>();
+            var sight = new Dictionary<GameLiving, bool>();
             // Whom each area mez would put to sleep, by option (kind and primary target).
-            var caughtBy = new Dictionary<(PvpActionKind, int, bool), List<GameBot>>();
+            var caughtBy = new Dictionary<(PvpActionKind, int, bool), List<GameLiving>>();
             // Enemies first, then the mezzed members of this bot's own group (for cure mez); an option's target is an index here.
             List<GameLiving> friends = Body.Group?.GetMembersInTheGroup()
                 .Where(member => member != Body && member.IsAlive && member.IsMezzed).ToList() ?? [];
@@ -551,7 +551,7 @@ namespace DOL.AI.Brain
                     continue;
                 for (int id = 0; id < enemies.Count; id++)
                 {
-                    GameBot enemy = enemies[id];
+                    GameLiving enemy = enemies[id];
                     int distance = (int)Body.GetDistanceTo(enemy);
                     if (distance > weights.ConsiderRange)
                     {
@@ -575,7 +575,7 @@ namespace DOL.AI.Brain
                         // ends is the walk's danger, below; counted here too, the enemy fighters on this
                         // group's own front made every walk forward one that "ended among the enemy".
                         float nearest = float.MaxValue;
-                        foreach (GameBot other in enemies)
+                        foreach (GameLiving other in enemies)
                         {
                             if (other.IsAlive && !other.IsMezzed && PvpMember.ArchetypeOf(other) != PvpBuffArchetype.Melee)
                                 nearest = Math.Min(nearest, Vector2.Distance(end, new Vector2(other.X, other.Y)));
@@ -609,8 +609,8 @@ namespace DOL.AI.Brain
                     if (kind == PvpActionKind.MezArea)
                     {
                         GameObject centre = aroundCaster ? Body : enemy;
-                        List<GameBot> inside = enemies.Where(other => other.IsWithinRadius(centre, spell.Radius)).ToList();
-                        List<GameBot> asleep = inside.Where(other => other != kill && !PvpMezzedOrImmune(other) && !BotPvpCrowdControl.Protected(Body, other)).ToList();
+                        List<GameLiving> inside = enemies.Where(other => other.IsWithinRadius(centre, spell.Radius)).ToList();
+                        List<GameLiving> asleep = inside.Where(other => other != kill && !PvpMezzedOrImmune(other) && !BotPvpCrowdControl.Protected(Body, other)).ToList();
                         caughtBy[(kind, id, instant)] = asleep;
                         caught = asleep.Count;
                         catchesKill = kill != null && inside.Contains(kill) && !PvpMezzedOrImmune(kill);
@@ -619,7 +619,7 @@ namespace DOL.AI.Brain
                     if (kind == PvpActionKind.Amnesia)
                     {
                         // Counted: the enemies in it that would lose a cast, and the sleepers it would wake.
-                        List<GameBot> inside = spell.Radius > 0 ? enemies.Where(other => other.IsWithinRadius(enemy, spell.Radius)).ToList() : [enemy];
+                        List<GameLiving> inside = spell.Radius > 0 ? enemies.Where(other => other.IsWithinRadius(enemy, spell.Radius)).ToList() : [enemy];
                         caught = inside.Count(other => !other.IsMezzed && other.IsCasting && other.CurrentSpellHandler?.Spell.InstrumentRequirement == 0);
                         wakes = inside.Count(other => other.IsMezzed && other != kill);
                     }
@@ -718,7 +718,7 @@ namespace DOL.AI.Brain
                 if (scored.Option.Short > 0 && scored.Option.Kind != PvpActionKind.CureMez && PvpSquad is { FightStarted: false } &&
                     weights.Position.BackRowStopsAt > 0 && PvpBuffPlan.ArchetypeOf(characterClass) != PvpBuffArchetype.Melee)
                     continue;
-                if (aim is GameBot && !friends.Contains(aim))
+                if (enemies.Contains(aim))
                     (PvpWorkTarget, PvpWorkRange, PvpWorkTick) = (aim,
                         spell.Target == eSpellTarget.SELF || spell.Range <= 0 ? spell.Radius : spell.CalculateEffectiveRange(Body), GameLoop.GameLoopTime);
                 if (scored.Option.Short > 0)
@@ -769,9 +769,9 @@ namespace DOL.AI.Brain
                     }
                     if (scored.Option.Kind == PvpActionKind.MezArea)
                         PvpObserver.Say(Body, $"{PvpObserver.Name(BotBody)} casts an area mez at {aim.Name}: {scored.Option.Caught} awake in it");
-                    if (caughtBy.TryGetValue((scored.Option.Kind, scored.Option.TargetId, scored.Option.Instant), out List<GameBot> asleep))
+                    if (caughtBy.TryGetValue((scored.Option.Kind, scored.Option.TargetId, scored.Option.Instant), out List<GameLiving> asleep))
                     {
-                        foreach (GameBot other in asleep)
+                        foreach (GameLiving other in asleep)
                             BotPvpCrowdControl.Reserve(BotBody, other, spell.CastTime + 2_000);
                     }
                     PvpRecorder.Decision(BotBody, new
@@ -815,7 +815,7 @@ namespace DOL.AI.Brain
         /// </summary>
         private List<GameNPC> PvpPetsOnBackline() => PvpEnemies == null ? [] : Body.GetNPCsInRadius(2_500)
             .Where(npc => npc.IsAlive && npc.Brain is IControlledBrain owned &&
-                          owned.GetLivingOwner() is GameBot owner && PvpEnemies.Contains(owner) &&
+                          owned.GetLivingOwner() is { } owner && PvpEnemies.Contains(owner) &&
                           npc.TargetObject is GameBot { IsAlive: true, PvpBuild: { } build } victim && victim.Realm == Body.Realm &&
                           PvpBuffPlan.ArchetypeOf(build.Class) != PvpBuffArchetype.Melee && npc.IsWithinRadius(victim, 350))
             .ToList();
@@ -838,7 +838,7 @@ namespace DOL.AI.Brain
                 return false;
             GameNPC pet = Body.GetNPCsInRadius((ushort)(Body.MeleeAttackRange + 100))
                 .Where(npc => npc.IsAlive && !npc.IsMezzed && npc.TargetObject == Body && npc.Brain is IControlledBrain owned &&
-                              owned.GetLivingOwner() is GameBot owner && PvpEnemies.Contains(owner))
+                              owned.GetLivingOwner() is { } owner && PvpEnemies.Contains(owner))
                 .OrderBy(npc => npc.HealthPercent).FirstOrDefault();
             if (pet == null)
                 return false;

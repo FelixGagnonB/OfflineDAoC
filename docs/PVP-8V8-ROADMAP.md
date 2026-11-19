@@ -1984,9 +1984,12 @@ In order:
 
 1. [x] A member is a bot or a player (`PvpMember`: class, archetype, role, build name). Every
    place that read a bot's build asks it now. No behaviour changes for bots.
-2. [ ] The enemy sees the player: the squad's lists of enemies, the kill call, the scored
+2. [x] The enemy sees the player: the squad's lists of enemies, the kill call, the scored
    choices of crowd control and damage, interrupt duty and the peel take any living thing, so an
-   enemy group calls, mezzes and trains the owner like any other healer.
+   enemy group calls, mezzes and trains the owner like any other healer. Done as far as the
+   code goes (a player counts as an attacker and as a pet's owner too); six recorded matches of
+   bots against bots ran as before. It has not been tried against a player yet: that comes with
+   step 4.
 3. [ ] The owner's side fights as a squad: seven bots under a squad brain that counts the owner
    among its healers and casters (guarded, healed, woken, defended when trained).
 4. [ ] `/8v8 play <enemy realm> [rank]` (M9.4): both groups in the open basin of Emain Macha,

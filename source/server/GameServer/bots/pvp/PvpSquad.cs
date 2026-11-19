@@ -21,10 +21,10 @@ namespace DOL.GS
         // Shield fighters: whom each guards, what each was last recorded doing, and which of them
         // are staying beside their ward with no enemy to go for.
         private readonly Dictionary<GameBot, GameBot> Wards = new();
-        private readonly Dictionary<GameBot, (string Kind, GameBot Target)> LastPeel = new();
+        private readonly Dictionary<GameBot, (string Kind, GameLiving Target)> LastPeel = new();
         private readonly HashSet<GameBot> Holding = new();
         // Interrupt duty: the enemy each interrupter has, kept so that the pairs hold from one second to the next.
-        private readonly Dictionary<GameBot, GameBot> Duties = new();
+        private readonly Dictionary<GameBot, GameLiving> Duties = new();
         // When each healer or caster last took a step away from a groupmate.
         private readonly Dictionary<GameBot, long> LastSpreadStep = new();
 
@@ -36,7 +36,7 @@ namespace DOL.GS
         public IReadOnlyList<GameBot> Members => _members;
 
         /// <summary>The enemy the group is killing now; null when it has none.</summary>
-        public GameBot KillTarget { get; private set; }
+        public GameLiving KillTarget { get; private set; }
 
         /// <summary>Set once the first blow has fallen. Before it the group travels in formation and nothing is recorded as a fight decision.</summary>
         public bool FightStarted { get; set; }
@@ -51,10 +51,10 @@ namespace DOL.GS
         private readonly HashSet<GameBot> FallingBack = new();
 
         /// <summary>True for an enemy fighter that is in melee on one of the group's healers or casters.</summary>
-        public bool IsPursuer(GameBot enemy) => _pursuers.Contains(enemy) || _incoming.Contains(enemy);
+        public bool IsPursuer(GameLiving enemy) => _pursuers.Contains(enemy) || _incoming.Contains(enemy);
 
         /// <summary>True for an enemy that is on the member of this group that is being trained.</summary>
-        public bool IsOnTrained(GameBot enemy) => _trainers.Contains(enemy);
+        public bool IsOnTrained(GameLiving enemy) => _trainers.Contains(enemy);
 
         // Heals being cast right now: healer, patient, spell, when it began and when it is surely over.
         private readonly Dictionary<GameBot, (GameBot Target, Spell Spell, long Started, long Expires)> _heals = new();
@@ -104,9 +104,9 @@ namespace DOL.GS
         public const int MemoryMilliseconds = 10_000;
 
         // When each enemy was last seen by a member of the group.
-        private readonly Dictionary<GameBot, long> _lastSeen = new();
+        private readonly Dictionary<GameLiving, long> _lastSeen = new();
         // The enemy each fighter on the kill was last recorded attacking.
-        private readonly Dictionary<GameBot, GameBot> _lastAim = new();
+        private readonly Dictionary<GameBot, GameLiving> _lastAim = new();
 
         /// <summary>
         /// The enemies the group knows about (M5.2): those a living member sees now, within
@@ -114,14 +114,14 @@ namespace DOL.GS
         /// seconds. Everything the group decides, and every choice its members score, is about
         /// these and no others. Stealth is not handled: the main groups have no stealther.
         /// </summary>
-        public IReadOnlyList<GameBot> Known { get; private set; } = [];
+        public IReadOnlyList<GameLiving> Known { get; private set; } = [];
 
-        private List<GameBot> Look(IReadOnlyList<GameBot> enemies)
+        private List<GameLiving> Look(IReadOnlyList<GameLiving> enemies)
         {
             var nav = PathfindingProvider.Instance;
             long now = GameLoop.GameLoopTime;
             List<GameBot> watchers = _members.Where(member => member.IsAlive).ToList();
-            var known = new List<GameBot>();
+            var known = new List<GameLiving>();
             foreach (GameBot enemy in enemies)
             {
                 if (!enemy.IsAlive || enemy.ObjectState != GameObject.eObjectState.Active)
@@ -163,33 +163,34 @@ namespace DOL.GS
         public string Incoming { get; private set; }
 
         // The longest cast mez among these bots: what a player knows of a class.
-        private static int MezRange(IEnumerable<GameBot> bots) => bots.Where(bot => bot.IsAlive)
+        // A player's spells are not known to the squad: only bots count here.
+        private static int MezRange(IEnumerable<GameLiving> bots) => bots.Where(bot => bot.IsAlive).OfType<GameBot>()
             .SelectMany(bot => bot.CrowdControlSpells ?? [])
             .Where(spell => spell.SpellType == eSpellType.Mesmerize && spell.CastTime > 0)
             .Select(spell => spell.Range).DefaultIfEmpty(0).Max();
         // Free enemy fighters in melee on the group's healers and casters.
-        private List<GameBot> _pursuers = [];
+        private List<GameLiving> _pursuers = [];
         // Enemy fighters running at the group's healers and casters, not yet in melee on them (PvpPeelWeights.InterceptWithin).
-        private List<GameBot> _incoming = [];
+        private List<GameLiving> _incoming = [];
         // Replaced whole every second, never changed in place: brains read it from their own threads.
-        private HashSet<GameBot> _trainers = [];
+        private HashSet<GameLiving> _trainers = [];
         // When each healer or caster last took a step away from enemy fighters.
         private readonly Dictionary<GameBot, long> LastStandStep = new();
         // When the walk of that step should be over.
         private readonly Dictionary<GameBot, long> StandStepEnds = new();
 
-        private static bool IsSlowed(GameBot bot) =>
+        private static bool IsSlowed(GameLiving bot) =>
             bot.effectListComponent.ContainsEffectForEffectType(eEffect.MovementSpeedDebuff) ||
             bot.effectListComponent.ContainsEffectForEffectType(eEffect.Snare);
 
-        private static bool IsFighter(GameBot bot) => PvpMember.ArchetypeOf(bot) == PvpBuffArchetype.Melee;
+        private static bool IsFighter(GameLiving bot) => PvpMember.ArchetypeOf(bot) == PvpBuffArchetype.Melee;
 
-        private static PvpMemberState StateOf(GameBot bot, bool seen = true) => new(IsFighter(bot),
+        private static PvpMemberState StateOf(GameLiving bot, bool seen = true) => new(IsFighter(bot),
             PvpMember.ClassOf(bot) is eCharacterClass.Cleric or eCharacterClass.Druid or eCharacterClass.Healer or eCharacterClass.Friar,
             bot.IsAlive, seen && (bot.IsMezzed || bot.IsStunned), seen && IsSlowed(bot), seen && (bot.IsBeingInterrupted || bot.IsSilenced));
 
         /// <summary>Takes the readings for both groups and chooses the order from them.</summary>
-        private void Read(IReadOnlyList<GameBot> enemies, List<GameBot> known)
+        private void Read(IReadOnlyList<GameLiving> enemies, List<GameLiving> known)
         {
             PvpWeights weights = PvpWeights.Of(_members.FirstOrDefault());
             Own = PvpReading.Of(_members.Select(member => StateOf(member)));
@@ -198,7 +199,7 @@ namespace DOL.GS
                 (IsFighter(enemy) || enemy.attackComponent?.AttackState == true) &&
                 enemy.TargetObject is GameBot { IsAlive: true } victim && _members.Contains(victim) && !IsFighter(victim) &&
                 enemy.IsWithinRadius(victim, weights.Peel.MeleeReach)).ToList();
-            List<GameBot> inMelee = _pursuers;
+            List<GameLiving> inMelee = _pursuers;
             _incoming = weights.Peel.InterceptWithin <= 0 ? [] : known.Where(enemy => enemy.IsAlive && !enemy.IsMezzed && !enemy.IsStunned &&
                 IsFighter(enemy) && !inMelee.Contains(enemy) &&
                 enemy.TargetObject is GameBot { IsAlive: true } victim && _members.Contains(victim) && !IsFighter(victim) &&
@@ -245,13 +246,13 @@ namespace DOL.GS
             }
         }
 
-        private void FindTrained(List<GameBot> known)
+        private void FindTrained(List<GameLiving> known)
         {
             PvpWeights weights = PvpWeights.Of(_members.FirstOrDefault());
             List<GameBot> alive = _members.Where(member => member.IsAlive).ToList();
-            List<HashSet<GameBot>> onEach = alive.Select(member =>
+            List<HashSet<GameLiving>> onEach = alive.Select(member =>
             {
-                HashSet<GameBot> on = known.Where(enemy =>
+                HashSet<GameLiving> on = known.Where(enemy =>
                     enemy.IsAlive && !enemy.IsMezzed && !enemy.IsStunned && enemy.TargetObject == member &&
                     enemy.IsWithinRadius(member, weights.Peel.MeleeReach) &&
                     (PvpMember.ArchetypeOf(enemy) == PvpBuffArchetype.Melee || enemy.attackComponent?.AttackState == true)).ToHashSet();
@@ -261,8 +262,9 @@ namespace DOL.GS
                 // caster at range, and a pet, which counts as the enemy that owns it.
                 foreach (GameLiving attacker in member.attackComponent.AttackerTracker.Attackers)
                 {
-                    GameBot enemy = attacker as GameBot ??
-                        (attacker is GameNPC { IsAlive: true, Brain: IControlledBrain brain } ? brain.GetLivingOwner() as GameBot : null);
+                    // A pet counts as its owner; anybody else, bot or player, as itself.
+                    GameLiving enemy = attacker is GameBot or GamePlayer ? attacker
+                        : attacker is GameNPC { IsAlive: true, Brain: IControlledBrain brain } ? brain.GetLivingOwner() : null;
                     if (enemy is { IsAlive: true } && known.Contains(enemy) && (enemy != attacker || !enemy.IsMezzed && !enemy.IsStunned))
                         on.Add(enemy);
                 }
@@ -281,9 +283,9 @@ namespace DOL.GS
         }
 
         /// <summary>The group's decisions for this second: what it sees, who is being trained, kill target, interrupt duty, guard and peel.</summary>
-        public void Decide(IReadOnlyList<GameBot> enemies)
+        public void Decide(IReadOnlyList<GameLiving> enemies)
         {
-            List<GameBot> known = Look(enemies);
+            List<GameLiving> known = Look(enemies);
             Known = known;
             FindTrained(known);
             Read(enemies, known);
@@ -294,17 +296,17 @@ namespace DOL.GS
         /// One kill target for the group, given to everyone who is not a healer; interrupt duty;
         /// guard and peel. Distance is measured from the middle of the group's damage dealers.
         /// </summary>
-        private GameBot CallTarget(List<GameBot> team, List<GameBot> enemies, GameBot current)
+        private GameLiving CallTarget(List<GameBot> team, List<GameLiving> enemies, GameLiving current)
         {
             List<GameBot> dealers = team.Where(bot => bot.IsAlive && PvpMember.RoleOf(bot) == PvpRole.Assist).ToList();
-            List<GameBot> alive = enemies.Where(enemy => enemy.IsAlive).ToList();
-            GameBot target = null;
+            List<GameLiving> alive = enemies.Where(enemy => enemy.IsAlive).ToList();
+            GameLiving target = null;
             if (dealers.Count > 0 && alive.Count > 0)
             {
                 double x = dealers.Average(bot => bot.X), y = dealers.Average(bot => bot.Y);
                 PvpKillWeights kill = PvpWeights.Of(team[0]).Kill;
                 // Out of position: how far each enemy stands from the middle of its own healers, the ones in sight.
-                List<GameBot> theirHealers = alive.Where(enemy => PvpMember.ArchetypeOf(enemy) == PvpBuffArchetype.Healer).ToList();
+                List<GameLiving> theirHealers = alive.Where(enemy => PvpMember.ArchetypeOf(enemy) == PvpBuffArchetype.Healer).ToList();
                 double hx = theirHealers.Count == 0 ? 0 : theirHealers.Average(bot => bot.X), hy = theirHealers.Count == 0 ? 0 : theirHealers.Average(bot => bot.Y);
                 // Whose pets are in melee on this group's healers and casters (PvpKillWeights.PerPetOnOurBackline).
                 var petsOf = new Dictionary<GameLiving, int>();
@@ -350,7 +352,7 @@ namespace DOL.GS
             var guarded = new HashSet<GameBot>();
             // Under Extend: which of the enemies on the group's healers and casters a fighter has turned on already.
             var turnedOn = new HashSet<int>();
-            Dictionary<GameBot, GameBot> duty = InterruptDuty(team, alive, target);
+            Dictionary<GameBot, GameLiving> duty = InterruptDuty(team, alive, target);
             // The middle of the group's healers and casters: where its fighters fall back to.
             List<GameBot> soft = team.Where(member => member.IsAlive && !IsFighter(member)).ToList();
             Vector3? home = soft.Count == 0 ? null
@@ -380,10 +382,10 @@ namespace DOL.GS
                 }
                 brain.PvpEnemies = enemies;
                 brain.PvpKillTarget = target;
-                duty.TryGetValue(bot, out GameBot onDuty);
+                duty.TryGetValue(bot, out GameLiving onDuty);
                 brain.PvpDutyTarget = onDuty;
                 PvpInterruptMeans means = PvpInterruptDuty.MeansOf(PvpMember.ClassOf(bot), PvpWeights.Of(bot).Interrupt);
-                GameBot aim = null;
+                GameLiving aim = null;
                 if (onDuty != null && means is PvpInterruptMeans.Pets or PvpInterruptMeans.Melee && !critical && bot.IsAlive)
                     aim = onDuty;
                 else if (target != null && PvpRoles.JoinsKill(role, target.HealthPercent))
@@ -397,7 +399,7 @@ namespace DOL.GS
                 {
                     // It stays on the one it has, and two fighters take two different ones (PvpOrders.ChoosePursuer).
                     int chosen = PvpOrders.ChoosePursuer(_pursuers.Select(pursuer => (int)bot.GetDistanceTo(pursuer)).ToList(),
-                        brain.PvpAssignedTarget is GameBot held ? _pursuers.IndexOf(held) : -1, turnedOn);
+                        brain.PvpAssignedTarget is { } held ? _pursuers.IndexOf(held) : -1, turnedOn);
                     turnedOn.Add(chosen);
                     aim = _pursuers[chosen];
                 }
@@ -488,7 +490,7 @@ namespace DOL.GS
         /// Pairs the team's interrupters with the enemy healers and casters that are neither the
         /// kill target (the damage dealers interrupt that one) nor asleep (bots/pvp/PvpInterruptDuty.cs).
         /// </summary>
-        private Dictionary<GameBot, GameBot> InterruptDuty(List<GameBot> team, List<GameBot> enemies, GameBot kill)
+        private Dictionary<GameBot, GameLiving> InterruptDuty(List<GameBot> team, List<GameLiving> enemies, GameLiving kill)
         {
             PvpInterruptWeights weights = PvpWeights.Of(team.FirstOrDefault()).Interrupt;
             List<GameBot> interrupters = team.Where(bot => bot.IsAlive && bot.Brain is BotBrain &&
@@ -496,24 +498,24 @@ namespace DOL.GS
             // Not one a mezzer of this team is putting to sleep right now either: the interrupter's
             // first hit would wake it and leave it immune.
             eRealm realm = team.Count > 0 ? team[0].Realm : eRealm.None;
-            List<GameBot> open = enemies.Where(enemy => enemy != kill && !enemy.IsMezzed &&
+            List<GameLiving> open = enemies.Where(enemy => enemy != kill && !enemy.IsMezzed &&
                 !BotPvpCrowdControl.Claimed(realm, enemy) &&
                 PvpMember.ArchetypeOf(enemy) != PvpBuffArchetype.Melee).ToList();
             var pairs = new List<PvpDutyPair>();
             for (int i = 0; i < interrupters.Count; i++)
             {
-                Duties.TryGetValue(interrupters[i], out GameBot current);
+                Duties.TryGetValue(interrupters[i], out GameLiving current);
                 for (int e = 0; e < open.Count; e++)
                     pairs.Add(new PvpDutyPair(i, e, PvpMember.ArchetypeOf(open[e]), open[e].IsCasting,
                         !open[e].IsBeingInterrupted, open[e] == current, (int)interrupters[i].GetDistanceTo(open[e]),
                         PvpActionChoice.IsController(PvpMember.ClassOf(open[e]), PvpWeights.Of(interrupters[i]))));
             }
             Dictionary<int, int> assigned = PvpInterruptDuty.Assign(pairs, weights);
-            var duty = new Dictionary<GameBot, GameBot>();
+            var duty = new Dictionary<GameBot, GameLiving>();
             for (int i = 0; i < interrupters.Count; i++)
             {
                 GameBot bot = interrupters[i];
-                Duties.TryGetValue(bot, out GameBot before);
+                Duties.TryGetValue(bot, out GameLiving before);
                 if (!assigned.TryGetValue(i, out int e))
                 {
                     Duties.Remove(bot);
@@ -537,7 +539,7 @@ namespace DOL.GS
         /// melee on that groupmate. With nobody worth going for it stays beside its ward, where
         /// guard works. Returns the enemy to attack, or null.
         /// </summary>
-        private GameBot Peel(GameBot bot, BotBrain brain, List<GameBot> team, List<GameBot> enemies, GameBot kill, HashSet<GameBot> guarded)
+        private GameLiving Peel(GameBot bot, BotBrain brain, List<GameBot> team, List<GameLiving> enemies, GameLiving kill, HashSet<GameBot> guarded)
         {
             PvpPeelWeights weights = PvpWeights.Of(bot).Peel;
             Holding.Remove(bot);
@@ -556,11 +558,11 @@ namespace DOL.GS
                 return kill;
             }
 
-            bool InMeleeOn(GameBot enemy, GameBot member) =>
+            bool InMeleeOn(GameLiving enemy, GameBot member) =>
                 !enemy.IsMezzed && enemy.TargetObject == member && enemy.IsWithinRadius(member, weights.MeleeReach) &&
                 (PvpMember.ArchetypeOf(enemy) == PvpBuffArchetype.Melee || enemy.attackComponent?.AttackState == true);
 
-            bool ComingFor(GameBot enemy, GameBot member) =>
+            bool ComingFor(GameLiving enemy, GameBot member) =>
                 weights.InterceptWithin > 0 && !enemy.IsMezzed && !enemy.IsStunned && enemy.TargetObject == member &&
                 PvpMember.ArchetypeOf(enemy) == PvpBuffArchetype.Melee &&
                 enemy.IsWithinRadius(member, weights.InterceptWithin) && !enemy.IsWithinRadius(member, weights.MeleeReach);
@@ -585,14 +587,14 @@ namespace DOL.GS
             }
 
             // The kill target is looked at however far it is: it is where the shield fighter goes with nobody to peel.
-            List<GameBot> near = enemies.Where(enemy => enemy.IsWithinRadius(ward, weights.ConsiderRange) || InMeleeOn(enemy, bot) || enemy == kill).ToList();
+            List<GameLiving> near = enemies.Where(enemy => enemy.IsWithinRadius(ward, weights.ConsiderRange) || InMeleeOn(enemy, bot) || enemy == kill).ToList();
             List<PvpPeelView> views = near.Select((enemy, id) => new PvpPeelView(id, InMeleeOn(enemy, ward),
                 backline.Any(member => member != ward && InMeleeOn(enemy, member)), InMeleeOn(enemy, bot), enemy == kill,
                 !(enemy.IsStunned || enemy.effectListComponent.ContainsEffectForEffectType(eEffect.StunImmunity)),
                 enemy.IsMezzed, (int)ward.GetDistanceTo(enemy), enemy == brain.PvpAssignedTarget,
                 backline.Any(member => ComingFor(enemy, member)), enemy.IsStunned)).ToList();
             int chosen = PvpPeel.ChooseTarget(views, weights, out double score);
-            GameBot aim = chosen >= 0 ? near[chosen] : null;
+            GameLiving aim = chosen >= 0 ? near[chosen] : null;
             string kind = chosen >= 0 ? PvpPeel.Describe(views[chosen]) : "Hold";
 
             // Recorded when it changes, not every second.
@@ -638,7 +640,7 @@ namespace DOL.GS
 
         // The kill target: when it last lost ground (or was called), and the targets given up alive and when.
         private long _killProgressTick;
-        private readonly Dictionary<GameBot, long> _givenUp = new();
+        private readonly Dictionary<GameLiving, long> _givenUp = new();
 
         // Members announced to a watcher as out of power, until they are back above 30%.
         private readonly HashSet<GameBot> OutOfPower = new();
@@ -680,9 +682,9 @@ namespace DOL.GS
             }
             GameBot caster = casters[0];
             Spell spell = ((BotBrain)caster.Brain).PvpPointBlank();
-            HashSet<GameBot> foes = Known.ToHashSet();
+            HashSet<GameLiving> foes = Known.ToHashSet();
             List<GameNPC> pets = caster.GetNPCsInRadius((ushort)weights.ConsiderRange)
-                .Where(npc => npc.IsAlive && npc.Brain is IControlledBrain owned && owned.GetLivingOwner() is GameBot owner && foes.Contains(owner)).ToList();
+                .Where(npc => npc.IsAlive && npc.Brain is IControlledBrain owned && owned.GetLivingOwner() is { } owner && foes.Contains(owner)).ToList();
 
             // The spell, whether or not anybody has gathered: enough pets around a caster is enough.
             foreach (GameBot each in casters)
@@ -759,7 +761,7 @@ namespace DOL.GS
         public void KeepApart()
         {
             PvpSpreadWeights weights = PvpWeights.Of(_members.FirstOrDefault()).Spread;
-            List<GameBot> foes = Known.Where(enemy => enemy.IsAlive).ToList();
+            List<GameLiving> foes = Known.Where(enemy => enemy.IsAlive).ToList();
             if (weights.MinSpacing <= 0 || foes.Count == 0 || Order == PvpOrder.Hold)
                 return;
             List<GameBot> backline = _members.Where(bot => bot.IsAlive &&
@@ -810,7 +812,7 @@ namespace DOL.GS
             PvpPositionWeights weights = all.Position;
             if (weights.SafeDistance <= 0 || !FightStarted)
                 return;
-            List<GameBot> fighters = Known.Where(enemy => enemy.IsAlive && IsFighter(enemy)).ToList();
+            List<GameLiving> fighters = Known.Where(enemy => enemy.IsAlive && IsFighter(enemy)).ToList();
             // The enemy's healers and casters that are awake: kept at the edge of range (PvpPositionWeights.EdgeDistance).
             List<Vector2> others = weights.EdgeDistance <= 0 ? []
                 : Known.Where(enemy => enemy.IsAlive && !IsFighter(enemy) && !enemy.IsMezzed).Select(enemy => new Vector2(enemy.X, enemy.Y)).ToList();
@@ -827,7 +829,7 @@ namespace DOL.GS
             var nav = PathfindingProvider.Instance;
             // Under Extend they fall back the same way: from the middle of the enemy through the middle of themselves.
             Vector2 retreat = default;
-            List<GameBot> enemiesAlive = Known.Where(enemy => enemy.IsAlive).ToList();
+            List<GameLiving> enemiesAlive = Known.Where(enemy => enemy.IsAlive).ToList();
             if (Order == PvpOrder.Extend && backline.Count > 0 && enemiesAlive.Count > 0)
             {
                 Vector2 away = new Vector2((float)backline.Average(bot => bot.X), (float)backline.Average(bot => bot.Y)) -

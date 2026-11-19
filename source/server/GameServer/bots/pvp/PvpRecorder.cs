@@ -214,7 +214,7 @@ namespace DOL.GS
         /// A group's kill-target call (line type "call"): whom it now kills, whom it was killing,
         /// and the best-scoring enemies it chose from.
         /// </summary>
-        public static void Call(GameBot member, GameBot target, int score, GameBot previous, IEnumerable<object> options)
+        public static void Call(GameBot member, GameLiving target, int score, GameLiving previous, IEnumerable<object> options)
         {
             if (!ByBot.TryGetValue(member, out PvpRecording recording) || !recording.Teams.TryGetValue(member, out string team))
                 return;
