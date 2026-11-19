@@ -94,7 +94,8 @@ namespace DOL.GS
         /// seven bots that join the player's group and follow, plus the buffbot, which buffs the
         /// player too. Not yet tried in a game client.
         /// </summary>
-        public static IReadOnlyList<GameBot> SpawnCompanions(GamePlayer player, int realmLevel)
+        /// <param name="all">When given, receives every bot put in the world, the buffbot too.</param>
+        public static IReadOnlyList<GameBot> SpawnCompanions(GamePlayer player, int realmLevel, ICollection<GameBot> all = null)
         {
             PvpGroupTemplate template = PvpBuildCatalog.Groups.First(group => group.Realm == player.Realm);
             List<string> builds = template.BuildIds.ToList();
@@ -124,9 +125,11 @@ namespace DOL.GS
                 bot.Follow(player, BotManager.FOLLOW_DISTANCE, BotManager.MAX_FOLLOW_DISTANCE);
                 (bot.Brain as BotBrain)?.FSM.SetCurrentState(eFSMStateType.FOLLOW);
                 spawned.Add(bot);
+                all?.Add(bot);
                 lock (Bots) Bots.Add(bot);
             }
-            SpawnBuffbot(player.Realm, spawned.Cast<GameLiving>().Prepend(player).ToList(), player.CurrentRegionID, centre);
+            GameBot buffbot = SpawnBuffbot(player.Realm, spawned.Cast<GameLiving>().Prepend(player).ToList(), player.CurrentRegionID, centre);
+            all?.Add(buffbot);
             return spawned;
         }
 

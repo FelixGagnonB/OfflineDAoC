@@ -1999,6 +1999,16 @@ In order:
 4. [ ] `/8v8 play <enemy realm> [rank]` (M9.4): both groups in the open basin of Emain Macha,
    the enemy roaming a route, the companions travelling with the owner until the enemy is in
    sight, a rematch after each fight, `/8v8 stop`.
+   *Built 2026-11-19, not yet tried with a player.* `/8v8 play mid 5` first takes the player to
+   one end of the basin (a change of region), and typed again brings seven companions of the
+   realm's main group and the enemy group at the far end. Both sides run the squad brain; the
+   companions follow the player until an enemy is within reach, the enemy patrols the basin as
+   in a scrim. One fight of at most 30 minutes, recorded as `<stamp>-play-<a>-vs-<b>`; the same
+   command again is the rematch; `/8v8 stop` ends it. A GM character can be attacked while its
+   session runs (it cannot otherwise). Checked only by the 3,322 automated tests and three
+   bots-against-bots matches that ran as before; nothing here has run with a player in it.
+   Known gaps: the player is not in the recording yet (step 5); the player's own character has
+   to be level 50 with a build and gear, which is M1.4 and not built.
 5. [ ] The recorder takes the human member (M9.5): the owner in the match's list and in every
    second's rows, so the referee and `pvp_replay.py` read a session like a scrim.
 6. [ ] The roaming start for both sides (M8.4): who sees whom first depends on where a group

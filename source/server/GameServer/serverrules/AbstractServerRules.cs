@@ -396,8 +396,8 @@ namespace DOL.GS.ServerRules
                 }
             }
 
-            // GMs can't be attacked
-            if (playerDefender != null && playerDefender.Client.Account.PrivLevel > 1)
+            // GMs can't be attacked, except one who is playing an 8v8 session: its enemies have to be able to fight it.
+            if (playerDefender != null && playerDefender.Client.Account.PrivLevel > 1 && !PvpScrim.IsPlaying(playerDefender))
                 return false;
 
             //flame - Commenting out Safe Area check as it was causing lots of lock contention in the GetAreasOfSpot() code. We currently dont have safe-areas so this doesnt affect anything
