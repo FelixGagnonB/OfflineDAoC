@@ -35,6 +35,22 @@ namespace DOL.UnitTests
             Assert.That(PvpPlayerReady.SlotOf(AlbMain, eCharacterClass.Wizard, null), Is.EqualTo(7));
         }
 
+        [Test]
+        public void ARealmWithASecondGroupOffersItInTheWindow()
+        {
+            // The owner, 2026-11-20: asked for two Bards, started from the window, and got the main group.
+            Pvp8v8Setup setup = Pvp8v8Setup.DefaultFor(eRealm.Hibernia);
+            Assert.That(setup.Own, Is.Null, "the main group unless another is picked");
+            Assert.That(setup.Text(eRealm.Hibernia), Does.Contain("<hib-main>").And.Contain("[hib-2bard]"));
+            setup = setup.After("hib-2bard", eRealm.Hibernia);
+            Assert.That(setup.Own, Is.EqualTo("hib-2bard"));
+            Assert.That(setup.Text(eRealm.Hibernia), Does.Contain("[hib-main]").And.Contain("<hib-2bard>"));
+            Assert.That(setup.After("hib-main", eRealm.Hibernia).Own, Is.Null);
+            // Another realm's player cannot pick it, and a realm with one group has no such line.
+            Assert.That(Pvp8v8Setup.DefaultFor(eRealm.Midgard).After("hib-2bard", eRealm.Midgard).Own, Is.Null);
+            Assert.That(Pvp8v8Setup.DefaultFor(eRealm.Midgard).Text(eRealm.Midgard), Does.Not.Contain("Your group"));
+        }
+
         [TestCase(eRealm.Albion, "alb-main")]
         [TestCase(eRealm.Midgard, "mid-main")]
         [TestCase(eRealm.Hibernia, "hib-main")]

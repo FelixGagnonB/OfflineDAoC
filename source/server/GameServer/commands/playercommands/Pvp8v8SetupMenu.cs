@@ -4,7 +4,8 @@ using DOL.GS.PacketHandler;
 namespace DOL.GS.Commands
 {
     /// <summary>What a player has picked in the 8v8 setup window.</summary>
-    public sealed record Pvp8v8Setup(eRealm Enemy, string Start, int Rank, bool BotDrives = false)
+    /// <param name="Own">The player's group by its name when it is not the realm's main one (PvpBuildCatalog.Variants).</param>
+    public sealed record Pvp8v8Setup(eRealm Enemy, string Start, int Rank, bool BotDrives = false, string Own = null)
     {
         public static readonly int[] Ranks = [1, 3, 5, 7, 10];
 
@@ -27,6 +28,8 @@ namespace DOL.GS.Commands
                 case "follow": return this with { BotDrives = true };
                 case "lane": return this with { Start = "lane" };
                 case "basin": return this with { Start = "basin" };
+                case string id when PvpBuildCatalog.FindGroup(id) is { } group && group.Realm == own:
+                    return this with { Own = PvpBuildCatalog.Groups.Contains(group) ? null : group.Id };
                 case string rank when rank.StartsWith("rank") && int.TryParse(rank[4..], out int asked) && Ranks.Contains(asked):
                     return this with { Rank = asked };
                 default: return this;
@@ -38,7 +41,14 @@ namespace DOL.GS.Commands
             string Pick(string word, bool chosen) => chosen ? $"<{word}>" : $"[{word}]";
             string realms = string.Join("   ", new[] { eRealm.Albion, eRealm.Midgard, eRealm.Hibernia }.Where(realm => realm != own)
                 .Select(realm => Pick(GlobalConstants.RealmToName(realm), realm == Enemy)));
+            // The owner, 2026-11-20, having asked for Hibernia with two Bards and started from this window:
+            // "Group setup is hero druid druid bard bm bm eld enchanter". Only a realm with a second group has the line.
+            PvpGroupTemplate main = PvpBuildCatalog.Groups.First(group => group.Realm == own);
+            string groups = string.Concat(PvpBuildCatalog.Variants.Where(group => group.Realm == own).Prepend(main)
+                .Select(group => $"{Pick(group.Id, group.Id == (Own ?? main.Id))}: {string.Join(", ", group.BuildIds)}\n"));
+            string ownLine = PvpBuildCatalog.Variants.Any(group => group.Realm == own) ? $"Your group (your class takes its own place):\n{groups}\n" : string.Empty;
             return "8v8: you and seven companions against a group of eight, in Emain Macha.\n\n" +
+                   ownLine +
                    $"Enemy:   {realms}\n\n" +
                    $"Start:   {Pick("Lane", Start == "lane")}   {Pick("Basin", Start == "basin")}\n" +
                    $"On the road:   {Pick("Lead", !BotDrives)}   {Pick("Follow", BotDrives)}\n" +
@@ -125,7 +135,8 @@ namespace DOL.GS.Commands
                     return true;
                 }
                 PvpScrim.TravelAndStartPlay(owner, enemy, (setup.Rank - 1) * 10, setup.Start,
-                    said => owner.Out.SendMessage(said, eChatType.CT_System, eChatLoc.CL_SystemWindow), setup.BotDrives);
+                    said => owner.Out.SendMessage(said, eChatType.CT_System, eChatLoc.CL_SystemWindow), setup.BotDrives,
+                    PvpBuildCatalog.FindGroup(setup.Own));
                 return true;
             }
             int rankBefore = _setup.Rank;
