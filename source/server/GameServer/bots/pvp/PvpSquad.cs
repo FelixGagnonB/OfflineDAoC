@@ -221,6 +221,7 @@ namespace DOL.GS
         private void Read(IReadOnlyList<GameLiving> enemies, List<GameLiving> known)
         {
             PvpWeights weights = PvpWeights.Of(_members.FirstOrDefault());
+            NoteRaised();
             Own = PvpReading.Of(_allies.Select(member => StateOf(member)));
             Theirs = PvpReading.Of(enemies.Select(enemy => StateOf(enemy, known.Contains(enemy))));
             _pursuers = known.Where(enemy => enemy.IsAlive && !enemy.IsMezzed && !enemy.IsStunned &&
@@ -396,6 +397,31 @@ namespace DOL.GS
         private long _killCalledTick;
         // Who is raising whom, and until when the claim holds (a resurrection is a four-second cast).
         private readonly Dictionary<GameLiving, (GameBot By, long Until)> _raising = new();
+
+        private readonly HashSet<GameLiving> _seenDead = new();
+        private readonly HashSet<GameLiving> _raised = new();
+
+        /// <summary>Who of the group, the player too, has been dead and is alive again: raised, by a bot or by a player.</summary>
+        private void NoteRaised()
+        {
+            lock (_raised)
+            {
+                foreach (GameLiving member in _allies)
+                {
+                    if (!member.IsAlive)
+                        _seenDead.Add(member);
+                    else if (_seenDead.Remove(member))
+                        _raised.Add(member);
+                }
+            }
+        }
+
+        /// <summary>True for a member that was raised in this fight: it came back without its buffs, and those it had on others went when it died.</summary>
+        public bool WasRaised(GameLiving member)
+        {
+            lock (_raised)
+                return _raised.Contains(member);
+        }
 
         /// <summary>True while another healer of the group is raising somebody: one healer at a time leaves the living.</summary>
         public bool AnotherHealerIsRaising(GameBot bot)

@@ -64,9 +64,12 @@ namespace DOL.GS
         /// begins a buff (PvpWeights.BuffsInFight). The owner, 2026-11-20, raised in a fight they
         /// then played on in: "I just never received buffs after rez but I assume druids were not
         /// finding downtime to buff me". There was no downtime to find: the rebuff was held back
-        /// with every other buff. On: the group plan's buffs that a member lacks are cast in a
-        /// fight too, by the member whose buff it is, when it is not being hit, has the power, and
-        /// nobody alive in its reach is below <see cref="RebuffIfNobodyBelow"/>.
+        /// with every other buff. On: the group plan's buffs that a raised member lacks, and those
+        /// a raised member had on others, are cast in a fight too, by the member whose buff it is,
+        /// when it is not being hit, has the power, and nobody alive in its reach is below
+        /// <see cref="RebuffIfNobodyBelow"/> (PvpSquad.WasRaised says who was raised).
+        /// 24 matches of that day, one team of each with it and one without, before it was kept to
+        /// the raised: 1.5 such casts a team-fight, wins 10 against 14, deaths 5.1 against 4.0.
         /// </summary>
         public bool RebuffInFight { get; set; } = true;
         /// <summary>Higher than for a raise: a buff is worth less than a member standing.</summary>

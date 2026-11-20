@@ -258,7 +258,9 @@ namespace DOL.AI.Brain
             _pvpRebuffing = true;
             try
             {
-                if (!TryCastPlannedPvpBuff())
+                // Only what a raise took. Without this, 15 of 36 such casts in 48 matches of 2026-11-20 were a
+                // haste buff on a member nobody had raised: a buff begun in a fight, which is what is held back.
+                if (!TryCastPlannedPvpBuff(target => PvpSquad.WasRaised(target) || PvpSquad.WasRaised(Body)))
                     return false;
             }
             finally
@@ -270,7 +272,8 @@ namespace DOL.AI.Brain
         }
 
         /// <summary>Casts this bot's next missing buff from the group plan. True when a cast started.</summary>
-        private bool TryCastPlannedPvpBuff()
+        /// <param name="only">When given, only a buff on a member it is true for.</param>
+        private bool TryCastPlannedPvpBuff(Func<GameLiving, bool> only = null)
         {
             if (PvpSelfBuffsOnly)
                 return false;
@@ -284,6 +287,8 @@ namespace DOL.AI.Brain
                 if (assignment.Caster != me || !plan.Spells.TryGetValue((me, assignment.Kind), out Spell spell))
                     continue;
                 GameLiving target = plan.Members[assignment.Target];
+                if (target != null && only != null && !only(target))
+                    continue;
                 if (target == null || !target.IsAlive || target.CurrentRegion != Body.CurrentRegion ||
                     !Body.IsWithinRadius(target, Math.Max(350, spell.CalculateEffectiveRange(Body))) ||
                     LivingHasEffect(target, spell) ||
