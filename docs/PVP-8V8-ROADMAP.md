@@ -176,9 +176,10 @@ Dex/Qui. The scored choice already takes an instant around the caster as an opti
 radius and as a walk beyond it; whether the Shaman uses it well is to be read from matches.
 First read, two games the owner played as a Hero against Midgard that evening: in one the bot
 Shaman never had an enemy within 350 and cast Plague Spores five times; in the other it cast
-Mold Cloud three times as an instant for five enemies diseased (one cast for none). In the
-owner's own four games as the Shaman after the fix a body lay at most 120 units from where the
-bot was last seen alive, and bots chose to raise a groupmate 17 times.
+Mold Cloud three times as an instant, with five enemies diseased by the three. In the four
+games with deaths that the owner played after the body fix, a body lay at most 203 units from
+where the bot was last recorded alive (that snapshot is up to a second old), and bots chose to
+raise a groupmate 17 times.
 
 *The dead that stood.* With the body staying, the owner saw what the move had hidden: "When a
 character dies, its body remains up. Unless you look at his hp, you don't know he's dead." A
