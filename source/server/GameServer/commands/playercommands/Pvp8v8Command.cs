@@ -10,6 +10,8 @@ namespace DOL.GS.Commands
         "/8v8 ready [build]             your character becomes level 50 with that build's class, spec and gear (lists the builds without one)",
         "/8v8 play <alb|mid|hib> [rank] [lane|basin] [follow]  a fight: you and seven companions against that realm's group of eight, in Emain Macha; follow: a bot drives",
         "/8v8 play hib-2bard ...  or  /8v8 play mid hib-2bard ...  another group by its name: as the enemy (first), or as your own (later)",
+        "/8v8 play <alb|mid|hib> real [lane|basin] [follow]  a real fight: everybody at the rank it has earned, kills earn realm points that are kept, no timer is reset",
+        "/8v8 ranks                     the realm ranks of your companions, and of the enemy groups you have fought for real",
         "/8v8 call <push|regroup|hold|engage|extend|assist>  your call to the group: an order stands twelve seconds; assist puts the damage dealers on your target while it lives (45 s at most)",
         "/8v8 calls <on|off>            your companions' calls in group chat (assist, incoming, orders, out of power)",
         "/8v8 corpse <player|body|fall|ghost|off>  how a dead 8v8 bot is shown: lying as a dead player does, to click (player); a body under its name that only the group window targets (body); the body and a ghost standing over it (fall); the ghost only (ghost); standing as if alive (off)",
@@ -59,7 +61,8 @@ namespace DOL.GS.Commands
                     int playRank = args.Skip(3).Select(arg => int.TryParse(arg, out int wanted) ? wanted : 0).FirstOrDefault(wanted => wanted > 0);
                     string start = args.Skip(3).Any(arg => arg.ToLowerInvariant() == "basin") ? "basin" : "lane";
                     bool follow = args.Skip(3).Any(arg => arg.ToLowerInvariant() == "follow");
-                    PvpScrim.TravelAndStartPlay(player, enemy, (System.Math.Clamp(playRank == 0 ? 5 : playRank, 1, 13) - 1) * 10, start, Say, follow, ownGroup);
+                    bool real = args.Skip(3).Any(arg => arg.ToLowerInvariant() == "real");
+                    PvpScrim.TravelAndStartPlay(player, enemy, (System.Math.Clamp(playRank == 0 ? 5 : playRank, 1, 13) - 1) * 10, start, Say, follow, ownGroup, real);
                     if (ownGroup != null)
                         Say($"Your group is {ownGroup.Id}: {string.Join(", ", ownGroup.BuildIds)} (without your own place).");
                     return;
@@ -136,6 +139,22 @@ namespace DOL.GS.Commands
                     catch (System.Exception exception)
                     {
                         Say("Making the character ready failed part way: " + exception.Message);
+                    }
+                    return;
+                }
+
+                case "ranks":
+                {
+                    static string Rank(long points) => $"{PvpRealmPoints.LevelFor(points) / 10 + 1}L{PvpRealmPoints.LevelFor(points) % 10}";
+                    System.Collections.Generic.List<PvpRosterEntry> mine = PvpRoster.Load(System.AppContext.BaseDirectory, player.InternalID);
+                    Say(mine.Count == 0 ? "You have no companions yet: they come with your first fight."
+                        : "Your companions: " + string.Join(", ", mine.Select(entry => $"{entry.Name} ({entry.Build}) {(entry.RealmPoints > 0 ? Rank(entry.RealmPoints) : "not yet in a real fight")}")));
+                    foreach (PvpGroupTemplate group in PvpBuildCatalog.Groups.Concat(PvpBuildCatalog.Variants))
+                    {
+                        System.Collections.Generic.List<PvpRosterEntry> theirs = PvpRoster.Load(System.AppContext.BaseDirectory,
+                            PvpRealmPoints.EnemyRoster(player.InternalID, group.Id));
+                        if (theirs.Count > 0)
+                            Say($"{group.Id}: " + string.Join(", ", theirs.Select(entry => $"{entry.Name} ({entry.Build}) {Rank(entry.RealmPoints)}")));
                     }
                     return;
                 }

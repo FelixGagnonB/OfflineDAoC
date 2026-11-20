@@ -27,8 +27,10 @@ namespace DOL.GS
         /// when given, receives every bot put in the world, the buffbot too, so that one match can
         /// later be removed without touching the others.
         /// </summary>
+        /// <param name="rosterOwner">In a real session: the roster the group is kept under, for its names and its realm points.</param>
+        /// <param name="atLeast">In a real session: no member comes in below this realm level (PvpRealWeights.EnemyKeepsUp).</param>
         public static IReadOnlyList<GameBot> SpawnGroup(PvpGroupTemplate template, ushort regionId, int x, int y, int realmLevel = 0,
-            ICollection<GameBot> all = null)
+            ICollection<GameBot> all = null, string rosterOwner = null, int atLeast = 0)
         {
             Region region = WorldMgr.GetRegion(regionId) ?? throw new ArgumentException($"No region {regionId}.");
             Zone zone = region.GetZone(x, y) ?? throw new ArgumentException($"No zone at {x},{y} in region {regionId}.");
@@ -41,10 +43,24 @@ namespace DOL.GS
 
             var spawned = new List<GameBot>();
             Group group = null;
+            List<PvpRosterEntry> roster = rosterOwner == null ? null : PvpRoster.Load(AppContext.BaseDirectory, rosterOwner);
+            bool newcomers = false;
             for (int i = 0; i < template.BuildIds.Count; i++)
             {
                 PvpBuild build = PvpBuildCatalog.Find(template.BuildIds[i]);
-                GameBot bot = CreateBot(build, template.Realm, i, template.BuildIds.Count, zone, regionId, centre, 140, realmLevel);
+                int place = PvpRoster.PlaceOf(template.BuildIds, i);
+                PvpRosterEntry kept = roster == null ? null : PvpRoster.Find(roster, template.BuildIds[i], place);
+                GameBot bot = CreateBot(build, template.Realm, i, template.BuildIds.Count, zone, regionId, centre, 140,
+                    roster == null ? realmLevel : Math.Max(atLeast, PvpRealmPoints.LevelFor(kept?.RealmPoints ?? 0)), kept);
+                if (roster != null)
+                {
+                    (bot.PvpRosterOwner, bot.PvpRosterPlace, bot.PvpPoints) = (rosterOwner, place, kept?.RealmPoints ?? 0);
+                    if (kept == null)
+                    {
+                        roster.Add(new PvpRosterEntry(template.BuildIds[i], place, bot.Name, (int)bot.Gender));
+                        newcomers = true;
+                    }
+                }
                 if (!bot.AddToWorld())
                 {
                     bot.Delete();
@@ -61,6 +77,8 @@ namespace DOL.GS
                 all?.Add(bot);
                 lock (Bots) Bots.Add(bot);
             }
+            if (newcomers)
+                PvpRoster.Save(AppContext.BaseDirectory, rosterOwner, roster);
             all?.Add(SpawnBuffbot(template.Realm, spawned.Cast<GameLiving>().ToList(), regionId, centre));
             return spawned;
         }
@@ -99,8 +117,9 @@ namespace DOL.GS
         /// </summary>
         /// <param name="all">When given, receives every bot put in the world, the buffbot too.</param>
         /// <param name="template">The player's group when it is not the realm's main one (PvpBuildCatalog.Variants).</param>
+        /// <param name="real">A real session: each companion comes in at the rank its own realm points make (PvpRealmPoints), not at <paramref name="realmLevel"/>.</param>
         public static IReadOnlyList<GameBot> SpawnCompanions(GamePlayer player, int realmLevel, ICollection<GameBot> all = null,
-            PvpGroupTemplate template = null)
+            PvpGroupTemplate template = null, bool real = false)
         {
             if (template == null || template.Realm != player.Realm)
                 template = PvpBuildCatalog.Groups.First(group => group.Realm == player.Realm);
@@ -124,11 +143,24 @@ namespace DOL.GS
                 PvpBuild build = PvpBuildCatalog.Find(builds[i]);
                 int place = PvpRoster.PlaceOf(builds, i);
                 PvpRosterEntry kept = PvpRoster.Find(roster, builds[i], place);
-                GameBot bot = CreateBot(build, player.Realm, i, builds.Count, player.CurrentZone, player.CurrentRegionID, centre, 160, realmLevel, kept);
+                // The first time in a real session a companion starts level with the player's character.
+                long points = real ? PvpRealmPoints.Seeded(kept?.RealmPoints ?? 0, player.RealmPoints) : 0;
+                GameBot bot = CreateBot(build, player.Realm, i, builds.Count, player.CurrentZone, player.CurrentRegionID, centre, 160,
+                    real ? PvpRealmPoints.LevelFor(points) : realmLevel, kept);
                 if (kept == null)
                 {
-                    roster.Add(new PvpRosterEntry(builds[i], place, bot.Name, (int)(i % 2 == 0 ? eGender.Male : eGender.Female)));
+                    kept = new PvpRosterEntry(builds[i], place, bot.Name, (int)(i % 2 == 0 ? eGender.Male : eGender.Female));
+                    roster.Add(kept);
                     newcomers = true;
+                }
+                if (real)
+                {
+                    (bot.PvpRosterOwner, bot.PvpRosterPlace, bot.PvpPoints) = (player.InternalID, place, points);
+                    if (kept.RealmPoints != points)
+                    {
+                        roster[roster.IndexOf(kept)] = kept with { RealmPoints = points };
+                        newcomers = true;
+                    }
                 }
                 bot.Heading = player.Heading;
                 if (!bot.AddToWorld() || !player.Group.AddMember(bot))

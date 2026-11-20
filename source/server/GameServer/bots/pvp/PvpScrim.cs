@@ -257,17 +257,21 @@ namespace DOL.GS
         /// there: a change of region takes the client a moment, and the companions are put around
         /// where the player stands. <paramref name="say"/> receives what happened.
         /// </summary>
+        /// <param name="real">A real session (PvpRealmPoints): nobody's rank is set, no timer is reset, kills earn realm points that are kept.</param>
         public static void TravelAndStartPlay(GamePlayer player, PvpGroupTemplate enemy, int realmLevel, string start, Action<string> say,
-            bool botDrives = false, PvpGroupTemplate own = null)
+            bool botDrives = false, PvpGroupTemplate own = null, bool real = false)
         {
             PvpArenaBox box = PlayBox(start);
-            // The player fights at the rank of the bots: the points are there to spend (before or after this fight).
-            if (PvpPlayerReady.RaiseRealmRank(player, realmLevel) is { } raised)
-                say(raised);
-            // Every session starts with the player's realm abilities and timed abilities ready: the owner,
-            // 2026-11-20, "so we can test with everything rather than waiting 30 minutes for purge to be up".
-            // Again when both groups are ready (BeginRoaming), for what was used while buffing.
-            player.ResetDisabledSkills();
+            if (!real)
+            {
+                // The player fights at the rank of the bots: the points are there to spend (before or after this fight).
+                if (PvpPlayerReady.RaiseRealmRank(player, realmLevel) is { } raised)
+                    say(raised);
+                // Every practice session starts with the player's realm abilities and timed abilities ready: the owner,
+                // 2026-11-20, "so we can test with everything rather than waiting 30 minutes for purge to be up".
+                // Again when both groups are ready (BeginRoaming), for what was used while buffing.
+                player.ResetDisabledSkills();
+            }
             (ushort region, Vector3 point) = PlayStart(box);
             var spot = new Point3D((int)point.X, (int)point.Y, (int)point.Z);
             bool There() => player.ObjectState == GameObject.eObjectState.Active && player.CurrentRegionID == region && player.IsWithinRadius(spot, 2_500);
@@ -275,8 +279,9 @@ namespace DOL.GS
             {
                 try
                 {
-                    StartPlay(player, enemy, realmLevel, box, botDrives, own);
-                    say($"Seven companions are with you at realm rank {realmLevel / 10 + 1}; {enemy.Id} is " +
+                    StartPlay(player, enemy, realmLevel, box, botDrives, own, real);
+                    say((real ? $"A real fight: your seven companions are with you at the ranks they have earned, kills earn realm points, and no timer is reset; {enemy.Id} is "
+                            : $"Seven companions are with you at realm rank {realmLevel / 10 + 1}; {enemy.Id} is ") +
                         (box == PvpArenaBox.EmainSouthEast ? "at the far end of the basin, to the east, and will roam" : "6,000 units to the south") +
                         ". Both groups buff for about a minute first. /8v8 stop ends it.");
                     if (botDrives && SquadOf(player)?.Driver is { } driver)
@@ -326,7 +331,7 @@ namespace DOL.GS
         /// the client a moment, and the companions are put around where the player stands.
         /// </summary>
         public static void StartPlay(GamePlayer player, PvpGroupTemplate enemy, int realmLevel, PvpArenaBox box = null, bool botDrives = false,
-            PvpGroupTemplate own = null)
+            PvpGroupTemplate own = null, bool real = false)
         {
             box ??= PvpArenaBox.EmainSouthEast;
             Log.Info($"8v8 play weights: {PvpWeights.Reload(AppContext.BaseDirectory)}");
@@ -343,7 +348,7 @@ namespace DOL.GS
                 _hooked = true;
             }
             var run = new PvpScrimRun(0, box, own, enemy, 1, realmLevel, PlayLimitSeconds, true, true,
-                $"{DateTime.UtcNow:yyyyMMdd-HHmmss}-play-{own.Id}-vs-{enemy.Id}", 0, 0, 0, 40, player, botDrives);
+                $"{DateTime.UtcNow:yyyyMMdd-HHmmss}-play-{own.Id}-vs-{enemy.Id}", 0, 0, 0, 40, player, botDrives, real);
             _runs = [run];
             try
             {
@@ -549,8 +554,9 @@ namespace DOL.GS
 
         internal PvpScrimRun(int lane, PvpArenaBox arena, PvpGroupTemplate groupA, PvpGroupTemplate groupB, int matches, int realmLevel,
             int limitSeconds, bool squadA, bool squadB, string batch, int numberOffset, int versus, int vary = 0, int spread = 40,
-            GamePlayer leader = null, bool botDrives = false)
+            GamePlayer leader = null, bool botDrives = false, bool real = false)
         {
+            _real = real && leader != null;
             _leader = leader;
             _botDrives = botDrives && leader != null;
             (_versus, _vary, _spread) = (versus, vary, spread);
@@ -560,6 +566,60 @@ namespace DOL.GS
         }
 
         internal void Begin() => BeginMatch();
+
+        // A real session (bots/pvp/PvpRealmPoints.cs): the members whose death has been paid for; one that is raised can be paid for again.
+        private readonly bool _real;
+        private readonly HashSet<GameLiving> _paid = new();
+
+        /// <summary>In a real session: every death not yet paid for gives the other group its realm points.</summary>
+        private void PayKills()
+        {
+            if (!_real || _leader == null)
+                return;
+            foreach (GameLiving member in SideA.Concat(_teamB).ToList())
+            {
+                if (member.IsAlive)
+                {
+                    _paid.Remove(member);
+                    continue;
+                }
+                if (!_paid.Add(member))
+                    continue;
+                bool ours = member == _leader || _teamA.Contains(member);
+                Pay(member, ours ? _teamB.Cast<GameLiving>().ToList() : SideA, ours);
+            }
+        }
+
+        private void Pay(GameLiving dead, IReadOnlyList<GameLiving> killers, bool ours)
+        {
+            PvpRealWeights real = PvpWeights.Of(_teamA.FirstOrDefault() ?? _teamB.FirstOrDefault()).Real;
+            // Every member of the killing group that is near has a share, the dead among them too, as in a group of players.
+            List<GameLiving> near = killers.Where(member => member.ObjectState == GameObject.eObjectState.Active &&
+                member.IsWithinRadius(dead, real.ShareWithin)).ToList();
+            int value = PvpRealmPoints.ValueOf(dead.Level, PvpRealmPoints.RealmLevelOf(dead));
+            long share = PvpRealmPoints.Share(value, near.Count, real.RealmPointRate);
+            if (share <= 0)
+                return;
+            var earned = new Dictionary<string, Dictionary<(string, int), long>>();
+            foreach (GameLiving member in near)
+            {
+                if (member is GamePlayer player)
+                    player.GainRealmPoints(share, false);
+                else if (member is GameBot { PvpRosterOwner: { } owner } bot)
+                {
+                    // Its rank moves when it next comes into a session: buying abilities in the middle of a fight is not safe.
+                    bot.PvpPoints += share;
+                    if (!earned.TryGetValue(owner, out var byMember))
+                        earned[owner] = byMember = new();
+                    byMember[(bot.PvpBuild.Id.ToLowerInvariant(), bot.PvpRosterPlace)] = share;
+                }
+            }
+            foreach (var (owner, byMember) in earned)
+                PvpRoster.Credit(AppContext.BaseDirectory, owner, byMember);
+            if (!ours)
+                _leader.Out.SendMessage($"[8v8] {dead.Name} is down: {share} realm points each for the {near.Count} of you.",
+                    PacketHandler.eChatType.CT_Important, PacketHandler.eChatLoc.CL_SystemWindow);
+        }
 
         internal void Stop()
         {
@@ -580,9 +640,15 @@ namespace DOL.GS
             _bots.Clear();
             // In a play session side A is the player and seven companions, put around where the player stands.
             _teamA = _leader != null
-                ? PvpArena.SpawnCompanions(_leader, _realmLevel, _bots, _groupA).ToList()
+                ? PvpArena.SpawnCompanions(_leader, _realmLevel, _bots, _groupA, _real).ToList()
                 : PvpArena.SpawnGroup(_groupA, _arena.Region, spawnA.X, spawnA.Y, _realmLevel, _bots).ToList();
-            _teamB = PvpArena.SpawnGroup(_groupB, _arena.Region, spawnB.X, spawnB.Y, _realmLevel, _bots).ToList();
+            // In a real session the enemy group is this player's own enemy: kept by name, with what it has earned.
+            _teamB = _real
+                ? PvpArena.SpawnGroup(_groupB, _arena.Region, spawnB.X, spawnB.Y, _realmLevel, _bots,
+                    PvpRealmPoints.EnemyRoster(_leader.InternalID, _groupB.Id),
+                    PvpRealmPoints.EnemyLevel(0, _teamA.Select(bot => bot.RealmLevel).Append(_leader.RealmLevel).ToList(),
+                        PvpWeights.Of(_teamA.FirstOrDefault()).Real.EnemyKeepsUp)).ToList()
+                : PvpArena.SpawnGroup(_groupB, _arena.Region, spawnB.X, spawnB.Y, _realmLevel, _bots).ToList();
             _squadA = _squadBrainA ? new PvpSquad(_teamA, _leader != null ? [_leader] : null) : null;
             _squadB = _squadBrainB ? new PvpSquad(_teamB) : null;
             // The groups buff where they came in, standing together, and take their rows at the ready
@@ -659,6 +725,7 @@ namespace DOL.GS
                 long now = GameLoop.GameLoopTime;
                 _recording?.Snapshot();
                 int aliveA = _teamA.Count(bot => bot.IsAlive) + (_leader is { IsAlive: true } ? 1 : 0), aliveB = _teamB.Count(bot => bot.IsAlive);
+                PayKills();
                 // The player has left the game: the session is over.
                 if (_leader != null && (_leader.ObjectState != GameObject.eObjectState.Active || _leader.Client?.IsPlaying != true))
                 {
@@ -1130,8 +1197,11 @@ namespace DOL.GS
                 _leader.Health = _leader.MaxHealth;
                 _leader.Mana = _leader.MaxMana;
                 _leader.Endurance = _leader.MaxEndurance;
-                _leader.ResetDisabledSkills();
-                _leader.Out.SendMessage("[8v8] Both groups are buffed and rested, and your ability timers are reset. The enemy is roaming from the far end of the basin.",
+                // A practice session resets the player's timers; a real one leaves them as they are.
+                if (!_real)
+                    _leader.ResetDisabledSkills();
+                _leader.Out.SendMessage(_real ? "[8v8] Both groups are buffed and rested. Your ability timers are as you left them."
+                        : "[8v8] Both groups are buffed and rested, and your ability timers are reset. The enemy is roaming from the far end of the basin.",
                     PacketHandler.eChatType.CT_Important, PacketHandler.eChatLoc.CL_SystemWindow);
             }
             int seconds = (int)((now - _phaseStartTick) / 1000);

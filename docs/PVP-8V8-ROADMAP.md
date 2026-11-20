@@ -919,6 +919,8 @@ walls stop bots. **Passed 2026-11-16.**
   pick realm rank 5, I have no realm points and can't train purge"). The owner's Hero stands at
   rank 5 in the scrim database after it; whether the points were spent as wanted is the
   owner's to say.
+  *Earned and kept, 2026-11-20:* see M9.1, "a real session". A practice session still
+  overrides the rank.
   *Progress 2026-11-16:* a rank can be set when a group spawns (`RealmRank=5` on `spawn-group`,
   `/8v8 group 5` in game), and the bot gets the realm abilities that rank pays for; the default is
   rank 1. Checked on the scrim server at rank 5 (ten or so abilities each) and rank 1 (one).
@@ -2399,8 +2401,27 @@ In order:
   *First half built 2026-11-20, not yet seen with a player:* a character's seven companions
   keep their names and sex from one session to the next (`PvpRoster.cs`,
   `pvp-rosters.json` beside the server, by character and by build). It is the player's own
-  data: the release builder leaves it out and refuses a package that holds one. Realm points
-  earned by the companions are not in it.
+  data: the release builder leaves it out and refuses a package that holds one.
+  *Second half built 2026-11-20, not yet seen with a player: a real session.* The owner: "we
+  have a nice way to playtest 8v8 in line and basin, but everything is just for testing. All
+  abilities reset, no rps gain, only 2 groups, no real roaming". `/8v8 setup` has a Rules line
+  (Practice or Real) and `/8v8 play <realm> real` is the same typed. Practice is what there
+  was. In a real session (`PvpRealmPoints.cs`):
+  - nobody's rank is set: the player fights at the character's own, each companion at the rank
+    its own realm points make (the first time, level with the player's character), and the
+    enemy group at what it has earned itself, never below the average of the player's group
+    (`Real.EnemyKeepsUp`);
+  - no timer is reset, at the start or when both groups are ready;
+  - a death is paid for once (again if the member is raised and dies again): what a player of
+    that level and rank is worth (900 for a level 50 of rank 1), times `Real.RealmPointRate`
+    (5), shared evenly among the members of the killing group within 6,000 units, the dead
+    among them too. The player's share goes on the character, a companion's into the roster,
+    an enemy's into that enemy group's own roster (kept per character and group, by name);
+  - a bot's rank moves when it next comes into a session, not in the middle of a fight;
+  - `/8v8 ranks` lists the companions and the enemy groups fought for real.
+  Not in it yet: more than two groups, a roam that goes on from fight to fight, what a wipe
+  costs, and realm abilities bought in the build's order (a bot buys what its points allow by
+  the rule the gamebots use).
 - [ ] **M9.2** (M) Bot shot-caller: calls announced in group chat (assist target, mez landed,
   retreat), with an assist key for the owner.
   *First cut 2026-11-19, not yet seen in a client.* In a group with a player, its bots say in
