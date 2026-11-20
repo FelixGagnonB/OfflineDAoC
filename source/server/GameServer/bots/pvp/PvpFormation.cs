@@ -24,8 +24,25 @@ namespace DOL.GS
         /// </summary>
         public static int FollowDistance(int index) => 90 + 35 * Math.Max(0, index);
 
-        /// <summary>A follower lets the driver get this much farther ahead before it closes up.</summary>
-        public const int FollowSlack = 120;
+        /// <summary>
+        /// A follow ends by itself when its leader is farther away than the distance it is given
+        /// (NpcMovementComponent.FollowTick), so a follower is given one it cannot fall behind by.
+        /// It was given its own distance and 120: the driver set off first, was more than that
+        /// ahead within a second, and the seven others stood where they were. The owner,
+        /// 2026-11-20: "Warrior would be alone. We kill him, then 5-10 seconds later we see the 7
+        /// other Mids" (in the recordings the lone one is the driver, the Skald, 8,500 to 10,300
+        /// units ahead of the rest in two sessions of four).
+        /// </summary>
+        public const int FollowGivesUpBeyond = 60_000;
+
+        /// <summary>The driver stands and waits when a living member is this far behind it.</summary>
+        public const int DriverWaitsBeyond = 700;
+        /// <summary>And goes on when the farthest is this near again.</summary>
+        public const int DriverGoesOnWithin = 400;
+
+        /// <summary>Whether a driver waits for its group, given how far its farthest living member is.</summary>
+        public static bool DriverWaits(int farthestBehind, bool waiting) =>
+            farthestBehind > (waiting ? DriverGoesOnWithin : DriverWaitsBeyond);
 
         /// <summary>
         /// Where the members of a row stand across the line of approach, neighbours

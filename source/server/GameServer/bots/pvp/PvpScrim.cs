@@ -918,12 +918,30 @@ namespace DOL.GS
                     if (bot.FollowTarget != driver)
                     {
                         int back = PvpFormation.FollowDistance(members.IndexOf(bot));
-                        bot.Follow(driver, back, back + PvpFormation.FollowSlack);
+                        bot.Follow(driver, back, PvpFormation.FollowGivesUpBeyond);
                     }
                     continue;
                 }
                 if (bot.FollowTarget != null)
                     bot.StopFollowing();
+                // The driver does not leave its group behind: it waits for whoever has dropped back.
+                if (driver == bot)
+                {
+                    int farthest = members.Where(member => member != bot && member.IsAlive)
+                        .Select(member => bot.GetDistanceTo(member)).DefaultIfEmpty(0).Max();
+                    bool waits = PvpFormation.DriverWaits(farthest, _driversWaiting.Contains(bot));
+                    if (waits ? _driversWaiting.Add(bot) : _driversWaiting.Remove(bot))
+                        PvpRecorder.Decision(bot, new { kind = waits ? "DriverWaits" : "DriverGoesOn", score = farthest }, [], null);
+                    if (waits)
+                    {
+                        if (bot.IsMoving)
+                        {
+                            bot.StopMovingOnPath();
+                            bot.StopMoving();
+                        }
+                        continue;
+                    }
+                }
                 // The moment the enemy comes into sight the order to take the rows goes out at once.
                 if (!sighted && bot.IsMoving && GameLoop.GameLoopTime % 4_000 >= 1_000)
                     continue;
@@ -1044,6 +1062,9 @@ namespace DOL.GS
             if (_buffsCast.TryAdd((caster, spell.ID, target), 0))
                 _lastNewBuffTick[caster] = GameLoop.GameLoopTime;
         }
+
+        // Drivers standing to let their group catch up on the road.
+        private readonly HashSet<GameBot> _driversWaiting = new();
 
         private bool StillBuffing(GameBot bot, long now)
         {

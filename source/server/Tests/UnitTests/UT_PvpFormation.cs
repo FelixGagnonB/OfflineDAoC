@@ -80,7 +80,20 @@ namespace DOL.UnitTests
             Assert.That(back, Is.Unique);
             // Close behind it, the way players on /stick run: the last of seven within a few hundred units.
             Assert.That(back.First(), Is.GreaterThanOrEqualTo(60));
-            Assert.That(back.Last() + PvpFormation.FollowSlack, Is.LessThan(500));
+            Assert.That(back.Last(), Is.LessThan(400));
+            // A follow ends when its leader is farther than the distance it is given: a follower must not lose
+            // its driver by falling a little behind (the seven stood still, 2026-11-20).
+            Assert.That(PvpFormation.FollowGivesUpBeyond, Is.GreaterThan(30_000));
+        }
+
+        [Test]
+        public void TheDriverWaitsForAMemberThatHasDroppedBack()
+        {
+            Assert.That(PvpFormation.DriverWaits(350, false), Is.False, "strung out behind it as they should be");
+            Assert.That(PvpFormation.DriverWaits(900, false), Is.True);
+            Assert.That(PvpFormation.DriverWaits(500, true), Is.True, "it waits until they are close again");
+            Assert.That(PvpFormation.DriverWaits(380, true), Is.False);
+            Assert.That(PvpFormation.DriverWaits(0, false), Is.False, "nobody else alive");
         }
     }
 }
