@@ -739,7 +739,7 @@ namespace DOL.GS
             bool overGround = PvpWeights.Of(_teamA.FirstOrDefault()).SightOverGround;
             List<GameBot> seen = _teamB.Where(enemy => enemy.IsAlive &&
                 (_leader.IsWithinRadius(enemy, PvpFormation.FormRange) && (!overGround || PvpSight.Clear(_leader, enemy)) ||
-                 _teamA.Any(bot => bot.IsAlive && bot.IsWithinRadius(enemy, PvpFormation.FormRange) && (!overGround || PvpSight.Clear(bot, enemy))))).ToList();
+                 _teamA.Any(bot => bot.IsAlive && PvpSight.Sees(bot, enemy, PvpFormation.FormRange, PvpWeights.Of(bot))))).ToList();
             Dictionary<GameBot, Vector3> places = seen.Count == 0 ? null : LeaderPlaces(_teamA.Where(bot => bot.IsAlive).ToList(),
                 new Vector3((float)seen.Average(enemy => enemy.X), (float)seen.Average(enemy => enemy.Y), (float)seen.Average(enemy => enemy.Z)));
             foreach (GameBot bot in _teamA)
@@ -789,7 +789,7 @@ namespace DOL.GS
                     .OrderBy(enemy => bot.GetDistanceTo(enemy))
                     .FirstOrDefault(enemy => nav.HasLineOfSight(bot.CurrentZone, new Vector3(bot.X, bot.Y, bot.Z),
                         new Vector3(enemy.X, enemy.Y, enemy.Z), nav.DefaultFilters) &&
-                        (!PvpWeights.Of(bot).SightOverGround || PvpSight.Clear(bot, enemy)));
+                        PvpSight.Sees(bot, enemy, SightRange, PvpWeights.Of(bot)));
                 if (target == null)
                     continue;
                 brain.AddToAggroList(target, 1);
@@ -822,9 +822,8 @@ namespace DOL.GS
             // In the open basin a group sees the other from farther than in a lane, where the two start in sight.
             bool basin = _arena == PvpArenaBox.EmainSouthEast;
             int spot = basin ? PvpFormation.FormRange : SpotRange;
-            bool overGround = PvpWeights.Of(members[0]).SightOverGround;
-            List<GameLiving> seen = enemies.Where(enemy => enemy.IsAlive &&
-                members.Any(bot => bot.IsWithinRadius(enemy, spot) && (!overGround || PvpSight.Clear(bot, enemy)))).ToList();
+            PvpWeights sight = PvpWeights.Of(members[0]);
+            List<GameLiving> seen = enemies.Where(enemy => enemy.IsAlive && members.Any(bot => PvpSight.Sees(bot, enemy, spot, sight))).ToList();
             Vector3 goal;
             Dictionary<GameBot, Vector3> places = null;
             if (seen.Count > 0)

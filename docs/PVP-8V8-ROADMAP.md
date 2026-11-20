@@ -78,6 +78,16 @@ on the kill target hardly moved (57% against 54%). Each member keeping its job i
 than everybody going for the target every time. What is left of the owner's "our assist train
 and casters did not kill anyone" is when to collapse, not whether: M8.
 
+*Facing* (step 6 of the way to a first session, built the same night): a bot on the move sees
+its whole range inside an arc of 200 degrees in front of it and 40% of it outside; standing
+still it looks about and sees all round (`PvpSight.RangeAt`, weights `SightFrontArc` and
+`SightBehindPercent`). Four roaming matches of bots in the basin after it: first blow 24, 51,
+133 and 33 seconds after the ready, and in all four the two groups knew of each other in the
+same second, because they met head on (the other 2 to 21 degrees off the way each was
+heading): a group that spots the other turns to it, and two groups of the same speed do not
+catch each other up from behind. So among bots it changes nothing that was seen; what it is
+for is a player coming up on a patrol from its flank or its rear, which only a player can try.
+
 Things counted that night and what came of them:
 
 - *Why nobody but the Paladin ever raised anybody.* The raid rule lets a healer raise in combat
@@ -2158,7 +2168,9 @@ In order:
    Three bots-against-bots recordings after the change hold the same rows as before. Whether
    the referee and `pvp_replay.py` read a session cleanly waits for the first real one.
 6. [ ] The roaming start for both sides (M8.4): who sees whom first depends on where a group
-   is facing.
+   is facing. *Built 2026-11-20 (roam between nine points, sight over the ground, sight by
+   facing); the roam and the ground seen in recorded matches, the facing not: see "The night of
+   2026-11-19 to 20" near the top.*
    *Progress 2026-11-19, from the owner's first evening of play* (ten sessions as a Cleric
    and a Hibernian healer; "it's fun tho", "I think the bots are mathematically good"). Facing
    is still not in it; what changed is the shape of a group off the fight (`PvpFormation.cs`):

@@ -345,6 +345,14 @@ namespace DOL.GS
         /// only where nobody can walk hides anything, as it was until 2026-11-19.
         /// </summary>
         public bool SightOverGround { get; set; } = true;
+
+        /// <summary>
+        /// A bot on the move sees its whole range inside this arc in front of it (degrees), and
+        /// <see cref="SightBehindPercent"/> of it outside: a group can be come upon from behind.
+        /// Standing still it sees all round. 360 or 100: it sees all round always, as until 2026-11-20.
+        /// </summary>
+        public int SightFrontArc { get; set; } = 200;
+        public int SightBehindPercent { get; set; } = 40;
         /// <summary>
         /// An 8v8 Bard in a fight starts its endurance song at most once in this many seconds,
         /// only that song, and not while it is being hit or a groupmate is asleep. 0: no song is

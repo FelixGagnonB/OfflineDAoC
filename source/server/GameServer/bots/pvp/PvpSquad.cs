@@ -137,11 +137,11 @@ namespace DOL.GS
                     continue;
                 var there = new Vector3(enemy.X, enemy.Y, enemy.Z);
                 // Nearest first: the first member that sees it is enough.
-                bool overGround = PvpWeights.Of(_members.FirstOrDefault()).SightOverGround;
+                PvpWeights sight = PvpWeights.Of(_members.FirstOrDefault());
                 bool seen = watchers.Where(member => member.IsWithinRadius(enemy, ViewRange))
                     .OrderBy(member => member.GetDistanceTo(enemy))
-                    .Any(member => nav.HasLineOfSight(member.CurrentZone, new Vector3(member.X, member.Y, member.Z), there, nav.DefaultFilters) &&
-                                   (!overGround || PvpSight.Clear(member, enemy)));
+                    .Any(member => PvpSight.Sees(member, enemy, ViewRange, sight) &&
+                                   nav.HasLineOfSight(member.CurrentZone, new Vector3(member.X, member.Y, member.Z), there, nav.DefaultFilters));
                 // An enemy that is fighting one of the group from near is known, rise or no rise:
                 // whoever is being struck knows by whom.
                 seen = seen || enemy.InCombat && enemy.TargetObject is GameLiving victim && _allies.Contains(victim) &&

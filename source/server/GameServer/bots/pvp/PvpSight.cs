@@ -64,6 +64,30 @@ namespace DOL.GS
             return !Blocked(ground, from.Z, to.Z);
         }
 
+        /// <summary>
+        /// How far a character sees an enemy that stands at this angle from the way it faces (0 is
+        /// straight ahead): its whole range inside the arc in front of it, a share of it outside.
+        /// A character that stands still looks about and sees its whole range all round. The
+        /// owner, 2026-11-19, on how a fight starts: "it really depends on if we sneaked in, heads
+        /// on, angle on contact... real humans would be panning to avoid being sneaked on, so in
+        /// that case angle matters."
+        /// </summary>
+        public static int RangeAt(float angle, bool moving, int range, int frontArc, int behindPercent) =>
+            !moving || frontArc >= 360 || behindPercent >= 100 || angle < frontArc / 2f || angle >= 360 - frontArc / 2f
+                ? range : range * Math.Max(0, behindPercent) / 100;
+
+        /// <summary>
+        /// True when a bot sees an enemy: near enough for the way it faces, and no rise of the
+        /// ground between them (each as the weights have it).
+        /// </summary>
+        public static bool Sees(GameLiving from, GameObject to, int range, PvpWeights weights)
+        {
+            if (from == null || to == null || from.CurrentRegionID != to.CurrentRegionID)
+                return false;
+            int reach = RangeAt(from.GetAngle(to), from.IsMoving, range, weights.SightFrontArc, weights.SightBehindPercent);
+            return from.IsWithinRadius(to, reach) && (!weights.SightOverGround || Clear(from, to));
+        }
+
         /// <summary>True when one living thing can see the other over the ground.</summary>
         public static bool Clear(GameObject from, GameObject to) =>
             from == null || to == null || from.CurrentRegionID != to.CurrentRegionID ||

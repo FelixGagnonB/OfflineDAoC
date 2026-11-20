@@ -48,6 +48,30 @@ namespace DOL.UnitTests
             Assert.That(PvpSight.Blocked([float.NaN, 500], 100, 100), Is.True);
         }
 
+        [Test]
+        public void OnTheMoveABotSeesFarAheadAndLittleBehind()
+        {
+            // range 4,500, an arc of 200 degrees in front, 40% outside it
+            Assert.That(PvpSight.RangeAt(0, true, 4_500, 200, 40), Is.EqualTo(4_500), "straight ahead");
+            Assert.That(PvpSight.RangeAt(99, true, 4_500, 200, 40), Is.EqualTo(4_500), "to its right, still in the arc");
+            Assert.That(PvpSight.RangeAt(261, true, 4_500, 200, 40), Is.EqualTo(4_500), "to its left, still in the arc");
+            Assert.That(PvpSight.RangeAt(180, true, 4_500, 200, 40), Is.EqualTo(1_800), "behind");
+            Assert.That(PvpSight.RangeAt(120, true, 4_500, 200, 40), Is.EqualTo(1_800), "over its shoulder");
+        }
+
+        [Test]
+        public void StandingStillItLooksAboutAndSeesAllRound()
+        {
+            Assert.That(PvpSight.RangeAt(180, false, 4_500, 200, 40), Is.EqualTo(4_500));
+        }
+
+        [Test]
+        public void TheArcCanBeSwitchedOff()
+        {
+            Assert.That(PvpSight.RangeAt(180, true, 4_500, 360, 40), Is.EqualTo(4_500));
+            Assert.That(PvpSight.RangeAt(180, true, 4_500, 200, 100), Is.EqualTo(4_500));
+        }
+
         [TestCase(200, 0)]
         [TestCase(500, 1)]
         [TestCase(1_000, 3)]
