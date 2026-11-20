@@ -675,9 +675,7 @@ namespace DOL.GS
 
         private static void UpdateObjectForPlayerInternal(GamePlayer player, GameObject gameObject, bool udp = true)
         {
-            // The body of an 8v8 bot lies where the client was told it died (PvpCorpse).
-            if (!PvpCorpse.HidesUpdate(gameObject))
-                player.Out.SendObjectUpdate(gameObject, udp);
+            player.Out.SendObjectUpdate(gameObject, udp);
             OnObjectCreateOrUpdateForPlayer(player, gameObject);
         }
 
@@ -716,19 +714,10 @@ namespace DOL.GS
 
         private static void CreateNpcForPlayerInternal(GamePlayer player, GameNPC npc)
         {
-            if (PvpCorpse.HidesCreate(npc))
-            {
-                OnObjectCreateOrUpdateForPlayer(player, npc);
-                return;
-            }
-
             player.Out.SendNPCCreate(npc);
 
             if (NecromancerPetAppearance.HasEquipment(npc))
                 player.Out.SendLivingEquipmentUpdate(npc);
-
-            if (PvpCorpse.LaysDown(npc))
-                PvpCorpse.SendDied(player, npc);
 
             // Dirty fix preventing the client from losing its target when its a NPC.
             if (player.TargetObject == npc)

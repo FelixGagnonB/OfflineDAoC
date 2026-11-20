@@ -124,10 +124,6 @@ namespace DOL.GS.PacketHandler
 			if (m_gameClient.Player == null || npc.IsVisibleTo(m_gameClient.Player) == false)
 				return;
 
-			// An 8v8 bot's body the client was told to lay down and forget (PvpCorpse).
-			if (PvpCorpse.HidesCreate(npc))
-				return;
-
 			// Mines are not shown to enemy players.
 			if (npc is GameMine)
 			{
@@ -167,7 +163,10 @@ namespace DOL.GS.PacketHandler
 					pak.WriteByte(level);
 					byte flags = (byte) (GameServer.ServerRules.GetLivingRealm(m_gameClient.Player, npc) << 6);
 
-					if ((npc.Flags & GameNPC.eFlags.GHOST) != 0)
+					// A dead 8v8 bot is a ghost to the client, with "Dead" under its name (PvpCorpse).
+					bool deadBot = PvpCorpse.IsGhost(npc);
+
+					if ((npc.Flags & GameNPC.eFlags.GHOST) != 0 || deadBot)
 						flags |= 0x01;
 
 					if (NecromancerPetAppearance.HasEquipment(npc))
@@ -258,6 +257,9 @@ namespace DOL.GS.PacketHandler
 						name = AutonomousNameMask.RaceName(m_gameClient.Player, (GameBot)npc);
 						guildName = AutonomousNameMask.RankTitle(m_gameClient.Player, (GameBot)npc);
 					}
+
+					if (deadBot)
+						guildName = PvpCorpse.Tag;
 
 					ReadOnlySpan<char> nameSpan = name;
 					int maxNameLength = 47 - add.Length - 2;

@@ -12,7 +12,7 @@ namespace DOL.GS.Commands
         "/8v8 play hib-2bard ...  or  /8v8 play mid hib-2bard ...  another group by its name: as the enemy (first), or as your own (later)",
         "/8v8 call <push|regroup|hold|engage|extend|assist>  your call to the group: an order stands twelve seconds; assist puts the damage dealers on your target while it lives (45 s at most)",
         "/8v8 calls <on|off>            your companions' calls in group chat (assist, incoming, orders, out of power)",
-        "/8v8 corpse <died|remove|off>  how a dead 8v8 bot is shown: laid down and kept (died), laid down and forgotten as a monster is (remove), or left standing (off)",
+        "/8v8 corpse <fall|ghost|off>   how a dead 8v8 bot is shown: its body falls and its ghost stands over it (fall), the ghost only (ghost), or standing as if alive (off)",
         "/8v8 stop                      ends the fight and removes every 8v8 bot",
         "/8v8 clear                     removes every 8v8 bot",
         "/8v8 lanes                     (GM) what is fighting in each lane of the arena",
@@ -144,18 +144,18 @@ namespace DOL.GS.Commands
                 {
                     PvpCorpseShow? show = (args.Length > 2 ? args[2].ToLowerInvariant() : string.Empty) switch
                     {
-                        "died" => PvpCorpseShow.Died,
-                        "remove" => PvpCorpseShow.Removed,
+                        "fall" => PvpCorpseShow.Fall,
+                        "ghost" => PvpCorpseShow.Ghost,
                         "off" => PvpCorpseShow.Off,
                         _ => null
                     };
                     if (show == null)
                     {
-                        Say($"A dead 8v8 bot is shown as: {PvpCorpse.Show}. /8v8 corpse died, remove or off changes it.");
+                        Say($"A dead 8v8 bot is shown as: {PvpCorpse.Show}. /8v8 corpse fall, ghost or off changes it.");
                         return;
                     }
                     int lying = PvpCorpse.Switch(show.Value, PvpArena.Members);
-                    Say($"A dead 8v8 bot is now shown as: {PvpCorpse.Show} ({lying} bodies shown again). It lasts until the server restarts.");
+                    Say($"A dead 8v8 bot is now shown as: {PvpCorpse.Show} ({lying} dead shown again). It lasts until the server restarts.");
                     return;
                 }
 

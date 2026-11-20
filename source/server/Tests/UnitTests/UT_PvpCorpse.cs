@@ -7,46 +7,39 @@ namespace DOL.UnitTests
     public class UT_PvpCorpse
     {
         [Test]
-        public void ALivingBotIsSentAsEver()
+        public void ALivingBotIsShownAsEver()
         {
-            foreach (PvpCorpseShow show in new[] { PvpCorpseShow.Off, PvpCorpseShow.Died, PvpCorpseShow.Removed })
+            foreach (PvpCorpseShow show in new[] { PvpCorpseShow.Off, PvpCorpseShow.Ghost, PvpCorpseShow.Fall })
             {
-                Assert.That(PvpCorpse.SendsUpdate(show, false), Is.True, show.ToString());
-                Assert.That(PvpCorpse.SendsCreate(show, false), Is.True, show.ToString());
-                Assert.That(PvpCorpse.SendsDied(show, false), Is.False, show.ToString());
+                Assert.That(PvpCorpse.DrawsGhost(show, false), Is.False, show.ToString());
+                Assert.That(PvpCorpse.BodyFalls(show, false), Is.False, show.ToString());
             }
         }
 
         [Test]
-        public void ABodyLaidDownAndKeptIsMadeAndLaidDownAgainButNotMoved()
+        public void ADeadBotFallsAndItsGhostStaysToBeTargeted()
         {
-            // The owner, 2026-11-20: "When a character dies, its body remains up."
-            Assert.That(PvpCorpse.Show, Is.EqualTo(PvpCorpseShow.Died), "as built");
-            Assert.That(PvpCorpse.SendsCreate(PvpCorpseShow.Died, true), Is.True, "a client that comes near gets the body");
-            Assert.That(PvpCorpse.SendsDied(PvpCorpseShow.Died, true), Is.True, "and gets it lying");
-            Assert.That(PvpCorpse.SendsUpdate(PvpCorpseShow.Died, true), Is.False, "a position update would stand it up");
+            // The owner, 2026-11-20: "When a character dies, its body remains up." And of the first try:
+            // "after some seconds the corpse disappear. I could not click on the dead enchanter".
+            Assert.That(PvpCorpse.Show, Is.EqualTo(PvpCorpseShow.Fall), "as built");
+            Assert.That(PvpCorpse.BodyFalls(PvpCorpseShow.Fall, true), Is.True);
+            Assert.That(PvpCorpse.DrawsGhost(PvpCorpseShow.Fall, true), Is.True, "the client keeps something to click");
         }
 
         [Test]
-        public void ABodyTheClientForgotIsNotBroughtBack()
+        public void TheGhostAloneAndNothingAtAllCanBeAskedFor()
         {
-            Assert.That(PvpCorpse.SendsCreate(PvpCorpseShow.Removed, true), Is.False);
-            Assert.That(PvpCorpse.SendsUpdate(PvpCorpseShow.Removed, true), Is.False, "an update for a body it does not have makes the client ask for it");
-            Assert.That(PvpCorpse.SendsDied(PvpCorpseShow.Removed, true), Is.False);
-        }
-
-        [Test]
-        public void OffIsAsItWas()
-        {
-            Assert.That(PvpCorpse.SendsCreate(PvpCorpseShow.Off, true), Is.True);
-            Assert.That(PvpCorpse.SendsUpdate(PvpCorpseShow.Off, true), Is.True);
-            Assert.That(PvpCorpse.SendsDied(PvpCorpseShow.Off, true), Is.False);
+            Assert.That(PvpCorpse.DrawsGhost(PvpCorpseShow.Ghost, true), Is.True);
+            Assert.That(PvpCorpse.BodyFalls(PvpCorpseShow.Ghost, true), Is.False);
+            Assert.That(PvpCorpse.DrawsGhost(PvpCorpseShow.Off, true), Is.False);
+            Assert.That(PvpCorpse.BodyFalls(PvpCorpseShow.Off, true), Is.False);
         }
 
         [Test]
         public void OnlyAnEightVersusEightBotIsABody()
         {
             Assert.That(PvpCorpse.IsDown(null), Is.False);
+            Assert.That(PvpCorpse.IsGhost(null), Is.False);
         }
     }
 }
