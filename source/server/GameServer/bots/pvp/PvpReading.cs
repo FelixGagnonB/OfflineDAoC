@@ -99,6 +99,22 @@ namespace DOL.GS
         public double ExtendSafeFactor { get; set; } = 1.4;
         /// <summary>Under Push they accept this share of it, to keep up with their fighters.</summary>
         public double PushSafeFactor { get; set; } = 0.6;
+        /// <summary>
+        /// An order moves the back line (it stands 1.4 times as far from enemy fighters under
+        /// Extend, 0.6 times under Push) only once it has stood this many seconds. A group changes
+        /// its order four or five times in the first minute of a fight and an order lasts five
+        /// seconds at the median (26 team-fights of the owner's and 30 of bots, 2026-11-20); its
+        /// healers and casters walked 42% of their time, and half their steps away from a fighter
+        /// were taken under Extend. Its fighters answer an order at once either way. 0: the back
+        /// line moves with the order from its first second, as before.
+        /// </summary>
+        public int SafeFactorAfterSeconds { get; set; }
+
+        /// <summary>How far the back line keeps from enemy fighters under an order, as a factor of its usual distance.</summary>
+        public double SafeFactor(PvpOrder order, double secondsInForce) =>
+            secondsInForce < SafeFactorAfterSeconds ? 1
+            : order == PvpOrder.Extend ? ExtendSafeFactor : order == PvpOrder.Push ? PushSafeFactor : 1;
+
         /// <summary>Under Extend the group's fighters leave the kill target for an enemy fighter that is on their healers and casters.</summary>
         public bool ExtendFightersTurnOnPursuers { get; set; } = true;
         /// <summary>

@@ -122,6 +122,20 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void AStunOnAFighterThatIsOnTheHealersCanBeGivenWeight()
+        {
+            var fighter = new PvpOption(PvpActionKind.Stun, 0, PvpBuffArchetype.Melee, false, false, 100, false, false, false, false, 100);
+            var weights = new PvpWeights();
+            Assert.That(PvpActionChoice.Score(eCharacterClass.Healer, fighter with { Pursuer = true }, weights),
+                Is.EqualTo(PvpActionChoice.Score(eCharacterClass.Healer, fighter, weights)), "off as built");
+            var aware = new PvpWeights { StunOnPursuer = 70 };
+            Assert.That(PvpActionChoice.Score(eCharacterClass.Healer, fighter with { Pursuer = true }, aware),
+                Is.EqualTo(PvpActionChoice.Score(eCharacterClass.Healer, fighter, aware) + 70));
+            Assert.That(PvpActionChoice.Score(eCharacterClass.Healer, fighter with { Pursuer = true, HasEffect = true }, aware),
+                Is.EqualTo(PvpActionChoice.Score(eCharacterClass.Healer, fighter with { HasEffect = true }, aware)), "not on one that is stunned already");
+        }
+
+        [Test]
         public void TheEnemysMezzerIsNearsightedFirst()
         {
             var weights = new PvpWeights();
@@ -174,6 +188,20 @@ namespace DOL.UnitTests
             PvpReading theirs = PvpReading.Of(
                 Enumerable.Repeat(Healer(alive: false), 2).Concat(Enumerable.Repeat(Fighter(), 3)));
             Assert.That(PvpOrders.Choose(Fresh(), theirs, 0, PvpOrder.Engage, 10, new PvpOrderWeights { Enabled = false }), Is.EqualTo(PvpOrder.Engage));
+        }
+
+        [Test]
+        public void TheBackLineCanWaitForAnOrderToStandBeforeItMoves()
+        {
+            // As it is: the order moves the back line from its first second.
+            Assert.That(Weights.SafeFactor(PvpOrder.Extend, 0), Is.EqualTo(Weights.ExtendSafeFactor));
+            Assert.That(Weights.SafeFactor(PvpOrder.Push, 0), Is.EqualTo(Weights.PushSafeFactor));
+            Assert.That(Weights.SafeFactor(PvpOrder.Engage, 30), Is.EqualTo(1));
+            // Switched on: an order that has only just come moves nobody.
+            var steady = new PvpOrderWeights { SafeFactorAfterSeconds = 5 };
+            Assert.That(steady.SafeFactor(PvpOrder.Extend, 2), Is.EqualTo(1));
+            Assert.That(steady.SafeFactor(PvpOrder.Push, 4.9), Is.EqualTo(1));
+            Assert.That(steady.SafeFactor(PvpOrder.Extend, 5), Is.EqualTo(steady.ExtendSafeFactor));
         }
 
         [Test]

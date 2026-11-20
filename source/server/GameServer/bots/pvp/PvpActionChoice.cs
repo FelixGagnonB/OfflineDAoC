@@ -284,6 +284,19 @@ namespace DOL.GS
         /// pursuers. Without this a root on a fighter never reached the bar.
         /// </summary>
         public int RootOnPursuer { get; set; } = 30;
+        /// <summary>
+        /// A stun on an enemy fighter that is on the group's healers and casters and is not held
+        /// yet (the Pacification Healer's, for one). The owner, 2026-11-20: "It really comes down
+        /// to pac healer 'knowing' enemies are pushing for me and kiting back while our fighter /
+        /// caster try to crowd control and train enemies... Group should be aware of what the pac
+        /// healer behavior / need". Counted that day over 616 fighters reaching a healer or caster
+        /// in bots-only matches: 39% were stunned, mezzed or rooted within three seconds; of the
+        /// rest two in three were immune to mez and one in nine to root, and on six in ten nobody
+        /// began a control spell at all. A root on such a fighter was among the options with a
+        /// median score of 60, and what was picked instead scored 122 (a nearsight, a disease,
+        /// damage). 0: a stun is scored as before.
+        /// </summary>
+        public int StunOnPursuer { get; set; }
         /// <summary>More of the same while the group's order is Extend.</summary>
         public int RootOnPursuerWhileExtending { get; set; } = 30;
         /// <summary>Waking a mezzed enemy that is not the kill target.</summary>
@@ -546,6 +559,7 @@ namespace DOL.GS
                     break;
                 case PvpActionKind.Stun:
                     score += option.IsKill ? weights.StunOnKillTarget : 0;
+                    score += option.Pursuer && !option.HasEffect ? weights.StunOnPursuer : 0;
                     break;
                 case PvpActionKind.Amnesia:
                     score += weights.AmnesiaPerCastStopped * option.Caught + weights.AmnesiaPerSleeperWoken * option.Wakes;

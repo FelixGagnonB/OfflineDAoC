@@ -1059,7 +1059,7 @@ namespace DOL.GS
                 : Known.Where(enemy => enemy.IsAlive && !IsFighter(enemy) && !enemy.IsMezzed).Select(enemy => new Vector2(enemy.X, enemy.Y)).ToList();
             if (fighters.Count == 0 && others.Count == 0)
                 return;
-            double byOrder = Order == PvpOrder.Extend ? all.Order.ExtendSafeFactor : Order == PvpOrder.Push ? all.Order.PushSafeFactor : 1;
+            double byOrder = all.Order.SafeFactor(Order, (GameLoop.GameLoopTime - _orderSince) / 1000.0);
             int safe = (int)(weights.SafeDistance * byOrder);
             int edge = (int)(weights.EdgeDistance * byOrder);
             List<GameBot> alive = _members.Where(bot => bot.IsAlive).ToList();
