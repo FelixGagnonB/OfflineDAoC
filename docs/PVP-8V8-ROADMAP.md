@@ -184,13 +184,25 @@ raise a groupmate 17 times.
 *The dead that stood.* With the body staying, the owner saw what the move had hidden: "When a
 character dies, its body remains up. Unless you look at his hp, you don't know he's dead." A
 bot is a monster to the client, and a monster that dies is removed; the removal (type 0) is
-what lays it down. Nothing says "dead" for a monster that stays. Built, **not yet seen in a
-client**: a client that sees an 8v8 bot die gets the packet a dead player gets, with the bot's
-id; a client that comes near a body gets it again; no position update goes out for a body
-(`PvpCorpse`). Which way the original client takes is not known, so `/8v8 corpse
-died|remove|off` switches in game between that, the removal a monster gets (the body lies but
-the client forgets it, so it may not be clickable), and nothing. Raising moves the bot, which
-makes it anew for the client. Only 8v8 bots.
+what lays it down. Nothing says "dead" for a monster that stays. *First try, seen by the owner
+not to work:* the packet a dead player gets, with the bot's id, and no position updates for
+the body. "The corpses still stand up and after some seconds the corpse disappear. I could
+not click on the dead enchanter from the mini group window": the client ignores that packet
+for a monster, forgets a monster it gets no updates for, and cannot target a group member it
+does not have. *Second try, installed, **not yet seen in a client**:* the client keeps the bot
+and its updates and is sent what it does take, the removal of a dead monster (the body falls
+and lies) and then the bot again as a ghost (the see-through flag) with "Dead" under its
+name, to click or to target from the group window (`PvpCorpse`). `/8v8 corpse fall|ghost|off`
+switches in game between that, the ghost alone, and nothing. Raising moves the bot, which
+makes it anew for the client, alive. Only 8v8 bots.
+
+*Hibernia with two Bards.* The owner, on the Bard being Hibernia's only cure for mez: "we could
+always try this setup, that we ran for many years. I just don't know how it would behave in
+1.65. We use to run: bard, bard, druid, druid, hero, bm, bm, eld". It is `hib-2bard`, a group
+beside the main ones (`PvpBuildCatalog.Variants`): a batch takes it by its name
+(`Pairs=hib-2bard:alb-main`), `/8v8 play hib-2bard` fights it and `/8v8 play mid 5 hib-2bard`
+plays in it. Both Bards have the one Bard spec until the owner says what the second one had.
+Not run yet; to compare with `hib-main` on time asleep and how fast a sleeping healer is woken.
 
 *M7 as it measures* (72 bots-only matches of that day, 144 team-fights, the positions of the
 dead read from their last living snapshot):
