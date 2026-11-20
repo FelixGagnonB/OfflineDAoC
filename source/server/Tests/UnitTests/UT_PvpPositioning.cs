@@ -258,6 +258,19 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void ABotWalkingIntoRangeStopsAtAHeightBetweenItsOwnAndItsTargets()
+        {
+            // A healer 2,500 from its patient, 300 above it, with a spell that reaches 1,850.
+            var from = new System.Numerics.Vector3(2_500, 0, 3_900);
+            var to = new System.Numerics.Vector3(0, 0, 3_600);
+            System.Numerics.Vector3 stop = PvpPositioning.StopShortOf(from, to, 1_850);
+            Assert.That(System.Numerics.Vector3.Distance(stop, to), Is.EqualTo(1_700).Within(1), "150 inside its range");
+            Assert.That(stop.Z, Is.LessThan(3_900).And.GreaterThan(3_600), "down the slope, not at its own height");
+            // Already in range: it stays where it is.
+            Assert.That(PvpPositioning.StopShortOf(new System.Numerics.Vector3(1_000, 0, 3_700), to, 1_850), Is.EqualTo(new System.Numerics.Vector3(1_000, 0, 3_700)));
+        }
+
+        [Test]
         public void AFighterThatIsNotOnItDoesNotPinIt()
         {
             Assert.That(PvpPositioning.Pinned(Vector2.Zero, [new PvpThreat(new Vector2(150, 0), false, false, false)], Weights), Is.False);

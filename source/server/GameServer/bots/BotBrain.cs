@@ -4895,8 +4895,10 @@ namespace DOL.AI.Brain
             if (BotBody.IsPvpBot && range > 300 && distance > 1)
             {
                 double keep = (range - 150) / distance;
+                // Along the ground, not in a straight line at its own height (PvpPositioning.StopShortOf).
                 if (keep < 1)
-                    BotBody.WalkTo(new Point3D((int)(target.X + (Body.X - target.X) * keep), (int)(target.Y + (Body.Y - target.Y) * keep), Body.Z), BotBody.MaxSpeed);
+                    BotBody.PathTo(PvpSight.OnGround(Body.CurrentZone, PvpPositioning.StopShortOf(
+                        new Vector3(Body.X, Body.Y, Body.Z), new Vector3(target.X, target.Y, target.Z), range)), BotBody.MaxSpeed);
                 return true;
             }
             BotBody.WalkTo(new Point3D(target.X, target.Y, target.Z), BotBody.MaxSpeed);

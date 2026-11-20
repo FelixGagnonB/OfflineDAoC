@@ -291,6 +291,23 @@ namespace DOL.GS
         /// <summary>Why a bot is not stepping, for the recorder and the tests.</summary>
         public enum Verdict { Step, Safe, Pinned, NothingBetter, Kite }
 
+        /// <summary>
+        /// Where a bot stops when it walks up to something to reach it with a spell of
+        /// <paramref name="range"/>: on the line between them, <paramref name="margin"/> inside the
+        /// range, and at a height between the two, not at its own. A healer walking up to its
+        /// patient was sent to a point at its own height in a straight line; on sloping ground it
+        /// kept that height wherever it went (a Shaman for two and a half minutes and 3,300
+        /// units, a Healer for a minute and a half), and stood 150 to 230 units above the ground
+        /// the owner's Hero stood on beside it: "I'm unable to attack healer and shaman. Always
+        /// says out of range, even if I'm on top of them" (2026-11-20).
+        /// </summary>
+        public static Vector3 StopShortOf(Vector3 from, Vector3 to, int range, int margin = 150)
+        {
+            float distance = Vector3.Distance(from, to);
+            float keep = distance <= 1 ? 0 : Math.Clamp((range - margin) / distance, 0, 1);
+            return to + (from - to) * keep;
+        }
+
         /// <summary>True for a bot with a free enemy fighter on it and close, and none of those on it held or slowed.</summary>
         public static bool Pinned(Vector2 self, IReadOnlyList<PvpThreat> threats, PvpPositionWeights weights) =>
             threats.Any(threat => threat.OnMe && !threat.Held && !threat.Slowed && Vector2.Distance(self, threat.At) <= weights.PinnedWithin) &&

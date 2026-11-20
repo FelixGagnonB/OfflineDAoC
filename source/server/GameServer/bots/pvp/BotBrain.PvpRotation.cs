@@ -144,14 +144,13 @@ namespace DOL.AI.Brain
                         enemy.IsWithinRadius(member, all.Heal.ResurrectNoFighterWithin))));
             if (corpse == null)
                 return false;
-            double distance = Body.GetDistanceTo(corpse);
-            double keep = (range - 150) / distance;
-            Body.WalkTo(new Point3D((int)(corpse.X + (Body.X - corpse.X) * keep), (int)(corpse.Y + (Body.Y - corpse.Y) * keep), Body.Z), Body.MaxSpeed);
+            Body.PathTo(PvpSight.OnGround(Body.CurrentZone, PvpPositioning.StopShortOf(
+                new Vector3(Body.X, Body.Y, Body.Z), new Vector3(corpse.X, corpse.Y, corpse.Z), range)), Body.MaxSpeed);
             long now = GameLoop.GameLoopTime;
             if (now - _pvpRaiseTick >= 3_000)
             {
                 _pvpRaiseTick = now;
-                PvpRecorder.Decision(BotBody, new { kind = "GoRaise", d = corpse.Name, score = (int)distance }, [], null);
+                PvpRecorder.Decision(BotBody, new { kind = "GoRaise", d = corpse.Name, score = (int)Body.GetDistanceTo(corpse) }, [], null);
             }
             return true;
         }

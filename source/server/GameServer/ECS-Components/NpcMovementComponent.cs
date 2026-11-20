@@ -1273,6 +1273,20 @@ namespace DOL.GS
             if (Owner is not GameBot || Owner is GameBot { IsOnStableMasterRoute: true } || Owner.CurrentZone == null)
                 return;
 
+            // An 8v8 bot that stops is put on the ground under it, from as far up or down as it has got: its
+            // fights are in the open field, with no floor above another, and a bot left above the ground cannot
+            // be hit by a player standing beside it (PvpPositioning.StopShortOf has the case).
+            if (Owner is GameBot { IsPvpBot: true })
+            {
+                Vector3 ground = PvpSight.OnGround(Owner.CurrentZone, _ownerPosition);
+                if (MathF.Abs(ground.Z - _ownerPosition.Z) > 1f)
+                {
+                    _ownerPosition = ground;
+                    _pathfinder.ForceReplot = true;
+                }
+                return;
+            }
+
             // A broad nearest-poly snap at every stop could land on an isolated
             // prop or another side of a wall. Only correct slight underground Z
             // with effectively unchanged XY. Never pull an actor down a floor.

@@ -15,6 +15,22 @@ namespace DOL.GS
     /// </summary>
     public static class PvpSight
     {
+        /// <summary>How far above or below a point its ground is looked for.</summary>
+        public const int GroundReach = 600;
+
+        /// <summary>
+        /// The walkable ground at a point: the floor nearest to its height, straight above or
+        /// below it. The point itself where there is none.
+        /// </summary>
+        public static Vector3 OnGround(Zone zone, Vector3 point)
+        {
+            var nav = PathfindingProvider.Instance;
+            if (zone == null || nav == null || !nav.IsAvailable || !nav.HasNavmesh(zone))
+                return point;
+            return nav.GetClosestPoint(zone, point, 3, 3, GroundReach, nav.DefaultFilters) is { } ground &&
+                   float.IsFinite(ground.Z) && Math.Abs(ground.Z - point.Z) <= GroundReach ? ground : point;
+        }
+
         /// <summary>How high above the ground a character sees from, and is seen at.</summary>
         public const int EyeHeight = 60;
         /// <summary>The ground is looked at every so many units along the line.</summary>
