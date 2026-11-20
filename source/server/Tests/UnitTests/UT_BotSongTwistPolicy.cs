@@ -52,5 +52,28 @@ namespace DOL.UnitTests
                 new[] { new Song(1, 0, 0, 5000), new Song(2, 0, 2000, 0) }), Is.Zero);
             Assert.That(BotSongTwistPolicy.Choose(1, 0, new[] { new Song(1, 0, 0, 0) }), Is.EqualTo(1));
         }
+
+        [Test] public void OnTheRoadAnEightVEightBardTwistsSpeedAndEndurance()
+        {
+            const int speed = 1, endurance = 2;
+            // Speed has just pulsed (six seconds left) and the endurance has run out: endurance now.
+            Assert.That(BotSongTwistPolicy.ChooseRoadTwist(speed, speed,
+                new[] { new Song(speed, 3000, 0, 5800), new Song(endurance, 3000, 0, 0) }), Is.EqualTo(endurance));
+            // The usual rule would never fit it in: the round trip is longer than the speed lasts.
+            Assert.That(BotSongTwistPolicy.Choose(speed, speed,
+                new[] { new Song(speed, 3000, 0, 5800), new Song(endurance, 3000, 0, 0) }), Is.Zero);
+            // Endurance playing: straight back to the speed.
+            Assert.That(BotSongTwistPolicy.ChooseRoadTwist(speed, endurance,
+                new[] { new Song(speed, 3000, 0, 2800), new Song(endurance, 3000, 0, 5000) }), Is.EqualTo(speed));
+            // Endurance still has time: the speed is left to play.
+            Assert.That(BotSongTwistPolicy.ChooseRoadTwist(speed, speed,
+                new[] { new Song(speed, 3000, 0, 5800), new Song(endurance, 3000, 0, 2500) }), Is.Zero);
+            // The speed is itself about to lapse: not now, wait for its pulse.
+            Assert.That(BotSongTwistPolicy.ChooseRoadTwist(speed, speed,
+                new[] { new Song(speed, 3000, 0, 1500), new Song(endurance, 3000, 0, 0) }), Is.Zero);
+            // Nothing playing: the speed first.
+            Assert.That(BotSongTwistPolicy.ChooseRoadTwist(speed, 0,
+                new[] { new Song(speed, 3000, 0, 0), new Song(endurance, 3000, 0, 0) }), Is.EqualTo(speed));
+        }
     }
 }

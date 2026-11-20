@@ -100,6 +100,19 @@ namespace DOL.GS
         /// </summary>
         public int PinnedWithin { get; set; } = 600;
         /// <summary>
+        /// A bot pinned like that kites back all the same, a step after another with no rest
+        /// between (<see cref="KiteStepEveryMilliseconds"/>). The owner, 2026-11-20: "it really
+        /// comes down to the Pac Healer knowing enemies are pushing for it and kiting back while
+        /// our fighters and casters try to crowd control and train the enemies." Running gains no
+        /// distance, as the count above says; it does spare blows. In 36 recorded matches a healer
+        /// with an awake fighter on it stood for seven seconds in ten and finished 13 to 57% of
+        /// the few casts it began; moving, the Pacification Healer took 0.48 melee hits a second
+        /// against 0.66 standing, the Rejuvenation Cleric 0.35 against 0.65, the Bard 0.20 against
+        /// 0.48 (five builds of eight took fewer). Off: it stands, as until 2026-11-20.
+        /// </summary>
+        public bool KitesWhenPinned { get; set; } = true;
+        public int KiteStepEveryMilliseconds { get; set; } = 700;
+        /// <summary>
         /// With one of the enemy fighters on it mezzed, stunned, rooted or slowed, the bot is not
         /// pinned by the others: it runs, leaves that one behind, and whoever follows does so
         /// alone. The owner, watching Hibernia against Albion on 2026-11-19: both Blademasters
@@ -244,7 +257,12 @@ namespace DOL.GS
         private const int Directions = 16;
 
         /// <summary>Why a bot is not stepping, for the recorder and the tests.</summary>
-        public enum Verdict { Step, Safe, Pinned, NothingBetter }
+        public enum Verdict { Step, Safe, Pinned, NothingBetter, Kite }
+
+        /// <summary>True for a bot with a free enemy fighter on it and close, and none of those on it held or slowed.</summary>
+        public static bool Pinned(Vector2 self, IReadOnlyList<PvpThreat> threats, PvpPositionWeights weights) =>
+            threats.Any(threat => threat.OnMe && !threat.Held && !threat.Slowed && Vector2.Distance(self, threat.At) <= weights.PinnedWithin) &&
+            !(weights.RunsWhenOneAttackerIsHeld && threats.Any(threat => threat.OnMe && (threat.Held || threat.Slowed)));
 
         /// <summary>
         /// The places worth stepping to, best first; empty when the bot is better off where it
@@ -267,9 +285,9 @@ namespace DOL.GS
             bool insideEdge = edge > 0 && NearestEnemy(self, threats, others) < edge;
             if (safeDistance <= 0 || !fighterNear && !insideEdge && !leftBehind && !OutOfReach(self, threats, others, reach))
                 return [];
-            // A fighter that can follow is on it and close: running gains nothing.
-            if (threats.Any(threat => threat.OnMe && !threat.Held && !threat.Slowed && Vector2.Distance(self, threat.At) <= weights.PinnedWithin) &&
-                !(weights.RunsWhenOneAttackerIsHeld && threats.Any(threat => threat.OnMe && (threat.Held || threat.Slowed))))
+            // A fighter that can follow is on it and close: running gains no distance. It kites back all the same, or stands.
+            bool pinned = Pinned(self, threats, weights);
+            if (pinned && !weights.KitesWhenPinned)
             {
                 verdict = Verdict.Pinned;
                 return [];
@@ -289,11 +307,12 @@ namespace DOL.GS
                     if (floor > 0 && NearestEnemy(point, [], others) < floor)
                         continue;
                     double score = Score(point, threats, work, mates, minSpacing, safeDistance, weights, others, edge, reach, apart, apartSpacing) + Along(point);
-                    if (score - here >= weights.MinGain)
+                    // Kiting, any step is taken, the best of them: it is the moving that counts, not the gain.
+                    if (score - here >= weights.MinGain || pinned)
                         better.Add((point, score));
                 }
             }
-            verdict = better.Count > 0 ? Verdict.Step : Verdict.NothingBetter;
+            verdict = better.Count == 0 ? Verdict.NothingBetter : pinned ? Verdict.Kite : Verdict.Step;
             return better.OrderByDescending(entry => entry.Score).Select(entry => entry.Point).ToList();
         }
 

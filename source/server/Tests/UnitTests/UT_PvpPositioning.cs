@@ -203,12 +203,43 @@ namespace DOL.UnitTests
 
         [TestCase(150)]
         [TestCase(500)]
-        public void WithAFreeFighterOnItAndCloseItStays(int away)
+        public void WithAFreeFighterOnItAndCloseItKitesBack(int away)
         {
-            // Both run at the same speed: walking away gains nothing.
+            // Both run at the same speed, so it gains no distance; it moves all the same, away from the fighter.
             List<Vector2> steps = Steps(Vector2.Zero, [new PvpThreat(new Vector2(away, 0), false, false, true)], [], out var verdict);
+            Assert.That(verdict, Is.EqualTo(PvpPositioning.Verdict.Kite));
+            Assert.That(steps, Is.Not.Empty);
+            Assert.That(steps[0].X, Is.LessThan(0), "away from the fighter");
+        }
+
+        [TestCase(150)]
+        [TestCase(500)]
+        public void WithKitingOffItStaysAsItDid(int away)
+        {
+            var standing = new PvpPositionWeights { KitesWhenPinned = false };
+            List<Vector2> steps = PvpPositioning.Steps(Vector2.Zero, [new PvpThreat(new Vector2(away, 0), false, false, true)], [], [], 400, 900,
+                standing, out var verdict);
             Assert.That(steps, Is.Empty);
             Assert.That(verdict, Is.EqualTo(PvpPositioning.Verdict.Pinned));
+        }
+
+        [Test]
+        public void ItKitesTheWayItIsToldToFallBack()
+        {
+            // A fighter beside it to the north; the group's way back is west: of the steps that leave the fighter, the western ones lead.
+            var threat = new PvpThreat(new Vector2(0, 150), false, false, true);
+            List<Vector2> steps = PvpPositioning.Steps(Vector2.Zero, [threat], [], [], 400, 900, Weights, out var verdict, new Vector2(-1, 0));
+            Assert.That(verdict, Is.EqualTo(PvpPositioning.Verdict.Kite));
+            Assert.That(steps[0].X, Is.LessThan(0));
+            Assert.That(steps[0].Y, Is.LessThanOrEqualTo(0), "and not towards the fighter");
+        }
+
+        [Test]
+        public void AFighterThatIsNotOnItDoesNotPinIt()
+        {
+            Assert.That(PvpPositioning.Pinned(Vector2.Zero, [new PvpThreat(new Vector2(150, 0), false, false, false)], Weights), Is.False);
+            Assert.That(PvpPositioning.Pinned(Vector2.Zero, [new PvpThreat(new Vector2(150, 0), false, false, true)], Weights), Is.True);
+            Assert.That(PvpPositioning.Pinned(Vector2.Zero, [new PvpThreat(new Vector2(900, 0), false, false, true)], Weights), Is.False, "too far to be pinned by");
         }
 
         [TestCase(true, false)]

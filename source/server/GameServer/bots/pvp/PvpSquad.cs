@@ -1070,7 +1070,9 @@ namespace DOL.GS
                 // A healer that its group has left behind follows it, and does not wait between steps either.
                 bool leftBehind = healers.Contains(bot) &&
                     PvpPositioning.LeftBehind(self, _allies.Where(member => member.IsAlive && member != bot).Select(member => At(member)).ToList(), weights);
-                if (LastStandStep.TryGetValue(bot, out long last) && (hunted || leftBehind ? now - last < 1_500
+                bool kiting = hunted && weights.KitesWhenPinned && PvpPositioning.Pinned(self, threats, weights);
+                if (LastStandStep.TryGetValue(bot, out long last) && (kiting ? now - last < weights.KiteStepEveryMilliseconds
+                        : hunted || leftBehind ? now - last < 1_500
                         : now - (weights.StepWaitCountsFromArrival && StandStepEnds.TryGetValue(bot, out long ends) ? ends : last) < weights.StepEveryMilliseconds))
                     continue;
                 bool fighterNear = threats.Any(threat => Vector2.Distance(self, threat.At) < safe);
@@ -1118,7 +1120,16 @@ namespace DOL.GS
                 List<Vector2> mates = backline.Where(member => member != bot).Select(member => At(member)).ToList();
                 List<Vector2> otherHealers = isHealer && all.Spread.HealerSpacing > 0
                     ? healers.Where(member => member != bot).Select(member => At(member)).ToList() : null;
-                List<Vector2> steps = PvpPositioning.Steps(self, threats, work, mates, all.Spread.MinSpacing, safe, weights, out _, retreat, others, edge,
+                // Kiting, it goes back: away from the middle of the enemy through the middle of its own back line, whatever the order.
+                Vector2 back = retreat;
+                if (kiting && back == default && enemiesAlive.Count > 0)
+                {
+                    Vector2 away = new Vector2((float)backline.Average(member => member.X), (float)backline.Average(member => member.Y)) -
+                                   new Vector2((float)enemiesAlive.Average(enemy => enemy.X), (float)enemiesAlive.Average(enemy => enemy.Y));
+                    if (away.LengthSquared() > 1)
+                        back = Vector2.Normalize(away);
+                }
+                List<Vector2> steps = PvpPositioning.Steps(self, threats, work, mates, all.Spread.MinSpacing, safe, weights, out _, back, others, edge,
                     closeUp, otherHealers, all.Spread.HealerSpacing, leftBehind);
                 bool closing = !fighterNear && PvpPositioning.OutOfReach(self, threats, others, closeUp);
                 foreach (Vector2 to in steps.Take(4))
@@ -1138,7 +1149,7 @@ namespace DOL.GS
                     bot.PathTo(floor, bot.MaxSpeed);
                     PvpRecorder.Decision(bot, new
                     {
-                        kind = hunted ? "GetAway" : fighterNear ? "StandOff" : closing ? "CloseUp" : leftBehind ? "Follow" : "KeepRange", order = Order.ToString(),
+                        kind = kiting ? "Kite" : hunted ? "GetAway" : fighterNear ? "StandOff" : closing ? "CloseUp" : leftBehind ? "Follow" : "KeepRange", order = Order.ToString(),
                         score = (int)PvpPositioning.NearestEnemy(self, threats, others),
                     }, [], null);
                     break;

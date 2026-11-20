@@ -88,6 +88,31 @@ namespace DOL.GS
             return eSpellType.DamageAdd;
         }
 
+        /// <summary>
+        /// The twist of an 8v8 Bard on the road: speed is the song it holds, and endurance is
+        /// slipped in each time its effect is about to lapse and the speed has just pulsed. The
+        /// owner, 2026-11-20: "both speed and endurance were up because we were always sprinting".
+        /// The usual rule (<see cref="Choose"/>) never fits endurance in here: both songs are
+        /// three-second casts and the speed lasts six, so the round trip is longer than the speed
+        /// has left. This one accepts that the speed may lapse for a moment at the end of a round.
+        /// </summary>
+        public static int ChooseRoadTwist(int primaryId, int activeId, IReadOnlyList<Song> songs,
+            int secondaryDueBelow = 1_000, int primaryFreshAbove = 4_500)
+        {
+            Song primary = songs.FirstOrDefault(song => song.Id == primaryId);
+            if (primary.Id == 0) return 0;
+            // Anything else playing, or nothing: back to the speed at once.
+            if (activeId != primaryId)
+                return primary.CooldownMilliseconds <= 0 ? primaryId : 0;
+            foreach (Song secondary in songs.Where(song => song.Id != primaryId && song.CooldownMilliseconds <= 0)
+                         .OrderBy(song => song.RemainingMilliseconds))
+            {
+                if (secondary.RemainingMilliseconds <= secondaryDueBelow && primary.RemainingMilliseconds >= primaryFreshAbove)
+                    return secondary.Id;
+            }
+            return 0;
+        }
+
         public static int Choose(int primaryId, int activeId, IReadOnlyList<Song> songs)
         {
             Song primary = songs.FirstOrDefault(song => song.Id == primaryId);

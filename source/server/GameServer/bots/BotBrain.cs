@@ -2236,12 +2236,13 @@ namespace DOL.AI.Brain
                 // No speed song once an 8v8 fight is on (a Minstrel began one 37 s into a fight, an enemy 275 units away).
                 .Where(spell => spell.SpellType != eSpellType.SpeedEnhancement || !PvpHeldBackInFight(spell))
                 .Where(spell => !pvpSongBounded || spell.SpellType == eSpellType.EnduranceRegenBuff)
-                // Off the fight an 8v8 Bard holds one song and lets it play: speed on the road, endurance
-                // once the enemy is near. Slipping its three resistance hymns in between made it cast the
-                // speed song again every three and a half seconds (24 times in 85 seconds of roaming;
-                // the owner, 2026-11-19: "it does not need to cast speed over and over").
+                // Off the fight an 8v8 Bard plays speed and endurance and nothing else: the two twisted
+                // on the road (BotSongTwistPolicy.ChooseRoadTwist), endurance alone once the enemy is
+                // near. Slipping its three resistance hymns in as well made it cast the speed song again
+                // every three and a half seconds (24 times in 85 seconds of roaming).
                 .Where(spell => !pvpBardPlays || immediateCombat ||
-                                spell.SpellType == (pvpBardEnemyNear ? eSpellType.EnduranceRegenBuff : eSpellType.SpeedEnhancement));
+                                spell.SpellType == eSpellType.EnduranceRegenBuff ||
+                                spell.SpellType == eSpellType.SpeedEnhancement && !pvpBardEnemyNear);
             if (ownerMoving)
                 songCandidates = songCandidates.GroupBy(spell => spell.SpellType)
                     .Select(group => group.OrderByDescending(spell => spell.Level)
@@ -2285,9 +2286,11 @@ namespace DOL.AI.Brain
                 _nextSongTwistTick = GameLoop.GameLoopTime + 1_000;
                 return false;
             }
-            int chosenId = BotSongTwistPolicy.Choose(songs[0].ID, _activeTwistedSongId,
-                songs.Select(candidate => new BotSongTwistPolicy.Song(candidate.ID, candidate.CastTime,
-                    bot.GetSkillDisabledDuration(candidate), SongRemainingMilliseconds(candidate))).ToArray());
+            BotSongTwistPolicy.Song[] offered = songs.Select(candidate => new BotSongTwistPolicy.Song(candidate.ID, candidate.CastTime,
+                bot.GetSkillDisabledDuration(candidate), SongRemainingMilliseconds(candidate))).ToArray();
+            int chosenId = pvpBardPlays && !immediateCombat && !pvpBardEnemyNear
+                ? BotSongTwistPolicy.ChooseRoadTwist(songs[0].ID, _activeTwistedSongId, offered)
+                : BotSongTwistPolicy.Choose(songs[0].ID, _activeTwistedSongId, offered);
             Spell song = songs.FirstOrDefault(candidate => candidate.ID == chosenId);
 
             // Preserve the anchor. Only leave after its reuse clears and a real
