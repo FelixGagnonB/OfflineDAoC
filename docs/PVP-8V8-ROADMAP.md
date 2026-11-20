@@ -134,6 +134,62 @@ match of 11:44; what the owner has seen of it in play is noted per row.
 Still open from these sessions: Midgard's fighters dive and die 1,240 to 2,165 units from their
 healers (a leash, to be built switched off and compared); in two fights the Bard finished no
 endurance song at all; the Shaman casts almost no roots or diseases.
+(The leash was counted and dropped the same day: Midgard's fighters die out of heal range no
+more often than the others'. Those distances were read from where the server had the bodies,
+which was not where they fell: see the next section.)
+
+### 2026-11-20, later: comparisons, the dead that moved, and M7 as it measures
+
+The owner was away for a while ("All yours... it would be nice to move into the Milestones").
+Each comparison below is a batch at rank 5 in which one team of every match has the setting
+and the other does not, read team by team with `source/tools/pvp_versus.py` (the referee counts
+a match as a whole and mixes the two). Two dozen team-fights a side are a check, not a result.
+
+| Compared | With | Without | Decision |
+|---|---|---|---|
+| **Kiting when pinned** (`KitesWhenPinned`, 24 matches) | wins 58%, deaths 3.6 a fight, healer deaths 1.3, first healer death at 66 s | 42%, 4.9, 1.6, 84 s | stays on |
+| **The Shaman healing first only below 40%** (not 75; 24 matches, Midgard on one side of each) | Midgard won 4 of its 12, lost 5.3 a fight; about twice the diseases and a fifth fewer heals | 2 of 12, 6.7 | not switched: too few to tell |
+| **Sprint paid for with endurance** (`SprintCostPerSecond` 5 against 0, 24 matches) | fighters under 20% endurance 17% of the fight, 75% of swings with a style, wins 46%, deaths 4.4 | 1%, 82%, 54%, 3.7 | the cost stays (the owner's rule); `FighterKeepsEndurancePercent` built, off, to be compared |
+| **Control on a fighter that is on the healers** (`RootOnPursuer` 100 and `StunOnPursuer` 70 against 30 and 0; 21 matches) | such a fighter stunned, mezzed or rooted within 3 s: 63% of 43; within 6 s: 74%. Wins 43%, deaths 4.7 | 33% of 48; 56%. Wins 57%, deaths 3.8 | off: it stops the dives and costs more than it saves; a milder one to be tried |
+| **An order moving the back line only after 5 s** (`Order.SafeFactorAfterSeconds`) | not run yet | | off |
+
+*The dead that moved.* The owner, back and playing a Cleric: "I was not able to rez anyone
+because I could not target them even if I was standing beside them." A brain that stops puts
+its body back at its spawn point, as for a mob (`ABrain.Stop`, called from `NpcService` once the
+bot is dead). A dead 8v8 bot keeps its body for a raise, so the body went to where the bot had
+stood at the start of the match: 700 to 5,000 units from where it died in a lane and about
+9,000 in the basin, in every recording since 2026-11-18. The owner's client showed it where it
+fell; the server refuses a target beyond 6,000 units and deletes it from the client. Bots chose
+whom to raise by the wrong place too (52 raise decisions that day, the raiser a median 1,136
+from where the server had the body and 1,221 from where it fell). Found with a temporary log
+of who moved a body, in the owner's own game; an 8v8 bot's body now stays where it fell.
+**Anything counted before this from a dead bot's position was wrong**: a first count that day
+of deaths beyond heal range gave 35%, and from the last living position it is 8%.
+
+*The Shaman's instant disease.* The owner: "Doesn't shaman have an instant aoe disease?" and
+then "I'd change the shaman spec to have that instant pbaoe disease. It's somewhat common to
+see a shaman run and pbaoe disease then kite". It is the Cave line's Mold Cloud at 27 (Mold
+Burst 37, Mold Explosion 47): no cast time, 350 units around the Shaman, every 8 seconds. The
+group's Shaman had Cave 26 and only the three-second Plague Spores (3.7 casts a match in 72
+matches). It is now Augmentation 46, Cave 27, Mending 8: the best Str/Con still, yellow
+Dex/Qui. The scored choice already takes an instant around the caster as an option within its
+radius and as a walk beyond it; whether the Shaman uses it well is to be read from matches.
+
+*M7 as it measures* (72 bots-only matches of that day, 144 team-fights, the positions of the
+dead read from their last living snapshot):
+
+| Scorecard line | Target | Albion | Hibernia | Midgard |
+|---|---|---|---|---|
+| Healer time with an enemy fighter within 250 | under 15% | 13% | 15% | 17% |
+| Deaths beyond 2,000 of every living healer (of deaths with a healer alive) | under 10% | 5% of 57 | 12% of 56 | 8% of 179 |
+| Fighter time beyond 2,000 of every own healer | | 5% | 4% | 5% |
+| Healer to the nearest enemy fighter, first 30 s (median) | | 865 | 805 | 959 |
+| Wins of its team-fights | | 66% of 44 | 70% of 44 | 21% of 56 |
+
+Half of all deaths come with no healer of the group left alive. Midgard is the weak one of the
+three by far. What the referee still fails in nearly every session is not on this card: a
+fighter that reaches the healers is stopped within three seconds a third of the time, and the
+back line walks 40% of its free time and casts 24%.
 
 ## The afternoon before (owner, 2026-11-19): to where the owner can play
 
@@ -2101,14 +2157,23 @@ step; 0 turns it off. The analyzer prints how many of each team are asleep ten s
 contact. Still to do: mezzers of the instant-mez realms going in ahead of their group, the
 Sorcerer's group holding at range, healers stepping back on incoming.
 
-- [ ] **M7.1** (M) Range bands per role and a backline anchor: healers and casters hold distance
+- [x] **M7.1** (M) Range bands per role and a backline anchor: healers and casters hold distance
   from enemy melee while staying in range of their group.
+  *Built (`PvpPositioning`, `PvpSquad.StandOff`); measured 2026-11-20: a healer has an enemy
+  fighter within 250 for 13 to 17% of the fight (target under 15%), and 8% of deaths are beyond
+  heal range (target under 10%).*
 - [ ] **M7.2** (M) Reactions to pressure: kite when attacked in melee, sprint, step out of area
   effects, move to regain sight or range.
+  *Built: kiting when pinned, sprint when pressed or with ground to cover, the walk back into
+  range. Not built: stepping out of an area effect. Open: the back line walks 40% of its time.*
 - [ ] **M7.3** (M) Melee movement: stick to the target, reach the position a positional style
   needs, stop chasing past the group's support range.
-- [ ] **M7.4** (M) Cohesion: formation while roaming, a tight group on approach, regrouping during
+  *Built: behind a stunned target for the style from behind; the Regroup order when fighters are
+  far. Not built: side positions. Fighters are beyond 2,000 of every healer 4 to 5% of the time.*
+- [x] **M7.4** (M) Cohesion: formation while roaming, a tight group on approach, regrouping during
   a fight.
+  *On the road every member follows the driver, who waits for stragglers; the back row stops at
+  3,200 and lets its fighters go on; Regroup and the owner's `/8v8 call regroup`.*
 
 **Exit check:** healer-distance and overextension targets met; wins at least 65% against the M6 build.
 
