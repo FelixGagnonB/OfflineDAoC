@@ -30,7 +30,11 @@ namespace DOL.GS
         //   Druid Nurture       Dex/Qui 49 / 39, Str/Con 44 / 34, haste 50 / 40, acuity 42 / 31
         //   Shaman Augmentation Dex/Qui 47 / 37, Str/Con 46 / 36, acuity 42 / 31, endurance 42
         // So 42 in the line gives yellow Dex/Qui and Str/Con and the best acuity. The Shaman is a
-        // buffer first and takes 47 for the best of all three.
+        // buffer first and took 47 for the best of all three, until the owner, 2026-11-20: "I'd
+        // change the shaman spec to have that instant pbaoe disease. It's somewhat common to see
+        // a shaman run and pbaoe disease then kite". That is Cave 27 (Mold Cloud: no cast time,
+        // 350 units around the Shaman, every 8 seconds; Mold Burst is 37, Mold Explosion 47), so
+        // the group's Shaman has Augmentation 46: the best Str/Con still, and yellow Dex/Qui.
         // The single-stat and base armour buffs are baseline: any level-50 Cleric, Druid, Healer
         // or Shaman casts the best one whatever its spec.
         public static readonly IReadOnlyList<PvpBuild> Builds =
@@ -72,7 +76,7 @@ namespace DOL.GS
             Melee("healer-mend", eCharacterClass.Healer, eSpecType.MendHealer, eObjectType.Hammer, eObjectType.GenericItem, false,
                 L(Specs.Mending, 40), L(Specs.Augmentation, 36), L(Specs.Pacification, 4)),
             Melee("shaman-aug", eCharacterClass.Shaman, eSpecType.AugShaman, eObjectType.Hammer, eObjectType.GenericItem, false,
-                L(Specs.Augmentation, 47), L(Specs.Subterranean, 26), L(Specs.Mending, 5)),
+                L(Specs.Augmentation, 46), L(Specs.Subterranean, 27), L(Specs.Mending, 8)),
             Melee("skald", eCharacterClass.Skald, eSpecType.Mid, eObjectType.Sword, eObjectType.GenericItem, false,
                 L(Specs.Battlesongs, 46), L(Specs.Sword, 44), L(Specs.Parry, 17)),
             Caster("runemaster-rune", eCharacterClass.Runemaster, eSpecType.RuneRune,

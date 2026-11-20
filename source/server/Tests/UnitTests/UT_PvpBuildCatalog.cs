@@ -73,6 +73,16 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void TheGroupsShamanHasItsInstantDisease()
+        {
+            // The owner, 2026-11-20: "I'd change the shaman spec to have that instant pbaoe disease."
+            // Mold Cloud is the Cave line's at 27; the yellow Str/Con and Dex/Qui need Augmentation 37.
+            PvpBuild shaman = PvpBuildCatalog.Find("shaman-aug");
+            Assert.That(shaman.Lines.Single(line => line.Spec == Specs.Subterranean).Level, Is.GreaterThanOrEqualTo(27));
+            Assert.That(shaman.Lines.Single(line => line.Spec == Specs.Augmentation).Level, Is.GreaterThanOrEqualTo(42));
+        }
+
+        [Test]
         public void MainGroupsAreEightOfOneRealm()
         {
             Assert.That(PvpBuildCatalog.Groups.Select(group => group.Realm),
