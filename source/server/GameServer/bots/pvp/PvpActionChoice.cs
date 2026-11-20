@@ -338,6 +338,13 @@ namespace DOL.GS
         /// (BotBrain.IsBuffHeldBackInFight). On: as it was until 2026-11-18.
         /// </summary>
         public bool BuffsInFight { get; set; } = false;
+
+        /// <summary>
+        /// A rise of the ground between two characters hides one from the other
+        /// (bots/pvp/PvpSight.cs): for what a group spots on the road and knows in a fight. Off:
+        /// only where nobody can walk hides anything, as it was until 2026-11-19.
+        /// </summary>
+        public bool SightOverGround { get; set; } = true;
         /// <summary>
         /// An 8v8 Bard in a fight starts its endurance song at most once in this many seconds,
         /// only that song, and not while it is being hit or a groupmate is asleep. 0: no song is

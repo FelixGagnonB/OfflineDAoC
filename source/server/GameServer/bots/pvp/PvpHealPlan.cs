@@ -44,6 +44,27 @@ namespace DOL.GS
         /// <summary>Nor while a living member in its reach is below this health: the living come first.</summary>
         public int ResurrectIfNobodyBelow { get; set; } = 50;
 
+        /// <summary>
+        /// Raising the dead in a fight, from where the bot stands. Until 2026-11-19 an 8v8 bot
+        /// asked the rule written for raids, which lets a healer raise in combat only while a
+        /// second free healer stands within the spell's reach of it (1,500 units): in 21 recorded
+        /// matches, 183 deaths, no Cleric, Druid, Healer, Shaman or Bard began a resurrection once.
+        /// Only the Paladin did (33 times, 5 finished: it is no healer, so the rule let it, in the
+        /// middle of the melee). In 43 of those deaths a member who can raise stood within reach
+        /// of the body, not interrupted and no enemy within 500 units, 34 of them with half their
+        /// power or more. Now: within reach, not being hit, with the power, nobody alive in its
+        /// reach badly hurt, no free enemy fighter at the body, and one healer at a time.
+        /// </summary>
+        public bool ResurrectInFight { get; set; } = true;
+        /// <summary>The share of its power a member must have to raise (the spell takes a quarter).</summary>
+        public int ResurrectPowerPercent { get; set; } = 50;
+
+        /// <summary>True for a member that should raise this body now, from where it stands.</summary>
+        public bool Raises(int distance, int range, int powerPercent, bool beingHit, int lowestHealthInReach, int freeFightersAtCorpse,
+            bool anotherHealerIsRaising) =>
+            ResurrectInFight && distance <= range && powerPercent >= ResurrectPowerPercent && !beingHit && !anotherHealerIsRaising &&
+            lowestHealthInReach >= ResurrectIfNobodyBelow && freeFightersAtCorpse == 0;
+
         /// <summary>True for a healer that should walk to a corpse now, to raise it.</summary>
         public bool WalksToRaise(int distance, int range, bool hasPower, bool beingHit, int lowestHealthInReach, int freeFightersAtCorpse) =>
             ResurrectWalkWithin > 0 && distance > range && distance <= ResurrectWalkWithin && hasPower && !beingHit &&

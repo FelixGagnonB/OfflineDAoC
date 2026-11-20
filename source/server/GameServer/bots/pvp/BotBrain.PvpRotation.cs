@@ -71,6 +71,49 @@ namespace DOL.AI.Brain
         private long _pvpRaiseTick;
 
         /// <summary>
+        /// The dead groupmate an 8v8 bot raises now, from where it stands, or null
+        /// (<see cref="PvpHealWeights.Raises"/>): a healer first, then the nearest.
+        /// </summary>
+        private GameLiving PvpCorpseToRaise(Spell resurrection)
+        {
+            if (BotBody?.IsPvpBot != true || PvpSquad == null || PvpEnemies == null || Body.Group == null || resurrection == null ||
+                Body.IsCasting || Body.IsIncapacitated || Body.IsSilenced)
+                return null;
+            PvpWeights all = PvpWeights.Of(BotBody);
+            int range = BotBody.castingComponent.CalculateSpellRange(resurrection);
+            // Its own last swing counts too: a Paladin that has just struck cannot cast, and in 24 matches
+            // six of its seven tries were refused at once, each one a step out of its fight for nothing.
+            bool beingHit = Body.IsBeingInterrupted || PvpEnemies.Any(enemy => enemy.IsAlive && !enemy.IsMezzed && !enemy.IsStunned &&
+                enemy.TargetObject == Body && PvpMember.ArchetypeOf(enemy) == PvpBuffArchetype.Melee && enemy.IsWithinRadius(Body, 500));
+            // The living come first for a member that heals; one that does not (a Paladin) has nobody to weigh.
+            int lowest = 100;
+            if (PvpMember.RoleOf(BotBody) == PvpRole.Heal)
+            {
+                foreach (GameLiving member in Body.Group.GetMembersInTheGroup())
+                {
+                    if (member != Body && member.IsAlive && member.HealthPercent < lowest && Body.IsWithinRadius(member, all.Position.HealRange + 300))
+                        lowest = member.HealthPercent;
+                }
+            }
+            bool anotherRaises = PvpSquad.AnotherHealerIsRaising(BotBody);
+            GameLiving corpse = Body.Group.GetMembersInTheGroup()
+                .Where(member => member != Body && !member.IsAlive && member.ObjectState == GameObject.eObjectState.Active &&
+                                 member.CurrentRegionID == Body.CurrentRegionID &&
+                                 member.TempProperties.GetProperty<GameLiving>("RESURRECT_CASTER") == null)
+                .OrderBy(member => PvpMember.RoleOf(member) == PvpRole.Heal ? 0 : 1)
+                .ThenBy(member => Body.GetDistanceTo(member))
+                .FirstOrDefault(member => all.Heal.Raises((int)Body.GetDistanceTo(member), range, Body.ManaPercent, beingHit, lowest,
+                    PvpEnemies.Count(enemy => enemy.IsAlive && !enemy.IsMezzed && !enemy.IsStunned &&
+                        PvpMember.ArchetypeOf(enemy) == PvpBuffArchetype.Melee &&
+                        enemy.IsWithinRadius(member, all.Heal.ResurrectNoFighterWithin)), anotherRaises) &&
+                    BotGroupSupport.HasCorpseLineOfSight(BotBody, member));
+            if (corpse == null || !PvpSquad.ClaimRaise(BotBody, corpse, resurrection.CastTime))
+                return null;
+            PvpRecorder.Decision(BotBody, new { kind = "Raise", d = corpse.Name, hp = lowest, score = (int)Body.GetDistanceTo(corpse) }, [], null);
+            return corpse;
+        }
+
+        /// <summary>
         /// A healer walks to within reach of a dead groupmate to raise it, when it has the power, is
         /// not being hit, nobody alive in its reach is badly hurt and no free enemy fighter stands
         /// at the corpse (<see cref="PvpHealWeights.WalksToRaise"/>). True when it is on its way.

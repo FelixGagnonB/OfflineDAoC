@@ -77,14 +77,16 @@ namespace DOL.UnitTests
         }
 
         [Test]
-        public void TheWindowStartsOnAnotherRealmFaceToFaceAtRankOne()
+        public void TheWindowStartsOnAnotherRealmFaceToFaceAtRankFiveWithThePlayerLeading()
         {
             foreach (eRealm own in new[] { eRealm.Albion, eRealm.Midgard, eRealm.Hibernia })
             {
                 Pvp8v8Setup setup = Pvp8v8Setup.DefaultFor(own);
                 Assert.That(setup.Enemy, Is.Not.EqualTo(own));
                 Assert.That(setup.Start, Is.EqualTo("lane"));
-                Assert.That(setup.Rank, Is.EqualTo(1));
+                // Rank 5: at rank 1 nobody has Purge and the first mez decides the fight.
+                Assert.That(setup.Rank, Is.EqualTo(5));
+                Assert.That(setup.BotDrives, Is.False);
             }
         }
 
@@ -95,7 +97,9 @@ namespace DOL.UnitTests
             Assert.That(setup.After("Hibernia", eRealm.Albion).Enemy, Is.EqualTo(eRealm.Hibernia));
             Assert.That(setup.After("Basin", eRealm.Albion).Start, Is.EqualTo("basin"));
             Assert.That(setup.After("Basin", eRealm.Albion).After("Lane", eRealm.Albion).Start, Is.EqualTo("lane"));
-            Assert.That(setup.After("Rank5", eRealm.Albion).Rank, Is.EqualTo(5));
+            Assert.That(setup.After("Rank7", eRealm.Albion).Rank, Is.EqualTo(7));
+            Assert.That(setup.After("Follow", eRealm.Albion).BotDrives, Is.True);
+            Assert.That(setup.After("Follow", eRealm.Albion).After("Lead", eRealm.Albion).BotDrives, Is.False);
             Assert.That(setup.After(" rank10 ", eRealm.Albion), Is.EqualTo(setup with { Rank = 10 }));
         }
 
@@ -118,6 +122,8 @@ namespace DOL.UnitTests
             Assert.That(text, Does.Contain("<Midgard>").And.Contain("[Hibernia]").And.Not.Contain("Albion"));
             Assert.That(text, Does.Contain("<Basin>").And.Contain("[Lane]"));
             Assert.That(text, Does.Contain("<Rank5>").And.Contain("[Rank1]").And.Contain("[Start]"));
+            Assert.That(text, Does.Contain("<Lead>").And.Contain("[Follow]"));
+            Assert.That(new Pvp8v8Setup(eRealm.Midgard, "basin", 5, true).Text(eRealm.Albion), Does.Contain("[Lead]").And.Contain("<Follow>"));
         }
 
         [Test]

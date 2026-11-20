@@ -57,6 +57,43 @@ namespace DOL.GS
             return new Vector2((float)(radius * Math.Cos(angle)), (float)(radius * Math.Sin(angle)));
         }
 
+        /// <summary>
+        /// Who drives a group on the road: the member with the speed song (Bard, Skald, Minstrel),
+        /// as in the owner's groups ("the Sorc, Pac healer or Skald and Bard driving... I would
+        /// stick to the Bard and it would roam around until contact", 2026-11-19); else the first
+        /// that is no fighter; else whoever is there.
+        /// </summary>
+        public static GameBot DriverOf(IReadOnlyList<GameBot> members)
+        {
+            List<GameBot> alive = members.Where(member => member.IsAlive).ToList();
+            return alive.FirstOrDefault(member => DrivesByClass(PvpMember.ClassOf(member)))
+                   ?? alive.FirstOrDefault(member => !PvpMember.IsFighter(member))
+                   ?? alive.FirstOrDefault();
+        }
+
+        public static bool DrivesByClass(eCharacterClass characterClass) =>
+            characterClass is eCharacterClass.Bard or eCharacterClass.Skald or eCharacterClass.Minstrel;
+
+        /// <summary>
+        /// The points a roaming group goes between in a box: three by three, a margin in from its
+        /// edges. The box is open ground; a point off the walkable ground is taken to the nearest
+        /// place on it by the caller.
+        /// </summary>
+        public static (int X, int Y)[] RoamPoints(int minX, int minY, int maxX, int maxY, int margin)
+        {
+            var points = new List<(int X, int Y)>();
+            for (int row = 0; row < 3; row++)
+            {
+                for (int column = 0; column < 3; column++)
+                    points.Add((minX + margin + (maxX - minX - 2 * margin) * column / 2, minY + margin + (maxY - minY - 2 * margin) * row / 2));
+            }
+            return points.ToArray();
+        }
+
+        /// <summary>The next point of a roam: any but the one the group is at, by a draw.</summary>
+        public static int NextRoamPoint(int current, int count, int draw) =>
+            count <= 1 ? 0 : (current + 1 + Math.Abs(draw % (count - 1))) % count;
+
         /// <summary>The middle of the travelling clump: ahead of the group on the way to its goal, and no farther than the goal.</summary>
         public static Vector2 TravelAnchor(Vector2 centre, Vector2 goal, float lead)
         {

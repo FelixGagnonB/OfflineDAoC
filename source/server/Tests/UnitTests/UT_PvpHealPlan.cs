@@ -174,5 +174,24 @@ namespace DOL.UnitTests
             Assert.That(PvpHealPlan.Projected(Patient(0, 90, incoming: 900)), Is.EqualTo(100));
             Assert.That(PvpHealPlan.Projected(Patient(0, 0)), Is.EqualTo(0));
         }
+
+        [Test]
+        public void AMemberRaisesFromWhereItStandsWhenItIsSafeToAndTheLivingCanSpareIt()
+        {
+            var weights = new PvpHealWeights();
+            Assert.Multiple(() =>
+            {
+                // distance, range, power %, being hit, lowest health in reach, free fighters at the body, another healer raising
+                Assert.That(weights.Raises(1_200, 1_500, 60, false, 90, 0, false), Is.True);
+                Assert.That(weights.Raises(1_500, 1_500, 50, false, 50, 0, false), Is.True, "at the marks");
+                Assert.That(weights.Raises(1_600, 1_500, 60, false, 90, 0, false), Is.False, "out of reach: this rule does not walk");
+                Assert.That(weights.Raises(1_200, 1_500, 49, false, 90, 0, false), Is.False, "it keeps half its power");
+                Assert.That(weights.Raises(1_200, 1_500, 60, true, 90, 0, false), Is.False, "it is being hit");
+                Assert.That(weights.Raises(1_200, 1_500, 60, false, 49, 0, false), Is.False, "the living come first");
+                Assert.That(weights.Raises(1_200, 1_500, 60, false, 90, 1, false), Is.False, "an enemy fighter stands at the body");
+                Assert.That(weights.Raises(1_200, 1_500, 60, false, 90, 0, true), Is.False, "one healer at a time");
+                Assert.That(new PvpHealWeights { ResurrectInFight = false }.Raises(1_200, 1_500, 60, false, 90, 0, false), Is.False, "switched off");
+            });
+        }
     }
 }

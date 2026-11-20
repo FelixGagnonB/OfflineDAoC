@@ -48,6 +48,20 @@ namespace DOL.AI.Brain
             target is not (eSpellTarget.SELF or eSpellTarget.PET or eSpellTarget.CONTROLLED);
 
         /// <summary>
+        /// A resistance buff on the whole group that lasts by itself (twenty minutes, no
+        /// concentration): heat, cold and matter from the Druid, the Shaman and the Friar; body,
+        /// spirit and energy from the Cleric, the Augmentation Healer and the Warden. Only a
+        /// member of the group can cast it, so the buffbot does not, and it was held back with
+        /// every other buff on others: in the recorded matches no bot of any realm ever cast one
+        /// (the owner, 2026-11-19, playing beside a Druid: "the druid never cast the 3 resists").
+        /// A Bard's or a Paladin's resistance song or chant is not meant: those pulse.
+        /// </summary>
+        public static bool IsTimedGroupResist(eSpellType type, eSpellTarget target, int duration, int concentration, bool pulsing) =>
+            type is eSpellType.HeatResistBuff or eSpellType.ColdResistBuff or eSpellType.MatterResistBuff or
+                eSpellType.BodyResistBuff or eSpellType.SpiritResistBuff or eSpellType.EnergyResistBuff &&
+            target == eSpellTarget.GROUP && duration > 0 && concentration == 0 && !pulsing;
+
+        /// <summary>
         /// True for a cast that is not begun once the group's fight has started: a buff with a
         /// cast time on anybody, the caster included, and a healer's pet. The owner, watching on
         /// 2026-11-18: a Cabalist cast its bubble during a fight, "which should not happen". In
@@ -81,8 +95,51 @@ namespace DOL.AI.Brain
             // other buff on others, so nobody had it: a Theurgist was out of power 42% of its fights.
             if (spell.SpellType == eSpellType.PowerRegenBuff && !PvpGroupIsFighting())
                 return false;
+            // The group's own resistance buffs, the same: before the fight, by the member that has the
+            // strongest of each. (With both Druids casting theirs, half of Hibernia's members began
+            // the fight with the weaker one: 24 matches, 2026-11-20.)
+            if (IsTimedGroupResist(spell.SpellType, spell.Target, spell.Duration, spell.Concentration, spell.IsPulsing) && !PvpGroupIsFighting())
+                return !PvpBuffPlan.CastsGroupBuff(spell.Value, Body.Name, PvpOthersGroupResists(spell.SpellType));
             return IsBuffOnOthers(spell.Target, spell.Duration, spell.Concentration, spell.IsPulsing) &&
                    (PvpSelfBuffsOnly || PvpFightIsOn());
+        }
+
+        /// <summary>The timed group resistance buffs of one type that the other bots of the group could cast: value and caster.</summary>
+        private List<(double Value, string Name)> PvpOthersGroupResists(eSpellType type) =>
+            (Body.Group?.GetMembersInTheGroup() ?? []).OfType<GameBot>()
+                .Where(member => member != Body && member.IsAlive)
+                .SelectMany(member => (member.MiscSpells ?? []).Concat(member.InstantMiscSpells ?? [])
+                    .Where(other => other != null && other.SpellType == type && other.Level <= member.Level &&
+                                    IsTimedGroupResist(other.SpellType, other.Target, other.Duration, other.Concentration, other.IsPulsing))
+                    .Select(other => (other.Value, member.Name)))
+                .ToList();
+
+        /// <summary>
+        /// True while this bot has a resistance buff for its group that is its to cast (it has the
+        /// group's strongest) and that it does not yet carry itself: the group is not ready. The
+        /// ready check ended on a few seconds of quiet, between two of the three buffs: in twelve
+        /// matches a third of Hibernia's members began the fight without one of them.
+        /// </summary>
+        public bool PvpHasGroupResistToCast()
+        {
+            if (BotBody?.IsPvpBot != true || Body.Group == null || !Body.IsAlive)
+                return false;
+            foreach (Spell spell in (BotBody.MiscSpells ?? []).Concat(BotBody.InstantMiscSpells ?? []))
+            {
+                if (spell == null || spell.Level > Body.Level ||
+                    !IsTimedGroupResist(spell.SpellType, spell.Target, spell.Duration, spell.Concentration, spell.IsPulsing) ||
+                    BotBody.Mana < BotBody.PowerCost(spell))
+                    continue;
+                // Its own strongest of the type, and the group's.
+                if ((BotBody.MiscSpells ?? []).Concat(BotBody.InstantMiscSpells ?? []).Any(other => other != null && other.SpellType == spell.SpellType &&
+                        other.Level <= Body.Level && other.Value > spell.Value &&
+                        IsTimedGroupResist(other.SpellType, other.Target, other.Duration, other.Concentration, other.IsPulsing)) ||
+                    !PvpBuffPlan.CastsGroupBuff(spell.Value, Body.Name, PvpOthersGroupResists(spell.SpellType)))
+                    continue;
+                if (!Body.effectListComponent.GetSpellEffects().Any(effect => effect?.SpellHandler?.Spell?.SpellType == spell.SpellType && !effect.IsDisabled))
+                    return true;
+            }
+            return false;
         }
 
         private bool PvpIsHealer() => BotBody?.CharacterClass != null &&

@@ -4,13 +4,13 @@ using DOL.GS.PacketHandler;
 namespace DOL.GS.Commands
 {
     /// <summary>What a player has picked in the 8v8 setup window.</summary>
-    public sealed record Pvp8v8Setup(eRealm Enemy, string Start, int Rank)
+    public sealed record Pvp8v8Setup(eRealm Enemy, string Start, int Rank, bool BotDrives = false)
     {
         public static readonly int[] Ranks = [1, 3, 5, 7, 10];
 
         /// <summary>The first pick: an enemy realm that is not the player's, face to face, rank 1.</summary>
         public static Pvp8v8Setup DefaultFor(eRealm own) =>
-            new(own == eRealm.Midgard ? eRealm.Hibernia : eRealm.Midgard, "lane", 1);
+            new(own == eRealm.Midgard ? eRealm.Hibernia : eRealm.Midgard, "lane", 5);
 
         /// <summary>
         /// The setup after a click on one of the window's words; unchanged for a word that is not
@@ -23,6 +23,8 @@ namespace DOL.GS.Commands
                 case "albion": return own == eRealm.Albion ? this : this with { Enemy = eRealm.Albion };
                 case "midgard": return own == eRealm.Midgard ? this : this with { Enemy = eRealm.Midgard };
                 case "hibernia": return own == eRealm.Hibernia ? this : this with { Enemy = eRealm.Hibernia };
+                case "lead": return this with { BotDrives = false };
+                case "follow": return this with { BotDrives = true };
                 case "lane": return this with { Start = "lane" };
                 case "basin": return this with { Start = "basin" };
                 case string rank when rank.StartsWith("rank") && int.TryParse(rank[4..], out int asked) && Ranks.Contains(asked):
@@ -39,6 +41,8 @@ namespace DOL.GS.Commands
             return "8v8: you and seven companions against a group of eight, in Emain Macha.\n\n" +
                    $"Enemy:   {realms}\n\n" +
                    $"Start:   {Pick("Lane", Start == "lane")}   {Pick("Basin", Start == "basin")}\n" +
+                   $"On the road:   {Pick("Lead", !BotDrives)}   {Pick("Follow", BotDrives)}\n" +
+                   "Lead: your group follows you. Follow: your Bard, Skald or Minstrel drives and you stick to it.\n" +
                    "Lane: face to face, 6,000 units apart. Basin: opposite ends, out of sight; the enemy roams and you find it.\n\n" +
                    $"Realm rank of every bot:   {string.Join("   ", Ranks.Select(rank => Pick("Rank" + rank, rank == Rank)))}\n\n" +
                    "What is in <> is chosen. Click another to change it, then:\n\n[Start]\n\n" +
@@ -121,7 +125,7 @@ namespace DOL.GS.Commands
                     return true;
                 }
                 PvpScrim.TravelAndStartPlay(owner, enemy, (setup.Rank - 1) * 10, setup.Start,
-                    said => owner.Out.SendMessage(said, eChatType.CT_System, eChatLoc.CL_SystemWindow));
+                    said => owner.Out.SendMessage(said, eChatType.CT_System, eChatLoc.CL_SystemWindow), setup.BotDrives);
                 return true;
             }
             int rankBefore = _setup.Rank;

@@ -135,9 +135,11 @@ namespace DOL.GS
                     continue;
                 var there = new Vector3(enemy.X, enemy.Y, enemy.Z);
                 // Nearest first: the first member that sees it is enough.
+                bool overGround = PvpWeights.Of(_members.FirstOrDefault()).SightOverGround;
                 bool seen = watchers.Where(member => member.IsWithinRadius(enemy, ViewRange))
                     .OrderBy(member => member.GetDistanceTo(enemy))
-                    .Any(member => nav.HasLineOfSight(member.CurrentZone, new Vector3(member.X, member.Y, member.Z), there, nav.DefaultFilters));
+                    .Any(member => nav.HasLineOfSight(member.CurrentZone, new Vector3(member.X, member.Y, member.Z), there, nav.DefaultFilters) &&
+                                   (!overGround || PvpSight.Clear(member, enemy)));
                 if (seen)
                     _lastSeen[enemy] = now;
                 if (_lastSeen.TryGetValue(enemy, out long last) && now - last <= MemoryMilliseconds)
@@ -306,10 +308,16 @@ namespace DOL.GS
         /// ready before the enemy is in sight (the Bard's endurance song): everything the group
         /// decides is about <see cref="Known"/>.
         /// </summary>
+        // By distance alone, sight or no sight: with sight asked for, a group that met the enemy over a
+        // rise (first seen at about 3,000 units in the basin) had its endurance song up only as the
+        // first blow fell, in one roaming match of three. It is the one thing a bot knows that it cannot see.
         public bool EnemyWithin(GameLiving member, int range) =>
             _everyEnemy.Any(enemy => enemy.IsAlive && member.IsWithinRadius(enemy, range));
 
         private IReadOnlyList<GameLiving> _everyEnemy = [];
+
+        /// <summary>The bot that leads the roam in a play session where a bot drives; null otherwise.</summary>
+        public GameBot Driver { get; set; }
 
         // A call by a player of the group (bots/pvp/PvpCalls.cs, M9.3): the order it stands for and until
         // when, who called, and the target of an assist call.
@@ -356,6 +364,31 @@ namespace DOL.GS
         /// <summary>The player a called regroup gathers on, while that call stands; null otherwise.</summary>
         private GameLiving RegroupsOn => _calledOrder == PvpOrder.Regroup && _caller is { IsAlive: true } &&
                                          GameLoop.GameLoopTime < _calledUntil ? _caller : null;
+
+        // Who is raising whom, and until when the claim holds (a resurrection is a four-second cast).
+        private readonly Dictionary<GameLiving, (GameBot By, long Until)> _raising = new();
+
+        /// <summary>True while another healer of the group is raising somebody: one healer at a time leaves the living.</summary>
+        public bool AnotherHealerIsRaising(GameBot bot)
+        {
+            long now = GameLoop.GameLoopTime;
+            lock (_raising)
+                return _raising.Values.Any(claim => claim.By != bot && claim.Until > now && claim.By.IsAlive &&
+                                                    PvpMember.RoleOf(claim.By) == PvpRole.Heal) && PvpMember.RoleOf(bot) == PvpRole.Heal;
+        }
+
+        /// <summary>True when nobody else is raising this body; the claim is then the bot's for the length of the cast.</summary>
+        public bool ClaimRaise(GameBot bot, GameLiving corpse, int castMilliseconds)
+        {
+            long now = GameLoop.GameLoopTime;
+            lock (_raising)
+            {
+                if (_raising.TryGetValue(corpse, out var held) && held.By != bot && held.Until > now && held.By.IsAlive)
+                    return false;
+                _raising[corpse] = (bot, now + castMilliseconds + 2_000);
+                return true;
+            }
+        }
 
         // When each kind of call was last said in group chat.
         private readonly Dictionary<string, long> _lastCall = new();

@@ -5501,7 +5501,11 @@ namespace DOL.AI.Brain
                         BotBody.IsBeingInterruptedByOther ? "being interrupted" : "resurrection on recast");
                     return false;
                 }
-                GameLiving corpse = BotGroupSupport.ReserveResurrection(BotBody, resurrection);
+                // In an 8v8 fight the choice is the squad's (bots/pvp/PvpHealPlan.cs), not the raid rule that
+                // wants a second free healer beside the one that raises.
+                GameLiving corpse = BotBody.IsPvpBot && PvpSquad != null
+                    ? PvpCorpseToRaise(resurrection)
+                    : BotGroupSupport.ReserveResurrection(BotBody, resurrection);
                 if (corpse != null)
                 {
                     GameObject previous = BotBody.TargetObject;

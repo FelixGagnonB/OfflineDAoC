@@ -185,6 +185,7 @@ namespace DOL.GS
                         .Select(pair => pair.Split(':'))
                         .Select(ids => ids.Length == 2 ? (Group(ids[0]), Group(ids[1])) : throw new ArgumentException("A pairing is written A:B."))
                         .ToList();
+                    PvpScrim.BotsRoam = Arg("Roam") == "1";
                     PvpScrim.Start(pairs, int.Parse(Arg("Matches") ?? "1"), (int.Parse(Arg("RealmRank") ?? "1") - 1) * 10,
                         int.Parse(Arg("Limit") ?? "300"),
                         // BrainA / BrainB: "squad" turns the squad brain on for that side; anything else is the old brain.
@@ -193,6 +194,10 @@ namespace DOL.GS
                         int.Parse(Arg("Vary") ?? "0"), int.Parse(Arg("Spread") ?? "40"));
                     return PvpScrim.Status();
                 }
+
+                case "sight-scan":
+                    // How often a rise of the ground hides one point of the basin from another: Pairs, Min and Max distance.
+                    return PvpScrim.ScanSight(int.Parse(Arg("Pairs") ?? "2000"), int.Parse(Arg("Min") ?? "2000"), int.Parse(Arg("Max") ?? "6500"));
 
                 case "scrim-lanes":
                     return PvpScrim.CheckLanes();

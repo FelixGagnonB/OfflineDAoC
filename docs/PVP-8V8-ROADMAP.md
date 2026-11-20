@@ -28,6 +28,50 @@ led by what the owner sees in play sessions and counted over the recordings befo
 changed. Nothing new is opened on target choice, crowd control, rotations or power pacing; what
 was left of those is parked under M10.
 
+### The night of 2026-11-19 to 20: what the owner asked for on leaving, and what was counted
+
+The owner played until late (as a Cleric, an Eldritch and a Hero), asked for four things and
+left for twelve hours: an assist call ("I have no way to call target and make a focus on
+enemy"), the Druid's resistance buffs ("the druid never cast the 3 resists"), sight for first
+contact ("LoS for initial contact would be really cool") and a bot driving the roam ("the
+Sorc, Pac healer or Skald and Bard driving. That mean I would stick to the bard and it would
+roam around until contact"). All four are built. What a recorded match could show of them:
+
+| Built | Seen in recorded matches | Not seen yet |
+|---|---|---|
+| **The owner's calls** (M9.3): `/8v8 call assist` makes the player's target the kill target while it lives (24 s at most); `push`, `regroup` (everybody comes back to the player), `hold`, `engage`, `extend` stand for 12 s; a bot answers in group chat | nothing: it needs a player | all of it |
+| **A player-healer is told** when two or more of the group are beyond heal range | nothing | all of it |
+| **The group's own resistance buffs** are cast before the fight by the member with the strongest of each | 24 matches: every member of every realm starts with its realm's (Albion body and spirit 16, energy 16 or 8; Hibernia heat, cold, matter; Midgard all six, heat and cold at 24). Buffing takes 63 s at the median (it was about 40), never timed out | that only the strongest is cast (fixed after that batch) |
+| **Raising the dead in a fight** by an 8v8 rule (`PvpHealWeights.Raises`) | 24 matches, one team of each with the rule and one without: 14 tries and 3 raised against none; wins 13 to 11, deaths 3.9 against 4.5 a team (neither means anything at this size) | the Paladin no longer trying right after its own swing (6 of its 7 tries were refused) |
+| **Sight over the ground** (M4.2, `PvpSight.cs`): a rise between two characters hides one from the other, for spotting and for what a squad knows. Not for casts | a scan of the basin: of 4,000 pairs of points 1,500 to 6,500 apart, the ground hides 35% (18% at 1,000 to 2,000, 47% at 5,000 to 6,000; the ground there runs from 2,900 to 8,100 high). Three roaming matches: the groups first knew of each other 3,000 to 3,400 apart | what it does to a fight on a slope |
+| **Roaming in the basin** (M8.4): in a play session each group goes between nine points of the basin by its own draw | the same three matches: first blow 23 to 34 s after the ready, from different sides (one drawn and looked at), one or two members in one area mez at the blow | with a player |
+| **A bot drives** (`/8v8 setup`: Lead or Follow): the Bard, Skald or Minstrel leads and the player sticks to it | nothing: it needs a player | all of it |
+
+Things counted that night and what came of them:
+
+- *Why nobody but the Paladin ever raised anybody.* The raid rule lets a healer raise in combat
+  only while a second free healer stands within 1,500 units. In 21 matches, 183 deaths: 39 tries,
+  33 of them the Paladin's, 5 raised, and not one try by a Cleric, Druid, Healer, Shaman or Bard.
+  The new rule lets a member raise a body in its reach when it is not being hit, has half its
+  power, nobody alive near it is badly hurt and no free enemy fighter is at the body, one healer
+  at a time. It fires when it is safe to, and that is seldom: of 79 deaths under it, 30% had
+  nobody alive who could raise, 15% nobody within reach, 25% a raiser interrupted, held, short of
+  power or with a fighter at the body, and 23% a clear second by the snapshots.
+- *Whether a group's damage follows its own call.* It does, more or less: 54 to 63% of a group's
+  damage lands on its kill target (fighters 48 to 62%, casters 67 to 77%), 65% of calls end
+  with the target dead, a call lasts 11 to 16 s. Left alone.
+- *The Skald the owner could not get killed* (session 012306, as a Hero): the owner did 2,783
+  damage to it in 40 s and the group 300; it got 2,959 of healing. The group's call was the
+  Shaman. But that session was at realm rank 1, where nobody has Purge: the owner's side spent
+  38% of those 40 s mezzed or stunned (9 to 11% in that evening's rank-5 sessions). The setup
+  window now starts at rank 5.
+- *The Bard's endurance song and sight.* Asking for sight before the change of song made it
+  late again (up as the first blow fell in one roaming match of three), so that one thing goes
+  by distance alone: a bot knows an enemy within 9,000 units that it cannot see. The owner's
+  other way, twisting speed and endurance on the road, would not need it: with three-second
+  casts and six seconds of speed the speed would lapse for a moment every round. For the owner
+  to choose.
+
 ## The afternoon before (owner, 2026-11-19): to where the owner can play
 
 After a day of watching, and a loop of seven recorded rounds (below), the owner: "Maybe the best
@@ -1012,6 +1056,8 @@ the Sorcerer in this run), cause not found.
   durations and immunity timers. Fix every difference. *Done when* parity unit tests pass.
 - [ ] **M4.2** (M) Sight that respects terrain: a height check so hills block sight, used for both
   casting and spotting.
+  *Half done 2026-11-20: spotting (`PvpSight.cs`, weight `SightOverGround`). Casting is not
+  checked against the ground.*
 - [ ] **M4.3** (S) Bot-vs-bot casts go through a sight check in the engine.
 - [ ] **M4.4** (L) Missing mechanics made usable by bots, each with a test that triggers it: Guard,
   Intercept, Protect, positional and reactive styles, slam, sprint, Quickcast, and the Old
@@ -2133,6 +2179,8 @@ In order:
   and anything the player says back (M9.3).
 - [ ] **M9.3** (M) Owner's calls: `/call` macros for target, push, retreat, control that one,
   regroup. The squad brain treats them as its own decisions.
+  *Built 2026-11-20 as `/8v8 call <assist|push|regroup|hold|engage|extend>`, not yet tried in a
+  client.* "Control that one" is not in it.
 - [x] **M9.4** (M) `/8v8` play session: pick the enemy realm and group, enemy roams the arena,
   rematch after each fight. The enemy roster keeps its own realm points.
 - [x] **M9.5** (S) Play sessions are recorded and analyzed like scrims.

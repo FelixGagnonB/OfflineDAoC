@@ -11,7 +11,7 @@ namespace DOL.UnitTests
         [TestCase(eSpellTarget.SELF, 600, 0, false, false, TestName = "A self buff (bladeturn, absorption) is cast")]
         [TestCase(eSpellTarget.PET, 0, 12, false, false, TestName = "A buff on its own pet is cast")]
         [TestCase(eSpellTarget.GROUP, 0, 0, true, false, TestName = "A song or chant is sung")]
-        [TestCase(eSpellTarget.GROUP, 600, 0, false, true, TestName = "A group resist buff waits")]
+        [TestCase(eSpellTarget.GROUP, 600, 0, false, true, TestName = "A group buff is a buff on others (the group's own resistances are let through apart)")]
         [TestCase(eSpellTarget.REALM, 600, 0, false, true, TestName = "A damage add or haste on a member waits")]
         [TestCase(eSpellTarget.REALM, 0, 20, false, true, TestName = "A concentration buff on a member waits")]
         [TestCase(eSpellTarget.REALM, 0, 0, false, false, TestName = "A heal or cure is not a buff")]
@@ -31,6 +31,27 @@ namespace DOL.UnitTests
         public void InAFightNobodyStopsToBuff(int castTime, bool pulsing, int duration, int concentration, bool healersPetSummon, bool heldBack)
         {
             Assert.That(BotBrain.IsBuffHeldBackInFight(castTime, pulsing, duration, concentration, healersPetSummon), Is.EqualTo(heldBack));
+        }
+
+        [TestCase(eSpellType.HeatResistBuff, eSpellTarget.GROUP, 1200, 0, false, true, TestName = "The Druid's heat resistance on the group is the group's own to cast")]
+        [TestCase(eSpellType.MatterResistBuff, eSpellTarget.GROUP, 1200, 0, false, true, TestName = "And matter")]
+        [TestCase(eSpellType.BodyResistBuff, eSpellTarget.GROUP, 1200, 0, false, true, TestName = "And the Cleric's body resistance")]
+        [TestCase(eSpellType.BodyResistBuff, eSpellTarget.GROUP, 5, 0, true, false, TestName = "A Bard's resistance hymn is a song, with its own routine")]
+        [TestCase(eSpellType.HeatResistBuff, eSpellTarget.REALM, 0, 10, false, false, TestName = "A concentration resistance on one member is the buffbot's kind")]
+        [TestCase(eSpellType.StrengthBuff, eSpellTarget.GROUP, 1200, 0, false, false, TestName = "Another group buff is not a resistance")]
+        public void TheGroupsOwnResistanceBuffs(eSpellType type, eSpellTarget target, int duration, int concentration, bool pulsing, bool expected)
+        {
+            Assert.That(BotBrain.IsTimedGroupResist(type, target, duration, concentration, pulsing), Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void TheStrongestVersionOfAGroupBuffIsTheOneCast()
+        {
+            Assert.That(PvpBuffPlan.CastsGroupBuff(16, "Brannwen", [(8, "Aelis")]), Is.True, "the stronger of two Druids casts");
+            Assert.That(PvpBuffPlan.CastsGroupBuff(8, "Aelis", [(16, "Brannwen")]), Is.False, "the weaker does not");
+            Assert.That(PvpBuffPlan.CastsGroupBuff(16, "Aelis", []), Is.True, "alone, it casts what it has");
+            Assert.That(PvpBuffPlan.CastsGroupBuff(16, "Aelis", [(16, "Brannwen")]), Is.True, "of two alike, one casts");
+            Assert.That(PvpBuffPlan.CastsGroupBuff(16, "Brannwen", [(16, "Aelis")]), Is.False, "and the other does not");
         }
     }
 }

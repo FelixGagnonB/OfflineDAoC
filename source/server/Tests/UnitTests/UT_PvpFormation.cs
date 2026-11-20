@@ -51,6 +51,43 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void TheSpeedSongDrives()
+        {
+            Assert.That(PvpFormation.DrivesByClass(eCharacterClass.Bard), Is.True);
+            Assert.That(PvpFormation.DrivesByClass(eCharacterClass.Skald), Is.True);
+            Assert.That(PvpFormation.DrivesByClass(eCharacterClass.Minstrel), Is.True);
+            Assert.That(PvpFormation.DrivesByClass(eCharacterClass.Druid), Is.False);
+            Assert.That(PvpFormation.DrivesByClass(eCharacterClass.Hero), Is.False);
+        }
+
+        [Test]
+        public void ARoamGoesBetweenNinePointsInsideTheBox()
+        {
+            (int X, int Y)[] points = PvpFormation.RoamPoints(0, 0, 26_000, 18_000, 3_000);
+            Assert.That(points, Has.Length.EqualTo(9));
+            Assert.That(points, Is.Unique);
+            Assert.That(points.All(point => point.X >= 3_000 && point.X <= 23_000 && point.Y >= 3_000 && point.Y <= 15_000), Is.True);
+            Assert.That(points, Does.Contain((13_000, 9_000)), "the middle is one of them");
+        }
+
+        [Test]
+        public void TheNextPointOfARoamIsNeverTheOneItIsAt()
+        {
+            for (int current = 0; current < 9; current++)
+            {
+                for (int draw = -20; draw < 40; draw++)
+                {
+                    int next = PvpFormation.NextRoamPoint(current, 9, draw);
+                    Assert.That(next, Is.InRange(0, 8));
+                    Assert.That(next, Is.Not.EqualTo(current));
+                }
+            }
+            // Every other point can come up.
+            Assert.That(Enumerable.Range(0, 8).Select(draw => PvpFormation.NextRoamPoint(4, 9, draw)).Distinct().Count(), Is.EqualTo(8));
+            Assert.That(PvpFormation.NextRoamPoint(0, 1, 5), Is.EqualTo(0));
+        }
+
+        [Test]
         public void TheClumpAimsAheadOnTheRoadAndStopsAtTheGoal()
         {
             Vector2 centre = new(0, 0);

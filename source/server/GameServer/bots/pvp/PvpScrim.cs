@@ -169,6 +169,58 @@ namespace DOL.GS
             _timer = new Timer(_ => NpcService.Instance.Post(Tick, 0), null, 1_000, 1_000);
         }
 
+        /// <summary>
+        /// How much of the basin a rise of the ground hides: of pairs of points on walkable ground,
+        /// drawn at random that far apart, the share with no clear line between them
+        /// (bots/pvp/PvpSight.cs). For knowing what sight over the ground changes there.
+        /// </summary>
+        public static object ScanSight(int pairs, int min, int max)
+        {
+            PvpArenaBox box = PvpArenaBox.EmainSouthEast;
+            Region region = WorldMgr.GetRegion(box.Region);
+            var random = new Random(8);
+            int tried = 0, hidden = 0, offGround = 0;
+            var byDistance = new SortedDictionary<int, (int Tried, int Hidden)>();
+            float lowest = float.MaxValue, highest = float.MinValue;
+            for (int i = 0; i < pairs * 4 && tried < pairs; i++)
+            {
+                int x1 = random.Next(box.MinX, box.MaxX), y1 = random.Next(box.MinY, box.MaxY);
+                double angle = random.NextDouble() * Math.PI * 2;
+                int length = random.Next(min, max);
+                int x2 = x1 + (int)(Math.Cos(angle) * length), y2 = y1 + (int)(Math.Sin(angle) * length);
+                if (x2 < box.MinX || x2 > box.MaxX || y2 < box.MinY || y2 > box.MaxY)
+                    continue;
+                Zone zone = region?.GetZone(x1, y1);
+                if (zone == null || region.GetZone(x2, y2) != zone)
+                    continue;
+                float z1 = PvpSight.HeightAt(zone, x1, y1), z2 = PvpSight.HeightAt(zone, x2, y2);
+                if (float.IsNaN(z1) || float.IsNaN(z2))
+                {
+                    offGround++;
+                    continue;
+                }
+                (lowest, highest) = (Math.Min(lowest, Math.Min(z1, z2)), Math.Max(highest, Math.Max(z1, z2)));
+                bool clear = PvpSight.Clear(zone, new Vector3(x1, y1, z1), new Vector3(x2, y2, z2));
+                tried++;
+                hidden += clear ? 0 : 1;
+                int band = length / 1_000 * 1_000;
+                (int t, int h) = byDistance.GetValueOrDefault(band);
+                byDistance[band] = (t + 1, h + (clear ? 0 : 1));
+            }
+            return new
+            {
+                Pairs = tried, Hidden = hidden, HiddenShare = tried == 0 ? 0 : Math.Round(100.0 * hidden / tried, 1), OffGround = offGround,
+                Lowest = lowest, Highest = highest,
+                ByDistance = byDistance.Select(band => new { From = band.Key, band.Value.Tried, band.Value.Hidden }).ToList(),
+            };
+        }
+
+        /// <summary>
+        /// Set for a series of bots in the whole basin (scrim-start Roam=1): both groups roam from
+        /// point to point as in a play session, to see that roam without a player.
+        /// </summary>
+        public static bool BotsRoam { get; set; }
+
         /// <summary>The squad a player leads in a play session that is running; null otherwise.</summary>
         public static PvpSquad SquadOf(GamePlayer player) =>
             player == null ? null : _runs.FirstOrDefault(run => run.Running && run.Leader == player)?.LeaderSquad;
@@ -192,7 +244,8 @@ namespace DOL.GS
         /// there: a change of region takes the client a moment, and the companions are put around
         /// where the player stands. <paramref name="say"/> receives what happened.
         /// </summary>
-        public static void TravelAndStartPlay(GamePlayer player, PvpGroupTemplate enemy, int realmLevel, string start, Action<string> say)
+        public static void TravelAndStartPlay(GamePlayer player, PvpGroupTemplate enemy, int realmLevel, string start, Action<string> say,
+            bool botDrives = false)
         {
             PvpArenaBox box = PlayBox(start);
             // The player fights at the rank of the bots: the points are there to spend (before or after this fight).
@@ -205,10 +258,12 @@ namespace DOL.GS
             {
                 try
                 {
-                    StartPlay(player, enemy, realmLevel, box);
+                    StartPlay(player, enemy, realmLevel, box, botDrives);
                     say($"Seven companions are with you at realm rank {realmLevel / 10 + 1}; {enemy.Id} is " +
                         (box == PvpArenaBox.EmainSouthEast ? "at the far end of the basin, to the east, and will roam" : "6,000 units to the south") +
                         ". Both groups buff for about a minute first. /8v8 stop ends it.");
+                    if (botDrives && SquadOf(player)?.Driver is { } driver)
+                        say($"{driver.Name} drives: target it and /stick. It sets off when both groups are buffed, and roams until it finds the enemy.");
                 }
                 catch (Exception exception)
                 {
@@ -253,7 +308,7 @@ namespace DOL.GS
         /// must stand at <see cref="PlayStart"/> already: moving a player between regions takes
         /// the client a moment, and the companions are put around where the player stands.
         /// </summary>
-        public static void StartPlay(GamePlayer player, PvpGroupTemplate enemy, int realmLevel, PvpArenaBox box = null)
+        public static void StartPlay(GamePlayer player, PvpGroupTemplate enemy, int realmLevel, PvpArenaBox box = null, bool botDrives = false)
         {
             box ??= PvpArenaBox.EmainSouthEast;
             Log.Info($"8v8 play weights: {PvpWeights.Reload(AppContext.BaseDirectory)}");
@@ -269,7 +324,7 @@ namespace DOL.GS
                 _hooked = true;
             }
             var run = new PvpScrimRun(0, box, own, enemy, 1, realmLevel, PlayLimitSeconds, true, true,
-                $"{DateTime.UtcNow:yyyyMMdd-HHmmss}-play-{own.Id}-vs-{enemy.Id}", 0, 0, 0, 40, player);
+                $"{DateTime.UtcNow:yyyyMMdd-HHmmss}-play-{own.Id}-vs-{enemy.Id}", 0, 0, 0, 40, player, botDrives);
             _runs = [run];
             try
             {
@@ -435,12 +490,16 @@ namespace DOL.GS
         // Healers that stayed back on incoming in the current match, to record it once each.
         private readonly HashSet<GameBot> _hungBack = [];
         private readonly HashSet<GameBot> _stoodAtRange = [];
+        // Set in a play session in the basin: the groups roam from point to point by this draw.
+        private Random _roam;
         // Whether each side had an enemy in sight at its last march, to catch the moment one comes into sight.
         private bool _sawEnemyA, _sawEnemyB;
         // A play session: the player who leads side A, with seven companions in place of a group of eight.
         private readonly GamePlayer _leader;
         internal GamePlayer Leader => _leader;
         internal PvpSquad LeaderSquad => _leader == null ? null : _squadA;
+        // A play session in which a bot drives: the companions roam by themselves, as the enemy does, and the player follows.
+        private readonly bool _botDrives;
 
         /// <summary>Side A as the other side sees it: its bots, and the player who leads them in a play session.</summary>
         private IReadOnlyList<GameLiving> SideA => _leader == null ? _teamA : _teamA.Cast<GameLiving>().Append(_leader).ToList();
@@ -450,9 +509,10 @@ namespace DOL.GS
 
         internal PvpScrimRun(int lane, PvpArenaBox arena, PvpGroupTemplate groupA, PvpGroupTemplate groupB, int matches, int realmLevel,
             int limitSeconds, bool squadA, bool squadB, string batch, int numberOffset, int versus, int vary = 0, int spread = 40,
-            GamePlayer leader = null)
+            GamePlayer leader = null, bool botDrives = false)
         {
             _leader = leader;
+            _botDrives = botDrives && leader != null;
             (_versus, _vary, _spread) = (versus, vary, spread);
             (_lane, _arena, _groupA, _groupB, _matchesWanted, _realmLevel) = (lane, arena, groupA, groupB, matches, realmLevel);
             (_squadBrainA, _squadBrainB, _batch, _numberOffset) = (squadA, squadB, batch, numberOffset);
@@ -505,6 +565,27 @@ namespace DOL.GS
                 }
             }
             FormUp(_teamB, spawnA);
+            if (_botDrives)
+            {
+                // The companions do not follow the player in this session: the squad places them, and one of them leads.
+                foreach (GameBot bot in _teamA)
+                {
+                    bot.StopFollowing();
+                    if (bot.Brain is BotBrain brain)
+                    {
+                        brain.PvpSpreadOut = true;
+                        brain.FSM.SetCurrentState(eFSMStateType.IDLE);
+                    }
+                }
+                if (_squadA != null)
+                    _squadA.Driver = PvpFormation.DriverOf(_teamA);
+                _roam = new Random();
+            }
+            else if ((_leader != null || PvpScrim.BotsRoam) && _arena == PvpArenaBox.EmainSouthEast)
+                _roam = new Random();
+            // Each group sets off for a point of its own draw, not both for the same one.
+            if (_roam != null)
+                (_waypointA, _waypointB) = (_roam.Next(9), _roam.Next(9));
             PvpWeights drawA = _vary > 0 ? PvpWeightDraw.Vary(PvpWeights.Current, Random.Shared, _vary, _spread) : null;
             PvpWeights drawB = _vary > 0 ? PvpWeightDraw.Vary(PvpWeights.Current, Random.Shared, _vary, _spread) : null;
             foreach (GameBot bot in _teamA)
@@ -595,7 +676,7 @@ namespace DOL.GS
                     SetSelfBuffsOnly(false);
                     _phase = Phase.Fighting;
                 }
-                if (_leader == null)
+                if (_leader == null || _botDrives)
                     March(_teamA, _teamB, _spawnA, _spawnB, ref _waypointA);
                 else
                     TravelWithLeader();
@@ -630,8 +711,10 @@ namespace DOL.GS
             // places in rows around the player, the player's own place left free. In the six
             // sessions of 2026-11-19 all eight stood inside one area mez eight seconds before the
             // first blow, and two to seven of them still did at the first blow.
-            List<GameBot> seen = _teamB.Where(enemy => enemy.IsAlive && (_leader.IsWithinRadius(enemy, PvpFormation.FormRange) ||
-                _teamA.Any(bot => bot.IsAlive && bot.IsWithinRadius(enemy, PvpFormation.FormRange)))).ToList();
+            bool overGround = PvpWeights.Of(_teamA.FirstOrDefault()).SightOverGround;
+            List<GameBot> seen = _teamB.Where(enemy => enemy.IsAlive &&
+                (_leader.IsWithinRadius(enemy, PvpFormation.FormRange) && (!overGround || PvpSight.Clear(_leader, enemy)) ||
+                 _teamA.Any(bot => bot.IsAlive && bot.IsWithinRadius(enemy, PvpFormation.FormRange) && (!overGround || PvpSight.Clear(bot, enemy))))).ToList();
             Dictionary<GameBot, Vector3> places = seen.Count == 0 ? null : LeaderPlaces(_teamA.Where(bot => bot.IsAlive).ToList(),
                 new Vector3((float)seen.Average(enemy => enemy.X), (float)seen.Average(enemy => enemy.Y), (float)seen.Average(enemy => enemy.Z)));
             foreach (GameBot bot in _teamA)
@@ -713,7 +796,9 @@ namespace DOL.GS
             // In the open basin a group sees the other from farther than in a lane, where the two start in sight.
             bool basin = _arena == PvpArenaBox.EmainSouthEast;
             int spot = basin ? PvpFormation.FormRange : SpotRange;
-            List<GameLiving> seen = enemies.Where(enemy => enemy.IsAlive && members.Any(bot => bot.IsWithinRadius(enemy, spot))).ToList();
+            bool overGround = PvpWeights.Of(members[0]).SightOverGround;
+            List<GameLiving> seen = enemies.Where(enemy => enemy.IsAlive &&
+                members.Any(bot => bot.IsWithinRadius(enemy, spot) && (!overGround || PvpSight.Clear(bot, enemy)))).ToList();
             Vector3 goal;
             Dictionary<GameBot, Vector3> places = null;
             if (seen.Count > 0)
@@ -723,10 +808,15 @@ namespace DOL.GS
             else
             {
                 (int X, int Y)[] route = [((own.X + far.X) / 2, (own.Y + far.Y) / 2), far, ((own.X + far.X) / 2, (own.Y + far.Y) / 2), own];
+                // A play session in the basin: each group goes from one point of the basin to another as it
+                // pleases, so the two do not meet at the same place and from the same side every time.
+                if (_roam != null && basin)
+                    route = PvpFormation.RoamPoints(_arena.MinX, _arena.MinY, _arena.MaxX, _arena.MaxY, 3_000);
                 (int X, int Y) next = route[waypoint % route.Length];
                 double x = members.Average(bot => bot.X), y = members.Average(bot => bot.Y);
                 if (Math.Sqrt(Math.Pow(next.X - x, 2) + Math.Pow(next.Y - y, 2)) < 900)
-                    next = route[++waypoint % route.Length];
+                    next = route[waypoint = _roam != null && basin
+                        ? PvpFormation.NextRoamPoint(waypoint % route.Length, route.Length, _roam.Next()) : (waypoint + 1) % route.Length];
                 // The route has no heights: take the ground under the waypoint from the navmesh,
                 // as the spawn does. A goal above or below the mesh gives no path and nobody moves.
                 var nav = PathfindingProvider.Instance;
@@ -864,7 +954,9 @@ namespace DOL.GS
             var nav = PathfindingProvider.Instance;
             var places = new Dictionary<GameBot, Vector3>();
             // The same member has the same place every time: by kind, then by name.
-            List<GameBot> ordered = members.OrderBy(bot => PvpMember.ArchetypeOf(bot) == PvpBuffArchetype.Melee).ThenBy(bot => bot.Name, StringComparer.Ordinal).ToList();
+            GameBot driver = PvpFormation.DriverOf(members);
+            List<GameBot> ordered = members.OrderBy(bot => bot == driver ? 0 : 1)
+                .ThenBy(bot => PvpMember.ArchetypeOf(bot) == PvpBuffArchetype.Melee).ThenBy(bot => bot.Name, StringComparer.Ordinal).ToList();
             for (int index = 0; index < ordered.Count; index++)
             {
                 Vector2 offset = PvpFormation.TravelOffset(index, PvpFormation.TravelSpacing);
@@ -945,6 +1037,9 @@ namespace DOL.GS
         {
             if (bot.IsCasting && bot.castingComponent?.SpellHandler is { Spell: { } spell } handler &&
                 !_buffsCast.ContainsKey((bot, spell.ID, handler.Target)))
+                return true;
+            // A resistance buff for the whole group still to come from this member.
+            if (bot.Brain is BotBrain { } brain && brain.PvpHasGroupResistToCast())
                 return true;
             return _lastNewBuffTick.TryGetValue(bot, out long last) && now - last < QuietSeconds * 1000;
         }
