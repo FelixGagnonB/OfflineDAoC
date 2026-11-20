@@ -142,7 +142,8 @@ namespace DOL.AI.Brain
                     PvpEnemies.Count(enemy => enemy.IsAlive && !enemy.IsMezzed && !enemy.IsStunned &&
                         PvpMember.ArchetypeOf(enemy) == PvpBuffArchetype.Melee &&
                         enemy.IsWithinRadius(member, all.Heal.ResurrectNoFighterWithin))));
-            if (corpse == null)
+            // One healer goes: the body is this one's for the next few seconds, and nobody sets off while another raises.
+            if (corpse == null || PvpSquad == null || PvpSquad.AnotherHealerIsRaising(BotBody) || !PvpSquad.ClaimRaise(BotBody, corpse, 2_000))
                 return false;
             Body.PathTo(PvpSight.OnGround(Body.CurrentZone, PvpPositioning.StopShortOf(
                 new Vector3(Body.X, Body.Y, Body.Z), new Vector3(corpse.X, corpse.Y, corpse.Z), range)), Body.MaxSpeed);

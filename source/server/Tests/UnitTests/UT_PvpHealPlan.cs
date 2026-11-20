@@ -8,6 +8,18 @@ namespace DOL.UnitTests
     public class UT_PvpHealPlan
     {
         [Test]
+        public void AFighterAtTheBodyStopsARaiseOnlyWhileTheWeightSaysSo()
+        {
+            // The raised member stands up beside the raiser, not at the body.
+            var heal = new PvpHealWeights();
+            Assert.That(heal.Raises(1000, 1500, 80, false, 100, freeFightersAtCorpse: 1, false), Is.False, "as built");
+            Assert.That(new PvpHealWeights { RaisesWithFighterAtBody = true }.Raises(1000, 1500, 80, false, 100, 1, false), Is.True);
+            Assert.That(new PvpHealWeights { RaisesWithFighterAtBody = true }.Raises(1000, 1500, 80, beingHit: true, 100, 1, false), Is.False, "the fighter on the raiser still does");
+            Assert.That(new PvpHealWeights { RaisesWithFighterAtBody = true, ResurrectWalkWithin = 2200 }
+                .WalksToRaise(2000, 1500, true, false, 100, freeFightersAtCorpse: 1), Is.False, "walking to a body minds it");
+        }
+
+        [Test]
         public void ARaisedMemberIsRebuffedInALull()
         {
             // The owner, 2026-11-20: "I just never received buffs after rez but I assume druids were not finding downtime".

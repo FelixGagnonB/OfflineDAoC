@@ -37,6 +37,12 @@ namespace DOL.GS
         /// units of each other 17% of the time against 12%: both healers walked to the same
         /// corpse, toward the enemy, and seldom got the spell off. It wants one healer sent, not
         /// both, and a look at what stops the cast on arrival, before it is switched on again.
+        ///
+        /// What stopped it, found 2026-11-20: the body was not there. Until that day a dead 8v8
+        /// bot's body was sent to its spawn place (ABrain.Stop), 700 to 9,000 units from where the
+        /// client and this rule's caller saw it fall, so both trials above measured a walk to the
+        /// wrong place. And now one healer goes: the walk takes the squad's claim on the body
+        /// (PvpSquad.ClaimRaise), and nobody sets off while another healer is raising.
         /// </summary>
         public int ResurrectWalkWithin { get; set; } = 0;
         /// <summary>It does not go while a free enemy fighter is this near the corpse.</summary>
@@ -80,11 +86,24 @@ namespace DOL.GS
         public bool RebuffsInFight(int powerPercent, bool beingHit, int lowestHealthInReach) =>
             RebuffInFight && !beingHit && powerPercent >= RebuffPowerPercent && lowestHealthInReach >= RebuffIfNobodyBelow;
 
+        /// <summary>
+        /// On: a member raises from where it stands even with a free enemy fighter at the body. The
+        /// raised member stands up at the raiser's place, not where it fell (ResurrectSpellHandler
+        /// moves it), so the fighter at the body is no danger to it; the one on the raiser is
+        /// "being hit". Counted over 61 matches of 2026-11-20, for a group's first two deaths: in
+        /// the thirty seconds after one, the raiser nearest to raising was kept from it by a
+        /// fighter at the body 24% of the time, by being out of range 26% (438 units short at the
+        /// median), asleep or stunned 14%, being hit 12%. A group's first death was raised 24 times
+        /// in 74, and the group that lost the first member lost the match 85% of the time.
+        /// Off as built: to be compared. Walking to a body still minds the fighter.
+        /// </summary>
+        public bool RaisesWithFighterAtBody { get; set; }
+
         /// <summary>True for a member that should raise this body now, from where it stands.</summary>
         public bool Raises(int distance, int range, int powerPercent, bool beingHit, int lowestHealthInReach, int freeFightersAtCorpse,
             bool anotherHealerIsRaising) =>
             ResurrectInFight && distance <= range && powerPercent >= ResurrectPowerPercent && !beingHit && !anotherHealerIsRaising &&
-            lowestHealthInReach >= ResurrectIfNobodyBelow && freeFightersAtCorpse == 0;
+            lowestHealthInReach >= ResurrectIfNobodyBelow && (freeFightersAtCorpse == 0 || RaisesWithFighterAtBody);
 
         /// <summary>True for a healer that should walk to a corpse now, to raise it.</summary>
         public bool WalksToRaise(int distance, int range, bool hasPower, bool beingHit, int lowestHealthInReach, int freeFightersAtCorpse) =>
