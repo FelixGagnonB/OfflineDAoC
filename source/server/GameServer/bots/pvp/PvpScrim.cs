@@ -86,7 +86,7 @@ namespace DOL.GS
         private static int _ticking;
         private static bool _hooked;
 
-        public static bool Running => _runs.Any(run => run.Running);
+        public static bool Running => _runs.Any(run => run.Running) || PvpRoam.Running;
 
         /// <summary>For a GM who watches: what is fighting in each lane right now.</summary>
         public static List<string> LaneLines() => _runs.Where(run => run.Running).Select(run => run.Describe()).ToList();
@@ -438,6 +438,7 @@ namespace DOL.GS
             _timer = null;
             foreach (PvpScrimRun run in _runs)
                 run.Stop();
+            PvpRoam.Stop();
             PvpArena.Clear();
         }
 

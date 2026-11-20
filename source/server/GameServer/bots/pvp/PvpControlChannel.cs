@@ -210,6 +210,12 @@ namespace DOL.GS
                 case "scrim-scan":
                     return PvpScrim.ScanLanes(int.Parse(Arg("Distance") ?? "0"), int.Parse(Arg("Step") ?? "500"));
 
+                case "roam-start":
+                    return PvpRoam.Start(int.Parse(Arg("Teams") ?? "2"), Arg("Owner") ?? "roam");
+
+                case "roam-status":
+                    return PvpRoam.Status();
+
                 case "nav-route":
                     return PvpScrim.RouteCheck(ushort.Parse(Arg("Region") ?? "200"), int.Parse(Arg("X1")), int.Parse(Arg("Y1")),
                         int.Parse(Arg("X2")), int.Parse(Arg("Y2")));

@@ -24,6 +24,13 @@ namespace DOL.GS
         public (int X, int Y) Home;
         /// <summary>Which point of its route it is heading for.</summary>
         public int Waypoint;
+        /// <summary>
+        /// A roam (bots/pvp/PvpRoam.cs): the points the team walks between, in order and round again.
+        /// Each must be a walk the navmesh finds whole from the one before: asked for a far goal
+        /// across the mountains of Emain Macha, a path ends in a dead end. Null: a lane's patrol,
+        /// or the basin's points.
+        /// </summary>
+        public (int X, int Y)[] Route;
         /// <summary>Whether it had an enemy in sight at its last march, to catch the moment one comes into sight.</summary>
         public bool SawEnemy;
         /// <summary>Healers that stayed back on incoming, and members that stopped at range, each recorded once.</summary>
@@ -165,7 +172,7 @@ namespace DOL.GS
                 return;
             }
             // In the open basin a group sees the other from farther than in a lane, where the two start in sight.
-            bool basin = arena == PvpArenaBox.EmainSouthEast;
+            bool basin = Route != null || arena == PvpArenaBox.EmainSouthEast;
             int spot = basin ? PvpFormation.FormRange : SpotRange;
             PvpWeights sight = PvpWeights.Of(members[0]);
             List<GameLiving> seen = enemies.Where(enemy => enemy.IsAlive && members.Any(bot => PvpSight.Sees(bot, enemy, spot, sight))).ToList();
@@ -180,12 +187,14 @@ namespace DOL.GS
                 (int X, int Y)[] route = [((Home.X + far.X) / 2, (Home.Y + far.Y) / 2), far, ((Home.X + far.X) / 2, (Home.Y + far.Y) / 2), Home];
                 // A play session in the basin: each group goes from one point of the basin to another as it
                 // pleases, so the two do not meet at the same place and from the same side every time.
-                if (roam != null && basin)
+                if (Route != null)
+                    route = Route;
+                else if (roam != null && basin)
                     route = PvpFormation.RoamPoints(arena.MinX, arena.MinY, arena.MaxX, arena.MaxY, 3_000);
                 (int X, int Y) next = route[Waypoint % route.Length];
                 double x = members.Average(bot => bot.X), y = members.Average(bot => bot.Y);
                 if (Math.Sqrt(Math.Pow(next.X - x, 2) + Math.Pow(next.Y - y, 2)) < 900)
-                    next = route[Waypoint = roam != null && basin
+                    next = route[Waypoint = Route == null && roam != null && basin
                         ? PvpFormation.NextRoamPoint(Waypoint % route.Length, route.Length, roam.Next()) : (Waypoint + 1) % route.Length];
                 // The route has no heights: take the ground under the waypoint from the navmesh,
                 // as the spawn does. A goal above or below the mesh gives no path and nobody moves.

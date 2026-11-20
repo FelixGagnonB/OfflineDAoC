@@ -23,6 +23,18 @@ namespace DOL.GS
 
         /// <summary>A member of the killing group this far from the one that died has no share.</summary>
         public int ShareWithin { get; set; } = 6_000;
+
+        /// <summary>
+        /// A roam: a bot team that comes on a fight its own realm's other team is in joins it this
+        /// often, in percent, and otherwise leaves that enemy team alone until the fight is over
+        /// (unless it is attacked). The owner, 2026-11-20: "It could be random, like 30% would add
+        /// 70% won't add or so. It always been a heated discussion, should we assjam or not an
+        /// ongoing fight. Most of the respected 8v8 team were not."
+        /// </summary>
+        public int AddChancePercent { get; set; } = 30;
+
+        /// <summary>A roam: a team with nobody left alive stands up at its start point after this many seconds.</summary>
+        public int WipeStandsUpAfterSeconds { get; set; } = 30;
     }
 
     /// <summary>
