@@ -2458,12 +2458,34 @@ In order:
     line-up under its own name.
 
   Steps:
-  1. [ ] The movement of a team (march, engage, rows, following a driver or the player) taken
+  1. [x] The movement of a team (march, engage, rows, following a driver or the player) taken
      out of the two-team session into something a session can have any number of, the two-team
      session unchanged in what it does (a bots-only batch before and after).
-  2. [ ] A roam session of bot teams only, started from the control channel, to be read from
+     *Done 2026-11-20 (`PvpTeam.cs`). Six lane matches after it ran as before: a healer with an
+     enemy fighter within 250 for 11 to 20% of the fight, the back line 500 apart, healers moving
+     40% of the time, the stops at range and the healers hanging back recorded as before.*
+  2. [x] A roam session of bot teams only, started from the control channel, to be read from
      its status and the log: six teams, start points, wipes that stand up again, the draw for
      adding on a fight.
+     *Done 2026-11-20 (`PvpRoam.cs`; `roam-start`, `roam-status`). Where things are, from the
+     installed navmesh (`UT_PvpRoamStartRoutes`, a probe): the two portal keeps are 48,500 units
+     apart and there is no way between them over the mountains; the way goes west round them,
+     through the open middle of the zone, whose two ends are 38,000 apart on foot. From the
+     Midgard keep to the north end is 26,600 and from the Albion keep to the south end 35,500;
+     the hill the owner picked for Hibernia (`/loc` 22984,51041) is 6,600 from the south end.
+     Asked for the Albion keep in one go, a path from the Midgard keep ends in a dead end
+     21,000 short, so a team walks from point to point (`PvpTeam.Route`).
+     The first run, eight minutes: Hibernia's teams walked the middle in about 100 seconds a
+     leg and the four teams that started in the middle of their keeps never left: the way out
+     goes through two keep doors and a bot does not open one. They start in front of the outer
+     gate now. The second run, eleven minutes: first blows at 138 s; fights of two, three and
+     four teams at the north end of the middle; five wipes and each team standing up again;
+     four draws on coming on a realm-mate's fight, all four "leaves them to it"; each team's
+     points in its own roster (9,008 a member for the Albion team that had killed sixteen, 0
+     for the Hibernian team it had wiped twice on its own hill). That last one is why a wiped
+     team now waits while an enemy is within 5,000 of its start (two minutes at most).
+     Not in it: a team with some members dead and nobody to raise them goes on short until it
+     is wiped; the recorder (step 4).*
   3. [ ] The player in it (`/8v8 roam`): companions, the wipe and the walk back, realm points
      to whoever made the kill, the rosters.
   4. [ ] The recorder with more than two teams, so a roam can be replayed and counted.
