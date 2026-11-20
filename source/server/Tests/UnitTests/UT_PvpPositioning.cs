@@ -248,7 +248,7 @@ namespace DOL.UnitTests
         [Test]
         public void AFighterCanKeepEnduranceForItsStyles()
         {
-            Assert.That(Weights.FighterKeepsEndurancePercent, Is.EqualTo(0), "off as built");
+            Assert.That(Weights.FighterKeepsEndurancePercent, Is.EqualTo(40), "as built since the comparison of 2026-11-20");
             Assert.That(Weights.CanSprint(30, true, 40), Is.False, "it stops sprinting at what it keeps");
             Assert.That(Weights.CanSprint(41, true, 40), Is.True);
             Assert.That(Weights.CanSprint(50, false, 40), Is.False, "and starts again only with some to spare");

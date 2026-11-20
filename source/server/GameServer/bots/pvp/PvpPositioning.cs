@@ -223,8 +223,13 @@ namespace DOL.GS
         /// each paying for sprint and one not: the fighters that paid were under 20% endurance
         /// for 17% of the fight against 1%, and 75% of their swings had a style against 82%.
         /// 0: a fighter sprints to its last breath like everybody else.
+        /// Compared that evening at 40, 24 matches with one team of each on it: its fighters were
+        /// under 20% endurance 5% of the fight against 21%, 79% of their swings had a style against
+        /// 72%, wins 13 against 11, deaths 4.4 against 5.1. A fighter that reached the back line
+        /// was stopped within three seconds 33% of the time against 49% (52 and 53 dives), so the
+        /// shield fighter, whose work is getting to that fighter, keeps nothing back.
         /// </summary>
-        public int FighterKeepsEndurancePercent { get; set; }
+        public int FighterKeepsEndurancePercent { get; set; } = 40;
 
         /// <summary>Whether a bot that wants to sprint can: not on its last breath, and once out of it, not until it has some back.</summary>
         /// <param name="keeps">The share of its endurance it does not sprint away (<see cref="FighterKeepsEndurancePercent"/>); 0 for none.</param>
