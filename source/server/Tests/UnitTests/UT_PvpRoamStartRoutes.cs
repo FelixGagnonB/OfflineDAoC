@@ -50,6 +50,8 @@ public class UT_PvpRoamStartRoutes
                 ("the basin's west start", 455292, 333720), ("the basin's east start", 476792, 333720),
                 ("Dun Crauchon's gate side", 426569, 319120), ("west of the basin", 445970, 334336), ("west of the Midgard keep", 449336, 299008),
                 ("the middle of the zone", 450000, 318000),
+                // The owner's /loc on the hill by the tower in front of the Albion gate, 2026-11-20: 22984,51041,3966 in the zone.
+                ("Hibernia's hill", 417792 + 22984, 286720 + 51041),
             ];
             foreach ((string from, string to) in new[] {
                 ("Midgard Portal Keep", "Albion Portal Keep"), ("Albion Portal Keep", "Midgard Portal Keep"),
@@ -61,7 +63,9 @@ public class UT_PvpRoamStartRoutes
                 ("west of the Midgard keep", "the middle of the zone"), ("the middle of the zone", "west of the basin"),
                 ("the middle of the zone", "the basin's west start"), ("Midgard Portal Keep", "the middle of the zone"),
                 ("west of the Midgard keep", "west of the basin"), ("Midgard Portal Keep", "west of the basin"),
-                ("west of the basin", "Albion Portal Keep"), ("west of the basin", "Midgard Portal Keep") })
+                ("west of the basin", "Albion Portal Keep"), ("west of the basin", "Midgard Portal Keep"),
+                ("Hibernia's hill", "west of the basin"), ("Hibernia's hill", "west of the Midgard keep"),
+                ("Hibernia's hill", "Albion Portal Keep"), ("Hibernia's hill", "the basin's west start") })
             {
                 foreach (var a in Array.FindAll(points, point => point.Name == from))
                 foreach (var b in Array.FindAll(points, point => point.Name == to))

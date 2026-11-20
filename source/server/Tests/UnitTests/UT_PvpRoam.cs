@@ -15,6 +15,8 @@ namespace DOL.UnitTests
             Assert.That(PvpRoam.EmainStarts.Select(start => start.Realm), Is.EquivalentTo(new[] { eRealm.Albion, eRealm.Midgard, eRealm.Hibernia }));
             Assert.That(PvpRoam.EmainStarts.Single(start => start.Realm == eRealm.Albion).Point, Is.EqualTo((475844, 343696)));
             Assert.That(PvpRoam.EmainStarts.Single(start => start.Realm == eRealm.Midgard).Point, Is.EqualTo((474129, 295207)));
+            // "Hibernia ... could spawn on the hill near the tower in front of Albion Main Gate": the owner's /loc there.
+            Assert.That(PvpRoam.EmainStarts.Single(start => start.Realm == eRealm.Hibernia).Point, Is.EqualTo((440776, 337761)));
             // Every team first walks to its own end of the open middle, then to the other: never a far goal across the mountains.
             Assert.That(PvpRoam.EmainStarts.Single(start => start.Realm == eRealm.Albion).Route.First(), Is.EqualTo(PvpRoam.South));
             Assert.That(PvpRoam.EmainStarts.Single(start => start.Realm == eRealm.Midgard).Route.First(), Is.EqualTo(PvpRoam.North));

@@ -61,14 +61,18 @@ namespace DOL.GS
         public static readonly (int X, int Y) North = (449336, 299008), South = (445970, 334336);
 
         /// <summary>
-        /// Albion and Midgard at their portal keeps. Hibernia at the south end of the middle until
-        /// the owner has stood on "the hill near the tower in front of Albion Main Gate" and sent its place.
+        /// "The hill near the tower in front of Albion Main Gate": the owner stood there on
+        /// 2026-11-20 and sent its place, 22984,51041 in the zone. It is 6,600 units on foot from
+        /// the south end of the middle, 37,100 from the Albion keep and 42,700 from the north end.
         /// </summary>
+        public static readonly (int X, int Y) HiberniaHill = (417792 + 22984, 286720 + 51041);
+
+        /// <summary>Albion and Midgard at their portal keeps, Hibernia on its hill.</summary>
         public static readonly IReadOnlyList<PvpRoamStart> EmainStarts =
         [
             new(eRealm.Albion, (475844, 343696), [South, North]),
             new(eRealm.Midgard, (474129, 295207), [North, South]),
-            new(eRealm.Hibernia, South, [North, South]),
+            new(eRealm.Hibernia, HiberniaHill, [South, North]),
         ];
 
         private static volatile List<PvpRoamTeam> _teams = [];
