@@ -174,6 +174,22 @@ group's Shaman had Cave 26 and only the three-second Plague Spores (3.7 casts a 
 matches). It is now Augmentation 46, Cave 27, Mending 8: the best Str/Con still, yellow
 Dex/Qui. The scored choice already takes an instant around the caster as an option within its
 radius and as a walk beyond it; whether the Shaman uses it well is to be read from matches.
+First read, two games the owner played as a Hero against Midgard that evening: in one the bot
+Shaman never had an enemy within 350 and cast Plague Spores five times; in the other it cast
+Mold Cloud three times as an instant for five enemies diseased (one cast for none). In the
+owner's own four games as the Shaman after the fix a body lay at most 120 units from where the
+bot was last seen alive, and bots chose to raise a groupmate 17 times.
+
+*The dead that stood.* With the body staying, the owner saw what the move had hidden: "When a
+character dies, its body remains up. Unless you look at his hp, you don't know he's dead." A
+bot is a monster to the client, and a monster that dies is removed; the removal (type 0) is
+what lays it down. Nothing says "dead" for a monster that stays. Built, **not yet seen in a
+client**: a client that sees an 8v8 bot die gets the packet a dead player gets, with the bot's
+id; a client that comes near a body gets it again; no position update goes out for a body
+(`PvpCorpse`). Which way the original client takes is not known, so `/8v8 corpse
+died|remove|off` switches in game between that, the removal a monster gets (the body lies but
+the client forgets it, so it may not be clickable), and nothing. Raising moves the bot, which
+makes it anew for the client. Only 8v8 bots.
 
 *M7 as it measures* (72 bots-only matches of that day, 144 team-fights, the positions of the
 dead read from their last living snapshot):
