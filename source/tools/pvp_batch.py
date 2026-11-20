@@ -204,6 +204,14 @@ def main(argv):
     finally:
         down = tool("scrim_server.py", "stop", game)
         print(down.stdout.strip() or down.stderr.strip(), flush=True)
+        # The weights of this run do not stay beside the server: the next thing started there (a play
+        # session of the owner's, for one) would fight with them unnoticed. After a comparison on
+        # 2026-11-20 a setting that had just lost twelve matches of twelve was left in place this way.
+        for name in ("pvp-weights.json", "pvp-weights-old.json"):
+            left_behind = os.path.join(runtime, "server", name)
+            if (weights or versus) and os.path.exists(left_behind):
+                os.remove(left_behind)
+                print(f"removed {name} from beside the server", flush=True)
 
     folder = os.path.join(runtime, "server", "logs", "scrims")
     os.makedirs(os.path.dirname(out), exist_ok=True)
