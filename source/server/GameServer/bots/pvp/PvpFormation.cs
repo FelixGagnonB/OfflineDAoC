@@ -31,9 +31,12 @@ namespace DOL.GS
         /// ahead within a second, and the seven others stood where they were. The owner,
         /// 2026-11-20: "Warrior would be alone. We kill him, then 5-10 seconds later we see the 7
         /// other Mids" (in the recordings the lone one is the driver, the Skald, 8,500 to 10,300
-        /// units ahead of the rest in two sessions of four).
+        /// units ahead of the rest in two sessions of four). It is squared as an int there, so it
+        /// has to stay under 46,340: at 60,000 the square overflowed, every follow ended at once,
+        /// and with the driver waiting for its group the whole group stood at its start (the
+        /// session of 11:36).
         /// </summary>
-        public const int FollowGivesUpBeyond = 60_000;
+        public const int FollowGivesUpBeyond = 40_000;
 
         /// <summary>The driver stands and waits when a living member is this far behind it.</summary>
         public const int DriverWaitsBeyond = 700;

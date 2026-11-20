@@ -84,6 +84,8 @@ namespace DOL.UnitTests
             // A follow ends when its leader is farther than the distance it is given: a follower must not lose
             // its driver by falling a little behind (the seven stood still, 2026-11-20).
             Assert.That(PvpFormation.FollowGivesUpBeyond, Is.GreaterThan(30_000));
+            // The mover squares it as an int.
+            Assert.That((long)PvpFormation.FollowGivesUpBeyond * PvpFormation.FollowGivesUpBeyond, Is.LessThan(int.MaxValue));
         }
 
         [Test]
