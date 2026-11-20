@@ -35,6 +35,17 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void AWipedTeamStandsUpAtItsStartOnceTheEnemyHasLeftIt()
+        {
+            // "We revive at our start point."
+            var real = new PvpRealWeights();
+            Assert.That(PvpRealWeights.StandsUp(10, false, real), Is.False, "not at once");
+            Assert.That(PvpRealWeights.StandsUp(30, false, real), Is.True);
+            Assert.That(PvpRealWeights.StandsUp(60, true, real), Is.False, "not under the enemy's feet");
+            Assert.That(PvpRealWeights.StandsUp(120, true, real), Is.True, "but it is not kept down for ever");
+        }
+
+        [Test]
         public void ATeamAddsOnItsRealmMatesFightThreeTimesInTen()
         {
             // "It could be random, like 30% would add 70% won't add or so."

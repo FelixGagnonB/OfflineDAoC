@@ -35,6 +35,19 @@ namespace DOL.GS
 
         /// <summary>A roam: a team with nobody left alive stands up at its start point after this many seconds.</summary>
         public int WipeStandsUpAfterSeconds { get; set; } = 30;
+
+        /// <summary>
+        /// A wiped team does not stand up while an enemy is this near its start point, for up to
+        /// <see cref="WipeWaitsAtMostSeconds"/>: in the second roam of 2026-11-20 a Hibernian team
+        /// stood up on its hill with the Albion team that had wiped it still there, and was in a
+        /// fight twelve seconds later, before it had buffed.
+        /// </summary>
+        public int StartIsClearBeyond { get; set; } = 5_000;
+        public int WipeWaitsAtMostSeconds { get; set; } = 120;
+
+        /// <summary>Whether a wiped team stands up now: after its wait, and with no enemy at its start, or after the longest wait whatever is there.</summary>
+        public static bool StandsUp(double secondsDown, bool enemyAtStart, PvpRealWeights real) =>
+            secondsDown >= real.WipeStandsUpAfterSeconds && (!enemyAtStart || secondsDown >= real.WipeWaitsAtMostSeconds);
     }
 
     /// <summary>

@@ -194,6 +194,11 @@ namespace DOL.GS
             }
         }
 
+        /// <summary>True while a living team of another realm is within this of the team's start point.</summary>
+        private static bool EnemyNearStart(PvpRoamTeam team, List<PvpRoamTeam> teams, int within) =>
+            teams.Any(other => other.Realm != team.Realm && other.Team.Bots.Any(bot => bot.IsAlive &&
+                bot.IsWithinRadius(new Point2D(team.Start.Point.X, team.Start.Point.Y), within)));
+
         private static bool Near(PvpRoamTeam a, PvpRoamTeam b, int within)
         {
             (double ax, double ay) = a.Centre();
@@ -213,7 +218,7 @@ namespace DOL.GS
                     team.Fighting.Clear();
                     Say($"{team.Name} is wiped (its {team.Wipes}.)");
                 }
-                else if (now - team.StateSince >= real.WipeStandsUpAfterSeconds * 1000)
+                else if (PvpRealWeights.StandsUp((now - team.StateSince) / 1000.0, EnemyNearStart(team, teams, real.StartIsClearBeyond), real))
                 {
                     Spawn(team, now);
                     team.LeavesAt = now + 45_000;
