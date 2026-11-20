@@ -11,6 +11,7 @@ namespace DOL.GS.Commands
         "/8v8 play <alb|mid|hib> [rank] [lane|basin] [follow]  a fight: you and seven companions against that realm's group of eight, in Emain Macha; follow: a bot drives",
         "/8v8 play hib-2bard ...  or  /8v8 play mid hib-2bard ...  another group by its name: as the enemy (first), or as your own (later)",
         "/8v8 play <alb|mid|hib> real [lane|basin] [follow]  a real fight: everybody at the rank it has earned, kills earn realm points that are kept, no timer is reset",
+        "/8v8 roam                      the roam: two groups of each realm in Emain Macha, yours with you; real rules, and a wipe puts your group back at its start",
         "/8v8 ranks                     the realm ranks of your companions, and of the enemy groups you have fought for real",
         "/8v8 call <push|regroup|hold|engage|extend|assist>  your call to the group: an order stands twelve seconds; assist puts the damage dealers on your target while it lives (45 s at most)",
         "/8v8 calls <on|off>            your companions' calls in group chat (assist, incoming, orders, out of power)",
@@ -143,6 +144,17 @@ namespace DOL.GS.Commands
                     return;
                 }
 
+                case "roam":
+                    try
+                    {
+                        PvpRoam.StartFor(player, Say);
+                    }
+                    catch (System.Exception exception)
+                    {
+                        Say(exception.Message);
+                    }
+                    return;
+
                 case "ranks":
                 {
                     static string Rank(long points) => $"{PvpRealmPoints.RankName(PvpRealmPoints.LevelFor(points))} ({points:N0})";
@@ -151,12 +163,14 @@ namespace DOL.GS.Commands
                     mine = mine.Where(entry => entry.Build != PvpRealmPoints.PlayerBuild).ToList();
                     Say(mine.Count == 0 ? "You have no companions yet: they come with your first fight."
                         : "Your companions: " + string.Join(", ", mine.Select(entry => $"{entry.Name} ({entry.Build}) {Rank(entry.RealmPoints)}")));
-                    foreach (PvpGroupTemplate group in PvpBuildCatalog.Groups.Concat(PvpBuildCatalog.Variants))
+                    // Every team this character has met: the one of a session, and the two of each line-up in the roam.
+                    foreach (string team in PvpBuildCatalog.Groups.Concat(PvpBuildCatalog.Variants)
+                                 .SelectMany(group => new[] { PvpRoam.TeamName(group.Id, 1), PvpRoam.TeamName(group.Id, 2) }))
                     {
                         System.Collections.Generic.List<PvpRosterEntry> theirs = PvpRoster.Load(System.AppContext.BaseDirectory,
-                            PvpRealmPoints.EnemyRoster(player.InternalID, group.Id));
+                            PvpRealmPoints.EnemyRoster(player.InternalID, team));
                         if (theirs.Count > 0)
-                            Say($"{group.Id}: " + string.Join(", ", theirs.Select(entry => $"{entry.Name} ({entry.Build}) {Rank(entry.RealmPoints)}")));
+                            Say($"{team}: " + string.Join(", ", theirs.Select(entry => $"{entry.Name} ({entry.Build}) {Rank(entry.RealmPoints)}")));
                     }
                     return;
                 }

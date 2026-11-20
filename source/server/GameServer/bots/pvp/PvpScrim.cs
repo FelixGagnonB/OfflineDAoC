@@ -293,10 +293,10 @@ namespace DOL.GS
 
         /// <summary>The squad a player leads in a play session that is running; null otherwise.</summary>
         public static PvpSquad SquadOf(GamePlayer player) =>
-            player == null ? null : _runs.FirstOrDefault(run => run.Running && run.Leader == player)?.LeaderSquad;
+            player == null ? null : _runs.FirstOrDefault(run => run.Running && run.Leader == player)?.LeaderSquad ?? PvpRoam.SquadOf(player);
 
         /// <summary>True for the player of a play session that is running.</summary>
-        public static bool IsPlaying(GamePlayer player) => player != null && _runs.Any(run => run.Running && run.Leader == player);
+        public static bool IsPlaying(GamePlayer player) => player != null && (_runs.Any(run => run.Running && run.Leader == player) || PvpRoam.SquadOf(player) != null);
 
         /// <summary>The length of a play session's fight at most, in seconds: a fight between equals ran five to ten minutes.</summary>
         public const int PlayLimitSeconds = 1_800;
@@ -322,13 +322,7 @@ namespace DOL.GS
             if (real)
             {
                 // The character fights at what it has earned in real sessions, and is kept in the roster with its companions.
-                List<PvpRosterEntry> roster = PvpRoster.Load(AppContext.BaseDirectory, player.InternalID);
-                if (PvpRoster.Find(roster, PvpRealmPoints.PlayerBuild, 0) == null)
-                {
-                    roster.Add(new PvpRosterEntry(PvpRealmPoints.PlayerBuild, 0, player.Name, (int)player.Gender));
-                    PvpRoster.Save(AppContext.BaseDirectory, player.InternalID, roster);
-                }
-                if (PvpPlayerReady.SetRealRank(player, PvpPlayerReady.RealPointsOf(player)) is { } set)
+                if (PvpPlayerReady.EnterReal(player) is { } set)
                     say(set);
             }
             else
@@ -342,8 +336,7 @@ namespace DOL.GS
                 player.ResetDisabledSkills();
             }
             (ushort region, Vector3 point) = PlayStart(box);
-            var spot = new Point3D((int)point.X, (int)point.Y, (int)point.Z);
-            bool There() => player.ObjectState == GameObject.eObjectState.Active && player.CurrentRegionID == region && player.IsWithinRadius(spot, 2_500);
+            TravelThen(player, region, new Point3D((int)point.X, (int)point.Y, (int)point.Z), say, Begin);
             void Begin()
             {
                 try
@@ -361,12 +354,18 @@ namespace DOL.GS
                     say("The fight could not start: " + exception.Message);
                 }
             }
+        }
+
+        /// <summary>Takes the player to a start in the world and goes on when the player stands there: moving between regions takes the client a moment.</summary>
+        public static void TravelThen(GamePlayer player, ushort region, Point3D spot, Action<string> say, Action begin)
+        {
+            bool There() => player.ObjectState == GameObject.eObjectState.Active && player.CurrentRegionID == region && player.IsWithinRadius(spot, 2_500);
             if (There())
             {
-                Begin();
+                begin();
                 return;
             }
-            say("Taking you to the start in Emain Macha; the fight begins when you are there.");
+            say("Taking you to the start in Emain Macha; it begins when you are there.");
             player.MoveTo(region, spot.X, spot.Y, spot.Z, player.Heading);
             int waited = 0;
             new ECSGameTimer(player, _ =>
@@ -376,7 +375,7 @@ namespace DOL.GS
                     return 0;
                 if (player.Client.IsPlaying != true || !There())
                     return 1_000;
-                Begin();
+                begin();
                 return 0;
             }, 2_000);
         }

@@ -90,6 +90,21 @@ namespace DOL.GS
                    (lowered ? $" Your realm abilities are handed back; you have {player.RealmSpecialtyPoints} points to spend with /train." : string.Empty);
         }
 
+        /// <summary>
+        /// The start of a real session or a roam for a character: it is in the roster beside its
+        /// companions, and at the rank it has earned in real sessions. Returns what to tell the player, or null.
+        /// </summary>
+        public static string EnterReal(GamePlayer player)
+        {
+            List<PvpRosterEntry> roster = PvpRoster.Load(AppContext.BaseDirectory, player.InternalID);
+            if (PvpRoster.Find(roster, PvpRealmPoints.PlayerBuild, 0) == null)
+            {
+                roster.Add(new PvpRosterEntry(PvpRealmPoints.PlayerBuild, 0, player.Name, (int)player.Gender));
+                PvpRoster.Save(AppContext.BaseDirectory, player.InternalID, roster);
+            }
+            return SetRealRank(player, RealPointsOf(player));
+        }
+
         /// <summary>What a character has earned in real sessions; 0 for one that has been in none.</summary>
         public static long RealPointsOf(GamePlayer player) =>
             PvpRoster.Find(PvpRoster.Load(AppContext.BaseDirectory, player.InternalID), PvpRealmPoints.PlayerBuild, 0)?.RealmPoints ?? 0;
