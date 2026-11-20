@@ -101,6 +101,25 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void AGroupToTryIsEightOfOneRealmAndFoundByItsName()
+        {
+            // The owner, 2026-11-20: "We use to run: bard, bard, druid, druid, hero, bm, bm, eld".
+            PvpGroupTemplate twoBards = PvpBuildCatalog.FindGroup("hib-2bard");
+            Assert.That(twoBards, Is.Not.Null);
+            Assert.That(twoBards.BuildIds.Select(id => PvpBuildCatalog.Find(id).Class).OrderBy(c => c.ToString()), Is.EqualTo(new[]
+            {
+                eCharacterClass.Bard, eCharacterClass.Bard, eCharacterClass.Blademaster, eCharacterClass.Blademaster,
+                eCharacterClass.Druid, eCharacterClass.Druid, eCharacterClass.Eldritch, eCharacterClass.Hero
+            }));
+            foreach (PvpGroupTemplate group in PvpBuildCatalog.Variants)
+            {
+                Assert.That(group.BuildIds, Has.Count.EqualTo(8), group.Id);
+                Assert.That(group.BuildIds.Select(id => PvpBuildCatalog.RealmOf(PvpBuildCatalog.Find(id).Class)), Is.All.EqualTo(group.Realm), group.Id);
+                Assert.That(PvpBuildCatalog.Groups.Select(main => main.Id), Has.None.EqualTo(group.Id), "the main groups stay the ones picked by a realm");
+            }
+        }
+
+        [Test]
         public void MainGroupsCoverTwentyClasses()
         {
             int classes = PvpBuildCatalog.Groups.SelectMany(group => group.BuildIds)

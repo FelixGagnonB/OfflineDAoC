@@ -258,7 +258,7 @@ namespace DOL.GS
         /// where the player stands. <paramref name="say"/> receives what happened.
         /// </summary>
         public static void TravelAndStartPlay(GamePlayer player, PvpGroupTemplate enemy, int realmLevel, string start, Action<string> say,
-            bool botDrives = false)
+            bool botDrives = false, PvpGroupTemplate own = null)
         {
             PvpArenaBox box = PlayBox(start);
             // The player fights at the rank of the bots: the points are there to spend (before or after this fight).
@@ -275,7 +275,7 @@ namespace DOL.GS
             {
                 try
                 {
-                    StartPlay(player, enemy, realmLevel, box, botDrives);
+                    StartPlay(player, enemy, realmLevel, box, botDrives, own);
                     say($"Seven companions are with you at realm rank {realmLevel / 10 + 1}; {enemy.Id} is " +
                         (box == PvpArenaBox.EmainSouthEast ? "at the far end of the basin, to the east, and will roam" : "6,000 units to the south") +
                         ". Both groups buff for about a minute first. /8v8 stop ends it.");
@@ -325,7 +325,8 @@ namespace DOL.GS
         /// must stand at <see cref="PlayStart"/> already: moving a player between regions takes
         /// the client a moment, and the companions are put around where the player stands.
         /// </summary>
-        public static void StartPlay(GamePlayer player, PvpGroupTemplate enemy, int realmLevel, PvpArenaBox box = null, bool botDrives = false)
+        public static void StartPlay(GamePlayer player, PvpGroupTemplate enemy, int realmLevel, PvpArenaBox box = null, bool botDrives = false,
+            PvpGroupTemplate own = null)
         {
             box ??= PvpArenaBox.EmainSouthEast;
             Log.Info($"8v8 play weights: {PvpWeights.Reload(AppContext.BaseDirectory)}");
@@ -333,7 +334,8 @@ namespace DOL.GS
                 throw new InvalidOperationException("A scrim or a session is already running. Stop it first.");
             if (enemy.Realm == player.Realm)
                 throw new ArgumentException("The enemy group must be of another realm.");
-            PvpGroupTemplate own = PvpBuildCatalog.Groups.First(group => group.Realm == player.Realm);
+            if (own == null || own.Realm != player.Realm)
+                own = PvpBuildCatalog.Groups.First(group => group.Realm == player.Realm);
             PvpArena.Clear();
             if (!_hooked)
             {
@@ -578,7 +580,7 @@ namespace DOL.GS
             _bots.Clear();
             // In a play session side A is the player and seven companions, put around where the player stands.
             _teamA = _leader != null
-                ? PvpArena.SpawnCompanions(_leader, _realmLevel, _bots).ToList()
+                ? PvpArena.SpawnCompanions(_leader, _realmLevel, _bots, _groupA).ToList()
                 : PvpArena.SpawnGroup(_groupA, _arena.Region, spawnA.X, spawnA.Y, _realmLevel, _bots).ToList();
             _teamB = PvpArena.SpawnGroup(_groupB, _arena.Region, spawnB.X, spawnB.Y, _realmLevel, _bots).ToList();
             _squadA = _squadBrainA ? new PvpSquad(_teamA, _leader != null ? [_leader] : null) : null;

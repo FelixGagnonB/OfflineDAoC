@@ -147,6 +147,20 @@ namespace DOL.GS
                 ["druid-regrowth", "druid-nurture", "bard", "hero", "blademaster", "blademaster", "eldritch-light", "enchanter-light"]),
         ];
 
+        /// <summary>
+        /// Groups to try beside the main ones: a scrim, a batch or <c>/8v8 play</c> takes one by its
+        /// name, and nothing picks one by itself.
+        /// hib-2bard, the owner, 2026-11-20, on the Bard being Hibernia's only cure for mez and the
+        /// first to be caught: "we could always try this setup, that we ran for many years. I just
+        /// don't know how it would behave in 1.65. We use to run: bard, bard, druid, druid, hero, bm,
+        /// bm, eld". The second Bard has the first one's spec until the owner says otherwise.
+        /// </summary>
+        public static readonly IReadOnlyList<PvpGroupTemplate> Variants =
+        [
+            new("hib-2bard", eRealm.Hibernia,
+                ["druid-regrowth", "druid-nurture", "bard", "bard", "hero", "blademaster", "blademaster", "eldritch-light"]),
+        ];
+
         private static readonly Dictionary<string, PvpBuild> _byId =
             Builds.ToDictionary(build => build.Id, StringComparer.OrdinalIgnoreCase);
 
@@ -157,7 +171,7 @@ namespace DOL.GS
             Builds.Where(build => build.Class == characterClass);
 
         public static PvpGroupTemplate FindGroup(string id) =>
-            Groups.FirstOrDefault(group => string.Equals(group.Id, id, StringComparison.OrdinalIgnoreCase));
+            Groups.Concat(Variants).FirstOrDefault(group => string.Equals(group.Id, id, StringComparison.OrdinalIgnoreCase));
 
         /// <summary>One race per class, so two bots of a build have the same base stats.</summary>
         public static eRace RaceOf(eCharacterClass characterClass) => characterClass switch

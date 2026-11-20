@@ -9,6 +9,7 @@ namespace DOL.GS.Commands
         "/8v8 setup                     a window to pick the enemy realm, the start (lane or basin) and the realm rank, then start",
         "/8v8 ready [build]             your character becomes level 50 with that build's class, spec and gear (lists the builds without one)",
         "/8v8 play <alb|mid|hib> [rank] [lane|basin] [follow]  a fight: you and seven companions against that realm's group of eight, in Emain Macha; follow: a bot drives",
+        "/8v8 play hib-2bard ...  or  /8v8 play mid hib-2bard ...  another group by its name: as the enemy (first), or as your own (later)",
         "/8v8 call <push|regroup|hold|engage|extend|assist>  your call to the group: an order stands twelve seconds; assist puts the damage dealers on your target while it lives (45 s at most)",
         "/8v8 calls <on|off>            your companions' calls in group chat (assist, incoming, orders, out of power)",
         "/8v8 corpse <died|remove|off>  how a dead 8v8 bot is shown: laid down and kept (died), laid down and forgotten as a monster is (remove), or left standing (off)",
@@ -41,8 +42,10 @@ namespace DOL.GS.Commands
 
                 case "play":
                 {
-                    PvpGroupTemplate enemy = args.Length > 2 ? PvpBuildCatalog.Groups.FirstOrDefault(group =>
+                    PvpGroupTemplate enemy = args.Length > 2 ? PvpBuildCatalog.FindGroup(args[2]) ?? PvpBuildCatalog.Groups.FirstOrDefault(group =>
                         group.Id.StartsWith(args[2].ToLowerInvariant().Substring(0, System.Math.Min(3, args[2].Length)))) : null;
+                    // Another group of the player's own realm, by its name (PvpBuildCatalog.Variants).
+                    PvpGroupTemplate ownGroup = args.Skip(3).Select(PvpBuildCatalog.FindGroup).FirstOrDefault(group => group?.Realm == player.Realm);
                     if (enemy == null || enemy.Realm == player.Realm)
                     {
                         Say("Which realm do you fight? /8v8 play alb, mid or hib (not your own), then a realm rank if you want one: /8v8 play mid 5");
@@ -56,7 +59,9 @@ namespace DOL.GS.Commands
                     int playRank = args.Skip(3).Select(arg => int.TryParse(arg, out int wanted) ? wanted : 0).FirstOrDefault(wanted => wanted > 0);
                     string start = args.Skip(3).Any(arg => arg.ToLowerInvariant() == "basin") ? "basin" : "lane";
                     bool follow = args.Skip(3).Any(arg => arg.ToLowerInvariant() == "follow");
-                    PvpScrim.TravelAndStartPlay(player, enemy, (System.Math.Clamp(playRank == 0 ? 5 : playRank, 1, 13) - 1) * 10, start, Say, follow);
+                    PvpScrim.TravelAndStartPlay(player, enemy, (System.Math.Clamp(playRank == 0 ? 5 : playRank, 1, 13) - 1) * 10, start, Say, follow, ownGroup);
+                    if (ownGroup != null)
+                        Say($"Your group is {ownGroup.Id}: {string.Join(", ", ownGroup.BuildIds)} (without your own place).");
                     return;
                 }
 

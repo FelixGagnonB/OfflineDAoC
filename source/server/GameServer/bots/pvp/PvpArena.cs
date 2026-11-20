@@ -98,9 +98,12 @@ namespace DOL.GS
         /// player too. Not yet tried in a game client.
         /// </summary>
         /// <param name="all">When given, receives every bot put in the world, the buffbot too.</param>
-        public static IReadOnlyList<GameBot> SpawnCompanions(GamePlayer player, int realmLevel, ICollection<GameBot> all = null)
+        /// <param name="template">The player's group when it is not the realm's main one (PvpBuildCatalog.Variants).</param>
+        public static IReadOnlyList<GameBot> SpawnCompanions(GamePlayer player, int realmLevel, ICollection<GameBot> all = null,
+            PvpGroupTemplate template = null)
         {
-            PvpGroupTemplate template = PvpBuildCatalog.Groups.First(group => group.Realm == player.Realm);
+            if (template == null || template.Realm != player.Realm)
+                template = PvpBuildCatalog.Groups.First(group => group.Realm == player.Realm);
             List<string> builds = template.BuildIds.ToList();
             builds.RemoveAt(PvpPlayerReady.SlotOf(builds, (eCharacterClass)player.CharacterClass.ID,
                 player.TempProperties.GetProperty<string>(PvpPlayerReady.BuildProperty)));

@@ -134,7 +134,7 @@ namespace DOL.GS
             switch (request.Command?.ToLowerInvariant())
             {
                 case "ping":
-                    return new { Builds = PvpBuildCatalog.Builds.Count, Groups = PvpBuildCatalog.Groups.Select(group => group.Id) };
+                    return new { Builds = PvpBuildCatalog.Builds.Count, Groups = PvpBuildCatalog.Groups.Concat(PvpBuildCatalog.Variants).Select(group => group.Id) };
 
                 case "audit-builds":
                 {
