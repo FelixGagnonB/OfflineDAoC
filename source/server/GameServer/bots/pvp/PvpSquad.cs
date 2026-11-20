@@ -386,6 +386,8 @@ namespace DOL.GS
         private GameLiving RegroupsOn => _calledOrder == PvpOrder.Regroup && _caller is { IsAlive: true } &&
                                          GameLoop.GameLoopTime < _calledUntil ? _caller : null;
 
+        // When the group's kill target last changed (PvpKillWeights.CollapseOnCallSeconds).
+        private long _killCalledTick;
         // Who is raising whom, and until when the claim holds (a resurrection is a four-second cast).
         private readonly Dictionary<GameLiving, (GameBot By, long Until)> _raising = new();
 
@@ -525,6 +527,7 @@ namespace DOL.GS
                     if (current is { IsAlive: true })
                         _givenUp[current] = tick;
                     _killProgressTick = tick;
+                    _killCalledTick = tick;
                 }
                 // The call is recorded when it changes, with what else could have been called.
                 if (target != current && target != null)
@@ -582,7 +585,8 @@ namespace DOL.GS
                 // the Armsman was turned on an enemy that had followed onto the back line, and the
                 // Cabalist stood 1,400 units off. The shield fighter keeps its guard, the healers heal,
                 // and whoever interrupts with pets keeps them where they are.
-                bool calledOnto = target != null && target == _calledTarget && role == PvpRole.Assist && bot.IsAlive;
+                bool calledOnto = target != null && role == PvpRole.Assist && bot.IsAlive &&
+                    (target == _calledTarget || PvpWeights.Of(bot).Kill.Collapses(GameLoop.GameLoopTime, _killCalledTick));
                 if (calledOnto)
                     onDuty = null;
                 brain.PvpDutyTarget = onDuty;

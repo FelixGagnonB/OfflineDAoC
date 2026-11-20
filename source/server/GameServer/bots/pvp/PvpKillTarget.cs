@@ -73,6 +73,16 @@ namespace DOL.GS
         /// <summary>A target given up alive is not called again for <see cref="AbandonedForSeconds"/>. Off with the above.</summary>
         public int RecentlyAbandoned { get; set; } = 0;
         public int AbandonedForSeconds { get; set; } = 20;
+
+        /// <summary>
+        /// For this many seconds after the group calls a new kill target, every member whose job
+        /// is damage leaves its interrupt duty and whoever it had turned on, and goes for the
+        /// target: the group collapses on it. 0: each keeps its job, and the call is for whoever
+        /// is free (which, counted on 2026-11-20, is often one member of eight).
+        /// </summary>
+        public int CollapseOnCallSeconds { get; set; } = 0;
+
+        public bool Collapses(long now, long calledAt) => CollapseOnCallSeconds > 0 && now - calledAt < CollapseOnCallSeconds * 1_000L;
         /// <summary>The current target is kept unless another scores this much higher.</summary>
         public int SwitchMargin { get; set; } = 60;
         /// <summary>Enemies farther than this from the damage dealers are not called.</summary>

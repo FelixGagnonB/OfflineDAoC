@@ -69,9 +69,14 @@ Minstrel on interrupt duty for the enemy's healers; the Paladin peeling a Skald;
 the kill target until an enemy came onto the back line and it was turned on that; and the
 Cabalist, 1,400 units off, the only one left on the target. Albion's "assist train" is then one
 caster. A call by the player now takes every member whose job is damage off its duty and onto
-the target while the call stands. Whether the squad's own calls should do the same for a
-while is not decided: it is the question behind the owner's "our assist train and casters did
-not kill anyone", and it belongs to M8 (collapsing on a target together).
+the target while the call stands.
+*Tried for the squad's own calls and left off* (`PvpKillWeights.CollapseOnCallSeconds`, 0): 24
+matches at rank 5, one team of each collapsing on every new kill target for eight seconds and
+the other not. The collapsing teams won 9 and the others 15, lost 5.2 members a fight against
+3.8, had 60% of their calls end with the target dead against 64%, and the share of their damage
+on the kill target hardly moved (57% against 54%). Each member keeping its job is worth more
+than everybody going for the target every time. What is left of the owner's "our assist train
+and casters did not kill anyone" is when to collapse, not whether: M8.
 
 Things counted that night and what came of them:
 
