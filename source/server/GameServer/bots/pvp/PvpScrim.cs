@@ -264,6 +264,10 @@ namespace DOL.GS
             // The player fights at the rank of the bots: the points are there to spend (before or after this fight).
             if (PvpPlayerReady.RaiseRealmRank(player, realmLevel) is { } raised)
                 say(raised);
+            // Every session starts with the player's realm abilities and timed abilities ready: the owner,
+            // 2026-11-20, "so we can test with everything rather than waiting 30 minutes for purge to be up".
+            // Again when both groups are ready (BeginRoaming), for what was used while buffing.
+            player.ResetDisabledSkills();
             (ushort region, Vector3 point) = PlayStart(box);
             var spot = new Point3D((int)point.X, (int)point.Y, (int)point.Z);
             bool There() => player.ObjectState == GameObject.eObjectState.Active && player.CurrentRegionID == region && player.IsWithinRadius(spot, 2_500);
@@ -1124,7 +1128,8 @@ namespace DOL.GS
                 _leader.Health = _leader.MaxHealth;
                 _leader.Mana = _leader.MaxMana;
                 _leader.Endurance = _leader.MaxEndurance;
-                _leader.Out.SendMessage("[8v8] Both groups are buffed and rested. The enemy is roaming from the far end of the basin.",
+                _leader.ResetDisabledSkills();
+                _leader.Out.SendMessage("[8v8] Both groups are buffed and rested, and your ability timers are reset. The enemy is roaming from the far end of the basin.",
                     PacketHandler.eChatType.CT_Important, PacketHandler.eChatLoc.CL_SystemWindow);
             }
             int seconds = (int)((now - _phaseStartTick) / 1000);
