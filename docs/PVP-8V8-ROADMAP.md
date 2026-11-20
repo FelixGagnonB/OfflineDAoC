@@ -2407,10 +2407,20 @@ In order:
   abilities reset, no rps gain, only 2 groups, no real roaming". `/8v8 setup` has a Rules line
   (Practice or Real) and `/8v8 play <realm> real` is the same typed. Practice is what there
   was. In a real session (`PvpRealmPoints.cs`):
-  - nobody's rank is set: the player fights at the character's own, each companion at the rank
-    its own realm points make (the first time, level with the player's character), and the
-    enemy group at what it has earned itself, never below the average of the player's group
-    (`Real.EnemyKeepsUp`);
+  - everybody starts at rank 1 and fights at what it has earned in real sessions (the owner,
+    the same evening: "the real will have us start at rr1 and gain rps and see how it goes. We
+    would need to persist bots and companions data (or at least, rps gained). I guess if we add
+    teams, we'd need to make sure to persist all the bot / companions and their rps"): each
+    companion, the enemy group (never below the average of the player's group,
+    `Real.EnemyKeepsUp`), and the player's own character, whose earned points are kept in the
+    roster beside the companions'. A real session puts the character at that rank, up or down,
+    and going down hands its realm abilities back (a practice session may have raised it; the
+    setup window says so before Start). *To look at before this goes into a release: a
+    character with realm points from outside 8v8 would be put at its 8v8 rank too.*
+  - what is kept, in `pvp-rosters.json` beside the server: for each character its own points
+    and its seven companions by build and place, and for each enemy group it has fought that
+    group's eight members, each with name, sex and points. A second team of the same group in
+    one session will need its own roster name (not built: there is one enemy group today);
   - no timer is reset, at the start or when both groups are ready;
   - a death is paid for once (again if the member is raised and dies again): what a player of
     that level and rank is worth (900 for a level 50 of rank 1), times `Real.RealmPointRate`

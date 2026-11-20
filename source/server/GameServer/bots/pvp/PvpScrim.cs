@@ -262,7 +262,19 @@ namespace DOL.GS
             bool botDrives = false, PvpGroupTemplate own = null, bool real = false)
         {
             PvpArenaBox box = PlayBox(start);
-            if (!real)
+            if (real)
+            {
+                // The character fights at what it has earned in real sessions, and is kept in the roster with its companions.
+                List<PvpRosterEntry> roster = PvpRoster.Load(AppContext.BaseDirectory, player.InternalID);
+                if (PvpRoster.Find(roster, PvpRealmPoints.PlayerBuild, 0) == null)
+                {
+                    roster.Add(new PvpRosterEntry(PvpRealmPoints.PlayerBuild, 0, player.Name, (int)player.Gender));
+                    PvpRoster.Save(AppContext.BaseDirectory, player.InternalID, roster);
+                }
+                if (PvpPlayerReady.SetRealRank(player, PvpPlayerReady.RealPointsOf(player)) is { } set)
+                    say(set);
+            }
+            else
             {
                 // The player fights at the rank of the bots: the points are there to spend (before or after this fight).
                 if (PvpPlayerReady.RaiseRealmRank(player, realmLevel) is { } raised)
@@ -604,7 +616,13 @@ namespace DOL.GS
             foreach (GameLiving member in near)
             {
                 if (member is GamePlayer player)
+                {
+                    // On the character, and in the roster: that is what the next real session puts the character at.
                     player.GainRealmPoints(share, false);
+                    if (!earned.TryGetValue(player.InternalID, out var mine))
+                        earned[player.InternalID] = mine = new();
+                    mine[(PvpRealmPoints.PlayerBuild, 0)] = share;
+                }
                 else if (member is GameBot { PvpRosterOwner: { } owner } bot)
                 {
                     // Its rank moves when it next comes into a session: buying abilities in the middle of a fight is not safe.

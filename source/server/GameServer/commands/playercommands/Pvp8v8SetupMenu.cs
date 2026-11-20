@@ -39,7 +39,8 @@ namespace DOL.GS.Commands
             }
         }
 
-        public string Text(eRealm own)
+        /// <param name="realRank">For the Real rules: the rank the character has earned in real fights and the one it stands at, when they differ.</param>
+        public string Text(eRealm own, string realRank = null)
         {
             string Pick(string word, bool chosen) => chosen ? $"<{word}>" : $"[{word}]";
             string realms = string.Join("   ", new[] { eRealm.Albion, eRealm.Midgard, eRealm.Hibernia }.Where(realm => realm != own)
@@ -59,7 +60,8 @@ namespace DOL.GS.Commands
                    "Lane: face to face, 6,000 units apart. Basin: opposite ends, out of sight; the enemy roams and you find it.\n\n" +
                    $"Rules:   {Pick("Practice", !Real)}   {Pick("Real", Real)}\n" +
                    "Practice: everybody at the rank picked below, your timers reset, nothing earned. " +
-                   "Real: everybody at the rank it has earned, kills earn realm points that are kept (/8v8 ranks), no timer is reset.\n\n" +
+                   "Real: everybody at the rank it has earned, from rank 1, kills earn realm points that are kept (/8v8 ranks), no timer is reset.\n" +
+                   (Real && realRank != null ? realRank + "\n" : string.Empty) + "\n" +
                    $"Realm rank of every bot (practice):   {string.Join("   ", Ranks.Select(rank => Pick("Rank" + rank, rank == Rank)))}\n\n" +
                    "What is in <> is chosen. Click another to change it, then:\n\n[Start]\n\n" +
                    "Picking a rank above your own gives you that rank and its realm ability points (/train to spend them). " +
@@ -122,7 +124,11 @@ namespace DOL.GS.Commands
         {
             _owner.TargetObject = this;
             _owner.Out.SendChangeTarget(this);
-            _owner.Out.SendMessage(_setup.Text(_owner.Realm), eChatType.CT_Say, eChatLoc.CL_PopupWindow);
+            int earned = PvpRealmPoints.LevelFor(PvpPlayerReady.RealPointsOf(_owner));
+            _owner.Out.SendMessage(_setup.Text(_owner.Realm, earned == _owner.RealmLevel ? null
+                    : $"Start puts your character at rank {PvpRealmPoints.RankName(earned)}, what it has earned in real fights (it stands at " +
+                      $"{PvpRealmPoints.RankName(_owner.RealmLevel)} now){(earned < _owner.RealmLevel ? ", and hands its realm abilities back to be bought again" : string.Empty)}."),
+                eChatType.CT_Say, eChatLoc.CL_PopupWindow);
         }
 
         public override bool WhisperReceive(GameLiving source, string text)

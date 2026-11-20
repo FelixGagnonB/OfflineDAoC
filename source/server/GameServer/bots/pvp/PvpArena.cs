@@ -129,6 +129,7 @@ namespace DOL.GS
 
             var nav = PathfindingProvider.Instance;
             var centre = new Vector3(player.X, player.Y, player.Z);
+            // (The roster also holds the player's own earned points, under PvpRealmPoints.PlayerBuild: no bot is made for that.)
             if (player.Group == null)
             {
                 var group = new Group(player);
@@ -143,8 +144,8 @@ namespace DOL.GS
                 PvpBuild build = PvpBuildCatalog.Find(builds[i]);
                 int place = PvpRoster.PlaceOf(builds, i);
                 PvpRosterEntry kept = PvpRoster.Find(roster, builds[i], place);
-                // The first time in a real session a companion starts level with the player's character.
-                long points = real ? PvpRealmPoints.Seeded(kept?.RealmPoints ?? 0, player.RealmPoints) : 0;
+                // In a real session a companion has what it has earned in real sessions: nothing, the first time.
+                long points = real ? kept?.RealmPoints ?? 0 : 0;
                 GameBot bot = CreateBot(build, player.Realm, i, builds.Count, player.CurrentZone, player.CurrentRegionID, centre, 160,
                     real ? PvpRealmPoints.LevelFor(points) : realmLevel, kept);
                 if (kept == null)
@@ -154,14 +155,7 @@ namespace DOL.GS
                     newcomers = true;
                 }
                 if (real)
-                {
                     (bot.PvpRosterOwner, bot.PvpRosterPlace, bot.PvpPoints) = (player.InternalID, place, points);
-                    if (kept.RealmPoints != points)
-                    {
-                        roster[roster.IndexOf(kept)] = kept with { RealmPoints = points };
-                        newcomers = true;
-                    }
-                }
                 bot.Heading = player.Heading;
                 if (!bot.AddToWorld() || !player.Group.AddMember(bot))
                 {

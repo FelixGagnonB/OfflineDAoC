@@ -145,10 +145,12 @@ namespace DOL.GS.Commands
 
                 case "ranks":
                 {
-                    static string Rank(long points) => $"{PvpRealmPoints.LevelFor(points) / 10 + 1}L{PvpRealmPoints.LevelFor(points) % 10}";
+                    static string Rank(long points) => $"{PvpRealmPoints.RankName(PvpRealmPoints.LevelFor(points))} ({points:N0})";
                     System.Collections.Generic.List<PvpRosterEntry> mine = PvpRoster.Load(System.AppContext.BaseDirectory, player.InternalID);
+                    Say($"In real fights you are at {Rank(PvpPlayerReady.RealPointsOf(player))}; your character stands at {PvpRealmPoints.RankName(player.RealmLevel)} now.");
+                    mine = mine.Where(entry => entry.Build != PvpRealmPoints.PlayerBuild).ToList();
                     Say(mine.Count == 0 ? "You have no companions yet: they come with your first fight."
-                        : "Your companions: " + string.Join(", ", mine.Select(entry => $"{entry.Name} ({entry.Build}) {(entry.RealmPoints > 0 ? Rank(entry.RealmPoints) : "not yet in a real fight")}")));
+                        : "Your companions: " + string.Join(", ", mine.Select(entry => $"{entry.Name} ({entry.Build}) {Rank(entry.RealmPoints)}")));
                     foreach (PvpGroupTemplate group in PvpBuildCatalog.Groups.Concat(PvpBuildCatalog.Variants))
                     {
                         System.Collections.Generic.List<PvpRosterEntry> theirs = PvpRoster.Load(System.AppContext.BaseDirectory,
