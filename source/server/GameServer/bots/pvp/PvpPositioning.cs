@@ -186,8 +186,24 @@ namespace DOL.GS
         /// sprint did not change its speed at all (only a player's did). It costs no endurance,
         /// like all of a bot's movement, which stands in for Tireless and the endurance songs;
         /// a player in the group pays for sprint as the game has it.
+        /// Since 2026-11-20 it costs endurance (<see cref="SprintCostPerSecond"/>), and the owner
+        /// set when it is used: "No sprint when roaming, just speed from Bard/Skald/Minstrel.
+        /// Sprint during fight when needed." (<see cref="SprintNeeded"/>).
         /// </summary>
         public bool SprintInFights { get; set; } = true;
+        /// <summary>A bot with this far to go in a fight sprints: more than an ordinary step, to a target or a place.</summary>
+        public int SprintBeyond { get; set; } = 400;
+        /// <summary>Once sprinting it sprints on until it is this near.</summary>
+        public int SprintUntilWithin { get; set; } = 150;
+
+        /// <summary>
+        /// Whether a bot in a fight has a reason to sprint: it is pressed (an enemy fighter on
+        /// it, falling back with its group, or its group chasing), or it has
+        /// <paramref name="wayLeft"/> to cover to its target or to where it is going. In melee,
+        /// or taking an ordinary step, it runs and keeps its endurance for its styles.
+        /// </summary>
+        public bool SprintNeeded(bool pressed, int wayLeft, bool sprinting) =>
+            pressed || wayLeft >= SprintBeyond || sprinting && wayLeft >= SprintUntilWithin;
         /// <summary>
         /// What a second of sprinting on the move takes from a bot's endurance, as it takes five
         /// from a player's each tick: with an endurance song or buff on it the bot gets as much

@@ -246,6 +246,18 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void InAFightABotSprintsWhenItIsPressedOrHasGroundToCover()
+        {
+            // The owner, 2026-11-20: "Sprint during fight when needed."
+            Assert.That(Weights.SprintNeeded(false, 0, false), Is.False, "in melee, or standing to cast");
+            Assert.That(Weights.SprintNeeded(false, 350, false), Is.False, "an ordinary step");
+            Assert.That(Weights.SprintNeeded(false, 700, false), Is.True, "a long step, or a target that far");
+            Assert.That(Weights.SprintNeeded(false, 300, true), Is.True, "it sprints on until it is there");
+            Assert.That(Weights.SprintNeeded(false, 100, true), Is.False, "and then it runs");
+            Assert.That(Weights.SprintNeeded(true, 0, false), Is.True, "a fighter on it, falling back, or a chase");
+        }
+
+        [Test]
         public void AFighterThatIsNotOnItDoesNotPinIt()
         {
             Assert.That(PvpPositioning.Pinned(Vector2.Zero, [new PvpThreat(new Vector2(150, 0), false, false, false)], Weights), Is.False);

@@ -55,6 +55,19 @@ namespace DOL.GS
 
         // Fighters on their way back to the group's healers and casters under the Extend order.
         private readonly HashSet<GameBot> FallingBack = new();
+        // When an enemy fighter was last seen to be on a healer or caster: a reason to sprint.
+        private readonly Dictionary<GameBot, long> _huntedTick = new();
+
+        /// <summary>How far a bot has to go: to the enemy it is on, for a fighter, or to where it is walking.</summary>
+        private static int WayLeft(GameBot bot)
+        {
+            int way = 0;
+            if (bot.movementComponent is NpcMovementComponent { IsDestinationValid: true } legs)
+                way = (int)Vector2.Distance(new Vector2(bot.X, bot.Y), new Vector2(legs.Destination.X, legs.Destination.Y));
+            if (IsFighter(bot) && bot.TargetObject is GameLiving { IsAlive: true } aim && aim.Realm != bot.Realm)
+                way = Math.Max(way, bot.GetDistanceTo(aim));
+            return way;
+        }
 
         /// <summary>True for an enemy fighter that is in melee on one of the group's healers or casters.</summary>
         public bool IsPursuer(GameLiving enemy) => _pursuers.Contains(enemy) || _incoming.Contains(enemy);
@@ -565,11 +578,14 @@ namespace DOL.GS
                 brain.PvpSquad = this;
                 // From the run-in on: the owner, 2026-11-19, "we were using speed + sprint all the time until initial contact", and after it.
                 PvpPositionWeights legs = PvpWeights.Of(bot).Position;
-                // On the road a bot's sprint is free, as it was: the group arrives with its endurance, and keeps
-                // up with a player who sprints. Once the fight is on it costs what it costs a player
-                // (PvpPositionWeights.SprintCostPerSecond; this runs once a second).
-                bot.PvpSprinting = bot.IsAlive && legs.SprintInFights && (!FightStarted || legs.CanSprint(bot.EndurancePercent, bot.PvpSprinting));
-                if (FightStarted && bot.PvpSprinting && bot.IsMoving && legs.SprintCostPerSecond > 0)
+                // The owner, 2026-11-20: "No sprint when roaming, just speed from Bard/Skald/Minstrel. Sprint during
+                // fight when needed." On the road nobody sprints. In a fight a bot sprints when it is pressed or has
+                // ground to cover (PvpPositionWeights.SprintNeeded), and that costs it endurance on the move, as it
+                // costs a player (SprintCostPerSecond; this runs once a second).
+                bool pressed = Chasing || FallingBack.Contains(bot) || _huntedTick.TryGetValue(bot, out long huntedAt) && GameLoop.GameLoopTime - huntedAt < 2_500;
+                bot.PvpSprinting = bot.IsAlive && FightStarted && legs.SprintInFights &&
+                                   legs.SprintNeeded(pressed, WayLeft(bot), bot.PvpSprinting) && legs.CanSprint(bot.EndurancePercent, bot.PvpSprinting);
+                if (bot.PvpSprinting && bot.IsMoving && legs.SprintCostPerSecond > 0)
                     bot.Endurance = Math.Max(0, bot.Endurance - legs.SprintCostPerSecond);
                 // For a watcher: a member that has run out of power does nothing, and that cannot be seen from above
                 // (owner, 2026-11-19, of a Theurgist that stood still: "I do not have that information when I observe").
@@ -1068,6 +1084,8 @@ namespace DOL.GS
                     continue;
                 List<PvpThreat> threats = fighters.Select(enemy => new PvpThreat(At(enemy), enemy.IsMezzed || enemy.IsStunned, IsSlowed(enemy), enemy.TargetObject == bot)).ToList();
                 bool hunted = threats.Any(threat => threat.OnMe);
+                if (hunted)
+                    _huntedTick[bot] = now;
                 // Gathered against enemy pets (ClearPets): it stays, unless an enemy fighter is on it.
                 if (Gathering.Contains(bot) && !hunted)
                     continue;
