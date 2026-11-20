@@ -1082,6 +1082,8 @@ namespace DOL.GS
             base.ProcessDeath(killer);
             if (IsAutonomousWorldBot)
                 AutonomousBotStatusPersistence.Queue(this);
+            if (IsPvpBot)
+                PvpCorpse.Announce(this);
             StartDeathRecoveryTimer();
         }
 

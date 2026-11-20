@@ -124,6 +124,10 @@ namespace DOL.GS.PacketHandler
 			if (m_gameClient.Player == null || npc.IsVisibleTo(m_gameClient.Player) == false)
 				return;
 
+			// An 8v8 bot's body the client was told to lay down and forget (PvpCorpse).
+			if (PvpCorpse.HidesCreate(npc))
+				return;
+
 			// Mines are not shown to enemy players.
 			if (npc is GameMine)
 			{

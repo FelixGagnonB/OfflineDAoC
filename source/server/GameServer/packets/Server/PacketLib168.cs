@@ -3607,9 +3607,13 @@ namespace DOL.GS.PacketHandler
 			}
 			else if (living is GameNPC)
 			{
+				if (PvpCorpse.HidesCreate(living))
+					return;
 				SendNPCCreate(living as GameNPC);
 				if (NecromancerPetAppearance.HasEquipment(living))
 					SendLivingEquipmentUpdate(living as GameNPC);
+				if (PvpCorpse.LaysDown(living) && m_gameClient.Player != null)
+					PvpCorpse.SendDied(m_gameClient.Player, living);
 			}
 		}
 

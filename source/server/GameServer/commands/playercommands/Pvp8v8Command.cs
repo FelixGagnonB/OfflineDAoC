@@ -11,6 +11,7 @@ namespace DOL.GS.Commands
         "/8v8 play <alb|mid|hib> [rank] [lane|basin] [follow]  a fight: you and seven companions against that realm's group of eight, in Emain Macha; follow: a bot drives",
         "/8v8 call <push|regroup|hold|engage|extend|assist>  your call to the group: an order stands twelve seconds; assist puts the damage dealers on your target while it lives (45 s at most)",
         "/8v8 calls <on|off>            your companions' calls in group chat (assist, incoming, orders, out of power)",
+        "/8v8 corpse <died|remove|off>  how a dead 8v8 bot is shown: laid down and kept (died), laid down and forgotten as a monster is (remove), or left standing (off)",
         "/8v8 stop                      ends the fight and removes every 8v8 bot",
         "/8v8 clear                     removes every 8v8 bot",
         "/8v8 lanes                     (GM) what is fighting in each lane of the arena",
@@ -131,6 +132,25 @@ namespace DOL.GS.Commands
                     {
                         Say("Making the character ready failed part way: " + exception.Message);
                     }
+                    return;
+                }
+
+                case "corpse":
+                {
+                    PvpCorpseShow? show = (args.Length > 2 ? args[2].ToLowerInvariant() : string.Empty) switch
+                    {
+                        "died" => PvpCorpseShow.Died,
+                        "remove" => PvpCorpseShow.Removed,
+                        "off" => PvpCorpseShow.Off,
+                        _ => null
+                    };
+                    if (show == null)
+                    {
+                        Say($"A dead 8v8 bot is shown as: {PvpCorpse.Show}. /8v8 corpse died, remove or off changes it.");
+                        return;
+                    }
+                    int lying = PvpCorpse.Switch(show.Value, PvpArena.Members);
+                    Say($"A dead 8v8 bot is now shown as: {PvpCorpse.Show} ({lying} bodies shown again). It lasts until the server restarts.");
                     return;
                 }
 
