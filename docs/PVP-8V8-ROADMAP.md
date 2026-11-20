@@ -113,6 +113,27 @@ Things counted that night and what came of them:
   casts and six seconds of speed the speed would lapse for a moment every round. For the owner
   to choose.
 
+### 2026-11-20, from the owner's sessions as a Hero against Midgard
+
+Built and installed on the scrim server; none of it has been seen by the owner yet, and none
+has been through a batch. Automated tests only (3,412 pass).
+
+| The owner said | What was found | What was built |
+|---|---|---|
+| "Follow is not really working. Team is moving as a rectangle" | the group walked 300 apart around a point ahead of it | on the road every member follows the driver, close behind (`PvpFormation.FollowDistance`) |
+| "I'd rather keep speed 100% while roaming and endurance during fight" | a Bard cannot hold two songs here | speed on the road, endurance from the moment an enemy is seen |
+| "Team 'knowing' where the enemies are without any LoS drops speed" | the song switched on distance to enemies nobody had seen | it switches on sight only |
+| "I was on top of them. Client was not updating their position." | a bot's change of way went to clients the lossy way unless it was attacking; a kiting healer took a new way every second | 8v8 bots' starts, stops and changes of way are sent reliably; kiting takes long steps, one after the other. **Unconfirmed**: only the owner's client can show whether this was the cause |
+| "Bard should be aware when we are chasing someone and sing speed" | a Healer was chased for a minute across the basin, nobody with speed | a group out of contact for three seconds in a fight is chasing (`PvpSquad.Chasing`): speed song until it is in contact again |
+| "If they have no endurance, they can't sprint." | a bot's sprint was free; the fleeing Healer stayed at 100 | sprinting on the move takes five endurance a second, as it takes a player (`SprintCostPerSecond`) |
+| "Mids have an endurance buff which differs from Hib and Alb" | Midgard's buffbot gives every member the Shaman's endurance buff, five a second: exactly what sprint takes, so Midgard can sprint without end; Hibernia needs the Bard's song (five) and Albion the Paladin's chant (five) | nothing changed; recorded here |
+| "No sprint when roaming, just speed... Sprint during fight when needed." | with sprint paid for on the road the companions reached a fight at 2 to 20% endurance (one session, 11:10) | no sprint before the first blow; after it, when pressed (a fighter on it, falling back, a chase) or with more than 400 units to cover (`SprintNeeded`) |
+| "General rule for all 3 realms, do not cast damage shield." | 52 casts by Healers, 46 by Eldritches, 11 by Druids, 63 by Cabalists' simulacra in the last sixty recordings | no 8v8 bot casts one, and no pet of one (`PvpBuffPlan.NeverCast`) |
+
+Still open from these sessions: Midgard's fighters dive and die 1,240 to 2,165 units from their
+healers (a leash, to be built switched off and compared); in two fights the Bard finished no
+endurance song at all; the Shaman casts almost no roots or diseases.
+
 ## The afternoon before (owner, 2026-11-19): to where the owner can play
 
 After a day of watching, and a loop of seven recorded rounds (below), the owner: "Maybe the best
