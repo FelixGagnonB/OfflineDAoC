@@ -565,9 +565,11 @@ namespace DOL.GS
                 brain.PvpSquad = this;
                 // From the run-in on: the owner, 2026-11-19, "we were using speed + sprint all the time until initial contact", and after it.
                 PvpPositionWeights legs = PvpWeights.Of(bot).Position;
-                bot.PvpSprinting = bot.IsAlive && legs.SprintInFights && legs.CanSprint(bot.EndurancePercent, bot.PvpSprinting);
-                // Sprinting on the move costs endurance (PvpPositionWeights.SprintCostPerSecond); this runs once a second.
-                if (bot.PvpSprinting && bot.IsMoving && legs.SprintCostPerSecond > 0)
+                // On the road a bot's sprint is free, as it was: the group arrives with its endurance, and keeps
+                // up with a player who sprints. Once the fight is on it costs what it costs a player
+                // (PvpPositionWeights.SprintCostPerSecond; this runs once a second).
+                bot.PvpSprinting = bot.IsAlive && legs.SprintInFights && (!FightStarted || legs.CanSprint(bot.EndurancePercent, bot.PvpSprinting));
+                if (FightStarted && bot.PvpSprinting && bot.IsMoving && legs.SprintCostPerSecond > 0)
                     bot.Endurance = Math.Max(0, bot.Endurance - legs.SprintCostPerSecond);
                 // For a watcher: a member that has run out of power does nothing, and that cannot be seen from above
                 // (owner, 2026-11-19, of a Theurgist that stood still: "I do not have that information when I observe").

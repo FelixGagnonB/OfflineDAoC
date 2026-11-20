@@ -87,6 +87,14 @@ namespace DOL.GS
         };
 
         /// <summary>
+        /// Spells no 8v8 bot casts, and no pet of one. The owner, 2026-11-20: "General rule for
+        /// all 3 realms, do not cast damage shield." Until then a Healer put one on itself, an
+        /// Eldritch and a Druid on the group, and a Cabalist's simulacrum on itself (52, 46, 11
+        /// and 63 casts in the last sixty recordings of that day).
+        /// </summary>
+        public static bool NeverCast(eSpellType type) => type == eSpellType.DamageShield;
+
+        /// <summary>
         /// The planned kind of a spell, or null for anything the plan leaves alone: self buffs,
         /// group resists, songs and chants, pet buffs. Planned buffs are the single-target ones
         /// that hold concentration.

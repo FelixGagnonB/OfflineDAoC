@@ -160,5 +160,14 @@ namespace DOL.UnitTests
             Assert.That(PvpBuffPlan.NeedsOf(PvpBuffArchetype.Caster).Take(2),
                 Is.EquivalentTo(new[] { PvpBuffKind.SpecDexQui, PvpBuffKind.SpecStrCon }));
         }
+
+        [Test]
+        public void NoDamageShieldIsCastInAnyRealm()
+        {
+            // The owner, 2026-11-20: "General rule for all 3 realms, do not cast damage shield."
+            Assert.That(PvpBuffPlan.NeverCast(eSpellType.DamageShield), Is.True);
+            Assert.That(PvpBuffPlan.NeverCast(eSpellType.DamageAdd), Is.False);
+            Assert.That(PvpBuffPlan.NeverCast(eSpellType.Bladeturn), Is.False);
+        }
     }
 }
