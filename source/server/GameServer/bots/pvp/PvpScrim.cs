@@ -851,8 +851,13 @@ namespace DOL.GS
                     : nav.GetClosestPoint(zone, new Vector3(next.X, next.Y, 5_000), 256, 256, 20_000, nav.DefaultFilters)
                       ?? new Vector3(next.X, next.Y, (float)members.Average(bot => bot.Z));
             }
-            // On the road in the basin it runs as a clump; it takes its rows when the enemy is in sight.
-            places = basin && seen.Count == 0 ? TravelPlaces(members, goal) : SpreadPlaces(members, goal);
+            // On the road in the basin a group follows its driver, the member with the speed song, close
+            // behind it as players on /stick do; it takes its rows when the enemy is in sight. (A clump
+            // 300 apart set around a point ahead, tried for a night, was to the owner's eye still "a
+            // rectangle", and with the driver stopping for its songs the driver was the one left behind.)
+            bool onTheRoad = basin && seen.Count == 0;
+            GameBot driver = onTheRoad ? PvpFormation.DriverOf(members) : null;
+            places = onTheRoad ? null : SpreadPlaces(members, goal);
             bool sawBefore = team == _teamA ? _sawEnemyA : _sawEnemyB;
             bool sighted = seen.Count > 0 && !sawBefore;
             if (team == _teamA) _sawEnemyA = seen.Count > 0; else _sawEnemyB = seen.Count > 0;
@@ -907,6 +912,18 @@ namespace DOL.GS
                     behind.ClearAggroList();
                     behind.FSM.SetCurrentState(eFSMStateType.IDLE);
                 }
+                if (driver != null && bot != driver)
+                {
+                    // Each a little farther back than the one before, so that they string out behind it.
+                    if (bot.FollowTarget != driver)
+                    {
+                        int back = PvpFormation.FollowDistance(members.IndexOf(bot));
+                        bot.Follow(driver, back, back + PvpFormation.FollowSlack);
+                    }
+                    continue;
+                }
+                if (bot.FollowTarget != null)
+                    bot.StopFollowing();
                 // The moment the enemy comes into sight the order to take the rows goes out at once.
                 if (!sighted && bot.IsMoving && GameLoop.GameLoopTime % 4_000 >= 1_000)
                     continue;
@@ -958,36 +975,6 @@ namespace DOL.GS
                     places[bot] = Ground(bot, centre + toward * 100);
                 else if (ward is GameBot wardBot && places.TryGetValue(wardBot, out Vector3 beside))
                     places[bot] = new Vector3(beside.X + toward.X * 100, beside.Y + toward.Y * 100, beside.Z);
-            }
-            return places;
-        }
-
-        /// <summary>
-        /// Where each member heads while the group travels with no enemy in sight: a loose clump
-        /// some way ahead on the road, healers and casters inside and fighters around them, not
-        /// the rows it fights from.
-        /// </summary>
-        private static Dictionary<GameBot, Vector3> TravelPlaces(List<GameBot> members, Vector3 goal)
-        {
-            var centre = new Vector2((float)members.Average(bot => bot.X), (float)members.Average(bot => bot.Y));
-            Vector2 anchor = PvpFormation.TravelAnchor(centre, new Vector2(goal.X, goal.Y), PvpFormation.TravelLead);
-            Vector2 toward = anchor - centre;
-            if (toward.LengthSquared() < 1)
-                return null;
-            toward = Vector2.Normalize(toward);
-            var across = new Vector2(-toward.Y, toward.X);
-            var nav = PathfindingProvider.Instance;
-            var places = new Dictionary<GameBot, Vector3>();
-            // The same member has the same place every time: by kind, then by name.
-            GameBot driver = PvpFormation.DriverOf(members);
-            List<GameBot> ordered = members.OrderBy(bot => bot == driver ? 0 : 1)
-                .ThenBy(bot => PvpMember.ArchetypeOf(bot) == PvpBuffArchetype.Melee).ThenBy(bot => bot.Name, StringComparer.Ordinal).ToList();
-            for (int index = 0; index < ordered.Count; index++)
-            {
-                Vector2 offset = PvpFormation.TravelOffset(index, PvpFormation.TravelSpacing);
-                Vector2 point = anchor + toward * offset.X + across * offset.Y;
-                places[ordered[index]] = nav.GetFloorBeneath(ordered[index].CurrentZone, new Vector3(point.X, point.Y, 20_000), 20_000, nav.DefaultFilters)
-                    is { } floor && floor.Z < 19_999 ? floor : new Vector3(point.X, point.Y, goal.Z);
             }
             return places;
         }

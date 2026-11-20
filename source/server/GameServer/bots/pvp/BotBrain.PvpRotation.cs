@@ -24,8 +24,6 @@ namespace DOL.AI.Brain
         /// </summary>
         public bool PvpSpreadOut { get; set; }
 
-        /// <summary>An enemy of the 8v8 match is this near, seen or not: for what has to be ready before the fight (a song).</summary>
-        private bool PvpEnemyWithin(int range) => range > 0 && PvpSquad?.EnemyWithin(Body, range) == true;
         /// <summary>The group's called kill target, for every member (an interrupter's own aim is PvpAssignedTarget).</summary>
         public GameLiving PvpKillTarget { get; set; }
 

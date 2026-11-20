@@ -323,20 +323,6 @@ namespace DOL.GS
             Trained = now;
         }
 
-        /// <summary>The group's decisions for this second: what it sees, who is being trained, kill target, interrupt duty, guard and peel.</summary>
-        /// <summary>
-        /// An enemy of the match is this near a member, seen or not. Only for what has to be made
-        /// ready before the enemy is in sight (the Bard's endurance song): everything the group
-        /// decides is about <see cref="Known"/>.
-        /// </summary>
-        // By distance alone, sight or no sight: with sight asked for, a group that met the enemy over a
-        // rise (first seen at about 3,000 units in the basin) had its endurance song up only as the
-        // first blow fell, in one roaming match of three. It is the one thing a bot knows that it cannot see.
-        public bool EnemyWithin(GameLiving member, int range) =>
-            _everyEnemy.Any(enemy => enemy.IsAlive && member.IsWithinRadius(enemy, range));
-
-        private IReadOnlyList<GameLiving> _everyEnemy = [];
-
         /// <summary>The bot that leads the roam in a play session where a bot drives; null otherwise.</summary>
         public GameBot Driver { get; set; }
 
@@ -445,9 +431,9 @@ namespace DOL.GS
             }
         }
 
+        /// <summary>The group's decisions for this second: what it sees, who is being trained, kill target, interrupt duty, guard and peel.</summary>
         public void Decide(IReadOnlyList<GameLiving> enemies)
         {
-            _everyEnemy = enemies;
             List<GameLiving> known = Look(enemies);
             Known = known;
             FindTrained(known);

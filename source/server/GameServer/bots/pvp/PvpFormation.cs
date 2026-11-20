@@ -1,29 +1,31 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Numerics;
 
 namespace DOL.GS
 {
     /// <summary>
-    /// The shapes a group takes off the fight (docs/PVP-8V8-ROADMAP.md, M8.4): a loose clump while
-    /// it travels, and rows around its leader once the enemy is in sight. The owner, 2026-11-19,
-    /// after playing: "we are way too tight on initial contact" (every companion stood within 160
-    /// units of the player eight seconds before the first blow, all inside one area mez), and
-    /// "it's funny to see the opposite team running as a two-lane rectangle".
+    /// The shapes a group takes off the fight (docs/PVP-8V8-ROADMAP.md, M8.4): on the road it
+    /// follows its driver, close behind, and once the enemy is in sight it takes rows (around
+    /// its leader, when a player leads). The owner, 2026-11-19, after playing: "we are way too
+    /// tight on initial contact" (every companion stood within 160 units of the player eight
+    /// seconds before the first blow, all inside one area mez), and "it's funny to see the
+    /// opposite team running as a two-lane rectangle"; and on 2026-11-20, of a group set 300 apart
+    /// around a point ahead of it: "Follow is not really working. Team is moving as a rectangle".
     /// </summary>
     public static class PvpFormation
     {
         /// <summary>The enemy is seen from this far in the open basin, to form up and to turn towards it.</summary>
         public const int FormRange = 6_500;
+
         /// <summary>
-        /// Neighbours in the travelling clump are about this far apart. Loose on purpose: at 130 the
-        /// first recorded match had both groups still in a ball three seconds before the first blow
-        /// (four or five members inside one area mez), with no time left to take their rows.
+        /// How far behind the driver a member follows on the road: each a little farther than the
+        /// one before, so that the group strings out behind it as players on /stick do.
         /// </summary>
-        public const int TravelSpacing = 300;
-        /// <summary>The travelling clump aims this far ahead of where the group is.</summary>
-        public const int TravelLead = 3_000;
+        public static int FollowDistance(int index) => 90 + 35 * Math.Max(0, index);
+
+        /// <summary>A follower lets the driver get this much farther ahead before it closes up.</summary>
+        public const int FollowSlack = 120;
 
         /// <summary>
         /// Where the members of a row stand across the line of approach, neighbours
@@ -44,17 +46,6 @@ namespace DOL.GS
                     offsets.Add(step * spacing);
             }
             return offsets.OrderBy(offset => offset).ToArray();
-        }
-
-        /// <summary>
-        /// A member's place in the travelling clump, as (ahead, across) of its middle: the points
-        /// of a sunflower head, which fill a disc evenly without rows or columns. The first
-        /// places are the inner ones.
-        /// </summary>
-        public static Vector2 TravelOffset(int index, float spacing)
-        {
-            double radius = spacing * Math.Sqrt(index + 0.5), angle = index * 2.39996323;
-            return new Vector2((float)(radius * Math.Cos(angle)), (float)(radius * Math.Sin(angle)));
         }
 
         /// <summary>
@@ -93,13 +84,5 @@ namespace DOL.GS
         /// <summary>The next point of a roam: any but the one the group is at, by a draw.</summary>
         public static int NextRoamPoint(int current, int count, int draw) =>
             count <= 1 ? 0 : (current + 1 + Math.Abs(draw % (count - 1))) % count;
-
-        /// <summary>The middle of the travelling clump: ahead of the group on the way to its goal, and no farther than the goal.</summary>
-        public static Vector2 TravelAnchor(Vector2 centre, Vector2 goal, float lead)
-        {
-            Vector2 way = goal - centre;
-            float distance = way.Length();
-            return distance < 1 ? goal : centre + way / distance * Math.Min(lead, distance);
-        }
     }
 }
