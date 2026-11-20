@@ -508,39 +508,32 @@ namespace DOL.GS
         private PvpGroupTemplate _groupA, _groupB;
         private int _realmLevel, _matchesWanted, _matchNumber;
         private long _phaseStartTick, _matchStartTick, _contactTick;
-        private List<GameBot> _teamA = [], _teamB = [];
+        // The two sides (bots/pvp/PvpTeam.cs): their bots, squad, start, and what they keep from one march to the next.
+        private readonly PvpTeam _a = new(), _b = new();
         private readonly List<PvpMatchResult> Results = [];
         private string _lastError;
         private string _batch;
         // Whether each side fights with the squad brain, and the squads of the current match (null for the old brain).
         private bool _squadBrainA, _squadBrainB;
-        private PvpSquad _squadA, _squadB;
-        private (int X, int Y) _spawnA, _spawnB;
-        private int _waypointA, _waypointB;
         // Ready check: the buffs cast in this buffing phase (caster, spell, target), and when each
         // member last finished one that was new. Filled from game threads by OnCastFinished.
         private ConcurrentDictionary<(GameLiving Caster, int Spell, GameLiving Target), byte> _buffsCast = new();
         private ConcurrentDictionary<GameLiving, long> _lastNewBuffTick = new();
         private HashSet<GameLiving> _members = [];
         private object _lastReady;
-        // Healers that stayed back on incoming in the current match, to record it once each.
-        private readonly HashSet<GameBot> _hungBack = [];
-        private readonly HashSet<GameBot> _stoodAtRange = [];
         // Set in a play session in the basin: the groups roam from point to point by this draw.
         private Random _roam;
-        // Whether each side had an enemy in sight at its last march, to catch the moment one comes into sight.
-        private bool _sawEnemyA, _sawEnemyB;
         // A play session: the player who leads side A, with seven companions in place of a group of eight.
         private readonly GamePlayer _leader;
         internal GamePlayer Leader => _leader;
-        internal PvpSquad LeaderSquad => _leader == null ? null : _squadA;
+        internal PvpSquad LeaderSquad => _leader == null ? null : _a.Squad;
         internal int Lane => _lane;
 
         internal object TestCall(string team, string word, string who, string target)
         {
             bool a = !string.Equals(team, "B", StringComparison.OrdinalIgnoreCase);
-            PvpSquad squad = (a ? _squadA : _squadB) ?? throw new InvalidOperationException("That side has no squad brain.");
-            List<GameBot> own = a ? _teamA : _teamB, enemy = a ? _teamB : _teamA;
+            PvpSquad squad = (a ? _a.Squad : _b.Squad) ?? throw new InvalidOperationException("That side has no squad brain.");
+            List<GameBot> own = a ? _a.Bots : _b.Bots, enemy = a ? _b.Bots : _a.Bots;
             bool Is(GameBot bot, string asked) => string.Equals(bot.PvpBuild.Id, asked, StringComparison.OrdinalIgnoreCase) ||
                                                   string.Equals(PvpMember.ClassOf(bot).ToString(), asked, StringComparison.OrdinalIgnoreCase);
             GameBot caller = own.FirstOrDefault(bot => bot.IsAlive && (string.IsNullOrEmpty(who) ? PvpMember.RoleOf(bot) == PvpRole.Heal : Is(bot, who)))
@@ -559,7 +552,7 @@ namespace DOL.GS
         private readonly bool _botDrives;
 
         /// <summary>Side A as the other side sees it: its bots, and the player who leads them in a play session.</summary>
-        private IReadOnlyList<GameLiving> SideA => _leader == null ? _teamA : _teamA.Cast<GameLiving>().Append(_leader).ToList();
+        private IReadOnlyList<GameLiving> SideA => _leader == null ? _a.Bots : _a.Bots.Cast<GameLiving>().Append(_leader).ToList();
 
         public bool Running => _phase != Phase.Idle;
         public int MatchLimitSeconds { get; }
@@ -588,7 +581,7 @@ namespace DOL.GS
         {
             if (!_real || _leader == null)
                 return;
-            foreach (GameLiving member in SideA.Concat(_teamB).ToList())
+            foreach (GameLiving member in SideA.Concat(_b.Bots).ToList())
             {
                 if (member.IsAlive)
                 {
@@ -597,14 +590,14 @@ namespace DOL.GS
                 }
                 if (!_paid.Add(member))
                     continue;
-                bool ours = member == _leader || _teamA.Contains(member);
-                Pay(member, ours ? _teamB.Cast<GameLiving>().ToList() : SideA, ours);
+                bool ours = member == _leader || _a.Bots.Contains(member);
+                Pay(member, ours ? _b.Bots.Cast<GameLiving>().ToList() : SideA, ours);
             }
         }
 
         private void Pay(GameLiving dead, IReadOnlyList<GameLiving> killers, bool ours)
         {
-            PvpRealWeights real = PvpWeights.Of(_teamA.FirstOrDefault() ?? _teamB.FirstOrDefault()).Real;
+            PvpRealWeights real = PvpWeights.Of(_a.Bots.FirstOrDefault() ?? _b.Bots.FirstOrDefault()).Real;
             // Every member of the killing group that is near has a share, the dead among them too, as in a group of players.
             List<GameLiving> near = killers.Where(member => member.ObjectState == GameObject.eObjectState.Active &&
                 member.IsWithinRadius(dead, real.ShareWithin)).ToList();
@@ -654,21 +647,21 @@ namespace DOL.GS
             bool swapped = _matchNumber % 2 == 0 && _leader == null;
             (int X, int Y) spawnA = swapped ? _arena.SpawnB : _arena.SpawnA;
             (int X, int Y) spawnB = swapped ? _arena.SpawnA : _arena.SpawnB;
-            (_spawnA, _spawnB, _waypointA, _waypointB) = (spawnA, spawnB, 0, 0);
+            (_a.Home, _b.Home, _a.Waypoint, _b.Waypoint) = (spawnA, spawnB, 0, 0);
             _bots.Clear();
             // In a play session side A is the player and seven companions, put around where the player stands.
-            _teamA = _leader != null
+            _a.Bots = _leader != null
                 ? PvpArena.SpawnCompanions(_leader, _realmLevel, _bots, _groupA, _real).ToList()
                 : PvpArena.SpawnGroup(_groupA, _arena.Region, spawnA.X, spawnA.Y, _realmLevel, _bots).ToList();
             // In a real session the enemy group is this player's own enemy: kept by name, with what it has earned.
-            _teamB = _real
+            _b.Bots = _real
                 ? PvpArena.SpawnGroup(_groupB, _arena.Region, spawnB.X, spawnB.Y, _realmLevel, _bots,
                     PvpRealmPoints.EnemyRoster(_leader.InternalID, _groupB.Id),
-                    PvpRealmPoints.EnemyLevel(0, _teamA.Select(bot => bot.RealmLevel).Append(_leader.RealmLevel).ToList(),
-                        PvpWeights.Of(_teamA.FirstOrDefault()).Real.EnemyKeepsUp)).ToList()
+                    PvpRealmPoints.EnemyLevel(0, _a.Bots.Select(bot => bot.RealmLevel).Append(_leader.RealmLevel).ToList(),
+                        PvpWeights.Of(_a.Bots.FirstOrDefault()).Real.EnemyKeepsUp)).ToList()
                 : PvpArena.SpawnGroup(_groupB, _arena.Region, spawnB.X, spawnB.Y, _realmLevel, _bots).ToList();
-            _squadA = _squadBrainA ? new PvpSquad(_teamA, _leader != null ? [_leader] : null) : null;
-            _squadB = _squadBrainB ? new PvpSquad(_teamB) : null;
+            _a.Squad = _squadBrainA ? new PvpSquad(_a.Bots, _leader != null ? [_leader] : null) : null;
+            _b.Squad = _squadBrainB ? new PvpSquad(_b.Bots) : null;
             // The groups buff where they came in, standing together, and take their rows at the ready
             // (TakePlaces): a buff on the group reaches 1,000 units, and from the end of a row the far
             // members stood 1,140 away. In twelve matches a third of Hibernia's members began the
@@ -676,7 +669,7 @@ namespace DOL.GS
             if (_botDrives)
             {
                 // The companions do not follow the player in this session: the squad places them, and one of them leads.
-                foreach (GameBot bot in _teamA)
+                foreach (GameBot bot in _a.Bots)
                 {
                     bot.StopFollowing();
                     if (bot.Brain is BotBrain brain)
@@ -685,53 +678,34 @@ namespace DOL.GS
                         brain.FSM.SetCurrentState(eFSMStateType.IDLE);
                     }
                 }
-                if (_squadA != null)
-                    _squadA.Driver = PvpFormation.DriverOf(_teamA);
+                if (_a.Squad != null)
+                    _a.Squad.Driver = PvpFormation.DriverOf(_a.Bots);
                 _roam = new Random();
             }
             else if ((_leader != null || PvpScrim.BotsRoam) && _arena == PvpArenaBox.EmainSouthEast)
                 _roam = new Random();
             // Each group sets off for a point of its own draw, not both for the same one.
             if (_roam != null)
-                (_waypointA, _waypointB) = (_roam.Next(9), _roam.Next(9));
+                (_a.Waypoint, _b.Waypoint) = (_roam.Next(9), _roam.Next(9));
             PvpWeights drawA = _vary > 0 ? PvpWeightDraw.Vary(PvpWeights.Current, Random.Shared, _vary, _spread) : null;
             PvpWeights drawB = _vary > 0 ? PvpWeightDraw.Vary(PvpWeights.Current, Random.Shared, _vary, _spread) : null;
-            foreach (GameBot bot in _teamA)
+            foreach (GameBot bot in _a.Bots)
                 bot.PvpWeightsSet = drawA ?? (_versus == 2 ? PvpWeights.Reference : null);
-            foreach (GameBot bot in _teamB)
+            foreach (GameBot bot in _b.Bots)
                 bot.PvpWeightsSet = drawB ?? (_versus == 1 ? PvpWeights.Reference : null);
             _buffsCast = new();
             _lastNewBuffTick = new();
-            _hungBack.Clear();
-            _stoodAtRange.Clear();
-            _members = _teamA.Concat(_teamB).Cast<GameLiving>().ToHashSet();
+            _a.NewMatch(_leader);
+            _b.NewMatch(null);
+            _members = _a.Bots.Concat(_b.Bots).Cast<GameLiving>().ToHashSet();
             SetSelfBuffsOnly(true);
             _phase = Phase.Buffing;
             _phaseStartTick = _matchStartTick = GameLoop.GameLoopTime;
             _contactTick = 0;
-            _recording = PvpRecorder.Begin(_numberOffset + _matchNumber, _groupA, _groupB, _teamA, _teamB, _realmLevel, _batch, _leader);
-            if (_teamA.Count > 0)
-                PvpObserver.Say(_teamA[0], $"Lane {_lane}: match {_numberOffset + _matchNumber}, {_groupA.Id} against {_groupB.Id}, is buffing " +
+            _recording = PvpRecorder.Begin(_numberOffset + _matchNumber, _groupA, _groupB, _a.Bots, _b.Bots, _realmLevel, _batch, _leader);
+            if (_a.Bots.Count > 0)
+                PvpObserver.Say(_a.Bots[0], $"Lane {_lane}: match {_numberOffset + _matchNumber}, {_groupA.Id} against {_groupB.Id}, is buffing " +
                     $"(recording {_batch}-match-{_numberOffset + _matchNumber:000})");
-        }
-
-        /// <summary>
-        /// A fresh group stands in its travelling formation from the start, facing where the
-        /// enemy starts: in a lane the two groups are too close to form up on the way.
-        /// </summary>
-        private void FormUp(List<GameBot> team, (int X, int Y) enemySpawn)
-        {
-            var centre = new Vector2((float)team.Average(bot => bot.X), (float)team.Average(bot => bot.Y));
-            Vector2 toward = new Vector2(enemySpawn.X, enemySpawn.Y) - centre;
-            if (toward.LengthSquared() < 1)
-                return;
-            // The front row a row's depth ahead of where the group spawned, the back row on the spot.
-            Vector2 front = centre + Vector2.Normalize(toward) * BackRowDepth;
-            Dictionary<GameBot, Vector3> places = SpreadPlaces(team, new Vector3(front.X, front.Y, (float)team.Average(bot => bot.Z)));
-            if (places == null)
-                return;
-            foreach ((GameBot bot, Vector3 place) in places)
-                bot.MoveTo(bot.CurrentRegionID, (int)Math.Round(place.X), (int)Math.Round(place.Y), (int)Math.Round(place.Z), bot.GetHeading(new Point2D(enemySpawn.X, enemySpawn.Y)));
         }
 
         internal void Tick()
@@ -742,7 +716,7 @@ namespace DOL.GS
             {
                 long now = GameLoop.GameLoopTime;
                 _recording?.Snapshot();
-                int aliveA = _teamA.Count(bot => bot.IsAlive) + (_leader is { IsAlive: true } ? 1 : 0), aliveB = _teamB.Count(bot => bot.IsAlive);
+                int aliveA = _a.Bots.Count(bot => bot.IsAlive) + (_leader is { IsAlive: true } ? 1 : 0), aliveB = _b.Bots.Count(bot => bot.IsAlive);
                 PayKills();
                 // The player has left the game: the session is over.
                 if (_leader != null && (_leader.ObjectState != GameObject.eObjectState.Active || _leader.Client?.IsPlaying != true))
@@ -755,13 +729,13 @@ namespace DOL.GS
                 {
                     // A member that has buffed itself dry rests and goes on: the groups start rested in any
                     // case, and a Druid short of power left its last resistance uncast.
-                    foreach (GameBot bot in _teamA.Concat(_teamB))
+                    foreach (GameBot bot in _a.Bots.Concat(_b.Bots))
                     {
                         if (bot.IsAlive && !bot.IsCasting && bot.MaxMana > 0 && bot.ManaPercent < 40)
                             bot.Mana = bot.MaxMana;
                     }
                     long waited = now - _phaseStartTick;
-                    List<GameBot> busy = _teamA.Concat(_teamB).Where(bot => bot.IsAlive && StillBuffing(bot, now)).ToList();
+                    List<GameBot> busy = _a.Bots.Concat(_b.Bots).Where(bot => bot.IsAlive && StillBuffing(bot, now)).ToList();
                     if (waited < MinBuffSeconds * 1000 || busy.Count > 0 && waited < ReadyTimeoutSeconds * 1000)
                         return;
                     BeginRoaming(now, busy);
@@ -778,31 +752,31 @@ namespace DOL.GS
                     return;
                 }
 
-                _squadA?.Decide(_teamB);
-                _squadB?.Decide(SideA);
-                Engage(_teamA, _teamB);
-                Engage(_teamB, SideA);
-                if (_contactTick == 0 && (_teamA.Concat(_teamB).Any(bot => bot.InCombat) || _leader?.InCombat == true))
+                _a.Squad?.Decide(_b.Bots);
+                _b.Squad?.Decide(SideA);
+                _a.Engage(_b.Bots);
+                _b.Engage(SideA);
+                if (_contactTick == 0 && (_a.Bots.Concat(_b.Bots).Any(bot => bot.InCombat) || _leader?.InCombat == true))
                 {
                     _contactTick = now;
-                    if (_teamA.Count > 0)
-                        PvpObserver.Say(_teamA[0], $"Lane {_lane}: first blow, {(now - _matchStartTick) / 1000} s into the match");
-                    if (_squadA != null) _squadA.FightStarted = true;
-                    if (_squadB != null) _squadB.FightStarted = true;
+                    if (_a.Bots.Count > 0)
+                        PvpObserver.Say(_a.Bots[0], $"Lane {_lane}: first blow, {(now - _matchStartTick) / 1000} s into the match");
+                    if (_a.Squad != null) _a.Squad.FightStarted = true;
+                    if (_b.Squad != null) _b.Squad.FightStarted = true;
                     SetSelfBuffsOnly(false);
                     _phase = Phase.Fighting;
                 }
                 if (_leader == null || _botDrives)
-                    March(_teamA, _teamB, _spawnA, _spawnB, ref _waypointA);
+                    _a.March(_b.Bots, _b.Home, _arena, _roam, _contactTick);
                 else
-                    TravelWithLeader();
-                March(_teamB, SideA, _spawnB, _spawnA, ref _waypointB);
-                _squadA?.ClearPets();
-                _squadB?.ClearPets();
-                _squadA?.StandOff();
-                _squadB?.StandOff();
-                _squadA?.KeepApart();
-                _squadB?.KeepApart();
+                    _a.TravelWithLeader(_b.Bots);
+                _b.March(SideA, _a.Home, _arena, _roam, _contactTick);
+                _a.Squad?.ClearPets();
+                _b.Squad?.ClearPets();
+                _a.Squad?.StandOff();
+                _b.Squad?.StandOff();
+                _a.Squad?.KeepApart();
+                _b.Squad?.KeepApart();
             }
             catch (Exception exception)
             {
@@ -815,327 +789,9 @@ namespace DOL.GS
             }
         }
 
-        /// <summary>A bot that is not fighting takes up the nearest living enemy it can see.</summary>
-        /// <summary>
-        /// A play session: a companion with nothing to fight travels with the player, as it did
-        /// before the session, and does not march on the enemy by itself. Where the group goes
-        /// is the player's choice.
-        /// </summary>
-        private void TravelWithLeader()
-        {
-            // The enemy is in sight: the companions leave the clump they travel in and take their
-            // places in rows around the player, the player's own place left free. In the six
-            // sessions of 2026-11-19 all eight stood inside one area mez eight seconds before the
-            // first blow, and two to seven of them still did at the first blow.
-            bool overGround = PvpWeights.Of(_teamA.FirstOrDefault()).SightOverGround;
-            List<GameBot> seen = _teamB.Where(enemy => enemy.IsAlive &&
-                (_leader.IsWithinRadius(enemy, PvpFormation.FormRange) && (!overGround || PvpSight.Clear(_leader, enemy)) ||
-                 _teamA.Any(bot => bot.IsAlive && PvpSight.Sees(bot, enemy, PvpFormation.FormRange, PvpWeights.Of(bot))))).ToList();
-            Dictionary<GameBot, Vector3> places = seen.Count == 0 ? null : LeaderPlaces(_teamA.Where(bot => bot.IsAlive).ToList(),
-                new Vector3((float)seen.Average(enemy => enemy.X), (float)seen.Average(enemy => enemy.Y), (float)seen.Average(enemy => enemy.Z)));
-            foreach (GameBot bot in _teamA)
-            {
-                if (bot.Brain is BotBrain own)
-                    own.PvpSpreadOut = places != null;
-                if (!bot.IsAlive || bot.Brain is not BotBrain brain || bot.IsCasting || bot.IsIncapacitated || bot.InCombat || brain.HasAggro ||
-                    _teamB.Any(enemy => enemy.IsAlive && bot.IsWithinRadius(enemy, EngageRange)))
-                    continue;
-                if (places != null)
-                {
-                    if (!places.TryGetValue(bot, out Vector3 place))
-                        continue;
-                    if (bot.FollowTarget != null)
-                        bot.StopFollowing();
-                    if (brain.FSM.GetCurrentState()?.StateType == eFSMStateType.FOLLOW)
-                        brain.FSM.SetCurrentState(eFSMStateType.IDLE);
-                    // The player moves, and its places with it: a new order every other second.
-                    if (!bot.IsWithinRadius(new Point3D((int)place.X, (int)place.Y, (int)place.Z), 120) &&
-                        !(bot.IsMoving && GameLoop.GameLoopTime % 2_000 >= 1_000))
-                        bot.PathTo(place, bot.MaxSpeed);
-                    continue;
-                }
-                if (!bot.IsWithinRadius(_leader, BotManager.MAX_FOLLOW_DISTANCE))
-                    bot.PathTo(new Vector3(_leader.X, _leader.Y, _leader.Z), bot.MaxSpeed);
-                else if (bot.FollowTarget != _leader)
-                {
-                    bot.Follow(_leader, BotManager.FOLLOW_DISTANCE, BotManager.MAX_FOLLOW_DISTANCE);
-                    brain.FSM.SetCurrentState(eFSMStateType.FOLLOW);
-                }
-            }
-        }
-
-        private void Engage(List<GameBot> team, IReadOnlyList<GameLiving> enemies)
-        {
-            var nav = PathfindingProvider.Instance;
-            // While a group holds, its fighters go for nobody (bots/pvp/PvpReading.cs).
-            bool holds = (team == _teamA ? _squadA : _squadB)?.Order == PvpOrder.Hold;
-            foreach (GameBot bot in team)
-            {
-                // A shield fighter staying beside its ward has chosen not to attack.
-                if (!bot.IsAlive || bot.Brain is not BotBrain brain || brain.HasAggro || _squadA?.IsHolding(bot) == true || _squadB?.IsHolding(bot) == true ||
-                    holds && PvpMember.ArchetypeOf(bot) == PvpBuffArchetype.Melee)
-                    continue;
-                GameLiving target = enemies
-                    .Where(enemy => enemy.IsAlive && bot.IsWithinRadius(enemy, SightRange))
-                    .OrderBy(enemy => bot.GetDistanceTo(enemy))
-                    .FirstOrDefault(enemy => nav.HasLineOfSight(bot.CurrentZone, new Vector3(bot.X, bot.Y, bot.Z),
-                        new Vector3(enemy.X, enemy.Y, enemy.Z), nav.DefaultFilters) &&
-                        PvpSight.Sees(bot, enemy, SightRange, PvpWeights.Of(bot)));
-                if (target == null)
-                    continue;
-                brain.AddToAggroList(target, 1);
-                brain.FSM.SetCurrentState(eFSMStateType.AGGRO);
-            }
-        }
-
-        /// <summary>
-        /// Bots with nothing to fight move as a group. While no member can see an enemy the group
-        /// does not know where the other side is: it patrols (the middle of the arena, the far
-        /// end, back to its own end, and round again). Once any member spots enemies it goes for
-        /// them spread out, each member to its own place in two rows. The order is repeated every
-        /// few seconds because the brain's own idle logic stops a walking bot.
-        /// </summary>
-        private void March(List<GameBot> team, IReadOnlyList<GameLiving> enemies, (int X, int Y) own, (int X, int Y) far, ref int waypoint)
-        {
-            List<GameBot> members = team.Where(bot => bot.IsAlive).ToList();
-            if (members.Count == 0)
-                return;
-            // A group that holds stands where it is and lets the enemy come.
-            if ((team == _teamA ? _squadA : _squadB)?.Order == PvpOrder.Hold)
-            {
-                foreach (GameBot bot in members.Where(bot => bot.IsMoving && !bot.IsCasting))
-                {
-                    bot.StopMovingOnPath();
-                    bot.StopMoving();
-                }
-                return;
-            }
-            // In the open basin a group sees the other from farther than in a lane, where the two start in sight.
-            bool basin = _arena == PvpArenaBox.EmainSouthEast;
-            int spot = basin ? PvpFormation.FormRange : SpotRange;
-            PvpWeights sight = PvpWeights.Of(members[0]);
-            List<GameLiving> seen = enemies.Where(enemy => enemy.IsAlive && members.Any(bot => PvpSight.Sees(bot, enemy, spot, sight))).ToList();
-            Vector3 goal;
-            Dictionary<GameBot, Vector3> places = null;
-            if (seen.Count > 0)
-            {
-                goal = new Vector3((float)seen.Average(enemy => enemy.X), (float)seen.Average(enemy => enemy.Y), (float)seen.Average(enemy => enemy.Z));
-            }
-            else
-            {
-                (int X, int Y)[] route = [((own.X + far.X) / 2, (own.Y + far.Y) / 2), far, ((own.X + far.X) / 2, (own.Y + far.Y) / 2), own];
-                // A play session in the basin: each group goes from one point of the basin to another as it
-                // pleases, so the two do not meet at the same place and from the same side every time.
-                if (_roam != null && basin)
-                    route = PvpFormation.RoamPoints(_arena.MinX, _arena.MinY, _arena.MaxX, _arena.MaxY, 3_000);
-                (int X, int Y) next = route[waypoint % route.Length];
-                double x = members.Average(bot => bot.X), y = members.Average(bot => bot.Y);
-                if (Math.Sqrt(Math.Pow(next.X - x, 2) + Math.Pow(next.Y - y, 2)) < 900)
-                    next = route[waypoint = _roam != null && basin
-                        ? PvpFormation.NextRoamPoint(waypoint % route.Length, route.Length, _roam.Next()) : (waypoint + 1) % route.Length];
-                // The route has no heights: take the ground under the waypoint from the navmesh,
-                // as the spawn does. A goal above or below the mesh gives no path and nobody moves.
-                var nav = PathfindingProvider.Instance;
-                Zone zone = members[0].CurrentZone;
-                goal = nav.GetFloorBeneath(zone, new Vector3(next.X, next.Y, 20_000), 20_000, nav.DefaultFilters) is { } floor && floor.Z < 19_999
-                    ? floor
-                    : nav.GetClosestPoint(zone, new Vector3(next.X, next.Y, 5_000), 256, 256, 20_000, nav.DefaultFilters)
-                      ?? new Vector3(next.X, next.Y, (float)members.Average(bot => bot.Z));
-            }
-            // On the road in the basin a group follows its driver, the member with the speed song, close
-            // behind it as players on /stick do; it takes its rows when the enemy is in sight. (A clump
-            // 300 apart set around a point ahead, tried for a night, was to the owner's eye still "a
-            // rectangle", and with the driver stopping for its songs the driver was the one left behind.)
-            bool onTheRoad = basin && seen.Count == 0;
-            GameBot driver = onTheRoad ? PvpFormation.DriverOf(members) : null;
-            places = onTheRoad ? null : SpreadPlaces(members, goal);
-            bool sawBefore = team == _teamA ? _sawEnemyA : _sawEnemyB;
-            bool sighted = seen.Count > 0 && !sawBefore;
-            if (team == _teamA) _sawEnemyA = seen.Count > 0; else _sawEnemyB = seen.Count > 0;
-            foreach (GameBot bot in team)
-            {
-                if (!bot.IsAlive || bot.IsCasting || bot.IsIncapacitated)
-                    continue;
-                // On incoming a healer that only heals stays out of the enemy's reach, and comes
-                // in once the fight has settled (bots/pvp/PvpPositioning.cs).
-                if (seen.Count > 0 && (team == _teamA ? _squadA : _squadB) != null)
-                {
-                    PvpWeights weights = PvpWeights.Of(bot);
-                    bool onlyHeals = PvpMember.ArchetypeOf(bot) == PvpBuffArchetype.Healer &&
-                        weights.HealsFirstBelowFor(bot.PvpBuild.Id, PvpMember.ClassOf(bot)) > 100;
-                    int nearestSeen = (int)seen.Min(enemy => bot.GetDistanceTo(enemy));
-                    // Before the first blow the whole back row stops at range and its fighters go on (PvpPositionWeights.BackRowStopsAt).
-                    if (weights.Position.BackRowStops(PvpMember.ArchetypeOf(bot) == PvpBuffArchetype.Melee, nearestSeen, _contactTick != 0))
-                    {
-                        if (_stoodAtRange.Add(bot))
-                            PvpRecorder.Decision(bot, new { kind = "StopAtRange", score = nearestSeen }, [], null);
-                        if (bot.IsMoving && !bot.IsCasting)
-                        {
-                            bot.StopMovingOnPath();
-                            bot.StopMoving();
-                        }
-                        continue;
-                    }
-                    if (weights.Position.HealerHangsBack(onlyHeals, nearestSeen,
-                            _contactTick == 0 ? -1 : (GameLoop.GameLoopTime - _contactTick) / 1000.0))
-                    {
-                        if (_hungBack.Add(bot))
-                            PvpRecorder.Decision(bot, new { kind = "HangBack", score = 0 }, [], null);
-                        if (bot.IsMoving)
-                        {
-                            bot.StopMovingOnPath();
-                            bot.StopMoving();
-                        }
-                        continue;
-                    }
-                }
-                // Fighting, or about to: an enemy is within reach. Otherwise it marches, even if
-                // the brain still holds an old target from before it fell behind.
-                bool straggler = !enemies.Any(enemy => enemy.IsAlive && bot.IsWithinRadius(enemy, EngageRange));
-                // Once the fight has started, a member within reach of the enemy is the brain's
-                // alone. A caster whose targets are all asleep has no attack target, and a march
-                // order here made it walk in the middle of its casts, which then never started
-                // (the Sorcerer made 92 mez decisions for 19 casts).
-                if (!straggler && (_contactTick != 0 || bot.InCombat || bot.Brain is BotBrain { HasAggro: true }))
-                    continue;
-                if (straggler && bot.Brain is BotBrain { HasAggro: true } behind)
-                {
-                    behind.ClearAggroList();
-                    behind.FSM.SetCurrentState(eFSMStateType.IDLE);
-                }
-                if (driver != null && bot != driver)
-                {
-                    // Each a little farther back than the one before, so that they string out behind it.
-                    if (bot.FollowTarget != driver)
-                    {
-                        int back = PvpFormation.FollowDistance(members.IndexOf(bot));
-                        bot.Follow(driver, back, PvpFormation.FollowGivesUpBeyond);
-                    }
-                    continue;
-                }
-                if (bot.FollowTarget != null)
-                    bot.StopFollowing();
-                // The driver does not leave its group behind: it waits for whoever has dropped back.
-                if (driver == bot)
-                {
-                    int farthest = members.Where(member => member != bot && member.IsAlive)
-                        .Select(member => bot.GetDistanceTo(member)).DefaultIfEmpty(0).Max();
-                    bool waits = PvpFormation.DriverWaits(farthest, _driversWaiting.Contains(bot));
-                    if (waits ? _driversWaiting.Add(bot) : _driversWaiting.Remove(bot))
-                        PvpRecorder.Decision(bot, new { kind = waits ? "DriverWaits" : "DriverGoesOn", score = farthest }, [], null);
-                    if (waits)
-                    {
-                        if (bot.IsMoving)
-                        {
-                            bot.StopMovingOnPath();
-                            bot.StopMoving();
-                        }
-                        continue;
-                    }
-                }
-                // The moment the enemy comes into sight the order to take the rows goes out at once.
-                if (!sighted && bot.IsMoving && GameLoop.GameLoopTime % 4_000 >= 1_000)
-                    continue;
-                bot.PathTo(places != null && places.TryGetValue(bot, out Vector3 place) ? place : goal, bot.MaxSpeed);
-            }
-        }
-
-        /// <summary>
-        /// The companions' places around the player once the enemy is in sight: the same two rows
-        /// as <see cref="SpreadPlaces"/>, but set on the player, who goes where it likes. The
-        /// player's row has the player in its middle; the fighters' row is a row's depth nearer
-        /// the enemy than the others'.
-        /// </summary>
-        private Dictionary<GameBot, Vector3> LeaderPlaces(List<GameBot> members, Vector3 enemyCentre)
-        {
-            var centre = new Vector2(_leader.X, _leader.Y);
-            Vector2 toward = new Vector2(enemyCentre.X, enemyCentre.Y) - centre;
-            if (toward.LengthSquared() < 1 || members.Count == 0)
-                return null;
-            toward = Vector2.Normalize(toward);
-            var across = new Vector2(-toward.Y, toward.X);
-            bool leaderFights = PvpMember.IsFighter(_leader);
-            var nav = PathfindingProvider.Instance;
-            var places = new Dictionary<GameBot, Vector3>();
-            Vector3 Ground(GameBot bot, Vector2 point) =>
-                nav.GetFloorBeneath(bot.CurrentZone, new Vector3(point.X, point.Y, 20_000), 20_000, nav.DefaultFilters) is { } floor && floor.Z < 19_999
-                    ? floor : new Vector3(point.X, point.Y, _leader.Z);
-            foreach (IGrouping<bool, GameBot> row in members.GroupBy(bot => PvpMember.ArchetypeOf(bot) == PvpBuffArchetype.Melee))
-            {
-                List<GameBot> inRow = row.ToList();
-                if (!row.Key)
-                {
-                    // The back row: a healer at each end, the casters between them.
-                    List<GameBot> healers = inRow.Where(bot => PvpMember.RoleOf(bot) == PvpRole.Heal).ToList();
-                    if (healers.Count >= 2)
-                        inRow = [healers[0], .. inRow.Where(bot => !healers.Contains(bot)), .. healers.Skip(1)];
-                }
-                float[] offsets = PvpFormation.RowOffsets(inRow.Count, row.Key == leaderFights, SpreadSpacing);
-                // Measured from the player: the fighters' row ahead of a player in the back row, the back row behind a player who fights.
-                float ahead = row.Key == leaderFights ? 0 : row.Key ? BackRowDepth : -BackRowDepth;
-                for (int slot = 0; slot < inRow.Count; slot++)
-                    places[inRow[slot]] = Ground(inRow[slot], centre + across * offsets[slot] + toward * ahead);
-            }
-            // A shield fighter stands beside the member it guards, on the enemy's side of it: guard reaches 256 units.
-            foreach (GameBot bot in members)
-            {
-                GameLiving ward = _squadA?.WardOf(bot);
-                if (ward == _leader && ward != null)
-                    places[bot] = Ground(bot, centre + toward * 100);
-                else if (ward is GameBot wardBot && places.TryGetValue(wardBot, out Vector3 beside))
-                    places[bot] = new Vector3(beside.X + toward.X * 100, beside.Y + toward.Y * 100, beside.Z);
-            }
-            return places;
-        }
-
-        /// <summary>
-        /// Where each member heads when the group has spotted the enemy: two rows across the line
-        /// of approach, fighters aimed at the enemy and the rest a little short of it, neighbours
-        /// <see cref="SpreadSpacing"/> apart.
-        /// </summary>
-        private Dictionary<GameBot, Vector3> SpreadPlaces(List<GameBot> members, Vector3 enemyCentre)
-        {
-            var centre = new Vector2((float)members.Average(bot => bot.X), (float)members.Average(bot => bot.Y));
-            Vector2 toward = new Vector2(enemyCentre.X, enemyCentre.Y) - centre;
-            if (toward.LengthSquared() < 1)
-                return null;
-            toward = Vector2.Normalize(toward);
-            var across = new Vector2(-toward.Y, toward.X);
-            var nav = PathfindingProvider.Instance;
-            var places = new Dictionary<GameBot, Vector3>();
-            foreach (IGrouping<bool, GameBot> row in members.GroupBy(bot => PvpMember.ArchetypeOf(bot) == PvpBuffArchetype.Melee))
-            {
-                List<GameBot> inRow = row.ToList();
-                // The back row: one healer at each end, the casters between them (PvpSpreadWeights.HealerSpacing).
-                if (!row.Key)
-                {
-                    List<GameBot> healers = inRow.Where(bot => PvpMember.RoleOf(bot) == PvpRole.Heal).ToList();
-                    if (healers.Count >= 2)
-                        inRow = [healers[0], .. inRow.Where(bot => !healers.Contains(bot)), .. healers.Skip(1)];
-                }
-                for (int slot = 0; slot < inRow.Count; slot++)
-                {
-                    Vector2 point = new Vector2(enemyCentre.X, enemyCentre.Y)
-                                    + across * ((slot - (inRow.Count - 1) / 2f) * SpreadSpacing)
-                                    - toward * (row.Key ? 0 : BackRowDepth);
-                    // The place needs a height the navmesh knows, or no path is found.
-                    places[inRow[slot]] = nav.GetFloorBeneath(inRow[slot].CurrentZone, new Vector3(point.X, point.Y, 20_000), 20_000, nav.DefaultFilters)
-                        is { } floor && floor.Z < 19_999 ? floor : new Vector3(point.X, point.Y, enemyCentre.Z);
-                }
-            }
-            // A shield fighter travels beside the groupmate it guards, on the enemy's side of it:
-            // guard reaches 256 units, and its own place in the front row is 700 from the back row.
-            foreach (GameBot bot in members)
-            {
-                if ((_squadA?.WardOf(bot) ?? _squadB?.WardOf(bot)) is GameBot ward && places.TryGetValue(ward, out Vector3 beside))
-                    places[bot] = new Vector3(beside.X + toward.X * 100, beside.Y + toward.Y * 100, beside.Z);
-            }
-            return places;
-        }
-
         private void SetSelfBuffsOnly(bool value)
         {
-            foreach (GameBot bot in _teamA.Concat(_teamB))
+            foreach (GameBot bot in _a.Bots.Concat(_b.Bots))
             {
                 if (bot.Brain is BotBrain brain)
                     brain.PvpSelfBuffsOnly = value;
@@ -1153,9 +809,6 @@ namespace DOL.GS
             if (_buffsCast.TryAdd((caster, spell.ID, target), 0))
                 _lastNewBuffTick[caster] = GameLoop.GameLoopTime;
         }
-
-        // Drivers standing to let their group catch up on the road.
-        private readonly HashSet<GameBot> _driversWaiting = new();
 
         private bool StillBuffing(GameBot bot, long now)
         {
@@ -1182,15 +835,15 @@ namespace DOL.GS
         private void TakePlaces()
         {
             if (_leader == null)
-                FormUp(_teamA, _spawnB);
-            else if (_leader.IsWithinRadius(new Point2D(_spawnB.X, _spawnB.Y), PvpFormation.FormRange + 1_500) &&
-                     LeaderPlaces(_teamA.Where(bot => bot.IsAlive).ToList(), new Vector3(_spawnB.X, _spawnB.Y, _leader.Z)) is { } start)
+                _a.FormUp(_b.Home);
+            else if (_leader.IsWithinRadius(new Point2D(_b.Home.X, _b.Home.Y), PvpFormation.FormRange + 1_500) &&
+                     _a.LeaderPlaces(_a.Bots.Where(bot => bot.IsAlive).ToList(), new Vector3(_b.Home.X, _b.Home.Y, _leader.Z)) is { } start)
             {
                 foreach ((GameBot bot, Vector3 place) in start)
                 {
                     bot.StopFollowing();
                     bot.MoveTo(bot.CurrentRegionID, (int)Math.Round(place.X), (int)Math.Round(place.Y), (int)Math.Round(place.Z),
-                        bot.GetHeading(new Point2D(_spawnB.X, _spawnB.Y)));
+                        bot.GetHeading(new Point2D(_b.Home.X, _b.Home.Y)));
                     if (bot.Brain is BotBrain brain)
                     {
                         brain.PvpSpreadOut = true;
@@ -1198,13 +851,13 @@ namespace DOL.GS
                     }
                 }
             }
-            FormUp(_teamB, _spawnA);
+            _b.FormUp(_a.Home);
         }
 
         private void BeginRoaming(long now, List<GameBot> notReady)
         {
             TakePlaces();
-            foreach (GameBot bot in _teamA.Concat(_teamB).Where(bot => bot.IsAlive))
+            foreach (GameBot bot in _a.Bots.Concat(_b.Bots).Where(bot => bot.IsAlive))
             {
                 bot.Health = bot.MaxHealth;
                 bot.Mana = bot.MaxMana;
@@ -1239,8 +892,8 @@ namespace DOL.GS
             lock (Results) Results.Add(result);
             _recording?.End(result);
             Log.Info($"PVP_SCRIM_MATCH batch={_batch} lane={_lane} number={result.Number} winner={winner} end=\"{end}\" seconds={result.Seconds} contact={result.SecondsToContact} alive={aliveA}/{aliveB}");
-            if (_teamA.Count > 0)
-                PvpObserver.Say(_teamA[0], $"Lane {_lane}: match {result.Number} is over, {winner} by {end} in {result.Seconds} s, alive {aliveA}/{aliveB} " +
+            if (_a.Bots.Count > 0)
+                PvpObserver.Say(_a.Bots[0], $"Lane {_lane}: match {result.Number} is over, {winner} by {end} in {result.Seconds} s, alive {aliveA}/{aliveB} " +
                     $"(recording {_batch}-match-{result.Number:000})");
             if (_leader?.Client?.IsPlaying == true)
                 _leader.Out.SendMessage($"[8v8] The fight is over: {winner} by {end} in {result.Seconds} s, alive {aliveA}/{aliveB}. " +
@@ -1292,19 +945,19 @@ namespace DOL.GS
                 // The ready check of the current match (null while it is still buffing).
                 Ready = _phase == Phase.Buffing ? null : _lastReady,
                 StillBuffing = _phase == Phase.Buffing
-                    ? _teamA.Concat(_teamB).Where(bot => bot.IsAlive && StillBuffing(bot, now)).Select(bot => bot.PvpBuild.Id).ToList()
+                    ? _a.Bots.Concat(_b.Bots).Where(bot => bot.IsAlive && StillBuffing(bot, now)).Select(bot => bot.PvpBuild.Id).ToList()
                     : null,
                 SecondsToContact = _contactTick == 0 ? -1 : (int)((_contactTick - _matchStartTick) / 1000),
-                Distance = _teamA.Any(bot => bot.IsAlive) && _teamB.Any(bot => bot.IsAlive)
-                    ? (int)Math.Sqrt(Math.Pow(_teamA.Where(bot => bot.IsAlive).Average(bot => bot.X) - _teamB.Where(bot => bot.IsAlive).Average(bot => bot.X), 2) +
-                                     Math.Pow(_teamA.Where(bot => bot.IsAlive).Average(bot => bot.Y) - _teamB.Where(bot => bot.IsAlive).Average(bot => bot.Y), 2))
+                Distance = _a.Bots.Any(bot => bot.IsAlive) && _b.Bots.Any(bot => bot.IsAlive)
+                    ? (int)Math.Sqrt(Math.Pow(_a.Bots.Where(bot => bot.IsAlive).Average(bot => bot.X) - _b.Bots.Where(bot => bot.IsAlive).Average(bot => bot.X), 2) +
+                                     Math.Pow(_a.Bots.Where(bot => bot.IsAlive).Average(bot => bot.Y) - _b.Bots.Where(bot => bot.IsAlive).Average(bot => bot.Y), 2))
                     : -1,
-                TeamA = Team(_groupA, _teamA),
-                TeamB = Team(_groupB, _teamB),
+                TeamA = Team(_groupA, _a.Bots),
+                TeamB = Team(_groupB, _b.Bots),
                 Results = results,
                 Recording = _recording?.File,
                 SquadBrain = new { A = _squadBrainA, B = _squadBrainB },
-                KillTargets = new { A = _squadA?.KillTarget is { } killA ? PvpMember.BuildOf(killA) : null, B = _squadB?.KillTarget is { } killB ? PvpMember.BuildOf(killB) : null },
+                KillTargets = new { A = _a.Squad?.KillTarget is { } killA ? PvpMember.BuildOf(killA) : null, B = _b.Squad?.KillTarget is { } killB ? PvpMember.BuildOf(killB) : null },
                 LimitSeconds = MatchLimitSeconds,
                 Error = _lastError,
             };
