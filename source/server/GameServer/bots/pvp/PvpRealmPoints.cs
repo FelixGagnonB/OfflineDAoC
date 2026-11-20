@@ -45,6 +45,20 @@ namespace DOL.GS
         public int StartIsClearBeyond { get; set; } = 5_000;
         public int WipeWaitsAtMostSeconds { get; set; } = 120;
 
+        /// <summary>
+        /// A team of bots does not start a fight with a team that is this near its own start
+        /// point: nobody camped a portal keep, whose guards saw to that. One it is already
+        /// fighting it goes on fighting, and one that attacks it from there it answers. In the
+        /// third roam of 2026-11-20 a Hibernian team waited its two minutes, stood up on its hill
+        /// and was attacked a second later by the Albion team that had stayed there. 0: off.
+        /// The player's team goes where the player takes it.
+        /// </summary>
+        public int StartIsSafeWithin { get; set; } = 3_500;
+
+        /// <summary>Whether a team of bots leaves an enemy team alone because it is at its own start.</summary>
+        public static bool LeftAtItsStart(double fromItsStart, bool fightingItAlready, bool itAttacksUs, PvpRealWeights real) =>
+            real.StartIsSafeWithin > 0 && fromItsStart <= real.StartIsSafeWithin && !fightingItAlready && !itAttacksUs;
+
         /// <summary>Whether a wiped team stands up now: after its wait, and with no enemy at its start, or after the longest wait whatever is there.</summary>
         public static bool StandsUp(double secondsDown, bool enemyAtStart, PvpRealWeights real) =>
             secondsDown >= real.WipeStandsUpAfterSeconds && (!enemyAtStart || secondsDown >= real.WipeWaitsAtMostSeconds);

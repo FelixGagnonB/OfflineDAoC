@@ -337,9 +337,21 @@ namespace DOL.GS
                 else if (mate == null)
                     team.Draws.Remove(other);
             }
-            // Left alone, unless they come for it.
-            List<PvpRoamTeam> foes = others.Where(other => !(team.Draws.TryGetValue(other, out bool joins) && !joins) ||
-                other.Team.Members.Any(member => member.IsAlive && member.TargetObject is GameLiving aimed && team.Team.Members.Contains(aimed) && member.IsWithinRadius(aimed, 2_000))).ToList();
+            // Left alone, unless they come for it: by its draw, or because they stand at their own start.
+            bool Attacks(PvpRoamTeam other) => other.Team.Members.Any(member => member.IsAlive && member.TargetObject is GameLiving aimed &&
+                team.Team.Members.Contains(aimed) && member.IsWithinRadius(aimed, 2_000));
+            double FromItsStart(PvpRoamTeam other)
+            {
+                (double x, double y) = other.Centre();
+                return Math.Sqrt(Math.Pow(x - other.Start.Point.X, 2) + Math.Pow(y - other.Start.Point.Y, 2));
+            }
+            List<PvpRoamTeam> foes = others.Where(other =>
+            {
+                bool attacks = Attacks(other);
+                if (team.Draws.TryGetValue(other, out bool joins) && !joins && !attacks)
+                    return false;
+                return team.Leader != null || !PvpRealWeights.LeftAtItsStart(FromItsStart(other), team.Fighting.Contains(other), attacks, real);
+            }).ToList();
             List<GameLiving> enemies = foes.SelectMany(other => other.Team.Members).Where(member => member.IsAlive).ToList();
             foreach (PvpRoamTeam other in foes)
             {

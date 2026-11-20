@@ -46,6 +46,17 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void ATeamAtItsOwnStartIsLeftAloneUnlessTheFightIsAlreadyOn()
+        {
+            var real = new PvpRealWeights();
+            Assert.That(PvpRealWeights.LeftAtItsStart(1_000, false, false, real), Is.True, "nobody camps a start");
+            Assert.That(PvpRealWeights.LeftAtItsStart(1_000, true, false, real), Is.False, "a fight that came there goes on");
+            Assert.That(PvpRealWeights.LeftAtItsStart(1_000, false, true, real), Is.False, "attacked from there, it answers");
+            Assert.That(PvpRealWeights.LeftAtItsStart(6_000, false, false, real), Is.False, "out in the open it is fair game");
+            Assert.That(PvpRealWeights.LeftAtItsStart(1_000, false, false, new PvpRealWeights { StartIsSafeWithin = 0 }), Is.False, "off");
+        }
+
+        [Test]
         public void ATeamAddsOnItsRealmMatesFightThreeTimesInTen()
         {
             // "It could be random, like 30% would add 70% won't add or so."
