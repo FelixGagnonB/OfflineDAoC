@@ -60,6 +60,10 @@ namespace DOL.GS
         /// no endurance, like all of a bot's movement (PvpPositionWeights.SprintInFights).
         /// </summary>
         public bool PvpSprinting { get; set; }
+
+        /// <summary>While this 8v8 bot is dead a client has a dead player in its place (PvpCorpse): under this session id, and removed as a player.</summary>
+        public ushort PvpBodySession { get; set; }
+        public bool PvpShownAsBody { get; set; }
         /// <summary>Specialization points left after training; 8v8 builds are checked to leave only a remainder.</summary>
         public int UnspentSpecPoints => m_leftOverSpecPoints;
         private bool _endgameCompanionEquipped;

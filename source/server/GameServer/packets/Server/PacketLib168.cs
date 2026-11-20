@@ -911,7 +911,7 @@ namespace DOL.GS.PacketHandler
 			if (obj is GamePlayer)
 				oType = 2;
 			else if (obj is GameNPC npc)
-				oType = npc.Health > 0 ? 1 : 0;
+				oType = npc is GameBot { PvpShownAsBody: true } ? 2 : npc.Health > 0 ? 1 : 0; // a dead 8v8 bot is a player to the client (PvpCorpse)
 
 			using (var pak = PooledObjectFactory.GetForTick<GSTCPPacketOut>().Init(GetPacketCode(eServerPackets.RemoveObject)))
 			{

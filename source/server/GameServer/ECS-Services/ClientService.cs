@@ -675,7 +675,11 @@ namespace DOL.GS
 
         private static void UpdateObjectForPlayerInternal(GamePlayer player, GameObject gameObject, bool udp = true)
         {
-            player.Out.SendObjectUpdate(gameObject, udp);
+            // A dead 8v8 bot is a dead player to the client, and gets a player's position (PvpCorpse).
+            if (PvpCorpse.IsPlayerBody(gameObject))
+                PvpCorpse.SendBodyPosition(player, (GameBot)gameObject);
+            else
+                player.Out.SendObjectUpdate(gameObject, udp);
             OnObjectCreateOrUpdateForPlayer(player, gameObject);
         }
 

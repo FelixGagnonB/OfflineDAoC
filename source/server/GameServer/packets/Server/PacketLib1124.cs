@@ -128,6 +128,18 @@ namespace DOL.GS.PacketHandler
 			if (m_gameClient.Player == null || npc.IsVisibleTo(m_gameClient.Player) == false)
 				return;
 
+			// A dead 8v8 bot is given to the client as a dead player (PvpCorpse); alive again it is a monster.
+			if (npc is GameBot pvpBot)
+			{
+				if (PvpCorpse.IsPlayerBody(npc))
+				{
+					PvpCorpse.SendBodyCreate(m_gameClient.Player, pvpBot);
+					return;
+				}
+
+				pvpBot.PvpShownAsBody = false;
+			}
+
 			// Mines are not shown to enemy players.
 			if (npc is GameMine)
 			{
