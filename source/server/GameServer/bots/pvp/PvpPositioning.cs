@@ -217,9 +217,20 @@ namespace DOL.GS
         /// <summary>A bot out of breath sprints again once it has this share of its endurance back.</summary>
         public int SprintsAgainAtPercent { get; set; } = 20;
 
+        /// <summary>
+        /// A fighter stops sprinting when its endurance is down to this share and keeps the rest
+        /// for its styles; a chase is the exception. In 24 matches of 2026-11-20, one team of
+        /// each paying for sprint and one not: the fighters that paid were under 20% endurance
+        /// for 17% of the fight against 1%, and 75% of their swings had a style against 82%.
+        /// 0: a fighter sprints to its last breath like everybody else.
+        /// </summary>
+        public int FighterKeepsEndurancePercent { get; set; }
+
         /// <summary>Whether a bot that wants to sprint can: not on its last breath, and once out of it, not until it has some back.</summary>
-        public bool CanSprint(int endurancePercent, bool sprinting) =>
-            SprintCostPerSecond <= 0 || (sprinting ? endurancePercent > 5 : endurancePercent >= SprintsAgainAtPercent);
+        /// <param name="keeps">The share of its endurance it does not sprint away (<see cref="FighterKeepsEndurancePercent"/>); 0 for none.</param>
+        public bool CanSprint(int endurancePercent, bool sprinting, int keeps = 0) =>
+            SprintCostPerSecond <= 0 ||
+            (sprinting ? endurancePercent > Math.Max(5, keeps) : endurancePercent >= Math.Max(SprintsAgainAtPercent, keeps > 0 ? keeps + 15 : 0));
 
         /// <summary>
         /// A fighter with a style from behind walks behind a target that is stunned

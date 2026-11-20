@@ -584,7 +584,8 @@ namespace DOL.GS
                 // costs a player (SprintCostPerSecond; this runs once a second).
                 bool pressed = Chasing || FallingBack.Contains(bot) || _huntedTick.TryGetValue(bot, out long huntedAt) && GameLoop.GameLoopTime - huntedAt < 2_500;
                 bot.PvpSprinting = bot.IsAlive && FightStarted && legs.SprintInFights &&
-                                   legs.SprintNeeded(pressed, WayLeft(bot), bot.PvpSprinting) && legs.CanSprint(bot.EndurancePercent, bot.PvpSprinting);
+                                   legs.SprintNeeded(pressed, WayLeft(bot), bot.PvpSprinting) &&
+                                   legs.CanSprint(bot.EndurancePercent, bot.PvpSprinting, IsFighter(bot) && !Chasing ? legs.FighterKeepsEndurancePercent : 0);
                 if (bot.PvpSprinting && bot.IsMoving && legs.SprintCostPerSecond > 0)
                     bot.Endurance = Math.Max(0, bot.Endurance - legs.SprintCostPerSecond);
                 // For a watcher: a member that has run out of power does nothing, and that cannot be seen from above
