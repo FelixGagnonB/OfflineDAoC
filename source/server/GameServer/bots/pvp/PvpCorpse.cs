@@ -11,7 +11,9 @@ namespace DOL.GS
         /// <summary>The bot is drawn as a ghost, see-through, with "Dead" under its name.</summary>
         Ghost,
         /// <summary>The body falls as a dead monster's does, and the ghost stands over it to be targeted.</summary>
-        Fall
+        Fall,
+        /// <summary>The body falls, and the bot stays as a marker nobody sees: its name with "Dead" over the body, and a target for the group window.</summary>
+        Body
     }
 
     /// <summary>
@@ -30,11 +32,20 @@ namespace DOL.GS
     /// of a dead monster for the falling body, and then the bot again as a ghost with "Dead"
     /// under its name, which can be clicked and targeted from the group window. Raising needs
     /// nothing: it moves the bot, which makes it anew for the client, alive.
+    /// That was seen by the owner the same day, three bodies on the ground and three ghosts over
+    /// them, and taken for broken ("Dead body fix doesn't work"): a dead character is a body with
+    /// a name, not a figure standing. So as built the ghost is left out: the bot is made again
+    /// with the model nobody sees (the one of the setup window's menu), its name and "Dead" over
+    /// the body, still a target for the group window.
     /// Only 8v8 bots: companions and gamebots are shown as before. <c>/8v8 corpse</c> switches.
     /// </summary>
     public static class PvpCorpse
     {
-        public static PvpCorpseShow Show { get; set; } = PvpCorpseShow.Fall;
+        public static PvpCorpseShow Show { get; set; } = PvpCorpseShow.Body;
+
+        /// <summary>The model a client draws nothing for (Pvp8v8SetupMenu uses it too), and its size.</summary>
+        public const ushort MarkerModel = 150;
+        public const byte MarkerSize = 1;
 
         /// <summary>What stands under the name of a ghost.</summary>
         public const string Tag = "Dead";
@@ -42,12 +53,16 @@ namespace DOL.GS
         public static bool IsDown(GameObject body) => body is GameBot { IsPvpBot: true, IsAlive: false };
 
         /// <summary>Whether the bot is made for a client as a ghost.</summary>
-        public static bool DrawsGhost(PvpCorpseShow show, bool down) => down && show != PvpCorpseShow.Off;
+        public static bool DrawsGhost(PvpCorpseShow show, bool down) => down && show is PvpCorpseShow.Ghost or PvpCorpseShow.Fall;
+
+        /// <summary>Whether the bot is made for a client as a marker nobody sees.</summary>
+        public static bool DrawsMarker(PvpCorpseShow show, bool down) => down && show == PvpCorpseShow.Body;
 
         /// <summary>Whether a client is sent the removal that makes the body fall.</summary>
-        public static bool BodyFalls(PvpCorpseShow show, bool down) => down && show == PvpCorpseShow.Fall;
+        public static bool BodyFalls(PvpCorpseShow show, bool down) => down && show is PvpCorpseShow.Fall or PvpCorpseShow.Body;
 
         public static bool IsGhost(GameObject body) => DrawsGhost(Show, IsDown(body));
+        public static bool IsMarker(GameObject body) => DrawsMarker(Show, IsDown(body));
 
         /// <summary>The bot has just died: every client that sees it is shown.</summary>
         public static void Announce(GameBot bot)
@@ -61,7 +76,7 @@ namespace DOL.GS
                 // With no health left the removal is the one of a dead monster: the body falls and lies.
                 if (BodyFalls(Show, true))
                     player.Out.SendObjectRemove(bot);
-                // And the bot again, as the packet library now makes it: a ghost.
+                // And the bot again, as the packet library now makes it: a marker nobody sees, or a ghost.
                 ClientService.CreateObjectForPlayer(player, bot);
             }
         }

@@ -52,6 +52,10 @@ namespace DOL.GS.PacketHandler
 
 		public override void SendLivingEquipmentUpdate(GameLiving living)
 		{
+			// A dead 8v8 bot shown as a marker nobody sees has nothing in its hands (PvpCorpse).
+			if (PvpCorpse.IsMarker(living))
+				return;
+
 			using (var pak = PooledObjectFactory.GetForTick<GSTCPPacketOut>().Init(GetPacketCode(eServerPackets.EquipmentUpdate)))
 			{
 				ICollection<DbInventoryItem> items = NecromancerPetAppearance.Equipment(living);
@@ -153,8 +157,12 @@ namespace DOL.GS.PacketHandler
 					pak.WriteInt((uint) npc.X);
 					pak.WriteInt((uint) npc.Y);
 					pak.WriteShort(speedZ);
-					pak.WriteShort(npc.Model);
-					pak.WriteByte(npc.Size);
+					// A dead 8v8 bot is a ghost to the client, or a marker nobody sees over its fallen body,
+					// with "Dead" under its name either way (PvpCorpse).
+					bool deadMarker = PvpCorpse.IsMarker(npc);
+					bool deadBot = deadMarker || PvpCorpse.IsGhost(npc);
+					pak.WriteShort(deadMarker ? PvpCorpse.MarkerModel : npc.Model);
+					pak.WriteByte(deadMarker ? PvpCorpse.MarkerSize : npc.Size);
 					byte level = npc.GetDisplayLevel(m_gameClient.Player);
 
 					if ((npc.Flags & GameNPC.eFlags.STATUE) != 0)
@@ -163,13 +171,10 @@ namespace DOL.GS.PacketHandler
 					pak.WriteByte(level);
 					byte flags = (byte) (GameServer.ServerRules.GetLivingRealm(m_gameClient.Player, npc) << 6);
 
-					// A dead 8v8 bot is a ghost to the client, with "Dead" under its name (PvpCorpse).
-					bool deadBot = PvpCorpse.IsGhost(npc);
-
-					if ((npc.Flags & GameNPC.eFlags.GHOST) != 0 || deadBot)
+					if ((npc.Flags & GameNPC.eFlags.GHOST) != 0 || deadBot && !deadMarker)
 						flags |= 0x01;
 
-					if (NecromancerPetAppearance.HasEquipment(npc))
+					if (NecromancerPetAppearance.HasEquipment(npc) && !deadMarker)
 						flags |= 0x02; // If mob has equipment, then only show it after the client gets the 0xBD packet.
 
 					if ((npc.Flags & GameNPC.eFlags.PEACE) != 0)
