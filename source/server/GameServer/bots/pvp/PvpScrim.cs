@@ -221,6 +221,19 @@ namespace DOL.GS
         /// </summary>
         public static bool BotsRoam { get; set; }
 
+        /// <summary>
+        /// For testing the player's calls without a player (scrim-call): one member of a group of
+        /// bots makes the call, as if it were the player. <paramref name="who"/> is the build or
+        /// class of the caller (a healer when empty); for an assist, <paramref name="target"/> is
+        /// the build or class of the enemy to call.
+        /// </summary>
+        public static object TestCall(int lane, string team, string word, string who, string target)
+        {
+            PvpScrimRun run = _runs.FirstOrDefault(each => each.Running && each.Lane == lane)
+                ?? throw new InvalidOperationException($"Nothing is running in lane {lane}.");
+            return run.TestCall(team, word, who, target);
+        }
+
         /// <summary>The squad a player leads in a play session that is running; null otherwise.</summary>
         public static PvpSquad SquadOf(GamePlayer player) =>
             player == null ? null : _runs.FirstOrDefault(run => run.Running && run.Leader == player)?.LeaderSquad;
@@ -498,6 +511,27 @@ namespace DOL.GS
         private readonly GamePlayer _leader;
         internal GamePlayer Leader => _leader;
         internal PvpSquad LeaderSquad => _leader == null ? null : _squadA;
+        internal int Lane => _lane;
+
+        internal object TestCall(string team, string word, string who, string target)
+        {
+            bool a = !string.Equals(team, "B", StringComparison.OrdinalIgnoreCase);
+            PvpSquad squad = (a ? _squadA : _squadB) ?? throw new InvalidOperationException("That side has no squad brain.");
+            List<GameBot> own = a ? _teamA : _teamB, enemy = a ? _teamB : _teamA;
+            bool Is(GameBot bot, string asked) => string.Equals(bot.PvpBuild.Id, asked, StringComparison.OrdinalIgnoreCase) ||
+                                                  string.Equals(PvpMember.ClassOf(bot).ToString(), asked, StringComparison.OrdinalIgnoreCase);
+            GameBot caller = own.FirstOrDefault(bot => bot.IsAlive && (string.IsNullOrEmpty(who) ? PvpMember.RoleOf(bot) == PvpRole.Heal : Is(bot, who)))
+                ?? throw new InvalidOperationException("No such living member to make the call.");
+            if (string.Equals(word, "assist", StringComparison.OrdinalIgnoreCase))
+            {
+                GameBot called = enemy.FirstOrDefault(bot => bot.IsAlive && Is(bot, target))
+                    ?? throw new InvalidOperationException("No such living enemy to call.");
+                return new { Caller = caller.Name, Assist = called.Name, Taken = squad.CallAssist(caller, called) };
+            }
+            PvpOrder order = PvpCalls.OrderFor(word) ?? throw new ArgumentException("push, regroup, hold, engage, extend or assist.");
+            squad.CallOrder(caller, order);
+            return new { Caller = caller.Name, Order = order.ToString() };
+        }
         // A play session in which a bot drives: the companions roam by themselves, as the enemy does, and the player follows.
         private readonly bool _botDrives;
 

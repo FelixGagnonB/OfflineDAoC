@@ -351,7 +351,7 @@ namespace DOL.GS
         /// <see cref="PvpCalls.PlayerCallSeconds"/> and then decides for itself again. Under a
         /// called regroup every member comes back to the caller, not only the fighters.
         /// </summary>
-        public void CallOrder(GamePlayer caller, PvpOrder order)
+        public void CallOrder(GameLiving caller, PvpOrder order)
         {
             _calledOrder = order;
             _caller = caller;
@@ -365,15 +365,15 @@ namespace DOL.GS
 
         /// <summary>
         /// A player of the group calls its own target as the kill target. False when the target
-        /// is not an enemy the group knows. It stands while the target lives, for at most twice
-        /// the time of an order.
+        /// is not an enemy the group knows. It stands while the target lives and is known, for at
+        /// most <see cref="PvpCalls.PlayerAssistSeconds"/>, or until the player calls another.
         /// </summary>
-        public bool CallAssist(GamePlayer caller, GameLiving target)
+        public bool CallAssist(GameLiving caller, GameLiving target)
         {
             if (target is not { IsAlive: true } || !Known.Contains(target))
                 return false;
             _calledTarget = target;
-            _calledTargetUntil = GameLoop.GameLoopTime + 2 * PvpCalls.PlayerCallSeconds * 1_000L;
+            _calledTargetUntil = GameLoop.GameLoopTime + PvpCalls.PlayerAssistSeconds * 1_000L;
             if (_members.FirstOrDefault(member => member.IsAlive) is { } voice)
             {
                 PvpRecorder.Decision(voice, new { kind = "PlayerAssist", d = target.Name, by = caller.Name }, [], null);
@@ -464,14 +464,6 @@ namespace DOL.GS
                             PvpCalls.OutOfYourReach(healer.Name, beyond.Count), PvpCalls.OutOfReachEveryMilliseconds);
                 }
             }
-            // A player's assist call names the kill target while that target lives and is known.
-            if (_calledTarget != null)
-            {
-                if (_calledTarget.IsAlive && known.Contains(_calledTarget) && GameLoop.GameLoopTime < _calledTargetUntil)
-                    KillTarget = _calledTarget;
-                else
-                    _calledTarget = null;
-            }
         }
 
         /// <summary>
@@ -515,6 +507,19 @@ namespace DOL.GS
                     _givenUp.TryGetValue(enemy, out long left) && tick - left < kill.AbandonedForSeconds * 1000L)).ToList();
                 int chosen = PvpKillTarget.Choose(views, current != null ? alive.IndexOf(current) : -1, kill);
                 target = chosen >= 0 ? alive[chosen] : null;
+                // A player's assist call names the kill target while that target lives and is known. Here, before
+                // the target is handed to the members: set afterwards, the group's call changed and nobody
+                // went for it (the first test of the call, 2026-11-20: 24 seconds as the kill target, no blow).
+                if (_calledTarget != null)
+                {
+                    if (_calledTarget.IsAlive && alive.Contains(_calledTarget) && tick < _calledTargetUntil)
+                    {
+                        target = _calledTarget;
+                        chosen = alive.IndexOf(target);
+                    }
+                    else
+                        _calledTarget = null;
+                }
                 if (target != current)
                 {
                     if (current is { IsAlive: true })
@@ -571,6 +576,15 @@ namespace DOL.GS
                 brain.PvpEnemies = enemies;
                 brain.PvpKillTarget = target;
                 duty.TryGetValue(bot, out GameLiving onDuty);
+                // The player called this target: the group's damage dealers all go for it while the call
+                // stands, whatever they were on. In the first test of the call the Warrior was the kill
+                // target for 24 seconds and took no blow: the Minstrel had interrupt duty for a healer,
+                // the Armsman was turned on an enemy that had followed onto the back line, and the
+                // Cabalist stood 1,400 units off. The shield fighter keeps its guard, the healers heal,
+                // and whoever interrupts with pets keeps them where they are.
+                bool calledOnto = target != null && target == _calledTarget && role == PvpRole.Assist && bot.IsAlive;
+                if (calledOnto)
+                    onDuty = null;
                 brain.PvpDutyTarget = onDuty;
                 PvpInterruptMeans means = PvpInterruptDuty.MeansOf(PvpMember.ClassOf(bot), PvpWeights.Of(bot).Interrupt);
                 GameLiving aim = null;
@@ -582,7 +596,9 @@ namespace DOL.GS
                     aim = Peel(bot, brain, team, alive, target, guarded);
                 // Under Extend the group's fighters turn on whoever followed onto its healers and
                 // casters (owner, 2026-11-17: an enemy that pushed deep is turned on).
-                if (Order == PvpOrder.Extend && _pursuers.Count > 0 && role == PvpRole.Assist && onDuty == null && bot.IsAlive &&
+                if (calledOnto)
+                    aim = target;
+                if (!calledOnto && Order == PvpOrder.Extend && _pursuers.Count > 0 && role == PvpRole.Assist && onDuty == null && bot.IsAlive &&
                     IsFighter(bot) && PvpWeights.Of(bot).Order.ExtendFightersTurnOnPursuers)
                 {
                     // It stays on the one it has, and two fighters take two different ones (PvpOrders.ChoosePursuer).
@@ -596,12 +612,13 @@ namespace DOL.GS
                 // Under Regroup every fighter that is far comes back, the ones with interrupt duty too.
                 int stayWithin = PvpWeights.Of(bot).Order.ExtendFightersStayWithin;
                 float fromHome = home is { } middle ? Vector2.Distance(new Vector2(bot.X, bot.Y), new Vector2(middle.X, middle.Y)) : 0;
-                bool fallsBack = home != null && role == PvpRole.Assist && bot.IsAlive && IsFighter(bot) &&
+                bool fallsBack = home != null && role == PvpRole.Assist && bot.IsAlive && IsFighter(bot) && !calledOnto &&
                     (Order == PvpOrder.Extend && _pursuers.Count == 0 && stayWithin > 0 && onDuty == null && fromHome > stayWithin ||
                      Order == PvpOrder.Regroup && RegroupsOn == null && FromNearestHealer(bot, team) > PvpWeights.Of(bot).Order.RegroupWithin);
                 // The player called the regroup: every member that is far from the player comes back to it, whatever its job.
                 Vector3? fallBackTo = home;
-                if (RegroupsOn is { } gatherOn && bot.IsAlive && !bot.IsWithinRadius(gatherOn, PvpWeights.Of(bot).Order.RegroupWithin))
+                if (RegroupsOn is { } gatherOn && bot.IsAlive &&
+                    PvpCalls.ComesBack((int)bot.GetDistanceTo(gatherOn), FallingBack.Contains(bot)))
                 {
                     fallsBack = true;
                     fallBackTo = new Vector3(gatherOn.X, gatherOn.Y, gatherOn.Z);

@@ -73,6 +73,15 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void UnderACalledRegroupAMemberComesRightBack()
+        {
+            Assert.That(PvpCalls.ComesBack(1_200, false), Is.True, "far: it comes");
+            Assert.That(PvpCalls.ComesBack(800, false), Is.False, "near enough to stay where it is");
+            Assert.That(PvpCalls.ComesBack(800, true), Is.True, "on its way back it keeps coming");
+            Assert.That(PvpCalls.ComesBack(500, true), Is.False, "arrived");
+        }
+
+        [Test]
         public void EveryCalledOrderIsAnswered()
         {
             Assert.That(PvpCalls.Answer(PvpOrder.Regroup, "Nayas"), Is.EqualTo("Regrouping on Nayas."));

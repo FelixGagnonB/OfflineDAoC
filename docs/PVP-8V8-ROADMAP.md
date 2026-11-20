@@ -39,7 +39,7 @@ roam around until contact"). All four are built. What a recorded match could sho
 
 | Built | Seen in recorded matches | Not seen yet |
 |---|---|---|
-| **The owner's calls** (M9.3): `/8v8 call assist` makes the player's target the kill target while it lives (24 s at most); `push`, `regroup` (everybody comes back to the player), `hold`, `engage`, `extend` stand for 12 s; a bot answers in group chat | nothing: it needs a player | all of it |
+| **The owner's calls** (M9.3): `/8v8 call assist` puts the group's damage dealers on the player's target while it lives (45 s at most); `push`, `regroup` (everybody comes back to the player), `hold`, `engage`, `extend` stand for 12 s; a bot answers in group chat | three lane matches in which a bot Cleric made the calls (`scrim-call`, `pvp_test_calls.py`): a called regroup had every member that could move within 1,700 of the caller in three seconds; a called assist on a Warrior, after two fixes, put two or three members on it and took it from 2,200 to 1,124 health in sixteen seconds, when its healers brought it back | typed by a player, and the chat lines |
 | **A player-healer is told** when two or more of the group are beyond heal range | nothing | all of it |
 | **The group's own resistance buffs** are cast before the fight by the member with the strongest of each | Twelve lane matches after three rounds of fixes: every member of every realm starts with all of its realm's, at the strongest its group has (Albion body, spirit, energy 16; Hibernia heat, cold, matter 16; Midgard heat and cold 24, matter, body and spirit 16, energy 8). Buffing takes 60 s at the median (it was about 40), never timed out | with a player in the group |
 | **Raising the dead in a fight** by an 8v8 rule (`PvpHealWeights.Raises`) | 24 matches, one team of each with the rule and one without: 14 tries and 3 raised against none; wins 13 to 11, deaths 3.9 against 4.5 a team (neither means anything at this size) | the Paladin no longer trying right after its own swing (6 of its 7 tries were refused) |
@@ -60,6 +60,18 @@ Also that night: an order is said in group chat once it has stood three seconds,
 changes; a bot does not take a target it cannot see over a rise, and a group knows an enemy
 that is fighting one of its members from within 2,000 units, seen or not;
 `source/tools/pvp_sessions.py` lists the owner's sessions on one page with their replays.
+
+What the test of the calls showed about a group and its kill target. Called onto a Warrior,
+the group changed its call and nobody went: the called target was set after the targets had
+been handed out. With that fixed, still nobody went, and this is how a group of eight is in
+fact spread at such a moment: two healers; the Sorcerer on control; the Theurgist and the
+Minstrel on interrupt duty for the enemy's healers; the Paladin peeling a Skald; the Armsman on
+the kill target until an enemy came onto the back line and it was turned on that; and the
+Cabalist, 1,400 units off, the only one left on the target. Albion's "assist train" is then one
+caster. A call by the player now takes every member whose job is damage off its duty and onto
+the target while the call stands. Whether the squad's own calls should do the same for a
+while is not decided: it is the question behind the owner's "our assist train and casters did
+not kill anyone", and it belongs to M8 (collapsing on a target together).
 
 Things counted that night and what came of them:
 

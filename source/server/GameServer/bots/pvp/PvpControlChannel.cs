@@ -195,6 +195,11 @@ namespace DOL.GS
                     return PvpScrim.Status();
                 }
 
+                case "scrim-call":
+                    // A member of a group of bots makes a player's call: Lane, Team (A or B), Call (regroup, push, hold,
+                    // engage, extend, assist), Who (the caller's build or class), Target (for assist: the enemy's).
+                    return PvpScrim.TestCall(int.Parse(Arg("Lane") ?? "0"), Arg("Team") ?? "A", Arg("Call") ?? "regroup", Arg("Who"), Arg("Target"));
+
                 case "sight-scan":
                     // How often a rise of the ground hides one point of the basin from another: Pairs, Min and Max distance.
                     return PvpScrim.ScanSight(int.Parse(Arg("Pairs") ?? "2000"), int.Parse(Arg("Min") ?? "2000"), int.Parse(Arg("Max") ?? "6500"));

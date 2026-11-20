@@ -51,8 +51,26 @@ namespace DOL.GS
 
         public static bool WorthOutOfReach(int members) => members >= 2;
 
+        /// <summary>
+        /// Under a regroup the player called, a member farther than the first distance from the
+        /// player comes back, and keeps coming until it is within the second: "regroup on me" is
+        /// nearer than the 1,700 units at which the squad's own regroup lets a fighter go again
+        /// (in the first test the members were back out at 1,850 before the call had run out).
+        /// </summary>
+        public const int CalledRegroupBeyond = 1_000, CalledRegroupUntilWithin = 600;
+
+        public static bool ComesBack(int distance, bool onItsWayBack) =>
+            distance > CalledRegroupBeyond || onItsWayBack && distance > CalledRegroupUntilWithin;
+
         /// <summary>How long a call by the player stands before the squad decides for itself again, in seconds.</summary>
         public const int PlayerCallSeconds = 12;
+
+        /// <summary>
+        /// How long an assist call stands at most. In the test of the call the group's damage
+        /// dealers needed ten seconds to get to a Warrior and had it at half its health sixteen
+        /// seconds later, when a 24-second call ran out.
+        /// </summary>
+        public const int PlayerAssistSeconds = 45;
 
         /// <summary>
         /// The order a player's call stands for (/8v8 call regroup): push, regroup, hold, engage,

@@ -9,7 +9,7 @@ namespace DOL.GS.Commands
         "/8v8 setup                     a window to pick the enemy realm, the start (lane or basin) and the realm rank, then start",
         "/8v8 ready [build]             your character becomes level 50 with that build's class, spec and gear (lists the builds without one)",
         "/8v8 play <alb|mid|hib> [rank] [lane|basin] [follow]  a fight: you and seven companions against that realm's group of eight, in Emain Macha; follow: a bot drives",
-        "/8v8 call <push|regroup|hold|engage|extend|assist>  your call to the group, for about twelve seconds; assist calls your target",
+        "/8v8 call <push|regroup|hold|engage|extend|assist>  your call to the group: an order stands twelve seconds; assist puts the damage dealers on your target while it lives (45 s at most)",
         "/8v8 calls <on|off>            your companions' calls in group chat (assist, incoming, orders, out of power)",
         "/8v8 stop                      ends the fight and removes every 8v8 bot",
         "/8v8 clear                     removes every 8v8 bot",
