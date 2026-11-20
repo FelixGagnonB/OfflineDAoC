@@ -135,8 +135,8 @@ Still open from these sessions: Midgard's fighters dive and die 1,240 to 2,165 u
 healers (a leash, to be built switched off and compared); in two fights the Bard finished no
 endurance song at all; the Shaman casts almost no roots or diseases.
 (The leash was counted and dropped the same day: Midgard's fighters die out of heal range no
-more often than the others'. Those distances were read from where the server had the bodies,
-which was not where they fell: see the next section.)
+more often than the others'. Those distances may have been read from where the server had the
+bodies, which was not where they fell: see the next section.)
 
 ### 2026-11-20, later: comparisons, the dead that moved, and M7 as it measures
 
