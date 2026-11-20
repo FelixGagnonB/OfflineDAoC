@@ -323,6 +323,13 @@ namespace DOL.GS
             Trained = now;
         }
 
+        /// <summary>
+        /// True while the group is chasing: its fight has begun and no member has had a known enemy
+        /// within <see cref="PvpOrders.ChaseBeyond"/> for a few seconds. The speed song is for then.
+        /// </summary>
+        public bool Chasing { get; private set; }
+        private long _noContactSince;
+
         /// <summary>The bot that leads the roam in a play session where a bot drives; null otherwise.</summary>
         public GameBot Driver { get; set; }
 
@@ -436,6 +443,14 @@ namespace DOL.GS
         {
             List<GameLiving> known = Look(enemies);
             Known = known;
+            // A chase: the fight is on, and for some seconds no member has had an enemy near it.
+            long tick = GameLoop.GameLoopTime;
+            bool contact = known.Any(enemy => enemy.IsAlive && _allies.Any(member => member.IsAlive && member.IsWithinRadius(enemy, PvpOrders.ChaseBeyond)));
+            if (!FightStarted || contact || !known.Any(enemy => enemy.IsAlive))
+                _noContactSince = 0;
+            else if (_noContactSince == 0)
+                _noContactSince = tick;
+            Chasing = PvpOrders.Chases(FightStarted, _noContactSince, tick);
             FindTrained(known);
             Read(enemies, known);
             SayOrder(GameLoop.GameLoopTime);
@@ -549,7 +564,11 @@ namespace DOL.GS
                 PvpRole role = PvpMember.RoleOf(bot);
                 brain.PvpSquad = this;
                 // From the run-in on: the owner, 2026-11-19, "we were using speed + sprint all the time until initial contact", and after it.
-                bot.PvpSprinting = bot.IsAlive && PvpWeights.Of(bot).Position.SprintInFights;
+                PvpPositionWeights legs = PvpWeights.Of(bot).Position;
+                bot.PvpSprinting = bot.IsAlive && legs.SprintInFights && legs.CanSprint(bot.EndurancePercent, bot.PvpSprinting);
+                // Sprinting on the move costs endurance (PvpPositionWeights.SprintCostPerSecond); this runs once a second.
+                if (bot.PvpSprinting && bot.IsMoving && legs.SprintCostPerSecond > 0)
+                    bot.Endurance = Math.Max(0, bot.Endurance - legs.SprintCostPerSecond);
                 // For a watcher: a member that has run out of power does nothing, and that cannot be seen from above
                 // (owner, 2026-11-19, of a Theurgist that stood still: "I do not have that information when I observe").
                 if (FightStarted && bot.IsAlive && bot.MaxMana > 0)
@@ -1057,7 +1076,9 @@ namespace DOL.GS
                 bool leftBehind = healers.Contains(bot) &&
                     PvpPositioning.LeftBehind(self, _allies.Where(member => member.IsAlive && member != bot).Select(member => At(member)).ToList(), weights);
                 bool kiting = hunted && weights.KitesWhenPinned && PvpPositioning.Pinned(self, threats, weights);
-                if (LastStandStep.TryGetValue(bot, out long last) && (kiting ? now - last < weights.KiteStepEveryMilliseconds
+                // Kiting, the next step is taken when this one ends, not in the middle of it.
+                if (LastStandStep.TryGetValue(bot, out long last) && (kiting
+                        ? now - last < weights.KiteStepEveryMilliseconds || StandStepEnds.TryGetValue(bot, out long walking) && now < walking - 300
                         : hunted || leftBehind ? now - last < 1_500
                         : now - (weights.StepWaitCountsFromArrival && StandStepEnds.TryGetValue(bot, out long ends) ? ends : last) < weights.StepEveryMilliseconds))
                     continue;

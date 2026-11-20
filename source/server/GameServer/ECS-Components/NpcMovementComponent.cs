@@ -1223,6 +1223,8 @@ namespace DOL.GS
             Owner.Z = (int) Math.Round(_ownerPosition.Z);
 
             _needsBroadcastUpdate = true;
+            if (Owner is GameBot { IsPvpBot: true })
+                _forceReliableBroadcast = true;
             IsDestinationValid = false;
             bool wasMoving = IsMoving;
             CurrentSpeed = speed;
@@ -1241,6 +1243,12 @@ namespace DOL.GS
             IsDestinationValid = distanceToTarget >= 0;
             _destination = destination;
             _needsBroadcastUpdate = true;
+            // An 8v8 bot that sets off or changes its way is told to the clients reliably. Sent the lossy
+            // way, a healer kiting from the owner's Hero (a new way every second) stood beside the Hero on
+            // the owner's screen and elsewhere on the server: "I was on top of them. Client was not updating
+            // their position. I had no idea where they really were" (2026-11-20).
+            if (Owner is GameBot { IsPvpBot: true })
+                _forceReliableBroadcast = true;
 
             bool wasMoving = IsMoving;
             CurrentSpeed = speed;

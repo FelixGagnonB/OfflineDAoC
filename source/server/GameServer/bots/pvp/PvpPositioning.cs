@@ -188,6 +188,22 @@ namespace DOL.GS
         /// a player in the group pays for sprint as the game has it.
         /// </summary>
         public bool SprintInFights { get; set; } = true;
+        /// <summary>
+        /// What a second of sprinting on the move takes from a bot's endurance, as it takes five
+        /// from a player's each tick: with an endurance song or buff on it the bot gets as much
+        /// back and sprints for ever, as players with Tireless and a Bard did; without one it runs
+        /// dry in twenty seconds and is back to its run. The owner, 2026-11-20, after chasing a
+        /// Healer across the basin: "the enemy outrunning us makes no sense. If they have no
+        /// endurance, they can't sprint." (The recording: its endurance at 100 all the way.) 0:
+        /// a bot's sprint is free, as until then.
+        /// </summary>
+        public int SprintCostPerSecond { get; set; } = 5;
+        /// <summary>A bot out of breath sprints again once it has this share of its endurance back.</summary>
+        public int SprintsAgainAtPercent { get; set; } = 20;
+
+        /// <summary>Whether a bot that wants to sprint can: not on its last breath, and once out of it, not until it has some back.</summary>
+        public bool CanSprint(int endurancePercent, bool sprinting) =>
+            SprintCostPerSecond <= 0 || (sprinting ? endurancePercent > 5 : endurancePercent >= SprintsAgainAtPercent);
 
         /// <summary>
         /// A fighter with a style from behind walks behind a target that is stunned
@@ -298,7 +314,9 @@ namespace DOL.GS
                 ? Math.Min(edge, NearestEnemy(self, [], others)) - weights.StepNearerTheirBackLineAtMost : 0;
             double Along(Vector2 point) => Vector2.Dot(point - self, retreat) * weights.PerUnitAlongRetreat;
             var better = new List<(Vector2 Point, double Score)>();
-            foreach (int length in weights.LongStep > weights.Step ? new[] { weights.Step, weights.LongStep } : [weights.Step])
+            // Kiting, only the long step: fewer changes of way, each of which every client has to be told.
+            foreach (int length in pinned && weights.LongStep > weights.Step ? [weights.LongStep]
+                         : weights.LongStep > weights.Step ? new[] { weights.Step, weights.LongStep } : [weights.Step])
             {
                 for (int i = 0; i < Directions; i++)
                 {

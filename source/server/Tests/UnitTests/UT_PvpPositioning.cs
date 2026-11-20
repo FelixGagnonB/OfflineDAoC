@@ -235,6 +235,17 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void SprintingTakesEnduranceAndABotOutOfBreathRuns()
+        {
+            Assert.That(Weights.CanSprint(100, false), Is.True);
+            Assert.That(Weights.CanSprint(6, true), Is.True, "it sprints on to its last breath");
+            Assert.That(Weights.CanSprint(5, true), Is.False, "and then it is out");
+            Assert.That(Weights.CanSprint(12, false), Is.False, "it does not start again on a few points");
+            Assert.That(Weights.CanSprint(20, false), Is.True, "but once it has a fifth back");
+            Assert.That(new PvpPositionWeights { SprintCostPerSecond = 0 }.CanSprint(0, false), Is.True, "free, as it was");
+        }
+
+        [Test]
         public void AFighterThatIsNotOnItDoesNotPinIt()
         {
             Assert.That(PvpPositioning.Pinned(Vector2.Zero, [new PvpThreat(new Vector2(150, 0), false, false, false)], Weights), Is.False);

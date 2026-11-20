@@ -2198,7 +2198,10 @@ namespace DOL.AI.Brain
             // matches of 2026-11-18 Hibernia's Hero spent 48% of each fight under 20% endurance and
             // its Blademasters 34%, where Albion's and Midgard's fighters were hardly ever that low.
             bool pvpBardPlays = bot.IsPvpBot && (eCharacterClass)bot.CharacterClass.ID == eCharacterClass.Bard;
-            if (immediateCombat && !minstrelAtRange && !pvpBardPlays)
+            // An 8v8 group in a chase (PvpSquad.Chasing): the speed song is the one that matters, for the
+            // Bard as for the Skald and the Minstrel, until the group is in contact again.
+            bool chasing = bot.IsPvpBot && PvpSquad?.Chasing == true;
+            if (immediateCombat && !chasing && !minstrelAtRange && !pvpBardPlays)
             {
                 StopTwistedSong();
                 SwitchToUsableMeleeWeapon();
@@ -2207,7 +2210,7 @@ namespace DOL.AI.Brain
             }
             // In a fight a song is a three-second cast like any other, and the Bard is its group's
             // mezzer and its only cure for mez (PvpWeights.SongInFightEverySeconds).
-            int pvpSongEvery = pvpBardPlays && immediateCombat ? PvpWeights.Of(bot).SongInFightEverySeconds : -1;
+            int pvpSongEvery = pvpBardPlays && immediateCombat && !chasing ? PvpWeights.Of(bot).SongInFightEverySeconds : -1;
             bool pvpSongBounded = pvpSongEvery >= 0;
             if (pvpSongBounded && (pvpSongEvery == 0 || bot.IsBeingInterrupted ||
                     GameLoop.GameLoopTime - _pvpSongStartedTick < pvpSongEvery * 1_000L ||
@@ -2224,7 +2227,7 @@ namespace DOL.AI.Brain
 
             // Only what the group sees: by distance alone (tried for a night) its speed dropping told
             // the group an enemy was near before anybody had seen one (the owner, 2026-11-20).
-            bool pvpBardEnemyNear = pvpBardPlays && PvpSquad?.Known.Count > 0;
+            bool pvpBardEnemyNear = pvpBardPlays && PvpSquad?.Known.Count > 0 && !chasing;
             IEnumerable<Spell> songCandidates = (bot.MiscSpells ?? [])
                 .Concat(bot.InstantMiscSpells ?? [])
                 .Where(spell => spell != null && spell.IsPulsing && !spell.IsHarmful &&
@@ -2233,16 +2236,16 @@ namespace DOL.AI.Brain
                                 (!ownerMoving || BotSongTwistPolicy.IsCompanionTravelSong(
                                     (eCharacterClass)bot.CharacterClass.ID, spell.SpellType)))
                 .DistinctBy(spell => spell.ID)
-                .Where(spell => spell.SpellType != eSpellType.SpeedEnhancement || !immediateCombat && (traveling || groupedSupport))
-                // No speed song once an 8v8 fight is on (a Minstrel began one 37 s into a fight, an enemy 275 units away).
-                .Where(spell => spell.SpellType != eSpellType.SpeedEnhancement || !PvpHeldBackInFight(spell))
+                .Where(spell => spell.SpellType != eSpellType.SpeedEnhancement || (!immediateCombat || chasing) && (traveling || groupedSupport))
+                // No speed song once an 8v8 fight is on (a Minstrel began one 37 s into a fight, an enemy 275 units away), but for a chase.
+                .Where(spell => spell.SpellType != eSpellType.SpeedEnhancement || chasing || !PvpHeldBackInFight(spell))
                 .Where(spell => !pvpSongBounded || spell.SpellType == eSpellType.EnduranceRegenBuff)
                 // Off the fight an 8v8 Bard holds one song and lets it play: speed on the road, all of the
                 // time, and endurance once the enemy is in sight (the owner, 2026-11-20: "I'd rather keep
                 // speed 100% while roaming and endurance during fight"). Slipping its resistance hymns in
                 // made it cast the speed again every three and a half seconds; twisting speed and
                 // endurance, tried for a morning, left the Bard a thousand units and more behind its group.
-                .Where(spell => !pvpBardPlays || immediateCombat ||
+                .Where(spell => !pvpBardPlays || immediateCombat && !chasing ||
                                 spell.SpellType == (pvpBardEnemyNear ? eSpellType.EnduranceRegenBuff : eSpellType.SpeedEnhancement));
             if (ownerMoving)
                 songCandidates = songCandidates.GroupBy(spell => spell.SpellType)
@@ -2257,9 +2260,9 @@ namespace DOL.AI.Brain
                 // endurance are both three-second casts on different instruments and last five and six
                 // seconds, so they cannot be twisted without the speed dropping; in five sessions the
                 // Bard began the endurance song 0 or 1 times before the first blow, at 4,500 units.
-                .OrderByDescending(spell => pvpBardPlays && (immediateCombat || pvpBardEnemyNear) &&
+                .OrderByDescending(spell => pvpBardPlays && (immediateCombat && !chasing || pvpBardEnemyNear) &&
                                             spell.SpellType == eSpellType.EnduranceRegenBuff)
-                .ThenByDescending(spell => spell.SpellType == eSpellType.SpeedEnhancement && !immediateCombat)
+                .ThenByDescending(spell => spell.SpellType == eSpellType.SpeedEnhancement && (!immediateCombat || chasing))
                 .ThenByDescending(spell => groupedSupport && spell.Target is eSpellTarget.GROUP or eSpellTarget.REALM)
                 .ThenByDescending(spell => spell.Value)
                 .ThenByDescending(spell => spell.Level)

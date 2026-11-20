@@ -258,6 +258,20 @@ namespace DOL.GS
         }
 
         /// <summary>The order for this second, given the one in force and how long it has stood.</summary>
+        /// <summary>No member with an enemy inside this distance: the group is not in contact.</summary>
+        public const int ChaseBeyond = 900;
+        /// <summary>Out of contact for this long in a fight, the group is chasing.</summary>
+        public const int ChaseAfterMilliseconds = 3_000;
+
+        /// <summary>
+        /// True for a group in a chase: the fight is on and it has been out of contact for a few
+        /// seconds (<paramref name="noContactSince"/> is 0 while it is in contact). The owner,
+        /// 2026-11-20: "Bard should be aware when we are chasing someone and sing speed. Chasing
+        /// one enemy across the basin without speed and endurance... makes no sense."
+        /// </summary>
+        public static bool Chases(bool fightStarted, long noContactSince, long now) =>
+            fightStarted && noContactSince > 0 && now - noContactSince >= ChaseAfterMilliseconds;
+
         public static PvpOrder Choose(PvpReading own, PvpReading theirs, int backlineUnderAttack, PvpOrder current, double secondsInForce, PvpOrderWeights weights,
             double fightersFarShare = 0)
         {

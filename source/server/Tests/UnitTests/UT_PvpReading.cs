@@ -175,5 +175,14 @@ namespace DOL.UnitTests
                 Enumerable.Repeat(Healer(alive: false), 2).Concat(Enumerable.Repeat(Fighter(), 3)));
             Assert.That(PvpOrders.Choose(Fresh(), theirs, 0, PvpOrder.Engage, 10, new PvpOrderWeights { Enabled = false }), Is.EqualTo(PvpOrder.Engage));
         }
+
+        [Test]
+        public void AGroupOutOfContactForAFewSecondsInAFightIsChasing()
+        {
+            Assert.That(PvpOrders.Chases(true, 10_000, 13_000), Is.True, "three seconds with no enemy near");
+            Assert.That(PvpOrders.Chases(true, 10_000, 12_000), Is.False, "a gap of two seconds is not a chase");
+            Assert.That(PvpOrders.Chases(true, 0, 13_000), Is.False, "in contact");
+            Assert.That(PvpOrders.Chases(false, 10_000, 60_000), Is.False, "before the fight it is travelling, not chasing");
+        }
     }
 }
