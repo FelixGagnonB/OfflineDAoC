@@ -9,7 +9,8 @@ namespace DOL.GS
     {
         /// <summary>
         /// What a kill is worth is multiplied by this. 1 is the game's own pace, at which rank 5
-        /// is some 500 kills shared by eight; 5 as built, so that an evening moves a rank.
+        /// is some 500 kills shared by eight; 5 as built, so that an evening moves a rank (the
+        /// owner, 2026-11-20: "We could earn rps at x5 or x10").
         /// </summary>
         public double RealmPointRate { get; set; } = 5;
 
@@ -49,13 +50,17 @@ namespace DOL.GS
         public static long Share(int value, int members, double rate) =>
             members <= 0 || value <= 0 ? 0 : Math.Max(1, (long)Math.Round(value * Math.Max(0, rate) / members, MidpointRounding.AwayFromZero));
 
-        /// <summary>The realm level (rank 1 level 0 is 0, rank 5 level 0 is 40) that so many points make.</summary>
-        public static int LevelFor(long points) => AutonomousBotRealmPointRewards.RealmLevelFor(points);
+        /// <summary>
+        /// The realm level that so many points make: 1 is rank 1 level 1, 40 is rank 5 level 0.
+        /// Never under 1: the owner, 2026-11-20, "Start at Realm Rank 1 Level 1" (which is what no
+        /// points at all make in the game's own table).
+        /// </summary>
+        public static int LevelFor(long points) => Math.Max(1, AutonomousBotRealmPointRewards.RealmLevelFor(points));
 
         /// <summary>The name under which a player's own earned realm points are kept in the roster, beside the companions' builds.</summary>
         public const string PlayerBuild = "player";
 
-        /// <summary>A rank as players write it: 0 is 1L0, 40 is 5L0, 45 is 5L5.</summary>
+        /// <summary>A rank as players write it: 1 is 1L1, 40 is 5L0, 45 is 5L5.</summary>
         public static string RankName(int realmLevel) => $"{Math.Max(0, realmLevel) / 10 + 1}L{Math.Max(0, realmLevel) % 10}";
 
         /// <summary>The realm level an enemy bot fights at (PvpRealWeights.EnemyKeepsUp).</summary>

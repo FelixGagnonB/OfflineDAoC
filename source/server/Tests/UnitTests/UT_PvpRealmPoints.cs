@@ -34,8 +34,9 @@ namespace DOL.UnitTests
         {
             // The owner, 2026-11-20: "the real will have us start at rr1 and gain rps and see how it goes. We would
             // need to persist bots and companions data (or at least, rps gained)."
-            Assert.That(PvpRealmPoints.LevelFor(0), Is.EqualTo(0));
-            Assert.That(PvpRealmPoints.RankName(0), Is.EqualTo("1L0"));
+            // And: "Start at Realm Rank 1 Level 1."
+            Assert.That(PvpRealmPoints.LevelFor(0), Is.EqualTo(1));
+            Assert.That(PvpRealmPoints.RankName(PvpRealmPoints.LevelFor(0)), Is.EqualTo("1L1"));
             Assert.That(PvpRealmPoints.RankName(45), Is.EqualTo("5L5"));
             List<PvpRosterEntry> roster = [new(PvpRealmPoints.PlayerBuild, 0, "Talveh", 0), new("bard", 0, "Coneorgus", 0)];
             List<PvpRosterEntry> after = PvpRoster.Credited(roster, new Dictionary<(string, int), long> { [(PvpRealmPoints.PlayerBuild, 0)] = 563, [("bard", 0)] = 563 });
@@ -79,8 +80,8 @@ namespace DOL.UnitTests
             setup = setup.After("real", eRealm.Hibernia);
             Assert.That(setup.Real, Is.True);
             Assert.That(setup.Text(eRealm.Hibernia), Does.Contain("[Practice]").And.Contain("<Real>"));
-            Assert.That(setup.Text(eRealm.Hibernia, "Start puts your character at rank 1L0."), Does.Contain("Start puts your character at rank 1L0."));
-            Assert.That(setup.After("practice", eRealm.Hibernia).Text(eRealm.Hibernia, "Start puts your character at rank 1L0."),
+            Assert.That(setup.Text(eRealm.Hibernia, "Start puts your character at rank 1L1."), Does.Contain("Start puts your character at rank 1L1."));
+            Assert.That(setup.After("practice", eRealm.Hibernia).Text(eRealm.Hibernia, "Start puts your character at rank 1L1."),
                 Does.Not.Contain("Start puts"), "said only for a real fight");
             Assert.That(setup.After("practice", eRealm.Hibernia).Real, Is.False);
         }
