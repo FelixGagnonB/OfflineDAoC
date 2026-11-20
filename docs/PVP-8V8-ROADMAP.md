@@ -2211,6 +2211,11 @@ In order:
 
 - [ ] **M9.1** (M) A lasting companion roster built around the owner's class, earning realm points
   with the owner.
+  *First half built 2026-11-20, not yet seen with a player:* a character's seven companions
+  keep their names and sex from one session to the next (`PvpRoster.cs`,
+  `pvp-rosters.json` beside the server, by character and by build). It is the player's own
+  data: the release builder leaves it out and refuses a package that holds one. Realm points
+  earned by the companions are not in it.
 - [ ] **M9.2** (M) Bot shot-caller: calls announced in group chat (assist target, mez landed,
   retreat), with an assist key for the owner.
   *First cut 2026-11-19, not yet seen in a client.* In a group with a player, its bots say in

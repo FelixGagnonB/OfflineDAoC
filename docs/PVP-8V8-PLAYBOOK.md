@@ -315,19 +315,49 @@ points of the review draft.
 
 ## 8. The owner's commands (for when the owner plays)
 
-Short commands that stand in for voice calls. Each sets the group order of section 3, so the
-bots react to the owner's call the way they react to their own group brain's.
+All under `/8v8`, on the scrim install. Built 2026-11-19 and 20; the first three were played
+with that evening, the calls and the driver are not yet tried in a client.
 
-| Command | Order |
+**Getting a character ready.** `/8v8 ready` lists the builds of your realm; `/8v8 ready <build>`
+says what it will change and `/8v8 ready <build> confirm` does it: the build's class, level 50,
+its lines, and the gear a bot of that build wears. It changes the character for good.
+
+**Starting a fight.** `/8v8 setup` opens a window; click what you want and then Start. It
+takes you to Emain Macha and begins when you stand there.
+
+| Choice | What it means |
 |---|---|
-| `/extend` | Extend: fall back together, fighters snare whoever follows |
-| `/push` | Push: go onto them |
-| `/hold` | Hold: stand, do not chase |
-| `/assist` | Kill target: the owner's target |
-| `/peel` | Peel: protect the member under attack |
-| `/regroup` | Regroup: stop chasing, come back together |
+| Enemy | the realm whose main group of eight you fight |
+| Start: Lane | face to face, 6,000 units apart |
+| Start: Basin | both groups roam the open basin between nine points and find each other; a rise of the ground hides one from the other, and a group on the move sees little behind it |
+| On the road: Lead | your seven companions travel with you and take their rows around you when the enemy is in sight |
+| On the road: Follow | your Bard, Skald or Minstrel drives the roam and you `/stick` to it |
+| Rank | the realm rank of every bot; picking one above your own gives you that rank and its points (`/train` to spend them). At rank 1 nobody has Purge |
 
-Status: missing. Open: whether the server can read such commands from the game client's macros.
+The same typed: `/8v8 play mid 5 basin follow`. `/8v8 stop` ends the fight.
+
+**Your calls.** Short commands that stand in for voice; bind them to keys. The group takes
+your call as its own for twelve seconds, a bot answers in group chat, and then the group
+decides for itself again.
+
+| Command | What the group does |
+|---|---|
+| `/8v8 call assist` | every member whose job is damage leaves what it was on and goes for your target, while it lives (45 s at most) |
+| `/8v8 call regroup` | everybody comes back to you, to within 600 units |
+| `/8v8 call push` | goes onto them |
+| `/8v8 call extend` | falls back together; fighters turn on whoever follows |
+| `/8v8 call hold` | stands and does not chase |
+| `/8v8 call engage` | back to the usual |
+
+Not built: a call to peel a member, and one to control a named enemy.
+
+**What your companions tell you**, in group chat (`/8v8 calls off` silences it): the assist
+target with its class and health; an order once it has stood three seconds; "3 on you" when
+two or more enemies are on a member; a member out of power; a caster asking the group to stack
+for pets; and, when you play a healer, that two or more of the group are out of your reach.
+
+**Afterwards.** Every session is recorded. `python source/tools/pvp_sessions.py` lists them on
+one page with their replays (`runtime\logs\replay\index.html`).
 
 **Watching a scrim (built 2026-11-18, not yet tried in the game).** On the scrim install, as a
 GM ("Make me GM" in the launcher, with the server stopped):
