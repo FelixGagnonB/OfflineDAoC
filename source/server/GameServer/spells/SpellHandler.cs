@@ -366,6 +366,7 @@ namespace DOL.GS.Spells
 				MessageToLiving(playerCaster, playerCaster.LastInterruptMessage, eChatType.CT_SpellResisted);
 			}
 
+			PvpRecorder.CastStopped(Caster, this, "attacked", attacker);
 			InterruptCasting(false);
 
 			// In case the Necromancer pet is in passive mode, check the queue here.
@@ -1262,6 +1263,9 @@ namespace DOL.GS.Spells
 			if (m_interrupted)
 				return;
 
+			// The 8v8 recorder: an attack was reported with its attacker just before this; the rest is
+			// the caster moving, or the game refusing the cast (range, sight, a lost target).
+			PvpRecorder.CastStopped(Caster, this, isMoving ? "moved" : "refused by the game");
 			m_interrupted = true;
 			// An instant cast executes beside the primary cast. Its failed
 			// range/power/interrupt check must not cancel a bot's unrelated

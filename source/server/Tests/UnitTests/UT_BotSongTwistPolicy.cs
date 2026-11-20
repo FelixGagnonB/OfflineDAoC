@@ -52,5 +52,6 @@ namespace DOL.UnitTests
                 new[] { new Song(1, 0, 0, 5000), new Song(2, 0, 2000, 0) }), Is.Zero);
             Assert.That(BotSongTwistPolicy.Choose(1, 0, new[] { new Song(1, 0, 0, 0) }), Is.EqualTo(1));
         }
+
     }
 }

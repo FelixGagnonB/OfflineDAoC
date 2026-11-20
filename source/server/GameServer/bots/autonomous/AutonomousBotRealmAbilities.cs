@@ -26,7 +26,9 @@ public static class AutonomousBotRealmAbilities
     public const string AugStr = "AtlasOF_AugStr", AugCon = "AtlasOF_AugCon", AugDex = "AtlasOF_AugDex",
         AugQui = "AtlasOF_AugQui", AugAcuity = "AtlasOF_AugAcuity", FirstAid = "AtlasOF_FirstAid",
         IgnorePain = "AtlasOF_IgnorePain", IgnorePainTank = "AtlasOF_IgnorePainTank", SecondWind = "AtlasOF_SecondWind",
-        Purge = "AtlasOF_Purge", PurgeReduced = "AtlasOF_PurgeReduced";
+        Purge = "AtlasOF_Purge", PurgeReduced = "AtlasOF_PurgeReduced",
+        // 8v8 bots only: how a caster got its power back in 1.65 (owner, 2026-11-19).
+        Mcl = "AtlasOF_MCL", RagingPower = "AtlasOF_RagingPower";
 
     /// <summary>Prerequisites, as the Atlas handlers' CheckRequirement (written for GamePlayer only).</summary>
     public static (string Key, int Level)? Requirement(string key, int classId) => key switch
@@ -41,6 +43,7 @@ public static class AutonomousBotRealmAbilities
         "AtlasOF_Dodger" or "AtlasOF_MasteryOfStealth" => (AugQui, 2),
         SecondWind or "AtlasOF_ArmorOfFaith" or "AtlasOF_AvoidPain" or "AtlasOF_BattleYell" => (AugCon, 3),
         IgnorePain or IgnorePainTank => (FirstAid, 2),
+        RagingPower => (Mcl, 2),
         _ => null,
     };
 
@@ -172,15 +175,25 @@ public static class AutonomousBotRealmAbilities
     /// What an 8v8 bot buys before anything else: the answer to being mezzed (owner, 2026-11-17).
     /// A step the class lacks is skipped, so only the Druid gets Group Purge, and a class with the
     /// cheaper Purge takes that one.
+    ///
+    /// Then Mystic Crystal Lore, for every class that has it. The owner, 2026-11-19: neither the
+    /// Bard nor the Minstrel played a power song; "we had to rely on mana potions, Mystic Crystal
+    /// Lore and Raging Power. Before having access to MCL and RP was a rough time". In 50 matches
+    /// at rank 5 a Theurgist was under a tenth of its power for 42% of its living fight time and a
+    /// Bard for 39%. Raging Power needs Mystic Crystal Lore 2 and ten points more, and is bought
+    /// with the rest when the points are there.
     /// </summary>
-    public static readonly Step[] PvpFirst = [new(PvpPurge.GroupPurgeKey, 1), new(PurgeReduced, 1), new(Purge, 1)];
+    public static readonly Step[] PvpFirst = [new(PvpPurge.GroupPurgeKey, 1), new(PurgeReduced, 1), new(Purge, 1), new(Mcl, 2)];
+
+    /// <summary>The actives only an 8v8 bot buys and uses.</summary>
+    public static readonly string[] PvpActives = [PvpPurge.GroupPurgeKey, Mcl, RagingPower];
 
     // An 8v8 bot's catalog is kept apart (negative key): it also holds Group Purge, which gamebots do not use.
     private static Catalog CatalogFor(int classId, bool pvp = false) => Catalogs.GetOrAdd(pvp ? -classId : classId, _ =>
     {
         var byKey = SkillBase.GetClassRealmAbilities(classId)
             .Where(ra => ra is not RR5RealmAbility && (ra is not TimedRealmAbility || UsableActives.Contains(ra.KeyName) ||
-                         pvp && ra.KeyName == PvpPurge.GroupPurgeKey))
+                         pvp && PvpActives.Contains(ra.KeyName)))
             .GroupBy(ra => ra.KeyName).ToDictionary(g => g.Key, g => g.First());
         var available = byKey.ToDictionary(pair => pair.Key, pair => pair.Value.MaxLevel);
         return new Catalog(byKey, available, ArchetypeOf(available.Keys));
@@ -282,7 +295,7 @@ public static class AutonomousBotRealmAbilities
         }
         State state = States.GetOrCreateValue(bot);
         // Group Purge before Purge: when it fires, the Druid's own Purge is no longer needed.
-        state.Actives = (bot.IsPvpBot ? UsableActives.Prepend(PvpPurge.GroupPurgeKey) : UsableActives)
+        state.Actives = (bot.IsPvpBot ? UsableActives.Prepend(PvpPurge.GroupPurgeKey).Append(Mcl).Append(RagingPower) : UsableActives)
             .Select(key => bot.GetAbility(key) as TimedRealmAbility).Where(a => a != null).ToArray();
         return gained;
     }
@@ -306,6 +319,9 @@ public static class AutonomousBotRealmAbilities
         }
     }
 
+    /// <summary>Below this share of its power a bot uses the ability: what it gives back must fit in the pool.</summary>
+    private static int PowerBackBelow(GameBot bot, string key) => (bot.GetAbility(key)?.Level ?? 0) switch { >= 3 => 15, 2 => 40, _ => 70 };
+
     private static bool Wanted(GameBot bot, string key) => key switch
     {
         // An 8v8 bot weighs its Purge (bots/pvp/PvpPurge.cs).
@@ -316,6 +332,10 @@ public static class AutonomousBotRealmAbilities
         IgnorePain or IgnorePainTank => bot.InCombat && bot.HealthPercent < 30 && !bot.IsMezzed && !bot.IsStunned,
         SecondWind => bot.InCombat && bot.EndurancePercent < 10 && !bot.IsMezzed && !bot.IsStunned,
         FirstAid => !bot.InCombat && bot.HealthPercent < 50 && !bot.IsSitting,
+        // Power back for an 8v8 bot. Mystic Crystal Lore cannot be used in combat: a caster that has run dry
+        // and is left alone for ten seconds uses it. Raging Power can, and is kept for when the pool is empty.
+        Mcl => bot.IsPvpBot && bot.MaxMana > 0 && bot.ManaPercent < PowerBackBelow(bot, Mcl) && !bot.InCombat && !bot.IsMezzed && !bot.IsStunned,
+        RagingPower => bot.IsPvpBot && bot.MaxMana > 0 && bot.ManaPercent < 15 && !bot.IsMezzed && !bot.IsStunned,
         _ => false,
     };
 }

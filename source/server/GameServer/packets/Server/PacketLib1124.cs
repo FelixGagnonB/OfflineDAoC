@@ -52,6 +52,10 @@ namespace DOL.GS.PacketHandler
 
 		public override void SendLivingEquipmentUpdate(GameLiving living)
 		{
+			// A dead 8v8 bot shown as a marker nobody sees has nothing in its hands (PvpCorpse).
+			if (PvpCorpse.IsMarker(living))
+				return;
+
 			using (var pak = PooledObjectFactory.GetForTick<GSTCPPacketOut>().Init(GetPacketCode(eServerPackets.EquipmentUpdate)))
 			{
 				ICollection<DbInventoryItem> items = NecromancerPetAppearance.Equipment(living);
@@ -124,6 +128,18 @@ namespace DOL.GS.PacketHandler
 			if (m_gameClient.Player == null || npc.IsVisibleTo(m_gameClient.Player) == false)
 				return;
 
+			// A dead 8v8 bot is given to the client as a dead player (PvpCorpse); alive again it is a monster.
+			if (npc is GameBot pvpBot)
+			{
+				if (PvpCorpse.IsPlayerBody(npc))
+				{
+					PvpCorpse.SendBodyCreate(m_gameClient.Player, pvpBot);
+					return;
+				}
+
+				pvpBot.PvpShownAsBody = false;
+			}
+
 			// Mines are not shown to enemy players.
 			if (npc is GameMine)
 			{
@@ -153,8 +169,12 @@ namespace DOL.GS.PacketHandler
 					pak.WriteInt((uint) npc.X);
 					pak.WriteInt((uint) npc.Y);
 					pak.WriteShort(speedZ);
-					pak.WriteShort(npc.Model);
-					pak.WriteByte(npc.Size);
+					// A dead 8v8 bot is a ghost to the client, or a marker nobody sees over its fallen body,
+					// with "Dead" under its name either way (PvpCorpse).
+					bool deadMarker = PvpCorpse.IsMarker(npc);
+					bool deadBot = deadMarker || PvpCorpse.IsGhost(npc);
+					pak.WriteShort(deadMarker ? PvpCorpse.MarkerModel : npc.Model);
+					pak.WriteByte(deadMarker ? PvpCorpse.MarkerSize : npc.Size);
 					byte level = npc.GetDisplayLevel(m_gameClient.Player);
 
 					if ((npc.Flags & GameNPC.eFlags.STATUE) != 0)
@@ -163,10 +183,10 @@ namespace DOL.GS.PacketHandler
 					pak.WriteByte(level);
 					byte flags = (byte) (GameServer.ServerRules.GetLivingRealm(m_gameClient.Player, npc) << 6);
 
-					if ((npc.Flags & GameNPC.eFlags.GHOST) != 0)
+					if ((npc.Flags & GameNPC.eFlags.GHOST) != 0 || deadBot && !deadMarker)
 						flags |= 0x01;
 
-					if (NecromancerPetAppearance.HasEquipment(npc))
+					if (NecromancerPetAppearance.HasEquipment(npc) && !deadMarker)
 						flags |= 0x02; // If mob has equipment, then only show it after the client gets the 0xBD packet.
 
 					if ((npc.Flags & GameNPC.eFlags.PEACE) != 0)
@@ -254,6 +274,9 @@ namespace DOL.GS.PacketHandler
 						name = AutonomousNameMask.RaceName(m_gameClient.Player, (GameBot)npc);
 						guildName = AutonomousNameMask.RankTitle(m_gameClient.Player, (GameBot)npc);
 					}
+
+					if (deadBot)
+						guildName = PvpCorpse.Tag;
 
 					ReadOnlySpan<char> nameSpan = name;
 					int maxNameLength = 47 - add.Length - 2;

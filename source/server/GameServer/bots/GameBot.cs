@@ -53,6 +53,17 @@ namespace DOL.GS
         public PvpTemplate PvpTemplate { get; private set; }
         /// <summary>An ownerless, never-saved level-50 bot of the 8v8 mode.</summary>
         public bool IsPvpBot => PvpBuild != null && Owner == null && PersistentRecord == null;
+
+        /// <summary>
+        /// Set by the squad for an 8v8 bot while its fight is on: it moves at sprint speed
+        /// (propertycalc/MaxSpeedCalculator.cs), as a player with sprint on does. It costs the bot
+        /// no endurance, like all of a bot's movement (PvpPositionWeights.SprintInFights).
+        /// </summary>
+        public bool PvpSprinting { get; set; }
+
+        /// <summary>While this 8v8 bot is dead a client has a dead player in its place (PvpCorpse): under this session id, and removed as a player.</summary>
+        public ushort PvpBodySession { get; set; }
+        public bool PvpShownAsBody { get; set; }
         /// <summary>Specialization points left after training; 8v8 builds are checked to leave only a remainder.</summary>
         public int UnspentSpecPoints => m_leftOverSpecPoints;
         private bool _endgameCompanionEquipped;
@@ -1075,6 +1086,8 @@ namespace DOL.GS
             base.ProcessDeath(killer);
             if (IsAutonomousWorldBot)
                 AutonomousBotStatusPersistence.Queue(this);
+            if (IsPvpBot)
+                PvpCorpse.Announce(this);
             StartDeathRecoveryTimer();
         }
 
@@ -2264,6 +2277,48 @@ namespace DOL.GS
                     }
                 }
             }
+            ChoosePvpHeals();
+        }
+
+        /// <summary>
+        /// An 8v8 healer's big heal and "anytime" heal (bots/pvp/PvpHealPlan.cs), in place of the
+        /// pair picked above for power efficiency, which for a healer with spec heals is the base
+        /// line's smallest heal.
+        /// </summary>
+        /// <summary>The 8v8 bot's quickest cure nearsight; null for a class or spec without one.</summary>
+        public Spell CureNearsight { get; private set; }
+
+        /// <summary>
+        /// An 8v8 healer's heals for several hurt at once: its spread heals and its group heals
+        /// with a cast time. Which one is cast is decided by health restored for the power spent
+        /// (bots/pvp/PvpHealPlan.cs).
+        /// </summary>
+        public List<Spell> PvpAreaHeals { get; private set; } = [];
+
+        private void ChoosePvpHeals()
+        {
+            CureNearsight = null;
+            PvpAreaHeals = [];
+            if (!IsPvpBot || Spells == null)
+                return;
+            // The owner, 2026-11-17: spread heals when needed, never a group heal for one member.
+            // 2026-11-18: between the spread heal and a group heal, the one with the best ratio of
+            // healing to power. So the group heal is no longer the single-target routine's last
+            // resort, and is a candidate only when several are hurt. The instant group heal stays
+            // where it was, for emergencies.
+            HealGroup = null;
+            PvpAreaHeals = Spells.Where(spell => spell != null && !spell.IsInstantCast && spell.Level <= Level &&
+                (spell.SpellType == eSpellType.SpreadHeal || spell.SpellType == eSpellType.Heal && spell.Target == eSpellTarget.GROUP)).ToList();
+            CureNearsight = Spells.Where(spell => spell != null && spell.SpellType == eSpellType.CureNearsightCustom && spell.Level <= Level)
+                .OrderBy(spell => spell.CastTime).FirstOrDefault();
+            List<Spell> heals = Spells.Where(spell => spell != null && spell.SpellType == eSpellType.Heal && spell.Target == eSpellTarget.REALM &&
+                !spell.IsInstantCast && spell.Radius == 0 && spell.Level <= Level).ToList();
+            (int anytime, int big) = PvpHealPlan.PickHeals(
+                heals.Select(spell => (HealAmount(spell, this), PowerCost(spell))).ToList(), PvpWeights.Current.Heal);
+            if (big < 0)
+                return;
+            HealBig = heals[big];
+            HealEfficient = heals[anytime];
         }
 
         public override void SortStyles()
@@ -3958,6 +4013,28 @@ namespace DOL.GS
             List<Spell> highestSpellLevels = IsEndgameCompanion
                 ? TemporaryCompanionBalance.HighestRanks(spells, Level, SkillBase.GetSpellByID)
                 : GetHighestLevelSpells(spells);
+
+            // An 8v8 caster whose class uses one (PvpWeights.ClassBase, AreaDamage) also keeps the best area nuke of each line that is aimed at an enemy. The list
+            // above holds one spell of each type and target for a line, so the Runemaster had its level 48
+            // single nuke and not the level 44 area nuke of the same line (seen 2026-11-19: "no such spell").
+            if (IsPvpBot && dict != null && CharacterClass != null &&
+                PvpActionChoice.KindsFor((eCharacterClass)CharacterClass.ID, PvpWeights.Current).Contains(PvpActionKind.AreaDamage))
+            {
+                foreach (var tuple in dict)
+                {
+                    SpellLine line = tuple.Item1;
+                    int trained = line.IsBaseLine ? Level : Math.Min(Level, GetBaseSpecLevel(line.Spec));
+                    Spell area = SkillBase.GetSpellList(line.KeyName)
+                        .Where(candidate => candidate.SpellType == eSpellType.DirectDamage && candidate.Target == eSpellTarget.ENEMY &&
+                                            candidate.Radius > 0 && candidate.Range > 0 && candidate.Level <= trained)
+                        .OrderByDescending(candidate => candidate.Level).FirstOrDefault();
+                    if (area != null && highestSpellLevels.All(known => known.ID != area.ID))
+                    {
+                        highestSpellLevels.Add(area);
+                        _powerSpellLines.TryAdd(area.ID, line);
+                    }
+                }
+            }
 
             if (highestSpellLevels.Count > 0)
                 Spells = highestSpellLevels;

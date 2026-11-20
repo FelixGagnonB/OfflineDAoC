@@ -1223,6 +1223,8 @@ namespace DOL.GS
             Owner.Z = (int) Math.Round(_ownerPosition.Z);
 
             _needsBroadcastUpdate = true;
+            if (Owner is GameBot { IsPvpBot: true })
+                _forceReliableBroadcast = true;
             IsDestinationValid = false;
             bool wasMoving = IsMoving;
             CurrentSpeed = speed;
@@ -1241,6 +1243,12 @@ namespace DOL.GS
             IsDestinationValid = distanceToTarget >= 0;
             _destination = destination;
             _needsBroadcastUpdate = true;
+            // An 8v8 bot that sets off or changes its way is told to the clients reliably. Sent the lossy
+            // way, a healer kiting from the owner's Hero (a new way every second) stood beside the Hero on
+            // the owner's screen and elsewhere on the server: "I was on top of them. Client was not updating
+            // their position. I had no idea where they really were" (2026-11-20).
+            if (Owner is GameBot { IsPvpBot: true })
+                _forceReliableBroadcast = true;
 
             bool wasMoving = IsMoving;
             CurrentSpeed = speed;
@@ -1264,6 +1272,20 @@ namespace DOL.GS
         {
             if (Owner is not GameBot || Owner is GameBot { IsOnStableMasterRoute: true } || Owner.CurrentZone == null)
                 return;
+
+            // An 8v8 bot that stops is put on the ground under it, from as far up or down as it has got: its
+            // fights are in the open field, with no floor above another, and a bot left above the ground cannot
+            // be hit by a player standing beside it (PvpPositioning.StopShortOf has the case).
+            if (Owner is GameBot { IsPvpBot: true })
+            {
+                Vector3 ground = PvpSight.OnGround(Owner.CurrentZone, _ownerPosition);
+                if (MathF.Abs(ground.Z - _ownerPosition.Z) > 1f)
+                {
+                    _ownerPosition = ground;
+                    _pathfinder.ForceReplot = true;
+                }
+                return;
+            }
 
             // A broad nearest-poly snap at every stop could land on an isolated
             // prop or another side of a wall. Only correct slight underground Z

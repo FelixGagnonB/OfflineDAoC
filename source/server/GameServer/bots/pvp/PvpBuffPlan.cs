@@ -65,6 +65,13 @@ namespace DOL.GS
             ],
         };
 
+        /// <summary>
+        /// A buff on the whole group is cast by the member that has the group's strongest version,
+        /// and by nobody else; of two with the same, the one whose name sorts first.
+        /// </summary>
+        public static bool CastsGroupBuff(double ownValue, string ownName, IEnumerable<(double Value, string Name)> others) =>
+            !others.Any(other => other.Value > ownValue || other.Value == ownValue && string.CompareOrdinal(other.Name, ownName) < 0);
+
         public static IReadOnlyList<PvpBuffKind> NeedsOf(PvpBuffArchetype archetype) =>
             Needs[archetype].OrderBy(need => need.Priority).Select(need => need.Kind).ToList();
 
@@ -78,6 +85,14 @@ namespace DOL.GS
             eCharacterClass.Enchanter or eCharacterClass.Mentalist or eCharacterClass.Animist => PvpBuffArchetype.Caster,
             _ => PvpBuffArchetype.Melee,
         };
+
+        /// <summary>
+        /// Spells no 8v8 bot casts, and no pet of one. The owner, 2026-11-20: "General rule for
+        /// all 3 realms, do not cast damage shield." Until then a Healer put one on itself, an
+        /// Eldritch and a Druid on the group, and a Cabalist's simulacrum on itself (52, 46, 11
+        /// and 63 casts in the last sixty recordings of that day).
+        /// </summary>
+        public static bool NeverCast(eSpellType type) => type == eSpellType.DamageShield;
 
         /// <summary>
         /// The planned kind of a spell, or null for anything the plan leaves alone: self buffs,

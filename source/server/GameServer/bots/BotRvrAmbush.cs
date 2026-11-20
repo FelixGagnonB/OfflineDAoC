@@ -9,7 +9,8 @@ namespace DOL.GS
             target is GamePlayer or GameBot && target.IsAlive && target.Realm != eRealm.None &&
             target.Realm != bot.Realm && target.CurrentRegionID == bot.CurrentRegionID;
 
-        public static bool CanApproach(GameBot bot, GameLiving target) => bot != null &&
+        // Never in an 8v8 group (owner, 2026-11-19, watching the Minstrel): it fights in the open with its group.
+        public static bool CanApproach(GameBot bot, GameLiving target) => bot != null && !bot.IsPvpBot &&
             IsStealthClass((eCharacterClass)bot.CharacterClass.ID) &&
             (bot.GetSpecializationByName(Specs.Stealth)?.Level ?? 0) > 0 &&
             bot.IsAlive && !bot.InCombat && !bot.IsAttacking && !bot.IsCasting && !bot.IsCrowdControlled &&

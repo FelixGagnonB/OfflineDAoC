@@ -499,6 +499,10 @@ namespace DOL.AI.Brain
         {
             GameLiving target = null;
 
+            // The pet of an 8v8 bot casts no damage shield either (PvpBuffPlan.NeverCast).
+            if (PvpBuffPlan.NeverCast(spell.SpellType) && Owner is GameBot { IsPvpBot: true })
+                return null;
+
             // This does not include every spell type.
             switch (spell.SpellType)
             {

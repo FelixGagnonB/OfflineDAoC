@@ -954,8 +954,10 @@ public static class AutonomousPetSupport
 
     public static bool IsDisabledBotDamageShield(GameLiving owner, Spell spell) =>
         spell?.SpellType == eSpellType.DamageShield && owner is GameBot bot &&
-        (eCharacterClass?)bot.CharacterClass?.ID is eCharacterClass.Cabalist or eCharacterClass.Enchanter or
-            eCharacterClass.Spiritmaster;
+        // An 8v8 bot of any class casts none (PvpBuffPlan.NeverCast).
+        (bot.IsPvpBot && PvpBuffPlan.NeverCast(spell.SpellType) ||
+         (eCharacterClass?)bot.CharacterClass?.ID is eCharacterClass.Cabalist or eCharacterClass.Enchanter or
+             eCharacterClass.Spiritmaster);
 
     /// <summary>
     /// The three primary caster-pet classes must be allowed to acquire and

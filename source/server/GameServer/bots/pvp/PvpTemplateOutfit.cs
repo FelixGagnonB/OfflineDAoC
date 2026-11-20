@@ -99,12 +99,32 @@ namespace DOL.GS
                 DbInventoryItem item = worn.First(candidate => candidate.SlotPosition == (int)plan.Slot);
                 Apply(item, plan);
             }
+            // One colour per realm on armour and cloak (owner, 2026-11-18: so that it is easier to
+            // see who is from which realm when flying over a fight). Looks only: no bonus changes.
+            int colour = RealmColour(bot.Realm);
+            if (colour != 0)
+            {
+                foreach (DbInventoryItem item in worn.Where(item => (eInventorySlot)item.SlotPosition is eInventorySlot.HeadArmor or
+                             eInventorySlot.HandsArmor or eInventorySlot.FeetArmor or eInventorySlot.TorsoArmor or eInventorySlot.LegsArmor or
+                             eInventorySlot.ArmsArmor or eInventorySlot.Cloak))
+                    item.Color = colour;
+            }
             // Only the weapons in hand count, and a new bot may start with its bow out: put the
             // build's own weapons in hand (this also recounts the item bonuses).
             bot.SwitchWeapon(twoHanded ? eActiveWeaponSlot.TwoHanded : eActiveWeaponSlot.Standard);
             bot.RefreshItemBonuses();
+            bot.BroadcastLivingEquipmentUpdate();
             return template;
         }
+
+        /// <summary>Albion red, Midgard blue, Hibernia green: the old dyes, which take on cloth, leather and metal alike.</summary>
+        public static int RealmColour(eRealm realm) => realm switch
+        {
+            eRealm.Albion => (int)eColor.Old_Red,
+            eRealm.Midgard => (int)eColor.Old_Blue,
+            eRealm.Hibernia => (int)eColor.Old_Green,
+            _ => 0,
+        };
 
         public static void Apply(DbInventoryItem item, PvpTemplateItem plan)
         {

@@ -34,7 +34,7 @@ namespace DOL.GS
                 eCharacterClass.Friar => PvpRole.Heal,
             eCharacterClass.Sorcerer or eCharacterClass.Bard => PvpRole.Control,
             eCharacterClass.Theurgist => PvpRole.Interrupt,
-            // The groups' shield fighters. An Armsman with a polearm carries no shield and assists.
+            // The groups' shield fighters. An Armsman with a polearm takes its shield out only to Slam, and assists.
             eCharacterClass.Paladin or eCharacterClass.Warrior or eCharacterClass.Hero => PvpRole.Peel,
             _ => PvpRole.Assist,
         };

@@ -43,7 +43,27 @@ namespace DOL.GS
         }
 
         public static bool IsVisibleOrAutonomousSummon(GameNPC actor) =>
-            actor.IsVisibleToPlayersOrBots || AutonomousOwner(actor) != null;
+            actor.IsVisibleToPlayersOrBots || AutonomousOwner(actor) != null || IsPvpBotSummon(actor);
+
+        /// <summary>
+        /// True for the pet of an 8v8 bot, or that pet's own pet. Such a pet thinks whether or not
+        /// a player is near, as its owner does: in a recorded scrim nobody is near, and the
+        /// Cabalist's and Enchanter's pets followed their owners through every fight without once
+        /// attacking, because a brain that no player sees is never started (2026-11-18).
+        /// </summary>
+        public static bool IsPvpBotSummon(GameNPC actor)
+        {
+            GameLiving current = actor;
+            for (int depth = 0; depth < 4; depth++)
+            {
+                if (current is GameBot || current is not GameNPC { Brain: IControlledBrain brain })
+                    return false;
+                current = brain.Owner;
+                if (current is GameBot bot)
+                    return bot.IsPvpBot;
+            }
+            return false;
+        }
 
         public static bool ActivateOnce(GameNPC pet) => ActivateOnce(pet, false);
 

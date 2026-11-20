@@ -73,6 +73,16 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void TheGroupsShamanHasItsInstantDisease()
+        {
+            // The owner, 2026-11-20: "I'd change the shaman spec to have that instant pbaoe disease."
+            // Mold Cloud is the Cave line's at 27; the yellow Str/Con and Dex/Qui need Augmentation 37.
+            PvpBuild shaman = PvpBuildCatalog.Find("shaman-aug");
+            Assert.That(shaman.Lines.Single(line => line.Spec == Specs.Subterranean).Level, Is.GreaterThanOrEqualTo(27));
+            Assert.That(shaman.Lines.Single(line => line.Spec == Specs.Augmentation).Level, Is.GreaterThanOrEqualTo(42));
+        }
+
+        [Test]
         public void MainGroupsAreEightOfOneRealm()
         {
             Assert.That(PvpBuildCatalog.Groups.Select(group => group.Realm),
@@ -88,6 +98,25 @@ namespace DOL.UnitTests
                 }
             }
             Assert.That(PvpBuildCatalog.FindGroup("HIB-MAIN")?.Realm, Is.EqualTo(eRealm.Hibernia));
+        }
+
+        [Test]
+        public void AGroupToTryIsEightOfOneRealmAndFoundByItsName()
+        {
+            // The owner, 2026-11-20: "We use to run: bard, bard, druid, druid, hero, bm, bm, eld".
+            PvpGroupTemplate twoBards = PvpBuildCatalog.FindGroup("hib-2bard");
+            Assert.That(twoBards, Is.Not.Null);
+            Assert.That(twoBards.BuildIds.Select(id => PvpBuildCatalog.Find(id).Class).OrderBy(c => c.ToString()), Is.EqualTo(new[]
+            {
+                eCharacterClass.Bard, eCharacterClass.Bard, eCharacterClass.Blademaster, eCharacterClass.Blademaster,
+                eCharacterClass.Druid, eCharacterClass.Druid, eCharacterClass.Eldritch, eCharacterClass.Hero
+            }));
+            foreach (PvpGroupTemplate group in PvpBuildCatalog.Variants)
+            {
+                Assert.That(group.BuildIds, Has.Count.EqualTo(8), group.Id);
+                Assert.That(group.BuildIds.Select(id => PvpBuildCatalog.RealmOf(PvpBuildCatalog.Find(id).Class)), Is.All.EqualTo(group.Realm), group.Id);
+                Assert.That(PvpBuildCatalog.Groups.Select(main => main.Id), Has.None.EqualTo(group.Id), "the main groups stay the ones picked by a realm");
+            }
         }
 
         [Test]
@@ -111,5 +140,31 @@ namespace DOL.UnitTests
             foreach (BotSpecLine line in spec.SpecLines)
                 Assert.That((int)Math.Round(50 * line.levelRatio), Is.EqualTo((int)line.SpecCap));
         }
-    }
+
+        [TestCase(eCharacterClass.Eldritch, eRace.Lurikeen)]
+        [TestCase(eCharacterClass.Enchanter, eRace.Lurikeen)]
+        [TestCase(eCharacterClass.Mentalist, eRace.Lurikeen)]
+        [TestCase(eCharacterClass.Hero, eRace.Firbolg)]
+        [TestCase(eCharacterClass.Druid, eRace.Celt)]
+        [TestCase(eCharacterClass.Bard, eRace.Celt)]
+        [TestCase(eCharacterClass.Blademaster, eRace.Celt)]
+        [TestCase(eCharacterClass.Warden, eRace.Celt)]
+        [TestCase(eCharacterClass.Champion, eRace.Celt)]
+        public void HiberniasRacesAreTheOwners(eCharacterClass characterClass, eRace race)
+        {
+            // Owner, 2026-11-20: casters Lurikeen, the Hero Firbolg, the rest Celt.
+            Assert.That(PvpBuildCatalog.RaceOf(characterClass), Is.EqualTo(race));
+        }
+
+        [TestCase(eCharacterClass.Sorcerer, eRace.Saracen)]
+        [TestCase(eCharacterClass.Cabalist, eRace.Saracen)]
+        [TestCase(eCharacterClass.Theurgist, eRace.Avalonian, Description = "asked for as a Saracen, which a Theurgist cannot be here")]
+        [TestCase(eCharacterClass.Healer, eRace.Dwarf)]
+        [TestCase(eCharacterClass.Runemaster, eRace.Kobold)]
+        public void TheCastersAndHealersTheOwnerMoved(eCharacterClass characterClass, eRace race)
+        {
+            // Owner, 2026-11-20: casters Lurikeen, the Hero Firbolg, the rest Celt.
+            Assert.That(PvpBuildCatalog.RaceOf(characterClass), Is.EqualTo(race));
+        }
+}
 }

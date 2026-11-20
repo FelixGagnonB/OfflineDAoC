@@ -67,11 +67,19 @@ namespace DOL.GS
 
         /// <summary>One 8v8 bot of a build, placed on a ring around a point but not yet in the world.</summary>
         private static GameBot CreateBot(PvpBuild build, eRealm realm, int index, int count, Zone zone, ushort regionId,
-            Vector3 centre, int radius, int realmLevel)
+            Vector3 centre, int radius, int realmLevel, PvpRosterEntry kept = null)
         {
             var nav = PathfindingProvider.Instance;
-            eGender gender = index % 2 == 0 ? eGender.Male : eGender.Female;
-            string name = AutonomousBotIdentityGenerator.GenerateForClass(realm, gender, build.Class).Name;
+            eGender gender = kept != null ? (eGender)kept.Gender : index % 2 == 0 ? eGender.Male : eGender.Female;
+            // A player's companion keeps its name from the last session (bots/pvp/PvpRoster.cs), unless an 8v8 bot in the world has it.
+            string name = kept != null && Members.All(other => other.Name != kept.Name)
+                ? kept.Name
+                : AutonomousBotIdentityGenerator.GenerateForClass(realm, gender, build.Class).Name;
+            // Two 8v8 bots never share a name: the recorder and the analyzer tell bots apart by it,
+            // and one dead Theurgist and one living namesake read as a bot standing up far from
+            // its corpse (seen once in 816 matches, 2026-11-18).
+            for (int attempt = 0; attempt < 20 && Members.Any(other => other.Name == name); attempt++)
+                name = AutonomousBotIdentityGenerator.GenerateForClass(realm, gender, build.Class).Name;
             var bot = new GameBot(build, name, (byte)PvpBuildCatalog.RaceOf(build.Class), (byte)gender);
             bot.SetPvpRealmLevel(realmLevel);
             double angle = Math.PI * 2 * index / count;
@@ -89,12 +97,16 @@ namespace DOL.GS
         /// seven bots that join the player's group and follow, plus the buffbot, which buffs the
         /// player too. Not yet tried in a game client.
         /// </summary>
-        public static IReadOnlyList<GameBot> SpawnCompanions(GamePlayer player, int realmLevel)
+        /// <param name="all">When given, receives every bot put in the world, the buffbot too.</param>
+        /// <param name="template">The player's group when it is not the realm's main one (PvpBuildCatalog.Variants).</param>
+        public static IReadOnlyList<GameBot> SpawnCompanions(GamePlayer player, int realmLevel, ICollection<GameBot> all = null,
+            PvpGroupTemplate template = null)
         {
-            PvpGroupTemplate template = PvpBuildCatalog.Groups.First(group => group.Realm == player.Realm);
+            if (template == null || template.Realm != player.Realm)
+                template = PvpBuildCatalog.Groups.First(group => group.Realm == player.Realm);
             List<string> builds = template.BuildIds.ToList();
-            int own = builds.FindIndex(id => PvpBuildCatalog.Find(id).Class == (eCharacterClass)player.CharacterClass.ID);
-            builds.RemoveAt(own >= 0 ? own : builds.Count - 1);
+            builds.RemoveAt(PvpPlayerReady.SlotOf(builds, (eCharacterClass)player.CharacterClass.ID,
+                player.TempProperties.GetProperty<string>(PvpPlayerReady.BuildProperty)));
 
             var nav = PathfindingProvider.Instance;
             var centre = new Vector3(player.X, player.Y, player.Z);
@@ -105,10 +117,19 @@ namespace DOL.GS
                 group.AddMember(player);
             }
             var spawned = new List<GameBot>();
+            List<PvpRosterEntry> roster = PvpRoster.Load(AppContext.BaseDirectory, player.InternalID);
+            bool newcomers = false;
             for (int i = 0; i < builds.Count; i++)
             {
                 PvpBuild build = PvpBuildCatalog.Find(builds[i]);
-                GameBot bot = CreateBot(build, player.Realm, i, builds.Count, player.CurrentZone, player.CurrentRegionID, centre, 160, realmLevel);
+                int place = PvpRoster.PlaceOf(builds, i);
+                PvpRosterEntry kept = PvpRoster.Find(roster, builds[i], place);
+                GameBot bot = CreateBot(build, player.Realm, i, builds.Count, player.CurrentZone, player.CurrentRegionID, centre, 160, realmLevel, kept);
+                if (kept == null)
+                {
+                    roster.Add(new PvpRosterEntry(builds[i], place, bot.Name, (int)(i % 2 == 0 ? eGender.Male : eGender.Female)));
+                    newcomers = true;
+                }
                 bot.Heading = player.Heading;
                 if (!bot.AddToWorld() || !player.Group.AddMember(bot))
                 {
@@ -119,9 +140,13 @@ namespace DOL.GS
                 bot.Follow(player, BotManager.FOLLOW_DISTANCE, BotManager.MAX_FOLLOW_DISTANCE);
                 (bot.Brain as BotBrain)?.FSM.SetCurrentState(eFSMStateType.FOLLOW);
                 spawned.Add(bot);
+                all?.Add(bot);
                 lock (Bots) Bots.Add(bot);
             }
-            SpawnBuffbot(player.Realm, spawned.Cast<GameLiving>().Prepend(player).ToList(), player.CurrentRegionID, centre);
+            if (newcomers)
+                PvpRoster.Save(AppContext.BaseDirectory, player.InternalID, roster);
+            GameBot buffbot = SpawnBuffbot(player.Realm, spawned.Cast<GameLiving>().Prepend(player).ToList(), player.CurrentRegionID, centre);
+            all?.Add(buffbot);
             return spawned;
         }
 

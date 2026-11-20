@@ -60,12 +60,15 @@ EXCLUDED_NAMES = {"account.txt", "rvr-world.json", "bot-goals.json", "bot-world.
                   # DXVK stays in the developer's own install only (owner 2026-10-14)
                   "d3d9.dll", "dxvk.conf", "game.dll_d3d9.log",
                   # diagnostics switches (their code paths stay off without these files)
-                  "memory-census.on", "gc-snapshots.on", "gc-diagnostics.off"}
+                  "memory-census.on", "gc-snapshots.on", "gc-diagnostics.off",
+                  # the 8v8 mode's own run state: a player's lasting companions, tuning files, the control channel
+                  "pvp-rosters.json", "pvp-weights.json", "pvp-weights-old.json", "pvp-weights.unused.json",
+                  "pvp-weights-old.unused.json", "pvp-request.json", "pvp-result.json"}
 EXCLUDED_SUFFIXES = (".log", ".dmp", ".gcdump", ".bak", ".sqlite3.db", ".sqlite3.db-wal", ".sqlite3.db-shm",
                      ".sqlite3.db-journal")
 # Must never be anywhere in the runtime that ships (checked after the copy).
 FORBIDDEN_SUFFIXES = (".on", ".off", ".dmp", ".gcdump", ".log")
-FORBIDDEN_NAMES = {"d3d9.dll", "dxvk.conf", "account.txt", "claude_test_account.txt", "dev_mode.txt"}
+FORBIDDEN_NAMES = {"d3d9.dll", "dxvk.conf", "account.txt", "claude_test_account.txt", "dev_mode.txt", "pvp-rosters.json"}
 REQUIRED_FILES = ("server/navmesh/roads.json", "server/navmesh/seams.json", "server/navmesh/pockets.json",
                   "server/GameServer.dll", "server/CoreServer.exe", "client-opendaoc/app/game.dll", "OfflineDAoC.exe")
 

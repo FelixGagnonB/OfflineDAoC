@@ -30,7 +30,11 @@ namespace DOL.GS
         //   Druid Nurture       Dex/Qui 49 / 39, Str/Con 44 / 34, haste 50 / 40, acuity 42 / 31
         //   Shaman Augmentation Dex/Qui 47 / 37, Str/Con 46 / 36, acuity 42 / 31, endurance 42
         // So 42 in the line gives yellow Dex/Qui and Str/Con and the best acuity. The Shaman is a
-        // buffer first and takes 47 for the best of all three.
+        // buffer first and took 47 for the best of all three, until the owner, 2026-11-20: "I'd
+        // change the shaman spec to have that instant pbaoe disease. It's somewhat common to see
+        // a shaman run and pbaoe disease then kite". That is Cave 27 (Mold Cloud: no cast time,
+        // 350 units around the Shaman, every 8 seconds; Mold Burst is 37, Mold Explosion 47), so
+        // the group's Shaman has Augmentation 46: the best Str/Con still, and yellow Dex/Qui.
         // The single-stat and base armour buffs are baseline: any level-50 Cleric, Druid, Healer
         // or Shaman casts the best one whatever its spec.
         public static readonly IReadOnlyList<PvpBuild> Builds =
@@ -50,8 +54,12 @@ namespace DOL.GS
                 L(Specs.Chants, 46), L(Specs.Shields, 42), L(Specs.Slash, 39), L(Specs.Parry, 20)),
             Melee("armsman-polearm", eCharacterClass.Armsman, eSpecType.TwoHandHybrid, eObjectType.SlashingWeapon, eObjectType.PolearmWeapon, true,
                 L(Specs.Polearms, 50), L(Specs.Shields, 42), L(Specs.Slash, 39), L(Specs.Parry, 6)),
-            Caster("cabalist-body", eCharacterClass.Cabalist, eSpecType.BodyCab,
-                L(Specs.Body_Magic, 47), L(Specs.Spirit_Magic, 26), L(Specs.Matter_Magic, 5)),
+            // The three-line utility Cabalist (owner, 2026-11-18). Each level is where a spell is
+            // gained (spell table read that day): Body 34 the disease, Spirit 33 the 30% body
+            // resistance debuff (and the best simulacrum, at 32), Matter 25 the 45% nearsight,
+            // which Albion's group had none of. The lifedrain it kills with is baseline.
+            Caster("cabalist-tri", eCharacterClass.Cabalist, eSpecType.BodyCab,
+                L(Specs.Body_Magic, 34), L(Specs.Spirit_Magic, 33), L(Specs.Matter_Magic, 25)),
             Melee("mercenary", eCharacterClass.Mercenary, eSpecType.DualWield, eObjectType.SlashingWeapon, eObjectType.SlashingWeapon, false,
                 L(Specs.Dual_Wield, 50), L(Specs.Slash, 50), L(Specs.Parry, 28)),
             Caster("wizard-fire", eCharacterClass.Wizard, eSpecType.FireWiz,
@@ -68,7 +76,7 @@ namespace DOL.GS
             Melee("healer-mend", eCharacterClass.Healer, eSpecType.MendHealer, eObjectType.Hammer, eObjectType.GenericItem, false,
                 L(Specs.Mending, 40), L(Specs.Augmentation, 36), L(Specs.Pacification, 4)),
             Melee("shaman-aug", eCharacterClass.Shaman, eSpecType.AugShaman, eObjectType.Hammer, eObjectType.GenericItem, false,
-                L(Specs.Augmentation, 47), L(Specs.Subterranean, 26), L(Specs.Mending, 5)),
+                L(Specs.Augmentation, 46), L(Specs.Subterranean, 27), L(Specs.Mending, 8)),
             Melee("skald", eCharacterClass.Skald, eSpecType.Mid, eObjectType.Sword, eObjectType.GenericItem, false,
                 L(Specs.Battlesongs, 46), L(Specs.Sword, 44), L(Specs.Parry, 17)),
             Caster("runemaster-rune", eCharacterClass.Runemaster, eSpecType.RuneRune,
@@ -77,7 +85,10 @@ namespace DOL.GS
                 L(Specs.Savagery, 49), L(Specs.HandToHand, 44), L(Specs.Parry, 4)),
             Melee("berserker", eCharacterClass.Berserker, eSpecType.LeftAxe, eObjectType.Axe, eObjectType.Axe, false,
                 L(Specs.Left_Axe, 50), L(Specs.Axe, 44), L(Specs.Parry, 37)),
-            Melee("warrior", eCharacterClass.Warrior, eSpecType.Mid, eObjectType.Hammer, eObjectType.GenericItem, false,
+            // A two-handed hammer for damage, shield and one-hander for Slam and guard (owner,
+            // 2026-11-19: the same as the Hero; PvpWeaponSwap.cs). Midgard's two-handers use the
+            // one-hander's line, so the lines are the ones it had.
+            Melee("warrior", eCharacterClass.Warrior, eSpecType.Mid, eObjectType.Hammer, eObjectType.GenericItem, true,
                 L(Specs.Hammer, 50), L(Specs.Shields, 42), L(Specs.Parry, 39)),
             Caster("spiritmaster-dark", eCharacterClass.Spiritmaster, eSpecType.DarkSpirit,
                 L(Specs.Darkness, 47), L(Specs.Suppression, 26), L(Specs.Summoning, 5)),
@@ -91,14 +102,20 @@ namespace DOL.GS
                 L(Specs.Nurture, 42), L(Specs.Regrowth, 33), L(Specs.Nature, 7)),
             Melee("bard", eCharacterClass.Bard, eSpecType.Instrument, eObjectType.Blades, eObjectType.GenericItem, false,
                 L(Specs.Music, 46), L(Specs.Nurture, 43), L(Specs.Regrowth, 19)),
-            Melee("hero", eCharacterClass.Hero, eSpecType.OneHandAndShield, eObjectType.Blades, eObjectType.LargeWeapons, false,
-                L(Specs.Blades, 50), L(Specs.Shields, 42), L(Specs.Parry, 39)),
+            // 50 Large Weapons and 42 Shields (owner, 2026-11-19): the shield and an untrained
+            // blade for Slam and for guard, the two-hander for everything else (PvpWeaponSwap.cs).
+            Melee("hero", eCharacterClass.Hero, eSpecType.TwoHandHybrid, eObjectType.Blades, eObjectType.LargeWeapons, true,
+                L(Specs.Large_Weapons, 50), L(Specs.Shields, 42), L(Specs.Parry, 39)),
             Melee("blademaster", eCharacterClass.Blademaster, eSpecType.DualWield, eObjectType.Blades, eObjectType.Blades, false,
                 L(Specs.Celtic_Dual, 50), L(Specs.Blades, 44), L(Specs.Parry, 37)),
             Caster("eldritch-light", eCharacterClass.Eldritch, eSpecType.LightEld,
                 L(Specs.Light, 45), L(Specs.Mana, 29), L(Specs.Void, 6)),
+            // Light for the nuke, Mana for the point-blank area spell and the heat debuff (owner,
+            // 2026-11-19: "45 Light / 30 Mana / 4 Enchantment"; it had 29 Enchantments and 6 Mana).
+            // 45 and 30 cost 1,498 of a caster's 1,494 points here, so Mana is 29: that keeps the
+            // level 45 nuke, and level 30 would add only a stronger damage shield.
             Caster("enchanter-light", eCharacterClass.Enchanter, eSpecType.LightEnchanter,
-                L(Specs.Light, 45), L(Specs.Enchantments, 29), L(Specs.Mana, 6)),
+                L(Specs.Light, 45), L(Specs.Mana, 29), L(Specs.Enchantments, 6)),
             Melee("warden", eCharacterClass.Warden, eSpecType.NurtureWarden, eObjectType.Blades, eObjectType.GenericItem, false,
                 L(Specs.Nurture, 34), L(Specs.Blades, 39), L(Specs.Regrowth, 28), L(Specs.Parry, 29)),
             Melee("champion", eCharacterClass.Champion, eSpecType.TwoHanded, eObjectType.Blades, eObjectType.LargeWeapons, true,
@@ -123,11 +140,25 @@ namespace DOL.GS
         public static readonly IReadOnlyList<PvpGroupTemplate> Groups =
         [
             new("alb-main", eRealm.Albion,
-                ["cleric-rejuv", "cleric-enhance", "sorcerer-mind", "minstrel", "theurgist-air", "paladin", "armsman-polearm", "cabalist-body"]),
+                ["cleric-rejuv", "cleric-enhance", "sorcerer-mind", "minstrel", "theurgist-air", "paladin", "armsman-polearm", "cabalist-tri"]),
             new("mid-main", eRealm.Midgard,
                 ["healer-pac", "healer-mend", "shaman-aug", "skald", "runemaster-rune", "savage", "berserker", "warrior"]),
             new("hib-main", eRealm.Hibernia,
                 ["druid-regrowth", "druid-nurture", "bard", "hero", "blademaster", "blademaster", "eldritch-light", "enchanter-light"]),
+        ];
+
+        /// <summary>
+        /// Groups to try beside the main ones: a scrim, a batch or <c>/8v8 play</c> takes one by its
+        /// name, and nothing picks one by itself.
+        /// hib-2bard, the owner, 2026-11-20, on the Bard being Hibernia's only cure for mez and the
+        /// first to be caught: "we could always try this setup, that we ran for many years. I just
+        /// don't know how it would behave in 1.65. We use to run: bard, bard, druid, druid, hero, bm,
+        /// bm, eld". The second Bard has the first one's spec until the owner says otherwise.
+        /// </summary>
+        public static readonly IReadOnlyList<PvpGroupTemplate> Variants =
+        [
+            new("hib-2bard", eRealm.Hibernia,
+                ["druid-regrowth", "druid-nurture", "bard", "bard", "hero", "blademaster", "blademaster", "eldritch-light"]),
         ];
 
         private static readonly Dictionary<string, PvpBuild> _byId =
@@ -140,20 +171,29 @@ namespace DOL.GS
             Builds.Where(build => build.Class == characterClass);
 
         public static PvpGroupTemplate FindGroup(string id) =>
-            Groups.FirstOrDefault(group => string.Equals(group.Id, id, StringComparison.OrdinalIgnoreCase));
+            Groups.Concat(Variants).FirstOrDefault(group => string.Equals(group.Id, id, StringComparison.OrdinalIgnoreCase));
 
         /// <summary>One race per class, so two bots of a build have the same base stats.</summary>
         public static eRace RaceOf(eCharacterClass characterClass) => characterClass switch
         {
             eCharacterClass.Armsman or eCharacterClass.Paladin or eCharacterClass.Mercenary => eRace.Highlander,
             eCharacterClass.Cleric or eCharacterClass.Minstrel => eRace.Briton,
-            eCharacterClass.Sorcerer or eCharacterClass.Theurgist or eCharacterClass.Cabalist or eCharacterClass.Wizard => eRace.Avalonian,
-            eCharacterClass.Healer or eCharacterClass.Runemaster or eCharacterClass.Spiritmaster => eRace.Norseman,
+            // The owner, 2026-11-20: Sorcerer, Theurgist and Cabalist Saracen (dexterity 80 against 60). A
+            // Theurgist cannot be one on this server (Avalonian, Briton or Half Ogre) and stays Avalonian.
+            eCharacterClass.Sorcerer or eCharacterClass.Cabalist => eRace.Saracen,
+            eCharacterClass.Theurgist or eCharacterClass.Wizard => eRace.Avalonian,
+            // The Healer: Frostalf if there were one; of Dwarf and Norseman, both of dexterity 50, the Dwarf for its constitution (80 against 70).
+            eCharacterClass.Healer => eRace.Dwarf,
+            // The Runemaster: not a Norseman; a Kobold (dexterity and quickness 70).
+            eCharacterClass.Runemaster => eRace.Kobold,
+            eCharacterClass.Spiritmaster => eRace.Norseman,
             eCharacterClass.Shaman => eRace.Kobold,
             eCharacterClass.Skald or eCharacterClass.Savage or eCharacterClass.Berserker or eCharacterClass.Warrior => eRace.Troll,
-            eCharacterClass.Druid or eCharacterClass.Bard or eCharacterClass.Hero or eCharacterClass.Blademaster or
+            // Hibernia, the owner, 2026-11-20: casters Lurikeen, the Hero Firbolg, the rest Celt.
+            eCharacterClass.Hero => eRace.Firbolg,
+            eCharacterClass.Druid or eCharacterClass.Bard or eCharacterClass.Blademaster or
                 eCharacterClass.Champion or eCharacterClass.Warden => eRace.Celt,
-            eCharacterClass.Eldritch or eCharacterClass.Enchanter or eCharacterClass.Mentalist => eRace.Elf,
+            eCharacterClass.Eldritch or eCharacterClass.Enchanter or eCharacterClass.Mentalist => eRace.Lurikeen,
             _ => eRace.Unknown,
         };
 

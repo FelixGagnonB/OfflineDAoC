@@ -134,7 +134,7 @@ namespace DOL.GS
             switch (request.Command?.ToLowerInvariant())
             {
                 case "ping":
-                    return new { Builds = PvpBuildCatalog.Builds.Count, Groups = PvpBuildCatalog.Groups.Select(group => group.Id) };
+                    return new { Builds = PvpBuildCatalog.Builds.Count, Groups = PvpBuildCatalog.Groups.Concat(PvpBuildCatalog.Variants).Select(group => group.Id) };
 
                 case "audit-builds":
                 {
@@ -177,19 +177,32 @@ namespace DOL.GS
                     // Copies: how many lanes each pairing gets. Lanes=1 puts even a single series in a lane
                     // (groups start 6,000 apart) instead of the whole arena. Versus=1: a comparison of two sets
                     // of weights, pvp-weights.json (new) against pvp-weights-old.json; use Copies=2 with it.
+                    // Vary=50: each team of each match draws its own weights, half of them moved one step
+                    // down or up by Spread percent (40), and the recording keeps the draw.
                     PvpGroupTemplate Group(string id) => PvpBuildCatalog.FindGroup(id) ?? throw new ArgumentException($"No group named '{id}'.");
                     List<(PvpGroupTemplate, PvpGroupTemplate)> pairs = (Arg("Pairs") ?? $"{Arg("A")}:{Arg("B")}")
                         .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                         .Select(pair => pair.Split(':'))
                         .Select(ids => ids.Length == 2 ? (Group(ids[0]), Group(ids[1])) : throw new ArgumentException("A pairing is written A:B."))
                         .ToList();
+                    PvpScrim.BotsRoam = Arg("Roam") == "1";
                     PvpScrim.Start(pairs, int.Parse(Arg("Matches") ?? "1"), (int.Parse(Arg("RealmRank") ?? "1") - 1) * 10,
                         int.Parse(Arg("Limit") ?? "300"),
                         // BrainA / BrainB: "squad" turns the squad brain on for that side; anything else is the old brain.
                         Arg("BrainA") == "squad", Arg("BrainB") == "squad",
-                        int.Parse(Arg("Copies") ?? "1"), Arg("Lanes") == "1", Arg("Versus") == "1");
+                        int.Parse(Arg("Copies") ?? "1"), Arg("Lanes") == "1", Arg("Versus") == "1",
+                        int.Parse(Arg("Vary") ?? "0"), int.Parse(Arg("Spread") ?? "40"));
                     return PvpScrim.Status();
                 }
+
+                case "scrim-call":
+                    // A member of a group of bots makes a player's call: Lane, Team (A or B), Call (regroup, push, hold,
+                    // engage, extend, assist), Who (the caller's build or class), Target (for assist: the enemy's).
+                    return PvpScrim.TestCall(int.Parse(Arg("Lane") ?? "0"), Arg("Team") ?? "A", Arg("Call") ?? "regroup", Arg("Who"), Arg("Target"));
+
+                case "sight-scan":
+                    // How often a rise of the ground hides one point of the basin from another: Pairs, Min and Max distance.
+                    return PvpScrim.ScanSight(int.Parse(Arg("Pairs") ?? "2000"), int.Parse(Arg("Min") ?? "2000"), int.Parse(Arg("Max") ?? "6500"));
 
                 case "scrim-lanes":
                     return PvpScrim.CheckLanes();

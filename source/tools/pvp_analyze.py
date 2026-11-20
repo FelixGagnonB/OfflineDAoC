@@ -7,11 +7,19 @@ prints, per batch: how the matches ended, and for each side and each build what 
 cast and how much of the fight it spent mesmerized, stunned or out of power.
 
 Snapshots are one second apart, so every "time" figure is a count of seconds.
+
+From recorder format 3 on it also reports where each group stands (how close its healers and
+casters are to enemy fighters, how far apart they keep, how far apart the groups are), casts
+started against finished and what stopped them, health actually restored and wasted, who broke
+mezzes, and what became of the member the enemy's fighters were on. Older recordings give the
+position figures only. pvp_review.py prints one match second by second.
 """
 import collections
 import glob
 import json
+import math
 import os
+import statistics
 import sys
 
 DAMAGE_RESULTS = {"HitUnstyled", "HitStyle"}
@@ -19,11 +27,13 @@ HEAL_TYPES = {"Heal", "CombatHeal", "HealOverTime", "SpreadHeal", "FatigueConsum
 # Classes whose casting the other side wants to stop: the healers and the casters.
 BACKLINE = {"Cleric", "Friar", "Druid", "Bard", "Healer", "Shaman", "Sorcerer", "Theurgist", "Cabalist", "Wizard",
             "Runemaster", "Spiritmaster", "Eldritch", "Enchanter", "Mentalist"}
+HEALERS = {"Cleric", "Friar", "Druid", "Healer"}
 CONTROL_TYPES = {"Mesmerize", "Mez", "Stun", "SpeedDecrease", "StyleStun", "Nearsight", "Amnesia", "Disease", "Confusion"}
 
 
 def load(path):
-    match = {"file": os.path.basename(path), "snaps": [], "hits": [], "casts": [], "deaths": [], "decs": [], "calls": [], "end": None, "head": None, "ready": None}
+    match = {"file": os.path.basename(path), "snaps": [], "hits": [], "casts": [], "deaths": [], "decs": [], "calls": [], "end": None, "head": None, "ready": None,
+             "rows": []}
     with open(path, encoding="utf-8") as handle:
         for line in handle:
             line = line.strip()
@@ -31,6 +41,9 @@ def load(path):
                 continue
             row = json.loads(line)
             kind = row.get("k")
+            # Everything in file order as well, for what has to be read against the squad's state at that moment.
+            if kind in ("begin", "stop", "cast", "heal", "wake", "squad", "death", "snap"):
+                match["rows"].append(row)
             if kind == "match":
                 match["head"] = row
             elif kind == "snap":
@@ -182,12 +195,109 @@ def analyze(match):
             "pressure": pressure, "guards": guards, "asleep10": asleep10,
             "opening_mez": opening_mez, "largest_catch": largest_catch,
             "calls": collections.Counter(c["team"] for c in match["calls"]),
+            "fight": fight(match, bots, contact),
             "moved_heals": collections.Counter(d["team"] for d in match["decs"] if (d.get("pick") or {}).get("moved")),
             "end": match["end"], "deaths": match["deaths"], "file": match["file"]}
 
 
+def fight(match, bots, contact):
+    """Positions, casting, healing, mez breaks and the trained member of one match (see the module text)."""
+    out = {"near": collections.defaultdict(list), "apart": [], "spacing": collections.defaultdict(list),
+           "begun": collections.Counter(), "finished": collections.Counter(), "stopped": collections.defaultdict(collections.Counter),
+           "healed": collections.Counter(), "wasted": collections.Counter(), "on_trained": collections.Counter(),
+           "wakes": collections.Counter(), "trained_seconds": collections.Counter(), "trained_died": collections.Counter(),
+           "trained_calls": collections.Counter(), "ns": collections.Counter(), "soft_alive": collections.Counter(),
+           "taken": collections.Counter(), "read": collections.Counter(), "order": collections.Counter(), "format3": False}
+    if contact is None:
+        return out
+    soft = {n for n, b in bots.items() if b["cls"] in BACKLINE}
+    team = {n: b["team"] for n, b in bots.items()}
+    build = {n: b["build"] for n, b in bots.items()}
+    by_second = collections.defaultdict(dict)
+    for s in match["snaps"]:
+        if s["n"] in bots and s["t"] >= contact:
+            by_second[s["t"] // 1000].setdefault(s["n"], s)
+    for second, snaps in sorted(by_second.items()):
+        alive = {n: s for n, s in snaps.items() if s["alive"]}
+        for side in "AB":
+            mine = [n for n in alive if team[n] == side]
+            foes = [n for n in alive if team[n] != side]
+            fighters = [n for n in foes if n not in soft]
+            mine_soft = [n for n in mine if n in soft]
+            # The three readings of a fight (docs/PVP-8V8-PLAYBOOK.md, section 2): fighters
+            # controlled, casters interrupted, healers busy.
+            for n in mine:
+                s = alive[n]
+                held = s["mez"] or s["stun"]
+                if n not in soft:
+                    out["read"][(side, "fighter")] += 1
+                    out["read"][(side, "fighter held")] += bool(held or s["root"])
+                else:
+                    free = not (held or s.get("intr") or s.get("sil"))
+                    out["read"][(side, "caster")] += 1
+                    out["read"][(side, "caster free")] += free
+                    if bots[n]["cls"] in HEALERS:
+                        out["read"][(side, "healer")] += 1
+                        out["read"][(side, "healer free")] += free
+            out["read"][(side, "healer seconds")] += sum(1 for n in snaps if team[n] == side and bots[n]["cls"] in HEALERS)
+            for n in mine_soft:
+                here = (alive[n]["x"], alive[n]["y"])
+                out["soft_alive"][side] += 1
+                out["ns"][side] += bool(alive[n].get("ns"))
+                if fighters:
+                    out["near"][side].append(min(math.dist(here, (alive[f]["x"], alive[f]["y"])) for f in fighters))
+                others = [m for m in mine_soft if m != n]
+                if others:
+                    out["spacing"][side].append(min(math.dist(here, (alive[m]["x"], alive[m]["y"])) for m in others))
+        a = [(s["x"], s["y"]) for n, s in alive.items() if team[n] == "A"]
+        b = [(s["x"], s["y"]) for n, s in alive.items() if team[n] == "B"]
+        if a and b:
+            out["apart"].append(math.dist((sum(p[0] for p in a) / len(a), sum(p[1] for p in a) / len(a)),
+                                          (sum(p[0] for p in b) / len(b), sum(p[1] for p in b) / len(b))))
+    trained = {"A": None, "B": None}
+    kill = {"A": None, "B": None}
+    for row in match["rows"]:
+        kind = row["k"]
+        if kind == "squad":
+            out["format3"] = True
+            trained[row["team"]], kill[row["team"]] = row.get("trained"), row.get("kill")
+            if row.get("trained") and row["t"] >= contact:
+                out["trained_seconds"][row["team"]] += 1
+            # A hold is before contact; the other orders are counted from contact on.
+            if row.get("order") and (row["t"] >= contact or row["order"] == "Hold"):
+                out["order"][(row["team"], row["order"])] += 1
+        elif kind == "begin" and row["n"] in build and not row.get("pet"):
+            out["begun"][row["n"]] += 1
+        elif kind == "cast" and row["n"] in build and not row.get("pet") and row.get("castTime"):
+            out["finished"][row["n"]] += 1
+        elif kind == "stop" and row["n"] in build and not row.get("pet"):
+            why = row["why"]
+            if why == "attacked" and row.get("by"):
+                why = "attacked by " + (build.get(row["by"], row["by"]).split("-")[0] + (" pet" if row.get("byPet") else ""))
+            out["stopped"][row["n"]][why] += 1
+        elif kind == "heal" and row.get("n") in build and row.get("d") in build and row["asked"] >= 100:
+            # A heal that was cast: the small ticks of regeneration buffs and lifetaps are left out.
+            out["healed"][row["n"]] += row["got"]
+            out["wasted"][row["n"]] += row["asked"] - row["got"]
+            if trained.get(team[row["d"]]) == row["d"]:
+                out["on_trained"][row["n"]] += row["got"]
+        elif kind == "wake" and row.get("n") in team and row.get("byTeam") and row["byTeam"] != row["team"]:
+            # The group that broke the mez: on its own kill target (meant), or on somebody else (a mistake).
+            out["wakes"][(row["byTeam"], "its kill target" if kill.get(row["byTeam"]) == row["n"] else "somebody else")] += 1
+        elif kind == "death" and row["n"] in team and trained.get(team[row["n"]]) == row["n"]:
+            out["trained_died"][team[row["n"]]] += 1
+    for d in match["decs"]:
+        if (d.get("pick") or {}).get("kind") == "Trained":
+            out["trained_calls"][d["team"]] += 1
+    return out
+
+
 def pct(part, whole):
     return f"{100 * part / whole:3.0f}%" if whole else "  - "
+
+
+def median(values):
+    return statistics.median(values) if values else float("nan")
 
 
 def report(results):
@@ -286,6 +396,63 @@ def report(results):
             guards.update({k: v for k, v in r["guards"].items() if k[0] == team})
         for (_, guard, ward), count in guards.most_common(4):
             print(f"        guard: {guard} took {count / len(results):.1f} attacks a match meant for {ward}")
+        # Where the group stands, from the once-a-second positions.
+        near = [d for r in results for d in r["fight"]["near"][team]]
+        spacing = [d for r in results for d in r["fight"]["spacing"][team]]
+        if near:
+            print(f"        its healers and casters: nearest enemy fighter {median(near):.0f} units away (median), within 500 units "
+                  f"{pct(sum(1 for d in near if d < 500), len(near)).strip()} of the time, within 1,000 {pct(sum(1 for d in near if d < 1000), len(near)).strip()}; "
+                  f"nearest other healer or caster of the group {median(spacing):.0f} units away")
+        alive = sum(r["fight"]["soft_alive"][team] for r in results)
+        if any(r["fight"]["format3"] for r in results):
+            ns = sum(r["fight"]["ns"][team] for r in results)
+            seconds = sum(r["fight"]["trained_seconds"][team] for r in results)
+            calls = sum(r["fight"]["trained_calls"][team] for r in results)
+            died = sum(r["fight"]["trained_died"][team] for r in results)
+            meant = sum(r["fight"]["wakes"][(team, "its kill target")] for r in results)
+            mistake = sum(r["fight"]["wakes"][(team, "somebody else")] for r in results)
+            print(f"        its healers and casters were nearsighted {pct(ns, alive).strip()} of the time; a member had the enemy's fighters on it "
+                  f"{seconds / len(results):.0f} s a match ({calls / len(results):.1f} times), and died while it did {died / len(results):.1f} times a match")
+            print(f"        mezzes it broke: {meant / len(results):.1f} a match on its kill target, {mistake / len(results):.1f} on somebody else")
+            read = collections.Counter()
+            for r in results:
+                read.update({k[1]: v for k, v in r["fight"]["read"].items() if k[0] == team})
+            print(f"        the three readings: its fighters were mezzed, stunned, rooted or slowed {pct(read['fighter held'], read['fighter']).strip()} of the time; "
+                  f"its healers and casters were free to cast {pct(read['caster free'], read['caster']).strip()} of the time; "
+                  f"its healers were free to heal {pct(read['healer free'], read['healer']).strip()} of the time they lived, and dead "
+                  f"{pct(read['healer seconds'] - read['healer'], read['healer seconds']).strip()} of the fight")
+            order = collections.Counter()
+            for r in results:
+                order.update({k[1]: v for k, v in r["fight"]["order"].items() if k[0] == team})
+            if order:
+                print("        its order: " + ", ".join(f"{name.lower()} {pct(seconds, sum(order.values())).strip()}" for name, seconds in order.most_common()) + " of the fight")
+    apart = [d for r in results for d in r["fight"]["apart"]]
+    if apart:
+        print(f"\nThe two groups' middles are {median(apart):.0f} units apart during the fight (median); under 500 units {pct(sum(1 for d in apart if d < 500), len(apart)).strip()} of the time.")
+    if any(r["fight"]["format3"] for r in results):
+        cast_total = collections.defaultdict(collections.Counter)
+        stop_total = collections.defaultdict(collections.Counter)
+        for r in results:
+            f = r["fight"]
+            for name, b in r["bots"].items():
+                key = (b["team"], b["build"])
+                cast_total[key]["begun"] += f["begun"][name]
+                cast_total[key]["finished"] += f["finished"][name]
+                cast_total[key]["healed"] += f["healed"][name]
+                cast_total[key]["wasted"] += f["wasted"][name]
+                cast_total[key]["on_trained"] += f["on_trained"][name]
+                cast_total[key]["n"] += 1
+                stop_total[key].update(f["stopped"][name])
+        print("\nCasts with a cast time, per match: begun, finished, and what stopped the rest. Health restored by heals of 100 or more, what of them was wasted on a target already full, and the share that went to the member the enemy's fighters were on.")
+        print(f"{'':2}{'build':17} {'begun':>6} {'finished':>8}  {'healed':>7} {'wasted':>7} {'on trained':>10}  stopped by")
+        for key in sorted(cast_total):
+            c = cast_total[key]
+            if not c["begun"] and not c["healed"]:
+                continue
+            n = c["n"]
+            why = ", ".join(f"{k} {v / n:.1f}" for k, v in stop_total[key].most_common(5))
+            print(f"{key[0]} {key[1]:17} {c['begun'] / n:6.1f} {c['finished'] / n:8.1f}  {c['healed'] / n:7.0f} {c['wasted'] / n:7.0f} "
+                  f"{pct(c['on_trained'], c['healed']):>10}  {why}")
     return {"batch": head["batch"], "matches": len(results), "wins": dict(wins), "builds": summary}
 
 

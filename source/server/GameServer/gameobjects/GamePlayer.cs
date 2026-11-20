@@ -3447,6 +3447,18 @@ namespace DOL.GS
         }
 
         /// <summary>
+        /// Forgets the list of skills last sent to the client, so the next one is built from
+        /// nothing. Needed after a change of class: the list is updated in place and two
+        /// specializations of the same line compare as equal (Skill's ==), so the old class's
+        /// line, at its old level, stayed in it and the client showed "1+43" for a line at 33.
+        /// </summary>
+        public void ForgetUsableSkills()
+        {
+            lock (_usableSkillsLock)
+                _usableSkills = new();
+        }
+
+        /// <summary>
         /// updates the list of available skills (dependent on caracter specs)
         /// </summary>
         /// <param name="sendMessages">sends "you learn" messages if true</param>

@@ -434,7 +434,10 @@ namespace DOL.GS
                         if (currentSpell.IsFocus)
                         {
                             if (currentSpellHandler.CastState is eCastState.Focusing)
+                            {
                                 CastingComponent.SpellHandler = newSpellHandler;
+                                PvpRecorder.CastStarted(CastingComponent.Owner, newSpellHandler);
+                            }
                             else
                                 player.Out.SendMessage(ALREADY_CASTING_MESSAGE, eChatType.CT_SpellResisted, eChatLoc.CL_SystemWindow);
 
@@ -459,6 +462,7 @@ namespace DOL.GS
                     else
                     {
                         CastingComponent.SpellHandler = newSpellHandler;
+                        PvpRecorder.CastStarted(CastingComponent.Owner, newSpellHandler);
                         newSpellHandler.Tick();
                     }
                 }

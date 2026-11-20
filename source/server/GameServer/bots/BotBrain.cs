@@ -587,6 +587,7 @@ namespace DOL.AI.Brain
         private long _nextCombatProgressTick;
         private long _nextMaintenanceBuffTick;
         private long _nextSongTwistTick;
+        private long _pvpSongStartedTick;
         private bool _companionPerformerBuffBatch;
         private long _lastPerformerFollowTick = long.MinValue;
         private long _nextInstrumentKitCheck;
@@ -1464,7 +1465,8 @@ namespace DOL.AI.Brain
             if ((!archerCombatOwnsPetUpkeep || requiredPetUpkeep) &&
                 (BotAnimistPolicy.AppliesTo(BotBody) || requiredPetUpkeep ||
                  (!movementFirstPetClass && !deferCasterUpkeep)) &&
-                AutonomousPetSupport.Maintain(Body, petCombatTarget, ref _nextDeployablePetTick, out _))
+                !PvpSkipsPetUpkeep() &&
+                AutonomousPetSupport.Maintain(Body, petCombatTarget, ref _nextDeployablePetTick, out _, PvpPetUpkeepFilter()))
                 return;
 
             // A controlled pet may reach the camp first while its persistent
@@ -1916,6 +1918,10 @@ namespace DOL.AI.Brain
                 GameLoop.GameLoopTime < _nextMaintenanceBuffTick)
                 return false;
 
+            // Once an 8v8 group's fight has begun nobody stops to buff (BotBrain.PvpBuffs.cs).
+            if (bot.IsPvpBot && PvpGroupIsFighting() && !PvpWeights.Of(bot).BuffsInFight)
+                return false;
+
             // An 8v8 group shares one buff plan (BotBrain.PvpBuffs.cs). The planned buffs come
             // first and are left out of the generic pass below.
             if (bot.IsPvpBot && TryCastPlannedPvpBuff())
@@ -2187,10 +2193,29 @@ namespace DOL.AI.Brain
             // support-only actor merely because a group exists.
             bool minstrelAtRange = !groupedSupport && !UsesMinstrelHybridCombat && (eCharacterClass)bot.CharacterClass.ID == eCharacterClass.Minstrel &&
                                     !IsUnderImmediateMeleePressure();
-            if (immediateCombat && !minstrelAtRange)
+            // An 8v8 Bard is its group's mezzer and plays for it; it does not put its drum away to
+            // fight with a blade. Its endurance song runs through the fight: in the recorded
+            // matches of 2026-11-18 Hibernia's Hero spent 48% of each fight under 20% endurance and
+            // its Blademasters 34%, where Albion's and Midgard's fighters were hardly ever that low.
+            bool pvpBardPlays = bot.IsPvpBot && (eCharacterClass)bot.CharacterClass.ID == eCharacterClass.Bard;
+            // An 8v8 group in a chase (PvpSquad.Chasing): the speed song is the one that matters, for the
+            // Bard as for the Skald and the Minstrel, until the group is in contact again.
+            bool chasing = bot.IsPvpBot && PvpSquad?.Chasing == true;
+            if (immediateCombat && !chasing && !minstrelAtRange && !pvpBardPlays)
             {
                 StopTwistedSong();
                 SwitchToUsableMeleeWeapon();
+                _nextSongTwistTick = GameLoop.GameLoopTime + 1_000;
+                return false;
+            }
+            // In a fight a song is a three-second cast like any other, and the Bard is its group's
+            // mezzer and its only cure for mez (PvpWeights.SongInFightEverySeconds).
+            int pvpSongEvery = pvpBardPlays && immediateCombat && !chasing ? PvpWeights.Of(bot).SongInFightEverySeconds : -1;
+            bool pvpSongBounded = pvpSongEvery >= 0;
+            if (pvpSongBounded && (pvpSongEvery == 0 || bot.IsBeingInterrupted ||
+                    GameLoop.GameLoopTime - _pvpSongStartedTick < pvpSongEvery * 1_000L ||
+                    bot.Group?.GetMembersInTheGroup().Any(member => member.IsAlive && member.IsMezzed) == true))
+            {
                 _nextSongTwistTick = GameLoop.GameLoopTime + 1_000;
                 return false;
             }
@@ -2200,6 +2225,9 @@ namespace DOL.AI.Brain
                              bot.PersistentRecord?.Activity?.Contains("travel", StringComparison.OrdinalIgnoreCase) == true ||
                              bot.PersistentRecord?.Activity?.Contains("walking", StringComparison.OrdinalIgnoreCase) == true;
 
+            // Only what the group sees: by distance alone (tried for a night) its speed dropping told
+            // the group an enemy was near before anybody had seen one (the owner, 2026-11-20).
+            bool pvpBardEnemyNear = pvpBardPlays && PvpSquad?.Known.Count > 0 && !chasing;
             IEnumerable<Spell> songCandidates = (bot.MiscSpells ?? [])
                 .Concat(bot.InstantMiscSpells ?? [])
                 .Where(spell => spell != null && spell.IsPulsing && !spell.IsHarmful &&
@@ -2208,13 +2236,33 @@ namespace DOL.AI.Brain
                                 (!ownerMoving || BotSongTwistPolicy.IsCompanionTravelSong(
                                     (eCharacterClass)bot.CharacterClass.ID, spell.SpellType)))
                 .DistinctBy(spell => spell.ID)
-                .Where(spell => spell.SpellType != eSpellType.SpeedEnhancement || !immediateCombat && (traveling || groupedSupport));
+                .Where(spell => spell.SpellType != eSpellType.SpeedEnhancement || (!immediateCombat || chasing) && (traveling || groupedSupport))
+                // No speed song once an 8v8 fight is on (a Minstrel began one 37 s into a fight, an enemy 275 units away), but for a chase.
+                .Where(spell => spell.SpellType != eSpellType.SpeedEnhancement || chasing || !PvpHeldBackInFight(spell))
+                .Where(spell => !pvpSongBounded || spell.SpellType == eSpellType.EnduranceRegenBuff)
+                // Off the fight an 8v8 Bard holds one song and lets it play: speed on the road, all of the
+                // time, and endurance once the enemy is in sight (the owner, 2026-11-20: "I'd rather keep
+                // speed 100% while roaming and endurance during fight"). Slipping its resistance hymns in
+                // made it cast the speed again every three and a half seconds; twisting speed and
+                // endurance, tried for a morning, left the Bard a thousand units and more behind its group.
+                .Where(spell => !pvpBardPlays || immediateCombat && !chasing ||
+                                spell.SpellType == (pvpBardEnemyNear ? eSpellType.EnduranceRegenBuff : eSpellType.SpeedEnhancement));
             if (ownerMoving)
                 songCandidates = songCandidates.GroupBy(spell => spell.SpellType)
                     .Select(group => group.OrderByDescending(spell => spell.Level)
                         .ThenByDescending(spell => spell.Value).First());
             List<Spell> songs = songCandidates
-                .OrderByDescending(spell => spell.SpellType == eSpellType.SpeedEnhancement && !immediateCombat)
+                // The owner, 2026-11-18: speed and endurance while the group runs around, until contact;
+                // from then on only endurance matters, and a song that is up stays up. So once the
+                // enemy is in sight the endurance song is the one to start: playing when the fight begins.
+                // The owner again, 2026-11-19, after roaming the basin with a Bard: "on initial contact it
+                // cannot cast it and so we end up with no endurance song during the fight". Speed and
+                // endurance are both three-second casts on different instruments and last five and six
+                // seconds, so they cannot be twisted without the speed dropping; in five sessions the
+                // Bard began the endurance song 0 or 1 times before the first blow, at 4,500 units.
+                .OrderByDescending(spell => pvpBardPlays && (immediateCombat && !chasing || pvpBardEnemyNear) &&
+                                            spell.SpellType == eSpellType.EnduranceRegenBuff)
+                .ThenByDescending(spell => spell.SpellType == eSpellType.SpeedEnhancement && (!immediateCombat || chasing))
                 .ThenByDescending(spell => groupedSupport && spell.Target is eSpellTarget.GROUP or eSpellTarget.REALM)
                 .ThenByDescending(spell => spell.Value)
                 .ThenByDescending(spell => spell.Level)
@@ -2235,9 +2283,15 @@ namespace DOL.AI.Brain
                     effect.SpellHandler?.Spell is Spell activeSpell && activeSpell.IsPulsing &&
                     !activeSpell.IsHarmful && IsMaintainableClassBuff(activeSpell));
             _activeTwistedSongId = activePulse?.SpellHandler.Spell.ID ?? 0;
-            int chosenId = BotSongTwistPolicy.Choose(songs[0].ID, _activeTwistedSongId,
-                songs.Select(candidate => new BotSongTwistPolicy.Song(candidate.ID, candidate.CastTime,
-                    bot.GetSkillDisabledDuration(candidate), SongRemainingMilliseconds(candidate))).ToArray());
+            // Still playing: nothing to do, and nothing to twist it with in a fight.
+            if (pvpSongBounded && activePulse?.SpellHandler.Spell.SpellType == eSpellType.EnduranceRegenBuff)
+            {
+                _nextSongTwistTick = GameLoop.GameLoopTime + 1_000;
+                return false;
+            }
+            BotSongTwistPolicy.Song[] offered = songs.Select(candidate => new BotSongTwistPolicy.Song(candidate.ID, candidate.CastTime,
+                bot.GetSkillDisabledDuration(candidate), SongRemainingMilliseconds(candidate))).ToArray();
+            int chosenId = BotSongTwistPolicy.Choose(songs[0].ID, _activeTwistedSongId, offered);
             Spell song = songs.FirstOrDefault(candidate => candidate.ID == chosenId);
 
             // Preserve the anchor. Only leave after its reuse clears and a real
@@ -2270,6 +2324,7 @@ namespace DOL.AI.Brain
             if (cast)
             {
                 _activeTwistedSongId = song.ID;
+                _pvpSongStartedTick = GameLoop.GameLoopTime;
             }
 
             // Actual casts, child lifetimes and skill reuse own the timing, not
@@ -2470,11 +2525,20 @@ namespace DOL.AI.Brain
             return BotBuffReservations<GameLiving>.Choose(
                 members.Concat(BotGroupPetBuffTargets.Enumerate(BotBody, spell)),
                 target => target.IsAlive && Body.IsWithinRadius(target, range) &&
+                    // An 8v8 group's power regeneration goes to the members that use power.
+                    (BotBody?.IsPvpBot != true || spell.SpellType != eSpellType.PowerRegenBuff ||
+                     target is GameBot { CharacterClass.ManaStat: not eStat.UNDEFINED }) &&
                     !LivingHasEffect(target, spell) && !(claims?.IsReserved(target, family, now) ?? false));
         }
 
         private bool CastCoordinatedBuff(Spell spell, bool? queued = null)
         {
+            // Every buff path ends here (upkeep, the group plan, the self bladeturn restored "as soon
+            // as it is safe", the defensive pick of the combat routine): once an 8v8 group's fight
+            // has begun none of them stops to buff (BotBrain.PvpBuffs.cs). The first gate, on two
+            // of those paths only, left the Clerics' six buffs a match and the bubble in place.
+            if (PvpHeldBackInFight(spell))
+                return false;
             Group group = Body.Group;
             GameLiving target = Body.TargetObject as GameLiving;
             bool shared = group != null && target != null && spell.Target == eSpellTarget.REALM &&
@@ -2738,7 +2802,7 @@ namespace DOL.AI.Brain
                         return;
                     }
 
-                    if (!_brain.Body.IsWithinRadius(leader, 650))
+                    if (!_brain.PvpSpreadOut && !_brain.Body.IsWithinRadius(leader, 650))
                     {
                         _brain.FSM.SetCurrentState(eFSMStateType.FOLLOW);
                         return;
@@ -2768,6 +2832,13 @@ namespace DOL.AI.Brain
                 if (_brain.HasAggro)
                 {
                     _brain.FSM.SetCurrentState(eFSMStateType.AGGRO);
+                    return;
+                }
+
+                // An 8v8 companion in its place around the player, the enemy in sight, does not go back to the player's side.
+                if (_brain.PvpSpreadOut)
+                {
+                    _brain.FSM.SetCurrentState(eFSMStateType.IDLE);
                     return;
                 }
 
@@ -2936,6 +3007,23 @@ namespace DOL.AI.Brain
                     return;
                 }
 
+                // An 8v8 healer or caster stepping away from enemy fighters finishes the step first.
+                if (_brain.PvpOnTheMove())
+                    return;
+                // A fighter the squad keeps beside its ward, or has called back, attacks nobody: the squad walks it.
+                if (_brain.PvpStaysPut)
+                {
+                    if (_brain.Body.attackComponent.AttackState)
+                        _brain.Body.StopAttack();
+                    return;
+                }
+                // A group that holds stands and casts what reaches from where it stands.
+                if (_brain.PvpHolding())
+                {
+                    _brain.TryPvpRotation();
+                    return;
+                }
+
                 if (_brain.HoldsExclusiveSupportRole())
                 {
                     _brain.PerformGroupSupport();
@@ -2944,12 +3032,18 @@ namespace DOL.AI.Brain
                 {
                     // A healing 8v8 caster with nobody to heal works its rotation (a Shaman's
                     // disease) without first needing an attack target of its own.
-                    if (!_brain.CheckHeals() && !_brain.TryPvpRotation())
+                    if (_brain.PvpScoredChoiceBeforeHeals() && _brain.TryPvpRotation())
+                    {
+                    }
+                    else if (_brain.CheckHeals())
+                        _brain.RecordPvpTurnTaken("the healing and curing routine");
+                    else if (!_brain.TryPvpRotation() && !_brain.PvpStandsWithNothingToCast())
                         _brain.AttackMostWanted();
                 }
                 // An 8v8 caster under a squad brain picks its cast from every enemy in reach, not
-                // only once it stands in range of an attack target of its own.
-                else if (!_brain.TryPvpRotation())
+                // only once it stands in range of an attack target of its own. With nothing worth
+                // casting it stands: the old brain would walk it toward its target.
+                else if (!_brain.TryPvpRotation() && !_brain.PvpStandsWithNothingToCast())
                     _brain.AttackMostWanted();
             }
         }
@@ -3256,6 +3350,9 @@ namespace DOL.AI.Brain
                                 return;
                             }
                             QueueUsableMeleeStyle();
+                            // An 8v8 fighter walks behind a stunned target for its style from behind.
+                            if (PvpStepBehind(Body.TargetObject as GameLiving))
+                                return;
                         }
                     }
 
@@ -3518,6 +3615,9 @@ namespace DOL.AI.Brain
 
         private bool SwitchToUsableMeleeWeapon()
         {
+            if (PvpChooseHands())
+                return true;
+
             if (BotBody?.CharacterClass?.ID == (int)eCharacterClass.Savage)
             {
                 if (!SavageBotWeaponPolicy.TryBestActiveSlot(BotBody, out eActiveWeaponSlot savageSlot))
@@ -3595,8 +3695,19 @@ namespace DOL.AI.Brain
             if (CompanionFollowPolicy.SendsDruidPet(BotBody))
                 TryCommandCompanionDruidPet(CalculateNextAttackTarget());
             HoldSupportCombat();
-            if (!CheckHeals() && !TryPvpCrowdControl() && !TryPvpRotation()) CheckSpells(eCheckSpellType.Defensive);
-            if (BotBody.IsPlayerLedGroup)
+            // A healer built for control or interrupts looks at those first while nobody is badly hurt.
+            if (PvpScoredChoiceBeforeHeals() && TryPvpRotation())
+            {
+            }
+            else if (CheckHeals())
+                RecordPvpTurnTaken("the healing and curing routine");
+            else if (!TryPvpCrowdControl() && !TryPvpRotation())
+                CheckSpells(eCheckSpellType.Defensive);
+            // A companion healer walks back to its place behind the player between casts. Not in an
+            // 8v8 fight: there the squad places it, and the walk back kept the owner's second Cleric
+            // at the owner's side, moving two seconds in three and out of reach of the rest of the
+            // group (first play sessions, 2026-11-19). Before the fight it travels with the player.
+            if (BotBody.IsPlayerLedGroup && PvpSquad?.FightStarted != true && !PvpSpreadOut)
             {
                 if (!Body.IsCasting && Body.castingComponent?.HasPendingSkillRequests != true)
                     FollowFormation();
@@ -3859,7 +3970,7 @@ namespace DOL.AI.Brain
                 // A caster whose casts are scored does not fall back to the old random pick (it had the
                 // Sorcerer spend its power on stat debuffs): with nothing worth casting it keeps its power.
                 if (PvpEnemies != null && BotBody?.IsPvpBot == true &&
-                    PvpActionChoice.Covers((eCharacterClass)BotBody.CharacterClass.ID, PvpWeights.Of(BotBody)))
+                    PvpActionChoice.ScoresOffense((eCharacterClass)BotBody.CharacterClass.ID, PvpWeights.Of(BotBody)))
                     return false;
                 if (TryBardPveAddMez()) return true;
                 if (TryShamanPveAddRoot()) return true;
@@ -4772,11 +4883,24 @@ namespace DOL.AI.Brain
         /// Walks toward a group member that is out of range of a heal or buff. False once the
         /// walk has made no progress for 12 seconds (that member is then skipped for 30).
         /// </summary>
-        private bool ApproachSupportTarget(GameLiving target)
+        private bool ApproachSupportTarget(GameLiving target, int range = 0)
         {
             if (target == null || target == Body || !InSupportReach(target) ||
                 !_supportReach.KeepApproaching(target, Body.GetDistanceTo(target), GameLoop.GameLoopTime))
                 return false;
+            // An 8v8 healer walks to where its spell reaches the patient, not onto the patient. Seen in
+            // the first picture sheets (2026-11-19): a Cleric whose patient was in a brawl kept walking
+            // while it was being interrupted, ended in the middle of three enemy fighters, and was mezzed.
+            double distance = Body.GetDistanceTo(target);
+            if (BotBody.IsPvpBot && range > 300 && distance > 1)
+            {
+                double keep = (range - 150) / distance;
+                // Along the ground, not in a straight line at its own height (PvpPositioning.StopShortOf).
+                if (keep < 1)
+                    BotBody.PathTo(PvpSight.OnGround(Body.CurrentZone, PvpPositioning.StopShortOf(
+                        new Vector3(Body.X, Body.Y, Body.Z), new Vector3(target.X, target.Y, target.Z), range)), BotBody.MaxSpeed);
+                return true;
+            }
             BotBody.WalkTo(new Point3D(target.X, target.Y, target.Z), BotBody.MaxSpeed);
             return true;
         }
@@ -4795,6 +4919,9 @@ namespace DOL.AI.Brain
                 return true;
             if (TryResurrectSiegeComrade())
                 return true;
+            // In an 8v8 fight, in a lull: the buffs of a member that was raised (BotBrain.PvpBuffs.cs).
+            if (TryRebuffInPvpFight())
+                return true;
 
             if (!Body.CanCastHealSpells) return false;
 
@@ -4807,6 +4934,18 @@ namespace DOL.AI.Brain
 
             bool isCastingHeal = BotBody.IsCasting && BotBody.castingComponent.SpellHandler.Spell.IsHealing &&
                 !BotSongTwistPolicy.HasMobileSongCast(BotBody);
+
+            // An 8v8 healer drops a heal on one member that has been topped up meanwhile, as a
+            // player does by taking a step: the power is kept and the turn goes to someone hurt.
+            if (isCastingHeal && BotBody.IsPvpBot && BotBody.castingComponent.SpellHandler is { } healCast &&
+                healCast.Spell is { SpellType: eSpellType.Heal, Radius: 0, IsInstantCast: false } && healCast.Spell.Target != eSpellTarget.GROUP &&
+                healCast.Target is { IsAlive: true } patient &&
+                PvpHealPlan.DropsHeal(patient.HealthPercent, patient == PvpSquad?.Trained, PvpWeights.Of(BotBody).Heal))
+            {
+                PvpRecorder.Decision(BotBody, new { kind = "HealDropped", spell = healCast.Spell.Name, d = patient.Name, score = (int)patient.HealthPercent }, [], null);
+                BotBody.StopCurrentSpellcast();
+                isCastingHeal = false;
+            }
 
             if (isCastingHeal && !canCastInstantHeal && !canCastInstantGroupHeal)
                 return true;
@@ -4988,6 +5127,18 @@ namespace DOL.AI.Brain
                 }
             }
 
+            // An 8v8 healer heals the member the enemy's fighters are on before it is badly hurt
+            // (owner, 2026-11-17), unless somebody else is already in an emergency.
+            if (PvpSquad?.Trained is { IsAlive: true } trainedMember && InSupportReach(trainedMember) &&
+                trainedMember.HealthPercent < PvpWeights.Of(BotBody).Heal.TrainedHealBelowPercent &&
+                (spellTarget == null || spellTarget == trainedMember || spellTarget.HealthPercent >= 40))
+            {
+                spellTarget = trainedMember;
+                numNeedHealing = Math.Max(1, numNeedHealing);
+                if (trainedMember.HealthPercent < 40)
+                    numEmergency = Math.Max(1, numEmergency);
+            }
+
             // Emergency heal
             if (numEmergency > 0)
             {
@@ -5015,11 +5166,31 @@ namespace DOL.AI.Brain
                     foreach (GameLiving member in Body.Group.GetMembersInTheGroup().OrderBy(member => member == AssistedPlayer ? 0 : 1)
                                  .ThenByDescending(PvpCureMezPriority))
                     {
-                        if (member.IsMezzed && member != Body && InSupportReach(member) && CheckHealSpell(BotBody.CureMezz))
+                        if (member.IsMezzed && member != Body && InSupportReach(member) && CheckHealSpell(BotBody.CureMezz) &&
+                            !PvpLeavesCureMezToController(member))
                         {
                             spellToCast = BotBody.CureMezz;
                             spellTarget = member;
                             break;
+                        }
+                    }
+
+                    // An 8v8 healer lifts nearsight from a caster or healer of its group (itself too)
+                    // once nobody is below 65% health and nobody is asleep: a fighter does not care, and
+                    // the cast is long (bots/pvp/PvpHealPlan.cs).
+                    if (spellToCast == null && (spellTarget == null || spellTarget.HealthPercent >= 65) && BotBody.IsPvpBot &&
+                        BotBody.CureNearsight is { } cureNearsight &&
+                        cureNearsight.CastTime <= PvpWeights.Of(BotBody).Heal.CureNearsightMaxCastTime && CheckHealSpell(cureNearsight))
+                    {
+                        GameLiving blind = Body.Group.GetMembersInTheGroup()
+                            .Where(member => member.IsAlive && InSupportReach(member) && member is GameBot { PvpBuild: { } build } &&
+                                             PvpBuffPlan.ArchetypeOf(build.Class) != PvpBuffArchetype.Melee &&
+                                             member.effectListComponent.ContainsEffectForEffectType(eEffect.Nearsight))
+                            .OrderByDescending(PvpCureMezPriority).FirstOrDefault();
+                        if (blind != null)
+                        {
+                            spellToCast = cureNearsight;
+                            spellTarget = blind;
                         }
                     }
 
@@ -5083,7 +5254,10 @@ namespace DOL.AI.Brain
             {
                 if (!BotBody.IsCasting || (numEmergency > 0 && !isCastingHeal))
                 {
-                    if (CheckHealSpell(BotBody.HealOverTime) && !LivingHasEffect(spellTarget, BotBody.HealOverTime))
+                    // An 8v8 healer with several of the group hurt at once casts a heal for several.
+                    if (PvpAreaHeal() is { } forSeveral)
+                        spellToCast = forSeveral;
+                    else if (CheckHealSpell(BotBody.HealOverTime) && !LivingHasEffect(spellTarget, BotBody.HealOverTime))
                         spellToCast = BotBody.HealOverTime;
                     else if (BotBody.ManaPercent >= ManaThreshold && CheckHealSpell(BotBody.HealBig)
                         && (spellTarget.MaxHealth - spellTarget.Health) >= GameBot.HealAmount(BotBody.HealBig, spellTarget))
@@ -5113,9 +5287,21 @@ namespace DOL.AI.Brain
                 if (!BotBody.IsWithinRadius(spellTarget, BotBody.castingComponent.CalculateSpellRange(spellToCast)))
                 {
                     // Walk into range; give up on a member it cannot get closer to.
-                    return ApproachSupportTarget(spellTarget) || isCastingHeal;
+                    return ApproachSupportTarget(spellTarget, BotBody.castingComponent.CalculateSpellRange(spellToCast)) || isCastingHeal;
                 }
                 _supportReach.Reached(spellTarget);
+
+                // An 8v8 healer does not restart or drop the heal or cure it is casting. While an
+                // instant heal was ready this routine ran on through a cast in progress, chose the
+                // same cure again and began it anew on every think: in 120 recorded matches the
+                // main Cleric started cure nearsight 11.8 times a match and finished 1.7, and the
+                // Pacification Healer started cure mez 2.7 times and finished 0.7. Only an
+                // emergency heal takes the place of a cure in progress.
+                if (BotBody.IsPvpBot && !spellToCast.IsInstantCast && isCastingHeal &&
+                    BotBody.castingComponent.SpellHandler?.Spell is { } running &&
+                    (running == spellToCast || numEmergency == 0 ||
+                     running.SpellType is not (eSpellType.CureMezz or eSpellType.CureNearsightCustom or eSpellType.CureDisease or eSpellType.CurePoison)))
+                    return true;
 
                 if (!spellToCast.IsInstantCast)
                 {
@@ -5140,10 +5326,14 @@ namespace DOL.AI.Brain
                     if (BotBody.IsPvpBot)
                         PvpRecorder.Decision(BotBody, new
                         {
-                            kind = spellToCast.SpellType == eSpellType.CureMezz ? "CureMez" : spellToCast.IsHealing ? "Heal" : "Cure",
+                            kind = spellToCast.SpellType == eSpellType.CureMezz ? "CureMez"
+                                : spellToCast.SpellType == eSpellType.CureNearsightCustom ? "CureNearsight"
+                                : spellToCast.IsHealing ? "Heal" : "Cure",
                             spell = spellToCast.Name, d = spellTarget.Name, hp = spellTarget.HealthPercent, score = 100 - spellTarget.HealthPercent,
                             // Another healer's heal was already on its way to the one this healer had picked.
                             moved = spellTarget != pickedAlone ? true : (bool?)null,
+                            // The patient is the member the enemy's fighters are on.
+                            train = PvpSquad != null && spellTarget == PvpSquad.Trained ? true : (bool?)null,
                         }, [], null);
                     if (spellToCast.IsInstantCast)
                     {
@@ -5320,7 +5510,11 @@ namespace DOL.AI.Brain
                         BotBody.IsBeingInterruptedByOther ? "being interrupted" : "resurrection on recast");
                     return false;
                 }
-                GameLiving corpse = BotGroupSupport.ReserveResurrection(BotBody, resurrection);
+                // In an 8v8 fight the choice is the squad's (bots/pvp/PvpHealPlan.cs), not the raid rule that
+                // wants a second free healer beside the one that raises.
+                GameLiving corpse = BotBody.IsPvpBot && PvpSquad != null
+                    ? PvpCorpseToRaise(resurrection)
+                    : BotGroupSupport.ReserveResurrection(BotBody, resurrection);
                 if (corpse != null)
                 {
                     GameObject previous = BotBody.TargetObject;
@@ -5336,6 +5530,9 @@ namespace DOL.AI.Brain
                     return false;
                 }
                 ReportResurrectionBlock(resurrection, null);
+                // An 8v8 healer walks to a corpse that is out of its reach (bots/pvp/PvpHealPlan.cs).
+                if (PvpWalkToRaise(resurrection))
+                    return true;
             }
             if (resurrection == null || Body.Group == null || Body.InCombat || Body.Group.GetMembersInTheGroup().Any(m => m.IsAlive && m.InCombat) || Body.IsCasting || !CheckHealSpell(resurrection))
                 return false;
