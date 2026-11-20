@@ -179,9 +179,11 @@ namespace DOL.GS
         /// that is on foot: for choosing where teams start in a roam (docs/PVP-8V8-ROADMAP.md,
         /// M9.7). A long way is walked in hops, each a path of its own from where the last ended.
         /// </summary>
-        public static object RouteCheck(ushort regionId, int x1, int y1, int x2, int y2)
+        public static object RouteCheck(ushort regionId, int x1, int y1, int x2, int y2) =>
+            RouteCheck(WorldMgr.GetRegion(regionId) ?? throw new ArgumentException($"No region {regionId}."), x1, y1, x2, y2);
+
+        public static object RouteCheck(Region region, int x1, int y1, int x2, int y2)
         {
-            Region region = WorldMgr.GetRegion(regionId) ?? throw new ArgumentException($"No region {regionId}.");
             Zone zone = region.GetZone(x1, y1) ?? throw new ArgumentException($"No zone at {x1},{y1}.");
             Zone zoneEnd = region.GetZone(x2, y2) ?? throw new ArgumentException($"No zone at {x2},{y2}.");
             var nav = PathfindingProvider.Instance;
