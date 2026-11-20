@@ -36,6 +36,50 @@ namespace DOL.GS
 
         public static string Gather(int pets) => $"Stack on me: {pets} pets to clear.";
 
+        /// <summary>
+        /// Said to a player who heals when the group has moved out of that player's reach: in the
+        /// owner's five sessions as a Cleric two or more of the group were beyond 2,000 units of
+        /// the owner a quarter of the time (9 to 46%), against 5% for the bot healer beside, and
+        /// the owner could not tell ("out of range of many casters, or they pushed too much").
+        /// </summary>
+        public static string OutOfYourReach(string healer, int members) => $"{healer}, {members} of us are out of your reach.";
+
+        /// <summary>That call is for two or more members, and no more often than this.</summary>
+        public const int OutOfReachEveryMilliseconds = 10_000;
+
+        public static bool WorthOutOfReach(int members) => members >= 2;
+
+        /// <summary>How long a call by the player stands before the squad decides for itself again, in seconds.</summary>
+        public const int PlayerCallSeconds = 12;
+
+        /// <summary>
+        /// The order a player's call stands for (/8v8 call regroup): push, regroup, hold, engage,
+        /// or extend. Null for anything else, "assist" among them, which names a target and no order.
+        /// </summary>
+        public static PvpOrder? OrderFor(string word) => (word ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "push" => PvpOrder.Push,
+            "regroup" or "back" or "retreat" => PvpOrder.Regroup,
+            "hold" or "wait" => PvpOrder.Hold,
+            "engage" or "go" => PvpOrder.Engage,
+            "extend" or "chase" => PvpOrder.Extend,
+            _ => null,
+        };
+
+        /// <summary>What a bot answers to the player's call.</summary>
+        public static string Answer(PvpOrder order, string caller) => order switch
+        {
+            PvpOrder.Push => "Pushing.",
+            PvpOrder.Regroup => $"Regrouping on {caller}.",
+            PvpOrder.Hold => "Holding.",
+            PvpOrder.Extend => "Extending on them.",
+            _ => "Engaging.",
+        };
+
+        /// <summary>The order in force: the player's call while it stands, else the squad's own choice.</summary>
+        public static PvpOrder InForce(PvpOrder chosen, PvpOrder? called, long now, long calledUntil) =>
+            called is { } order && now < calledUntil ? order : chosen;
+
         /// <summary>Whether a call of a kind may be said now, given when the last of that kind was.</summary>
         public static bool Due(long now, long last, int every) => every <= 0 || last <= 0 || now - last >= every;
 

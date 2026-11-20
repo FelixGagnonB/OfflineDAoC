@@ -242,6 +242,8 @@ namespace DOL.GS
                 else if (Order == PvpOrder.Hold)
                     _holdOver = true;
             }
+            // A player's call stands over the squad's own choice while it lasts.
+            order = PvpCalls.InForce(order, _calledOrder, now, _calledUntil);
             if (order != Order)
             {
                 Order = order;
@@ -309,6 +311,52 @@ namespace DOL.GS
 
         private IReadOnlyList<GameLiving> _everyEnemy = [];
 
+        // A call by a player of the group (bots/pvp/PvpCalls.cs, M9.3): the order it stands for and until
+        // when, who called, and the target of an assist call.
+        private PvpOrder? _calledOrder;
+        private long _calledUntil, _calledTargetUntil;
+        private GameLiving _caller, _calledTarget;
+
+        /// <summary>
+        /// A player of the group calls an order: the squad takes it as its own for
+        /// <see cref="PvpCalls.PlayerCallSeconds"/> and then decides for itself again. Under a
+        /// called regroup every member comes back to the caller, not only the fighters.
+        /// </summary>
+        public void CallOrder(GamePlayer caller, PvpOrder order)
+        {
+            _calledOrder = order;
+            _caller = caller;
+            _calledUntil = GameLoop.GameLoopTime + PvpCalls.PlayerCallSeconds * 1_000L;
+            if (_members.FirstOrDefault(member => member.IsAlive) is { } voice)
+            {
+                PvpRecorder.Decision(voice, new { kind = "PlayerCall", order = order.ToString(), d = caller.Name }, [], null);
+                Call(voice, "answer", PvpCalls.Answer(order, caller.Name));
+            }
+        }
+
+        /// <summary>
+        /// A player of the group calls its own target as the kill target. False when the target
+        /// is not an enemy the group knows. It stands while the target lives, for at most twice
+        /// the time of an order.
+        /// </summary>
+        public bool CallAssist(GamePlayer caller, GameLiving target)
+        {
+            if (target is not { IsAlive: true } || !Known.Contains(target))
+                return false;
+            _calledTarget = target;
+            _calledTargetUntil = GameLoop.GameLoopTime + 2 * PvpCalls.PlayerCallSeconds * 1_000L;
+            if (_members.FirstOrDefault(member => member.IsAlive) is { } voice)
+            {
+                PvpRecorder.Decision(voice, new { kind = "PlayerAssist", d = target.Name, by = caller.Name }, [], null);
+                Call(voice, "answer", PvpCalls.Assist(target.Name, PvpMember.ClassOf(target), target.HealthPercent));
+            }
+            return true;
+        }
+
+        /// <summary>The player a called regroup gathers on, while that call stands; null otherwise.</summary>
+        private GameLiving RegroupsOn => _calledOrder == PvpOrder.Regroup && _caller is { IsAlive: true } &&
+                                         GameLoop.GameLoopTime < _calledUntil ? _caller : null;
+
         // When each kind of call was last said in group chat.
         private readonly Dictionary<string, long> _lastCall = new();
 
@@ -349,6 +397,26 @@ namespace DOL.GS
             FindTrained(known);
             Read(enemies, known);
             KillTarget = CallTarget(_members, known, KillTarget is { IsAlive: true } current && known.Contains(current) ? current : null);
+            // A player who heals is told when the group is out of its reach: the bots' own healers follow by themselves.
+            if (FightStarted)
+            {
+                foreach (GamePlayer healer in _allies.OfType<GamePlayer>().Where(player => player.IsAlive && PvpMember.RoleOf(player) == PvpRole.Heal))
+                {
+                    int reach = PvpWeights.Of(_members.FirstOrDefault()).Position.HealRange;
+                    List<GameBot> beyond = _members.Where(member => member.IsAlive && !member.IsWithinRadius(healer, reach)).ToList();
+                    if (PvpCalls.WorthOutOfReach(beyond.Count))
+                        Call(beyond.OrderByDescending(member => member.GetDistanceTo(healer)).First(), "reach-" + healer.Name,
+                            PvpCalls.OutOfYourReach(healer.Name, beyond.Count), PvpCalls.OutOfReachEveryMilliseconds);
+                }
+            }
+            // A player's assist call names the kill target while that target lives and is known.
+            if (_calledTarget != null)
+            {
+                if (_calledTarget.IsAlive && known.Contains(_calledTarget) && GameLoop.GameLoopTime < _calledTargetUntil)
+                    KillTarget = _calledTarget;
+                else
+                    _calledTarget = null;
+            }
         }
 
         /// <summary>
@@ -475,7 +543,14 @@ namespace DOL.GS
                 float fromHome = home is { } middle ? Vector2.Distance(new Vector2(bot.X, bot.Y), new Vector2(middle.X, middle.Y)) : 0;
                 bool fallsBack = home != null && role == PvpRole.Assist && bot.IsAlive && IsFighter(bot) &&
                     (Order == PvpOrder.Extend && _pursuers.Count == 0 && stayWithin > 0 && onDuty == null && fromHome > stayWithin ||
-                     Order == PvpOrder.Regroup && FromNearestHealer(bot, team) > PvpWeights.Of(bot).Order.RegroupWithin);
+                     Order == PvpOrder.Regroup && RegroupsOn == null && FromNearestHealer(bot, team) > PvpWeights.Of(bot).Order.RegroupWithin);
+                // The player called the regroup: every member that is far from the player comes back to it, whatever its job.
+                Vector3? fallBackTo = home;
+                if (RegroupsOn is { } gatherOn && bot.IsAlive && !bot.IsWithinRadius(gatherOn, PvpWeights.Of(bot).Order.RegroupWithin))
+                {
+                    fallsBack = true;
+                    fallBackTo = new Vector3(gatherOn.X, gatherOn.Y, gatherOn.Z);
+                }
                 if (fallsBack)
                 {
                     aim = null;
@@ -487,7 +562,7 @@ namespace DOL.GS
                         brain.FSM.SetCurrentState(eFSMStateType.IDLE);
                     }
                     if (!bot.IsCasting && !bot.IsIncapacitated)
-                        bot.PathTo(home.Value, bot.MaxSpeed);
+                        bot.PathTo(fallBackTo.Value, bot.MaxSpeed);
                 }
                 else
                     FallingBack.Remove(bot);

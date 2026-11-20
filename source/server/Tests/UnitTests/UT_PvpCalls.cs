@@ -38,6 +38,48 @@ namespace DOL.UnitTests
             Assert.That(PvpCalls.WorthIncoming(2), Is.True);
         }
 
+        [TestCase("push", PvpOrder.Push)]
+        [TestCase("Regroup", PvpOrder.Regroup)]
+        [TestCase(" back ", PvpOrder.Regroup)]
+        [TestCase("hold", PvpOrder.Hold)]
+        [TestCase("engage", PvpOrder.Engage)]
+        [TestCase("extend", PvpOrder.Extend)]
+        public void ThePlayersWordIsAnOrder(string word, PvpOrder expected)
+        {
+            Assert.That(PvpCalls.OrderFor(word), Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void AssistAndAnythingElseAreNoOrder()
+        {
+            Assert.That(PvpCalls.OrderFor("assist"), Is.Null);
+            Assert.That(PvpCalls.OrderFor("dance"), Is.Null);
+            Assert.That(PvpCalls.OrderFor(null), Is.Null);
+        }
+
+        [Test]
+        public void ThePlayersCallStandsForItsTimeAndThenTheSquadDecidesAgain()
+        {
+            Assert.That(PvpCalls.InForce(PvpOrder.Extend, PvpOrder.Regroup, 5_000, 12_000), Is.EqualTo(PvpOrder.Regroup));
+            Assert.That(PvpCalls.InForce(PvpOrder.Extend, PvpOrder.Regroup, 12_000, 12_000), Is.EqualTo(PvpOrder.Extend));
+            Assert.That(PvpCalls.InForce(PvpOrder.Push, null, 5_000, 12_000), Is.EqualTo(PvpOrder.Push));
+        }
+
+        [Test]
+        public void EveryCalledOrderIsAnswered()
+        {
+            Assert.That(PvpCalls.Answer(PvpOrder.Regroup, "Nayas"), Is.EqualTo("Regrouping on Nayas."));
+            Assert.That(System.Enum.GetValues<PvpOrder>().Select(order => PvpCalls.Answer(order, "Nayas")), Has.None.Empty);
+        }
+
+        [Test]
+        public void TheHealerIsToldWhenTwoOrMoreAreOutOfItsReach()
+        {
+            Assert.That(PvpCalls.WorthOutOfReach(1), Is.False);
+            Assert.That(PvpCalls.WorthOutOfReach(2), Is.True);
+            Assert.That(PvpCalls.OutOfYourReach("Nayas", 3), Is.EqualTo("Nayas, 3 of us are out of your reach."));
+        }
+
         [Test]
         public void ACallOfAKindWaitsItsTime()
         {

@@ -169,6 +169,10 @@ namespace DOL.GS
             _timer = new Timer(_ => NpcService.Instance.Post(Tick, 0), null, 1_000, 1_000);
         }
 
+        /// <summary>The squad a player leads in a play session that is running; null otherwise.</summary>
+        public static PvpSquad SquadOf(GamePlayer player) =>
+            player == null ? null : _runs.FirstOrDefault(run => run.Running && run.Leader == player)?.LeaderSquad;
+
         /// <summary>True for the player of a play session that is running.</summary>
         public static bool IsPlaying(GamePlayer player) => player != null && _runs.Any(run => run.Running && run.Leader == player);
 
@@ -436,6 +440,7 @@ namespace DOL.GS
         // A play session: the player who leads side A, with seven companions in place of a group of eight.
         private readonly GamePlayer _leader;
         internal GamePlayer Leader => _leader;
+        internal PvpSquad LeaderSquad => _leader == null ? null : _squadA;
 
         /// <summary>Side A as the other side sees it: its bots, and the player who leads them in a play session.</summary>
         private IReadOnlyList<GameLiving> SideA => _leader == null ? _teamA : _teamA.Cast<GameLiving>().Append(_leader).ToList();

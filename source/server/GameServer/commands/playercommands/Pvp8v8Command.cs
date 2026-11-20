@@ -9,6 +9,7 @@ namespace DOL.GS.Commands
         "/8v8 setup                     a window to pick the enemy realm, the start (lane or basin) and the realm rank, then start",
         "/8v8 ready [build]             your character becomes level 50 with that build's class, spec and gear (lists the builds without one)",
         "/8v8 play <alb|mid|hib> [rank] [lane|basin]  a fight: you and seven companions against that realm's group of eight, in Emain Macha",
+        "/8v8 call <push|regroup|hold|engage|extend|assist>  your call to the group, for about twelve seconds; assist calls your target",
         "/8v8 calls <on|off>            your companions' calls in group chat (assist, incoming, orders, out of power)",
         "/8v8 stop                      ends the fight and removes every 8v8 bot",
         "/8v8 clear                     removes every 8v8 bot",
@@ -54,6 +55,30 @@ namespace DOL.GS.Commands
                     int playRank = args.Skip(3).Select(arg => int.TryParse(arg, out int wanted) ? wanted : 0).FirstOrDefault(wanted => wanted > 0);
                     string start = args.Skip(3).Any(arg => arg.ToLowerInvariant() == "basin") ? "basin" : "lane";
                     PvpScrim.TravelAndStartPlay(player, enemy, (System.Math.Clamp(playRank == 0 ? 1 : playRank, 1, 13) - 1) * 10, start, Say);
+                    return;
+                }
+
+                case "call":
+                {
+                    PvpSquad squad = PvpScrim.SquadOf(player);
+                    if (squad == null)
+                    {
+                        Say("You call to a group in a fight: start one with /8v8 setup.");
+                        return;
+                    }
+                    string word = args.Length > 2 ? args[2].ToLowerInvariant() : string.Empty;
+                    if (word == "assist")
+                    {
+                        if (!squad.CallAssist(player, player.TargetObject as GameLiving))
+                            Say("Target an enemy your group can see, then /8v8 call assist.");
+                        return;
+                    }
+                    if (PvpCalls.OrderFor(word) is not { } called)
+                    {
+                        Say("/8v8 call push, regroup, hold, engage, extend or assist.");
+                        return;
+                    }
+                    squad.CallOrder(player, called);
                     return;
                 }
 
