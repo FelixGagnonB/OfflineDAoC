@@ -2432,6 +2432,43 @@ In order:
   Not in it yet: more than two groups, a roam that goes on from fight to fight, what a wipe
   costs, and realm abilities bought in the build's order (a bot buys what its points allow by
   the rule the gamebots use).
+- [ ] **M9.7** (L) The roam: several groups in one zone, a session that goes on (added
+  2026-11-20). The owner's answers that evening, which are the design:
+  - *Zone.* "Are battlegrounds enabled? Navmesh good or should we generate them?" The four
+    classic ones (Abermenai 253, Thidranki 252, Murdaigean 251, Caledon 250) are in the world
+    data and have navmeshes; nobody has checked those meshes for 8v8 movement, and the world
+    data caps them by level (Thidranki 20 to 24). Cathal Valley and New Frontiers have none.
+    Emain Macha first (the basin is proven), Thidranki as a second map once its mesh is checked.
+  - *Groups.* "There could be 2 group for each realm. PvP ruleset is not enable on this so they
+    would be fighting any of the opposite realm team." Six teams: the player's, one more of the
+    player's realm, two of each other realm; a team fights any team of another realm.
+  - *Adding on a fight.* "should the 2nd team from a realm that is already engage join the fight
+    or not. It could be random, like 30% would add 70% won't add or so. It always been a heated
+    discussion, should we assjam or not an ongoing fight. Most of the respected 8v8 team were
+    not." A bot team that comes on a fight its own realm's other team is in draws once: 30% it
+    joins, 70% it leaves that enemy team alone until the fight is over (unless it is attacked).
+    A setting. The player's team does what the player does.
+  - *Rank and pace.* "Start at Realm Rank 1 Level 1. We could earn rps at x5 or x10." Built
+    (M9.1): rank 1 level 1, five times.
+  - *A wipe.* "We revive at our start point." Every team has a start point; a team with nobody
+    left alive stands up there after a short wait, rested and buffed, the player's too.
+  - *Line-ups.* "Let's start with the main group that we defined for now."
+  - *Kept.* Every team of the session has its own roster (name, sex, points of each member):
+    the player and the seven companions, and each of the five bot teams, the second team of a
+    line-up under its own name.
+
+  Steps:
+  1. [ ] The movement of a team (march, engage, rows, following a driver or the player) taken
+     out of the two-team session into something a session can have any number of, the two-team
+     session unchanged in what it does (a bots-only batch before and after).
+  2. [ ] A roam session of bot teams only, started from the control channel, to be read from
+     its status and the log: six teams, start points, wipes that stand up again, the draw for
+     adding on a fight.
+  3. [ ] The player in it (`/8v8 roam`): companions, the wipe and the walk back, realm points
+     to whoever made the kill, the rosters.
+  4. [ ] The recorder with more than two teams, so a roam can be replayed and counted.
+  5. [ ] Thidranki as a second map.
+
 - [ ] **M9.2** (M) Bot shot-caller: calls announced in group chat (assist target, mez landed,
   retreat), with an assist key for the owner.
   *First cut 2026-11-19, not yet seen in a client.* In a group with a player, its bots say in
