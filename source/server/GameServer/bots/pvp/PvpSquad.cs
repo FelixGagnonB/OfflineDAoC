@@ -857,7 +857,7 @@ namespace DOL.GS
             List<GameLiving> near = enemies.Where(enemy => enemy.IsWithinRadius(ward, weights.ConsiderRange) || InMeleeOn(enemy, bot) || enemy == kill).ToList();
             List<PvpPeelView> views = near.Select((enemy, id) => new PvpPeelView(id, InMeleeOn(enemy, ward),
                 backline.Any(member => member != ward && InMeleeOn(enemy, member)), InMeleeOn(enemy, bot), enemy == kill,
-                !(enemy.IsStunned || enemy.effectListComponent.ContainsEffectForEffectType(eEffect.StunImmunity)),
+                !(enemy.IsStunned || PvpNotice.ThinksImmune(bot, enemy, eEffect.StunImmunity)),
                 enemy.IsMezzed, (int)ward.GetDistanceTo(enemy), enemy == brain.PvpAssignedTarget,
                 backline.Any(member => ComingFor(enemy, member)), enemy.IsStunned)).ToList();
             int chosen = PvpPeel.ChooseTarget(views, weights, out double score);

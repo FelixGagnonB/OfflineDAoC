@@ -349,10 +349,18 @@ namespace DOL.AI.Brain
         private static bool IsPvpResistDebuff(Spell spell) => spell.SpellType is eSpellType.BodyResistDebuff or eSpellType.SpiritResistDebuff or
             eSpellType.EnergyResistDebuff or eSpellType.HeatResistDebuff or eSpellType.ColdResistDebuff or eSpellType.MatterResistDebuff;
 
-        private static bool PvpMezzedOrImmune(GameLiving living) =>
+        // As this bot knows it: an immunity that has just ended it still takes to be there for a while (PvpNotice).
+        private bool PvpMezzedOrImmune(GameLiving living) =>
+            living.IsMezzed || PvpNotice.ThinksImmune(Body, living, eEffect.MezImmunity);
+
+        private bool PvpStunnedOrImmune(GameLiving living) =>
+            living.IsStunned || PvpNotice.ThinksImmune(Body, living, eEffect.StunImmunity);
+
+        // As it is: for a cast under way, which is dropped when it can no longer land.
+        private static bool PvpMezzedOrImmuneNow(GameLiving living) =>
             living.IsMezzed || living.effectListComponent.ContainsEffectForEffectType(eEffect.MezImmunity);
 
-        private static bool PvpStunnedOrImmune(GameLiving living) =>
+        private static bool PvpStunnedOrImmuneNow(GameLiving living) =>
             living.IsStunned || living.effectListComponent.ContainsEffectForEffectType(eEffect.StunImmunity);
 
         /// <summary>True when this class's mez and stun are chosen by score here, not by the old crowd-control routine.</summary>
@@ -485,7 +493,7 @@ namespace DOL.AI.Brain
                 _pvpLastCastTarget is { } aimedAt && Body.castingComponent?.SpellHandler?.Spell?.ID == running.ID &&
                 running.SpellType is eSpellType.Mesmerize or eSpellType.Stun or eSpellType.SpeedDecrease &&
                 PvpWeights.ControlCastIsWasted(running.SpellType == eSpellType.Mesmerize, running.SpellType == eSpellType.Stun,
-                    running.SpellType == eSpellType.SpeedDecrease, aimedAt.IsAlive, PvpMezzedOrImmune(aimedAt), PvpStunnedOrImmune(aimedAt),
+                    running.SpellType == eSpellType.SpeedDecrease, aimedAt.IsAlive, PvpMezzedOrImmuneNow(aimedAt), PvpStunnedOrImmuneNow(aimedAt),
                     aimedAt.effectListComponent.ContainsEffectForEffectType(eEffect.MovementSpeedDebuff) ||
                     aimedAt.effectListComponent.ContainsEffectForEffectType(eEffect.SnareImmunity)))
             {

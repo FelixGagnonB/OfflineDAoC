@@ -22,8 +22,10 @@ namespace DOL.GS
             hasTarget ? slamWouldLand && enduranceForSlam : guards;
 
         /// <summary>The stun a target would take now: it is alive and neither stunned nor immune to stuns.</summary>
-        public static bool WouldLand(GameLiving target) => target is { IsAlive: true, IsStunned: false } &&
-            !target.effectListComponent.ContainsEffectForEffectType(eEffect.StunImmunity) &&
+        /// <param name="observer">The fighter, which does not know the instant an immunity ends (PvpNotice); null for what is true.</param>
+        public static bool WouldLand(GameLiving target, GameLiving observer = null) => target is { IsAlive: true, IsStunned: false } &&
+            !(observer != null ? PvpNotice.ThinksImmune(observer, target, eEffect.StunImmunity)
+                : target.effectListComponent.ContainsEffectForEffectType(eEffect.StunImmunity)) &&
             !target.effectListComponent.ContainsEffectForEffectType(eEffect.NPCStunImmunity);
 
         /// <summary>The build's best shield style that stuns; null when it has none.</summary>
@@ -71,7 +73,7 @@ namespace DOL.GS
             if (!Applies(bot, out Style slam))
                 return null;
             bool endurance = StyleProcessor.CheckEnduranceCost(bot, bot.Inventory.GetItem(eInventorySlot.LeftHandWeapon), slam);
-            return ShieldOut(target != null, guards, WouldLand(target), endurance) ? eActiveWeaponSlot.Standard : eActiveWeaponSlot.TwoHanded;
+            return ShieldOut(target != null, guards, WouldLand(target, bot), endurance) ? eActiveWeaponSlot.Standard : eActiveWeaponSlot.TwoHanded;
         }
     }
 }

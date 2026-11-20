@@ -406,6 +406,9 @@ namespace DOL.GS
         /// <summary>How the group reads the fight into an order (bots/pvp/PvpReading.cs).</summary>
         public PvpOrderWeights Order { get; set; } = new();
 
+        /// <summary>What a bot does not know as exactly as the server does (bots/pvp/PvpNotice.cs).</summary>
+        public PvpHumanWeights Human { get; set; } = new();
+
         /// <summary>
         /// For a set drawn at random for one team of one match (bots/pvp/PvpWeightDraw.cs): which
         /// weights were moved, -1 down and +1 up. Null for any other set.

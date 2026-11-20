@@ -55,7 +55,7 @@ namespace DOL.GS
         {
             bool stuns = style.Procs.Any(proc => proc.Spell?.SpellType == eSpellType.StyleStun);
             bool blocked = stuns && bot.TargetObject is GameLiving target &&
-                (target.IsStunned || target.effectListComponent.ContainsEffectForEffectType(eEffect.StunImmunity) ||
+                (target.IsStunned || PvpNotice.ThinksImmune(bot, target, eEffect.StunImmunity) ||
                  target.effectListComponent.ContainsEffectForEffectType(eEffect.NPCStunImmunity));
             return Allows(bot.StylesTaunt?.Contains(style) == true, bot.StylesDetaunt?.Contains(style) == true, stuns, blocked);
         }
