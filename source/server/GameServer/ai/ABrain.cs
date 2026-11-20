@@ -64,7 +64,13 @@ namespace DOL.AI
             // GameObject.MoveTo temporarily makes an autonomous GameBot inactive
             // while changing regions. Returning it to spawn from inside that
             // transfer creates a nested MoveTo and must not happen.
-            if (Body is not GameBot { IsIntentionalWorldMove: true } && !Body.IsNearSpawn && !IsActive)
+            // Nor an 8v8 bot, whose body stays where it fell until a groupmate raises it. Put back
+            // at its spawn point like a mob, it lay where it had stood at the start of the match:
+            // 700 to 5,000 units from where it died in a lane, about 9,000 in the basin. Bots chose
+            // whom to raise by that place, and the owner as a Cleric (2026-11-20): "I was not able
+            // to rez anyone because I could not target them even if I was standing beside them" -
+            // a target farther than the view distance is refused and deleted from the client.
+            if (Body is not GameBot { IsIntentionalWorldMove: true } and not GameBot { IsPvpBot: true } && !Body.IsNearSpawn && !IsActive)
                 Body.MoveTo(Body.CurrentRegionID, Body.SpawnPoint.X, Body.SpawnPoint.Y, Body.SpawnPoint.Z, Body.SpawnHeading);
 
             Body.ClearObjectsInRadiusCache();
