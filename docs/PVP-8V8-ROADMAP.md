@@ -2253,6 +2253,25 @@ round:*
   fights, a minute after the first blow (counted over about 100 fights a build, 2026-11-19);
 - 21 of 236 mez casts in twelve matches finished on a target that showed mez immunity;
 - the owner's reading that the bots know every timer too exactly ("mathematically good"): M10.1.
+- **Midgard is the weak group, and why** (counted 2026-11-20, rank 5, after the resistances went
+  in). Over 60 lane matches Midgard won 5 of 40 (1 of 20 against Albion, 4 of 20 against
+  Hibernia; Hibernia 13 to 7 over Albion). Its members are mezzed or stunned 21% of the time
+  they are alive (Albion 5%, Hibernia 12%). Ten mezzes a fight land on it against about five on
+  the others, and since each member has one Purge the second ones stick: 46% of the mezzes on
+  Midgard run their whole length (9% on Albion, 17% on Hibernia), a median of 15 seconds asleep
+  against 1. In return its own mezzer, the Pacification Healer, finishes 2.8 to 3.8 mezzes a
+  fight against 8.2 for the Sorcerer and 8.8 for the Bard: it is interrupted half the time and
+  takes more damage than any other build (35 a second, a Cleric 15 to 18). Its group deals
+  16,000 damage a fight against 20,000 and 23,000; the Runemaster 13 a second against the
+  Cabalist's 32.
+  *Tried and left as it was:* letting the Pacification Healer control until somebody is below
+  50% health and not 75% (`HealsFirstBelow`). 24 matches, Midgard with either setting twelve
+  times: it did not mez more (3.3 a fight against 3.8), healed 1,750 a fight against 3,190, and
+  Midgard won 0 of 12 against 4 of 12. The mark is not what keeps it from controlling; being
+  the enemy's first target is.
+  For the owner, who played the Mending Healer: what kept a Pacification Healer alive and
+  casting in a real group, and is this the group Midgard ran (two Healers, an Augmentation
+  Shaman, a Skald, a Runemaster, a Savage, a Berserker, a Warrior)?
 
 - [ ] **M10.1** (M) Human-like limits as settings: reaction delay, attention, mistake rate.
 - [ ] **M10.2** (S) Named difficulty levels for the enemy group and, separately, for companions.
