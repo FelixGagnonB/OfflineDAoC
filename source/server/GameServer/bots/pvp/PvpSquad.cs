@@ -1030,7 +1030,7 @@ namespace DOL.GS
         {
             PvpSpreadWeights weights = PvpWeights.Of(_members.FirstOrDefault()).Spread;
             List<GameLiving> foes = Known.Where(enemy => enemy.IsAlive).ToList();
-            if (weights.MinSpacing <= 0 || foes.Count == 0 || Order == PvpOrder.Hold)
+            if (weights.MinSpacing <= 0 || foes.Count == 0 || Order == PvpOrder.Hold || MakesLastStand())
                 return;
             List<GameBot> backline = _members.Where(bot => bot.IsAlive &&
                 PvpMember.ArchetypeOf(bot) != PvpBuffArchetype.Melee).ToList();
@@ -1074,11 +1074,26 @@ namespace DOL.GS
         /// The group's order scales the distance wanted. The step is the bot's turn: its brain
         /// casts again when it has arrived.
         /// </summary>
+        private bool _lastStandSaid;
+
+        /// <summary>True once the group has lost (PvpPositionWeights.LastStand): the few left stand and fight.</summary>
+        public bool MakesLastStand()
+        {
+            if (!FightStarted)
+                return false;
+            List<GameLiving> left = _allies.Where(member => member.IsAlive).ToList();
+            bool stands = PvpWeights.Of(_members.FirstOrDefault()).Position.LastStand(left.Count, Known.Count(enemy => enemy.IsAlive));
+            if (stands && !_lastStandSaid && left.OfType<GameBot>().FirstOrDefault() is { } bot)
+                PvpRecorder.Decision(bot, new { kind = "LastStand", score = left.Count }, [], null);
+            _lastStandSaid = stands;
+            return stands;
+        }
+
         public void StandOff()
         {
             PvpWeights all = PvpWeights.Of(_members.FirstOrDefault());
             PvpPositionWeights weights = all.Position;
-            if (weights.SafeDistance <= 0 || !FightStarted)
+            if (weights.SafeDistance <= 0 || !FightStarted || MakesLastStand())
                 return;
             List<GameLiving> fighters = Known.Where(enemy => enemy.IsAlive && IsFighter(enemy)).ToList();
             // The enemy's healers and casters that are awake: kept at the edge of range (PvpPositionWeights.EdgeDistance).

@@ -12,8 +12,8 @@ namespace DOL.UnitTests
         {
             // The raised member stands up beside the raiser, not at the body.
             var heal = new PvpHealWeights();
-            Assert.That(heal.Raises(1000, 1500, 80, false, 100, freeFightersAtCorpse: 1, false), Is.False, "as built");
-            Assert.That(new PvpHealWeights { RaisesWithFighterAtBody = true }.Raises(1000, 1500, 80, false, 100, 1, false), Is.True);
+            Assert.That(heal.Raises(1000, 1500, 80, false, 100, freeFightersAtCorpse: 1, false), Is.True, "as built since the comparison of 2026-11-20");
+            Assert.That(new PvpHealWeights { RaisesWithFighterAtBody = false }.Raises(1000, 1500, 80, false, 100, 1, false), Is.False, "as it was");
             Assert.That(new PvpHealWeights { RaisesWithFighterAtBody = true }.Raises(1000, 1500, 80, beingHit: true, 100, 1, false), Is.False, "the fighter on the raiser still does");
             Assert.That(new PvpHealWeights { RaisesWithFighterAtBody = true, ResurrectWalkWithin = 2200 }
                 .WalksToRaise(2000, 1500, true, false, 100, freeFightersAtCorpse: 1), Is.False, "walking to a body minds it");
@@ -212,7 +212,7 @@ namespace DOL.UnitTests
                 Assert.That(weights.Raises(1_200, 1_500, 49, false, 90, 0, false), Is.False, "it keeps half its power");
                 Assert.That(weights.Raises(1_200, 1_500, 60, true, 90, 0, false), Is.False, "it is being hit");
                 Assert.That(weights.Raises(1_200, 1_500, 60, false, 49, 0, false), Is.False, "the living come first");
-                Assert.That(weights.Raises(1_200, 1_500, 60, false, 90, 1, false), Is.False, "an enemy fighter stands at the body");
+                Assert.That(weights.Raises(1_200, 1_500, 60, false, 90, 1, false), Is.True, "an enemy fighter at the body no longer stops it: the raised member stands up beside the raiser");
                 Assert.That(weights.Raises(1_200, 1_500, 60, false, 90, 0, true), Is.False, "one healer at a time");
                 Assert.That(new PvpHealWeights { ResurrectInFight = false }.Raises(1_200, 1_500, 60, false, 90, 0, false), Is.False, "switched off");
             });

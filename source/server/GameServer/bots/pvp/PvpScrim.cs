@@ -174,6 +174,61 @@ namespace DOL.GS
         /// drawn at random that far apart, the share with no clear line between them
         /// (bots/pvp/PvpSight.cs). For knowing what sight over the ground changes there.
         /// </summary>
+        /// <summary>
+        /// Whether the navmesh takes a walker from one point of a region to another, and how far
+        /// that is on foot: for choosing where teams start in a roam (docs/PVP-8V8-ROADMAP.md,
+        /// M9.7). A long way is walked in hops, each a path of its own from where the last ended.
+        /// </summary>
+        public static object RouteCheck(ushort regionId, int x1, int y1, int x2, int y2)
+        {
+            Region region = WorldMgr.GetRegion(regionId) ?? throw new ArgumentException($"No region {regionId}.");
+            Zone zone = region.GetZone(x1, y1) ?? throw new ArgumentException($"No zone at {x1},{y1}.");
+            Zone zoneEnd = region.GetZone(x2, y2) ?? throw new ArgumentException($"No zone at {x2},{y2}.");
+            var nav = PathfindingProvider.Instance;
+            Vector3? Ground(Zone at, int x, int y) =>
+                nav.GetFloorBeneath(at, new Vector3(x, y, 20_000), 20_000, nav.DefaultFilters) is { } floor && floor.Z < 19_999
+                    ? floor : nav.GetClosestPoint(at, new Vector3(x, y, 5_000), 512, 512, 20_000, nav.DefaultFilters);
+            Vector3? start = Ground(zone, x1, y1), end = Ground(zoneEnd, x2, y2);
+            if (start == null || end == null)
+                return new { Reached = false, Why = start == null ? "no ground at the first point" : "no ground at the second point",
+                    SameZone = zone == zoneEnd, ZoneA = zone.Description, ZoneB = zoneEnd.Description };
+            Vector3 at = start.Value;
+            double length = 0;
+            int hops = 0;
+            string status = null;
+            Span<WrappedPathfindingNode> nodes = stackalloc WrappedPathfindingNode[256];
+            for (; hops < 80 && Vector3.Distance(at, end.Value) > 150; hops++)
+            {
+                PathfindingResult result = nav.GetPathStraight(zone, at, end.Value, nav.DefaultFilters, nodes);
+                status = result.Status.ToString();
+                if (result.NodeCount <= 0 || result.Status is PathfindingStatus.NoPathFound or PathfindingStatus.NavmeshUnavailable or PathfindingStatus.NotSet)
+                    break;
+                Vector3 before = at;
+                Vector3 from = at;
+                for (int i = 0; i < Math.Min(result.NodeCount, nodes.Length); i++)
+                {
+                    length += Vector3.Distance(from, nodes[i].Position);
+                    from = nodes[i].Position;
+                }
+                at = from;
+                if (Vector3.Distance(before, at) < 50)
+                    break;
+            }
+            return new
+            {
+                Reached = Vector3.Distance(at, end.Value) <= 150,
+                Length = (int)length,
+                Straight = (int)Vector3.Distance(start.Value, end.Value),
+                Hops = hops,
+                LastStatus = status,
+                Short = (int)Vector3.Distance(at, end.Value),
+                StartZ = (int)start.Value.Z,
+                EndZ = (int)end.Value.Z,
+                StoppedAt = $"{(int)at.X},{(int)at.Y},{(int)at.Z}",
+                SameZone = zone == zoneEnd,
+            };
+        }
+
         public static object ScanSight(int pairs, int min, int max)
         {
             PvpArenaBox box = PvpArenaBox.EmainSouthEast;

@@ -246,6 +246,20 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void TheLastTwoOfABeatenGroupStandAndFight()
+        {
+            // The owner, 2026-11-20: "When there are like 2 vs 6-8, the 2 could just stop moving instead of running
+            // around trying to kite or something."
+            Assert.That(Weights.LastStand(2, 6), Is.True);
+            Assert.That(Weights.LastStand(2, 8), Is.True);
+            Assert.That(Weights.LastStand(1, 3), Is.True);
+            Assert.That(Weights.LastStand(2, 5), Is.False, "two against five still play it out");
+            Assert.That(Weights.LastStand(3, 8), Is.False, "three is still a group");
+            Assert.That(Weights.LastStand(0, 8), Is.False, "nobody left is no stand");
+            Assert.That(new PvpPositionWeights { LastStandAtMost = 0 }.LastStand(1, 8), Is.False, "off");
+        }
+
+        [Test]
         public void AFighterCanKeepEnduranceForItsStyles()
         {
             Assert.That(Weights.FighterKeepsEndurancePercent, Is.EqualTo(40), "as built since the comparison of 2026-11-20");

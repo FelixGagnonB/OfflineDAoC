@@ -111,6 +111,21 @@ namespace DOL.GS
         /// 0.48 (five builds of eight took fewer). Off: it stands, as until 2026-11-20.
         /// </summary>
         public bool KitesWhenPinned { get; set; } = true;
+
+        /// <summary>
+        /// A group down to this many members, against at least <see cref="LastStandOutnumberedBy"/>
+        /// times as many enemies, has lost: its healers and casters stop kiting, getting away and
+        /// keeping their distance, and stand and do what they can. The owner, playing on
+        /// 2026-11-20: "There's no point to keep the rules when the fight is almost done. When
+        /// there are like 2 vs 6-8, the 2 could just stop moving instead of running around trying
+        /// to kite or something." 0 turns it off.
+        /// </summary>
+        public int LastStandAtMost { get; set; } = 2;
+        public int LastStandOutnumberedBy { get; set; } = 3;
+
+        /// <summary>True for a group that has lost and makes its last stand.</summary>
+        public bool LastStand(int ownAlive, int enemiesAlive) =>
+            LastStandAtMost > 0 && ownAlive > 0 && ownAlive <= LastStandAtMost && enemiesAlive >= ownAlive * Math.Max(1, LastStandOutnumberedBy);
         public int KiteStepEveryMilliseconds { get; set; } = 700;
         /// <summary>
         /// With one of the enemy fighters on it mezzed, stunned, rooted or slowed, the bot is not
