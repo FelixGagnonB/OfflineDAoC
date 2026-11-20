@@ -282,8 +282,13 @@ namespace DOL.GS
         /// yet: the member it is on can then walk away from it. The owner, 2026-11-18: while
         /// kiting, a caster that is already far away casts its snare, area snare or root on the
         /// pursuers. Without this a root on a fighter never reached the bar.
+        /// 60 since 2026-11-20, from two comparisons of 24 matches each against 30. At 100 with a
+        /// stun on the pursuer at 70: a fighter that reached the back line was stopped within
+        /// three seconds 63% of the time against 33%, but wins 43% and deaths 4.7 against 3.8. At
+        /// 60 and no stun: stopped within three seconds 45% of 44 against 38% of 47, within six
+        /// 66% against 57%, wins 13 against 11, deaths 4.5 against 5.3. A lean, not a proof.
         /// </summary>
-        public int RootOnPursuer { get; set; } = 30;
+        public int RootOnPursuer { get; set; } = 60;
         /// <summary>
         /// A stun on an enemy fighter that is on the group's healers and casters and is not held
         /// yet (the Pacification Healer's, for one). The owner, 2026-11-20: "It really comes down
