@@ -138,6 +138,55 @@ endurance song at all; the Shaman casts almost no roots or diseases.
 more often than the others'. Those distances may have been read from where the server had the
 bodies, which was not where they fell: see the next section.)
 
+### 2026-11-20, evening: the last comparisons, M7 closed, and what comes next
+
+The owner, after a day of play and of comparisons: "I think the bots are too optimized with
+crowd control. It's crazy how stun, nearsight and mez land close to when immunity runs off.
+Humans are not that precise... For now, I am not sure if it's worth to keep trying to
+optimize. There are many variables and the biggest one is reaction time and how the team
+cohesion behave in each situation". And then: "let's move on finishing this Milestone and
+let's move with the remaining milestone work. We still have a lot to work on. At the moment,
+we have a nice way to playtest 8v8 in line and basin, but everything is just for testing. All
+abilities reset, no rps gain, only 2 groups, no real roaming".
+
+So **M7 is closed** (below, under M7), no more weight comparisons are queued after the round
+that was already prepared, and the work goes to making the mode a game: what is left of M9 and
+M1.5 (realm points earned and kept, timers that are not reset, more than two groups, a roam
+that goes on). What is left of M8 beyond that (plans per opponent, cooldown timing) joins M10.
+
+What the day's comparisons said, each 24 matches at rank 5 with one team of each on the new
+setting (two dozen team-fights a side are a check, not a result):
+
+| Tried | New against old | Kept? |
+|---|---|---|
+| The group's order changes the back line's distance only after 5 s (`Order.SafeFactorAfterSeconds`) | wins 13/11, back line walking 42% against 43%, casting 24% against 23% | off: nothing moved |
+| A fighter keeps 40% endurance for styles (`Position.FighterKeepsEndurancePercent`) | under 20% endurance 5% of the fight against 21%, styled swings 79% against 72%, wins 13/11, deaths 4.4 against 5.1; a dive stopped in 3 s 33% against 49% | on, the shield fighter exempt |
+| A root on a fighter that is on the back line weighs 60, not 30 (`RootOnPursuer`) | a dive stopped in 3 s 45% against 38%, in 6 s 66% against 57%, wins 13/11, deaths 4.5 against 5.3 | on, as a lean |
+| A buff a member lacks is cast in a lull of a fight (`Heal.RebuffInFight`, first version) | wins 10/14, deaths 5.1 against 4.0; 15 of 36 such casts were a haste buff on a member nobody had raised | kept only for what a raise took; to be run again |
+| Hibernia with two Bards (`hib-2bard`) against the main group, 12 matches each | 9 wins against 6; deaths 1.8 and 3.8 a match against 4.3 and 4.0; amnesia 36 to 42 casts a match against 15 to 17; asleep 4% and 11% of its time against 2% and 8% | the main group stays the default; the owner played it twice and liked it |
+
+*The first death decides.* In 93 matches of the morning the winner lost nobody in 85% and the
+group that lost the first member lost the match in 96%; in 55 of the afternoon, with bodies
+staying where they fall and raises working, 65% and 85%. A group's first death comes 75 s after
+the first blow at the median and its second 17 s later; the first was raised 24 times in 74.
+In the thirty seconds after one of a group's first two deaths the raiser nearest to raising was
+out of range of the body 26% of the time (438 units short at the median), kept off by a free
+enemy fighter at the body 24%, asleep or stunned 14%, being hit 12%. Two switches built for
+it, both off until run: `Heal.RaisesWithFighterAtBody` (the raised member stands up at the
+raiser's place, not where it fell) and `Heal.ResurrectWalkWithin` with one healer going (the
+two trials that had switched the walk off walked to where the body was not).
+
+*How exact the bots are (M10.1, first piece).* Over 209 matches an enemy whose mez immunity had
+run out was mezzed again 55% of the time, a third of those within five seconds and a tenth
+within two; after a stun immunity 64%, 15% within five seconds. A bot read the immunity off
+the enemy. Now each bot goes on taking an enemy for immune for 4 to 20 seconds after it ended,
+drawn for each bot, enemy and ending (`PvpNotice`, `Human.ImmunityEndNoticedAfter*Seconds`).
+Nearsight is not re-cast on the dot (a median 70 s after the last one ended, never within
+ten); it is the amount: healers and casters are nearsighted 22 to 42% of the time they are
+alive, a nearsight lasts its whole minute, and nobody cures it (tried 2026-11-18 and off).
+Casters stand without casting a third of their living time: 25% of that interrupted, 23%
+nearsighted with nobody near enough, 17% out of power, 32% free with an enemy in reach.
+
 ### 2026-11-20, later: comparisons, the dead that moved, and M7 as it measures
 
 The owner was away for a while ("All yours... it would be nice to move into the Milestones").
@@ -2204,20 +2253,27 @@ Sorcerer's group holding at range, healers stepping back on incoming.
   *Built (`PvpPositioning`, `PvpSquad.StandOff`); measured 2026-11-20: a healer has an enemy
   fighter within 250 for 13 to 17% of the fight (target under 15%), and 8% of deaths are beyond
   heal range (target under 10%).*
-- [ ] **M7.2** (M) Reactions to pressure: kite when attacked in melee, sprint, step out of area
+- [x] **M7.2** (M) Reactions to pressure: kite when attacked in melee, sprint, step out of area
   effects, move to regain sight or range.
   *Built: kiting when pinned, sprint when pressed or with ground to cover, the walk back into
-  range. Not built: stepping out of an area effect. Open: the back line walks 40% of its time.*
-- [ ] **M7.3** (M) Melee movement: stick to the target, reach the position a positional style
+  range. Closed 2026-11-20 without stepping out of an area effect (parked under M10). The back
+  line moves 34 to 41% of its time: a third of that is running from a fighter that is on it and
+  a fifth is keeping its distance; making the group's order change its distance later
+  (`Order.SafeFactorAfterSeconds`) changed nothing in 24 matches and is off.*
+- [x] **M7.3** (M) Melee movement: stick to the target, reach the position a positional style
   needs, stop chasing past the group's support range.
   *Built: behind a stunned target for the style from behind; the Regroup order when fighters are
-  far. Not built: side positions. Fighters are beyond 2,000 of every healer 4 to 5% of the time.*
+  far. Closed 2026-11-20 without side positions (parked under M10). Fighters are beyond 2,000 of
+  every healer 4 to 5% of the time.*
 - [x] **M7.4** (M) Cohesion: formation while roaming, a tight group on approach, regrouping during
   a fight.
   *On the road every member follows the driver, who waits for stragglers; the back row stops at
   3,200 and lets its fighters go on; Regroup and the owner's `/8v8 call regroup`.*
 
 **Exit check:** healer-distance and overextension targets met; wins at least 65% against the M6 build.
+*Closed on the owner's word, 2026-11-20 ("let's move on finishing this Milestone and let's move
+with the remaining milestone work"): the two distance targets are met or within two points
+(above); the win rate against the M6 build was never run and is not a target (2026-11-18).*
 
 ## M8. Group tactics and adaptation
 
@@ -2402,7 +2458,13 @@ round:*
   casting in a real group, and is this the group Midgard ran (two Healers, an Augmentation
   Shaman, a Skald, a Runemaster, a Savage, a Berserker, a Warrior)?
 
+- *Parked from M7 and M8 when they were closed (2026-11-20):* stepping out of an area effect;
+  side positions for positional styles; plans per opponent (M8.5); cooldown timing beyond Purge
+  (M8.3); the amount of nearsight (above, "How exact the bots are").
+
 - [ ] **M10.1** (M) Human-like limits as settings: reaction delay, attention, mistake rate.
+  *First piece 2026-11-20: the end of an enemy's mez or stun immunity is noticed 4 to 20 s late
+  (`PvpNotice`). Not yet: reaction time before answering a mez or a dive, attention, mistakes.*
 - [ ] **M10.2** (S) Named difficulty levels for the enemy group and, separately, for companions.
 - [ ] **M10.3** (M) Regression gate: each new AI build plays a fixed scrim set against the
   previous one, and a drop blocks it.
