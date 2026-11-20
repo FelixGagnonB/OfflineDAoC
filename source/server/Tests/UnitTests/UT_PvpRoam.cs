@@ -13,8 +13,11 @@ namespace DOL.UnitTests
         {
             // "Albion would spawn (and release) at their principal keep. Same for midgard."
             Assert.That(PvpRoam.EmainStarts.Select(start => start.Realm), Is.EquivalentTo(new[] { eRealm.Albion, eRealm.Midgard, eRealm.Hibernia }));
-            Assert.That(PvpRoam.EmainStarts.Single(start => start.Realm == eRealm.Albion).Point, Is.EqualTo((475844, 343696)));
-            Assert.That(PvpRoam.EmainStarts.Single(start => start.Realm == eRealm.Midgard).Point, Is.EqualTo((474129, 295207)));
+            // In front of the outer gate: a bot does not open a keep door, and the keeps' middles are behind two.
+            (int X, int Y) albion = PvpRoam.EmainStarts.Single(start => start.Realm == eRealm.Albion).Point;
+            (int X, int Y) midgard = PvpRoam.EmainStarts.Single(start => start.Realm == eRealm.Midgard).Point;
+            Assert.That(System.Math.Sqrt(System.Math.Pow(albion.X - 475844, 2) + System.Math.Pow(albion.Y - 343696, 2)), Is.InRange(1_500, 3_500), "the Albion Portal Keep");
+            Assert.That(System.Math.Sqrt(System.Math.Pow(midgard.X - 474129, 2) + System.Math.Pow(midgard.Y - 295207, 2)), Is.InRange(1_500, 3_500), "the Midgard Portal Keep");
             // "Hibernia ... could spawn on the hill near the tower in front of Albion Main Gate": the owner's /loc there.
             Assert.That(PvpRoam.EmainStarts.Single(start => start.Realm == eRealm.Hibernia).Point, Is.EqualTo((440776, 337761)));
             // Every team first walks to its own end of the open middle, then to the other: never a far goal across the mountains.

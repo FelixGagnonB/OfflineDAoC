@@ -67,11 +67,17 @@ namespace DOL.GS
         /// </summary>
         public static readonly (int X, int Y) HiberniaHill = (417792 + 22984, 286720 + 51041);
 
-        /// <summary>Albion and Midgard at their portal keeps, Hibernia on its hill.</summary>
+        /// <summary>
+        /// Albion and Midgard at their portal keeps, Hibernia on its hill. "At" a keep is in front
+        /// of its outer gate, some 1,800 units out on the way to the middle: the way from the
+        /// middle of either keep goes through two keep doors (800 and 1,100 units from it), and in
+        /// the first roam of 2026-11-20 the four teams that started inside stood there for eight
+        /// minutes while Hibernia's two walked the middle. A bot does not open a keep door.
+        /// </summary>
         public static readonly IReadOnlyList<PvpRoamStart> EmainStarts =
         [
-            new(eRealm.Albion, (475844, 343696), [South, North]),
-            new(eRealm.Midgard, (474129, 295207), [North, South]),
+            new(eRealm.Albion, (473395, 342169), [South, North]),
+            new(eRealm.Midgard, (472166, 297011), [North, South]),
             new(eRealm.Hibernia, HiberniaHill, [South, North]),
         ];
 

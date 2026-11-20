@@ -71,6 +71,27 @@ public class UT_PvpRoamStartRoutes
                 foreach (var b in Array.FindAll(points, point => point.Name == to))
                     TestContext.Progress.WriteLine($"ROUTE {a.Name} ({a.X},{a.Y}) -> {b.Name} ({b.X},{b.Y}): {JsonSerializer.Serialize(PvpScrim.RouteCheck(region, a.X, a.Y, b.X, b.Y))}");
             }
+            // The way out of each keep: the corners of the path from its middle to its end of the open middle, and from
+            // which of them a walker that cannot pass a closed door still gets there.
+            var nav = PathfindingProvider.Instance;
+            foreach ((string name, int x, int y, int toX, int toY) in new[] {
+                ("Albion Portal Keep", 475844, 343696, 445970, 334336), ("Midgard Portal Keep", 474129, 295207, 449336, 299008) })
+            {
+                Zone zone = region.GetZone(x, y);
+                System.Numerics.Vector3 from = nav.GetFloorBeneath(zone, new System.Numerics.Vector3(x, y, 20_000), 20_000, nav.DefaultFilters).Value;
+                System.Numerics.Vector3 to = nav.GetFloorBeneath(zone, new System.Numerics.Vector3(toX, toY, 20_000), 20_000, nav.DefaultFilters).Value;
+                var nodes = new WrappedPathfindingNode[256];
+                PathfindingResult open = nav.GetPathStraight(zone, from, to, nav.DefaultFilters, nodes);
+                PathfindingResult shut = nav.GetPathStraight(zone, from, to, nav.BlockingDoorAvoidanceFilters, new WrappedPathfindingNode[256]);
+                TestContext.Progress.WriteLine($"OUT {name}: doors passable {open.Status}/{open.NodeCount}, closed doors avoided {shut.Status}/{shut.NodeCount}");
+                for (int i = 0; i < Math.Min(open.NodeCount, 256); i++)
+                    if (i < 2 || nodes[i].Flags.ToString().Contains("Door") || (i > 0 && nodes[i - 1].Flags.ToString().Contains("Door")) || i % 12 == 0)
+                {
+                    System.Numerics.Vector3 at = nodes[i].Position;
+                    PathfindingResult onward = nav.GetPathStraight(zone, at, to, nav.BlockingDoorAvoidanceFilters, new WrappedPathfindingNode[256]);
+                    TestContext.Progress.WriteLine($"OUT   corner {i}: {(int)at.X},{(int)at.Y},{(int)at.Z}  {(int)System.Numerics.Vector3.Distance(at, from)} from the middle, flags {nodes[i].Flags}; onward without doors: {onward.Status}");
+                }
+            }
         }
         finally
         {
