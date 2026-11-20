@@ -41,11 +41,25 @@ roam around until contact"). All four are built. What a recorded match could sho
 |---|---|---|
 | **The owner's calls** (M9.3): `/8v8 call assist` makes the player's target the kill target while it lives (24 s at most); `push`, `regroup` (everybody comes back to the player), `hold`, `engage`, `extend` stand for 12 s; a bot answers in group chat | nothing: it needs a player | all of it |
 | **A player-healer is told** when two or more of the group are beyond heal range | nothing | all of it |
-| **The group's own resistance buffs** are cast before the fight by the member with the strongest of each | 24 matches: every member of every realm starts with its realm's (Albion body and spirit 16, energy 16 or 8; Hibernia heat, cold, matter; Midgard all six, heat and cold at 24). Buffing takes 63 s at the median (it was about 40), never timed out | that only the strongest is cast (fixed after that batch) |
+| **The group's own resistance buffs** are cast before the fight by the member with the strongest of each | Twelve lane matches after three rounds of fixes: every member of every realm starts with all of its realm's, at the strongest its group has (Albion body, spirit, energy 16; Hibernia heat, cold, matter 16; Midgard heat and cold 24, matter, body and spirit 16, energy 8). Buffing takes 60 s at the median (it was about 40), never timed out | with a player in the group |
 | **Raising the dead in a fight** by an 8v8 rule (`PvpHealWeights.Raises`) | 24 matches, one team of each with the rule and one without: 14 tries and 3 raised against none; wins 13 to 11, deaths 3.9 against 4.5 a team (neither means anything at this size) | the Paladin no longer trying right after its own swing (6 of its 7 tries were refused) |
 | **Sight over the ground** (M4.2, `PvpSight.cs`): a rise between two characters hides one from the other, for spotting and for what a squad knows. Not for casts | a scan of the basin: of 4,000 pairs of points 1,500 to 6,500 apart, the ground hides 35% (18% at 1,000 to 2,000, 47% at 5,000 to 6,000; the ground there runs from 2,900 to 8,100 high). Three roaming matches: the groups first knew of each other 3,000 to 3,400 apart | what it does to a fight on a slope |
 | **Roaming in the basin** (M8.4): in a play session each group goes between nine points of the basin by its own draw | the same three matches: first blow 23 to 34 s after the ready, from different sides (one drawn and looked at), one or two members in one area mez at the blow | with a player |
 | **A bot drives** (`/8v8 setup`: Lead or Follow): the Bard, Skald or Minstrel leads and the player sticks to it | nothing: it needs a player | all of it |
+
+What it took to get the resistances onto everybody, since each round looked done: (1) letting
+them through the hold on buffs for others; (2) only the strongest of each type cast, since the
+second Druid's weaker one ended up on half the group; (3) the groups buff standing together
+and take their rows at the ready, since a buff on the group reaches 1,000 units and the far end
+of a row stood 1,140 from the caster (a third of Hibernia's members lacked one or other, though
+the Druid cast each two or three times); and a buffer that runs dry rests and goes on. With
+the resistances fights are longer: the first death comes at a median of 65 s against 46, and
+2 of 12 lane matches ran to the 300-second limit, which batches should now be given more of.
+
+Also that night: an order is said in group chat once it has stood three seconds, not as it
+changes; a bot does not take a target it cannot see over a rise, and a group knows an enemy
+that is fighting one of its members from within 2,000 units, seen or not;
+`source/tools/pvp_sessions.py` lists the owner's sessions on one page with their replays.
 
 Things counted that night and what came of them:
 

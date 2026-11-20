@@ -545,26 +545,10 @@ namespace DOL.GS
             _teamB = PvpArena.SpawnGroup(_groupB, _arena.Region, spawnB.X, spawnB.Y, _realmLevel, _bots).ToList();
             _squadA = _squadBrainA ? new PvpSquad(_teamA, _leader != null ? [_leader] : null) : null;
             _squadB = _squadBrainB ? new PvpSquad(_teamB) : null;
-            if (_leader == null)
-                FormUp(_teamA, spawnB);
-            else if (_leader.IsWithinRadius(new Point2D(spawnB.X, spawnB.Y), PvpFormation.FormRange + 1_500) &&
-                     LeaderPlaces(_teamA, new Vector3(spawnB.X, spawnB.Y, _leader.Z)) is { } start)
-            {
-                // Face to face in a lane: there is no way to the enemy on which to spread out. They
-                // keep these places while the groups buff, and do not walk back to the player's side.
-                foreach ((GameBot bot, Vector3 place) in start)
-                {
-                    bot.StopFollowing();
-                    bot.MoveTo(bot.CurrentRegionID, (int)Math.Round(place.X), (int)Math.Round(place.Y), (int)Math.Round(place.Z),
-                        bot.GetHeading(new Point2D(spawnB.X, spawnB.Y)));
-                    if (bot.Brain is BotBrain brain)
-                    {
-                        brain.PvpSpreadOut = true;
-                        brain.FSM.SetCurrentState(eFSMStateType.IDLE);
-                    }
-                }
-            }
-            FormUp(_teamB, spawnA);
+            // The groups buff where they came in, standing together, and take their rows at the ready
+            // (TakePlaces): a buff on the group reaches 1,000 units, and from the end of a row the far
+            // members stood 1,140 away. In twelve matches a third of Hibernia's members began the
+            // fight without one or other of the Druid's resistances, which it had cast two or three times.
             if (_botDrives)
             {
                 // The companions do not follow the player in this session: the squad places them, and one of them leads.
@@ -644,6 +628,13 @@ namespace DOL.GS
 
                 if (_phase == Phase.Buffing)
                 {
+                    // A member that has buffed itself dry rests and goes on: the groups start rested in any
+                    // case, and a Druid short of power left its last resistance uncast.
+                    foreach (GameBot bot in _teamA.Concat(_teamB))
+                    {
+                        if (bot.IsAlive && !bot.IsCasting && bot.MaxMana > 0 && bot.ManaPercent < 40)
+                            bot.Mana = bot.MaxMana;
+                    }
                     long waited = now - _phaseStartTick;
                     List<GameBot> busy = _teamA.Concat(_teamB).Where(bot => bot.IsAlive && StillBuffing(bot, now)).ToList();
                     if (waited < MinBuffSeconds * 1000 || busy.Count > 0 && waited < ReadyTimeoutSeconds * 1000)
@@ -763,7 +754,8 @@ namespace DOL.GS
                     .Where(enemy => enemy.IsAlive && bot.IsWithinRadius(enemy, SightRange))
                     .OrderBy(enemy => bot.GetDistanceTo(enemy))
                     .FirstOrDefault(enemy => nav.HasLineOfSight(bot.CurrentZone, new Vector3(bot.X, bot.Y, bot.Z),
-                        new Vector3(enemy.X, enemy.Y, enemy.Z), nav.DefaultFilters));
+                        new Vector3(enemy.X, enemy.Y, enemy.Z), nav.DefaultFilters) &&
+                        (!PvpWeights.Of(bot).SightOverGround || PvpSight.Clear(bot, enemy)));
                 if (target == null)
                     continue;
                 brain.AddToAggroList(target, 1);
@@ -1049,8 +1041,37 @@ namespace DOL.GS
         /// health, power and endurance, as a group that sat down after buffing would. The match
         /// clock starts here, so buffing time is not part of the match.
         /// </summary>
+        /// <summary>
+        /// Both groups are buffed: each takes its rows facing where the other starts, as a group
+        /// does that has seen to its buffs and stands up. In a play session the companions take
+        /// theirs around the player when the enemy starts within sight (a lane); in the basin they
+        /// go on travelling with the player.
+        /// </summary>
+        private void TakePlaces()
+        {
+            if (_leader == null)
+                FormUp(_teamA, _spawnB);
+            else if (_leader.IsWithinRadius(new Point2D(_spawnB.X, _spawnB.Y), PvpFormation.FormRange + 1_500) &&
+                     LeaderPlaces(_teamA.Where(bot => bot.IsAlive).ToList(), new Vector3(_spawnB.X, _spawnB.Y, _leader.Z)) is { } start)
+            {
+                foreach ((GameBot bot, Vector3 place) in start)
+                {
+                    bot.StopFollowing();
+                    bot.MoveTo(bot.CurrentRegionID, (int)Math.Round(place.X), (int)Math.Round(place.Y), (int)Math.Round(place.Z),
+                        bot.GetHeading(new Point2D(_spawnB.X, _spawnB.Y)));
+                    if (bot.Brain is BotBrain brain)
+                    {
+                        brain.PvpSpreadOut = true;
+                        brain.FSM.SetCurrentState(eFSMStateType.IDLE);
+                    }
+                }
+            }
+            FormUp(_teamB, _spawnA);
+        }
+
         private void BeginRoaming(long now, List<GameBot> notReady)
         {
+            TakePlaces();
             foreach (GameBot bot in _teamA.Concat(_teamB).Where(bot => bot.IsAlive))
             {
                 bot.Health = bot.MaxHealth;

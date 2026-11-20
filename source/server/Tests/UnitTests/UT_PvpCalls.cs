@@ -32,6 +32,13 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void AnOrderIsSaidOnceItHasStoodAMoment()
+        {
+            Assert.That(PvpCalls.OrderIsSettled(10_000, 8_000), Is.False, "two seconds old: it may yet change back");
+            Assert.That(PvpCalls.OrderIsSettled(11_000, 8_000), Is.True);
+        }
+
+        [Test]
         public void OneAttackerIsNotWorthACall()
         {
             Assert.That(PvpCalls.WorthIncoming(1), Is.False);

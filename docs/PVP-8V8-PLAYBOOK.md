@@ -360,7 +360,13 @@ adds a column with the same rules measured on an earlier batch.
 `python source/tools/pvp_replay.py <recording.jsonl>` draws one recorded match from above:
 picture sheets of the fight, six moments to a sheet, and `replay.html`, the fight to play and
 scrub in a browser with each member's health, power, endurance, state and target beside the
-map. It reads the recording only; pets are not recorded and are not drawn.
+map. It reads the recording only; pets are not recorded and are not drawn. In a play session
+the player is marked YOU.
+
+`python source/tools/pvp_sessions.py` lists every play session on one page
+(`runtime\logs\replay\index.html` of the scrim install): when, what the player played, against
+whom, at what rank, how it ended, with a link to its replay. It draws the replays that are
+missing; run it again after playing.
 
 A new observation becomes a new rule there (a function in `RULES`), so that a thing once fixed
 cannot come back unnoticed. Who beats whom is not among the rules: see the roadmap's "Current

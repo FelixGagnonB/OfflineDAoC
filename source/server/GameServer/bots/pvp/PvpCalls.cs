@@ -12,8 +12,10 @@ namespace DOL.GS
         /// <summary>Set on a player who turned the calls off (/8v8 calls off).</summary>
         public const string OffProperty = "PVP_8V8_CALLS_OFF";
 
-        /// <summary>An order is called no sooner than this after the last one, and "incoming" no sooner than its own.</summary>
-        public const int OrderEveryMilliseconds = 5_000, IncomingEveryMilliseconds = 8_000;
+        /// <summary>An order is said once it has stood this long; "incoming" no sooner than its own time after the last.</summary>
+        public const int OrderSettlesMilliseconds = 3_000, IncomingEveryMilliseconds = 8_000;
+
+        public static bool OrderIsSettled(long now, long since) => now - since >= OrderSettlesMilliseconds;
 
         public static string Order(PvpOrder order) => order switch
         {

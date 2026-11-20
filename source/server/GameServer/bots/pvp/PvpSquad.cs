@@ -106,6 +106,8 @@ namespace DOL.GS
 
         /// <summary>An enemy is seen from this far, with open ground between (the range at which a group spots another).</summary>
         public const int ViewRange = SpotRange;
+        /// <summary>An enemy fighting a member of the group from within this distance is known without being seen.</summary>
+        public const int FeltWithin = 2_000;
         /// <summary>An enemy that drops out of sight is still known for this long, where it was last seen.</summary>
         public const int MemoryMilliseconds = 10_000;
 
@@ -140,6 +142,10 @@ namespace DOL.GS
                     .OrderBy(member => member.GetDistanceTo(enemy))
                     .Any(member => nav.HasLineOfSight(member.CurrentZone, new Vector3(member.X, member.Y, member.Z), there, nav.DefaultFilters) &&
                                    (!overGround || PvpSight.Clear(member, enemy)));
+                // An enemy that is fighting one of the group from near is known, rise or no rise:
+                // whoever is being struck knows by whom.
+                seen = seen || enemy.InCombat && enemy.TargetObject is GameLiving victim && _allies.Contains(victim) &&
+                    enemy.IsWithinRadius(victim, FeltWithin);
                 if (seen)
                     _lastSeen[enemy] = now;
                 if (_lastSeen.TryGetValue(enemy, out long last) && now - last <= MemoryMilliseconds)
@@ -250,13 +256,28 @@ namespace DOL.GS
             {
                 Order = order;
                 _orderSince = now;
-                if (FightStarted || order == PvpOrder.Hold)
-                    Call(_members.FirstOrDefault(member => member.IsAlive), "order", PvpCalls.Order(order), PvpCalls.OrderEveryMilliseconds);
                 if (PvpObserver.Any && _members.FirstOrDefault(member => member.IsAlive) is { } voice)
                     PvpObserver.Say(voice, $"{PvpObserver.Realm(voice)} order: {order}" + (order == PvpOrder.Hold ? $" ({Incoming})"
                         : FightStarted ? $" (its healers free {Own.HealersFreeShare:0%}, enemy healers free {Theirs.HealersFreeShare:0%}, " +
                                          $"enemy fighters held {Theirs.FightersHeldShare:0%}, {_pursuers.Count} enemies on its healers and casters)" : ""));
             }
+        }
+
+        // The order last said in group chat.
+        private PvpOrder? _saidOrder;
+
+        /// <summary>
+        /// An order is said in group chat once it has stood for a moment, and only if it is not the
+        /// one said last: a third of the orders last under five seconds (Engage and Extend take
+        /// turns), and saying each as it came, or dropping those that came too soon after another,
+        /// would leave the player reading an order that is no longer in force.
+        /// </summary>
+        private void SayOrder(long now)
+        {
+            if (!(FightStarted || Order == PvpOrder.Hold) || _saidOrder == Order || !PvpCalls.OrderIsSettled(now, _orderSince))
+                return;
+            _saidOrder = Order;
+            Call(_members.FirstOrDefault(member => member.IsAlive), "order", PvpCalls.Order(Order));
         }
 
         private void FindTrained(List<GameLiving> known)
@@ -429,6 +450,7 @@ namespace DOL.GS
             Known = known;
             FindTrained(known);
             Read(enemies, known);
+            SayOrder(GameLoop.GameLoopTime);
             KillTarget = CallTarget(_members, known, KillTarget is { IsAlive: true } current && known.Contains(current) ? current : null);
             // A player who heals is told when the group is out of its reach: the bots' own healers follow by themselves.
             if (FightStarted)
