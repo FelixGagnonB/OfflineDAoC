@@ -164,9 +164,11 @@ namespace DOL.GS
             eCharacterClass.Healer or eCharacterClass.Runemaster or eCharacterClass.Spiritmaster => eRace.Norseman,
             eCharacterClass.Shaman => eRace.Kobold,
             eCharacterClass.Skald or eCharacterClass.Savage or eCharacterClass.Berserker or eCharacterClass.Warrior => eRace.Troll,
-            eCharacterClass.Druid or eCharacterClass.Bard or eCharacterClass.Hero or eCharacterClass.Blademaster or
+            // Hibernia, the owner, 2026-11-20: casters Lurikeen, the Hero Firbolg, the rest Celt.
+            eCharacterClass.Hero => eRace.Firbolg,
+            eCharacterClass.Druid or eCharacterClass.Bard or eCharacterClass.Blademaster or
                 eCharacterClass.Champion or eCharacterClass.Warden => eRace.Celt,
-            eCharacterClass.Eldritch or eCharacterClass.Enchanter or eCharacterClass.Mentalist => eRace.Elf,
+            eCharacterClass.Eldritch or eCharacterClass.Enchanter or eCharacterClass.Mentalist => eRace.Lurikeen,
             _ => eRace.Unknown,
         };
 

@@ -111,5 +111,20 @@ namespace DOL.UnitTests
             foreach (BotSpecLine line in spec.SpecLines)
                 Assert.That((int)Math.Round(50 * line.levelRatio), Is.EqualTo((int)line.SpecCap));
         }
-    }
+
+        [TestCase(eCharacterClass.Eldritch, eRace.Lurikeen)]
+        [TestCase(eCharacterClass.Enchanter, eRace.Lurikeen)]
+        [TestCase(eCharacterClass.Mentalist, eRace.Lurikeen)]
+        [TestCase(eCharacterClass.Hero, eRace.Firbolg)]
+        [TestCase(eCharacterClass.Druid, eRace.Celt)]
+        [TestCase(eCharacterClass.Bard, eRace.Celt)]
+        [TestCase(eCharacterClass.Blademaster, eRace.Celt)]
+        [TestCase(eCharacterClass.Warden, eRace.Celt)]
+        [TestCase(eCharacterClass.Champion, eRace.Celt)]
+        public void HiberniasRacesAreTheOwners(eCharacterClass characterClass, eRace race)
+        {
+            // Owner, 2026-11-20: casters Lurikeen, the Hero Firbolg, the rest Celt.
+            Assert.That(PvpBuildCatalog.RaceOf(characterClass), Is.EqualTo(race));
+        }
+}
 }
