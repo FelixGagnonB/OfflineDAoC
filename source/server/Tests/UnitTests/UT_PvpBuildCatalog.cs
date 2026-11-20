@@ -126,5 +126,16 @@ namespace DOL.UnitTests
             // Owner, 2026-11-20: casters Lurikeen, the Hero Firbolg, the rest Celt.
             Assert.That(PvpBuildCatalog.RaceOf(characterClass), Is.EqualTo(race));
         }
+
+        [TestCase(eCharacterClass.Sorcerer, eRace.Saracen)]
+        [TestCase(eCharacterClass.Cabalist, eRace.Saracen)]
+        [TestCase(eCharacterClass.Theurgist, eRace.Avalonian, Description = "asked for as a Saracen, which a Theurgist cannot be here")]
+        [TestCase(eCharacterClass.Healer, eRace.Dwarf)]
+        [TestCase(eCharacterClass.Runemaster, eRace.Kobold)]
+        public void TheCastersAndHealersTheOwnerMoved(eCharacterClass characterClass, eRace race)
+        {
+            // Owner, 2026-11-20: casters Lurikeen, the Hero Firbolg, the rest Celt.
+            Assert.That(PvpBuildCatalog.RaceOf(characterClass), Is.EqualTo(race));
+        }
 }
 }

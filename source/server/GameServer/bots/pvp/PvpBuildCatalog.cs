@@ -160,8 +160,15 @@ namespace DOL.GS
         {
             eCharacterClass.Armsman or eCharacterClass.Paladin or eCharacterClass.Mercenary => eRace.Highlander,
             eCharacterClass.Cleric or eCharacterClass.Minstrel => eRace.Briton,
-            eCharacterClass.Sorcerer or eCharacterClass.Theurgist or eCharacterClass.Cabalist or eCharacterClass.Wizard => eRace.Avalonian,
-            eCharacterClass.Healer or eCharacterClass.Runemaster or eCharacterClass.Spiritmaster => eRace.Norseman,
+            // The owner, 2026-11-20: Sorcerer, Theurgist and Cabalist Saracen (dexterity 80 against 60). A
+            // Theurgist cannot be one on this server (Avalonian, Briton or Half Ogre) and stays Avalonian.
+            eCharacterClass.Sorcerer or eCharacterClass.Cabalist => eRace.Saracen,
+            eCharacterClass.Theurgist or eCharacterClass.Wizard => eRace.Avalonian,
+            // The Healer: Frostalf if there were one; of Dwarf and Norseman, both of dexterity 50, the Dwarf for its constitution (80 against 70).
+            eCharacterClass.Healer => eRace.Dwarf,
+            // The Runemaster: not a Norseman; a Kobold (dexterity and quickness 70).
+            eCharacterClass.Runemaster => eRace.Kobold,
+            eCharacterClass.Spiritmaster => eRace.Norseman,
             eCharacterClass.Shaman => eRace.Kobold,
             eCharacterClass.Skald or eCharacterClass.Savage or eCharacterClass.Berserker or eCharacterClass.Warrior => eRace.Troll,
             // Hibernia, the owner, 2026-11-20: casters Lurikeen, the Hero Firbolg, the rest Celt.
