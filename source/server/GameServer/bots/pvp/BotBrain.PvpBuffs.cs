@@ -152,7 +152,7 @@ namespace DOL.AI.Brain
         /// </summary>
         private bool PvpHeldBackInFight(Spell spell)
         {
-            if (spell == null || spell.IsHarmful || !PvpGroupIsFighting() || PvpWeights.Of(BotBody).BuffsInFight)
+            if (spell == null || spell.IsHarmful || !PvpGroupIsFighting() || PvpWeights.Of(BotBody).BuffsInFight || _pvpRebuffing)
                 return false;
             if (spell.SpellType.ToString().StartsWith("Summon", StringComparison.Ordinal))
                 return IsBuffHeldBackInFight(spell.CastTime, false, 0, 0, PvpIsHealer() && AutonomousPetSupport.IsMainPetSummon(spell.SpellType));
@@ -227,6 +227,46 @@ namespace DOL.AI.Brain
                 cached.ExpiresTick = now + PvpBuffPlanLifetimeMilliseconds;
                 return cached;
             }
+        }
+
+        /// <summary>Set while <see cref="TryRebuffInPvpFight"/> casts: the one buff that is begun in a fight.</summary>
+        private bool _pvpRebuffing;
+        private long _pvpRebuffTick;
+
+        /// <summary>
+        /// In a fight: this bot's next buff of the group plan that a member lacks, which is a member
+        /// that was raised (PvpHealWeights.RebuffInFight). Only in a lull, and one cast at a time.
+        /// True when a cast started.
+        /// </summary>
+        private bool TryRebuffInPvpFight()
+        {
+            if (BotBody?.IsPvpBot != true || PvpSquad == null || PvpEnemies == null || Body.Group == null || !PvpGroupIsFighting() ||
+                Body.IsCasting || Body.IsIncapacitated || Body.IsSilenced || GameLoop.GameLoopTime < _pvpRebuffTick)
+                return false;
+            PvpWeights all = PvpWeights.Of(BotBody);
+            bool beingHit = Body.IsBeingInterrupted || PvpEnemies.Any(enemy => enemy.IsAlive && !enemy.IsMezzed && !enemy.IsStunned &&
+                enemy.TargetObject == Body && PvpMember.ArchetypeOf(enemy) == PvpBuffArchetype.Melee && enemy.IsWithinRadius(Body, 500));
+            int lowest = 100;
+            foreach (GameLiving member in Body.Group.GetMembersInTheGroup())
+            {
+                if (member.IsAlive && member.HealthPercent < lowest && Body.IsWithinRadius(member, all.Position.HealRange + 300))
+                    lowest = member.HealthPercent;
+            }
+            if (!all.Heal.RebuffsInFight(Body.ManaPercent, beingHit, lowest))
+                return false;
+            _pvpRebuffTick = GameLoop.GameLoopTime + 1_750;
+            _pvpRebuffing = true;
+            try
+            {
+                if (!TryCastPlannedPvpBuff())
+                    return false;
+            }
+            finally
+            {
+                _pvpRebuffing = false;
+            }
+            PvpRecorder.Decision(BotBody, new { kind = "Rebuff", spell = Body.castingComponent?.SpellHandler?.Spell?.Name, hp = lowest }, [], null);
+            return true;
         }
 
         /// <summary>Casts this bot's next missing buff from the group plan. True when a cast started.</summary>

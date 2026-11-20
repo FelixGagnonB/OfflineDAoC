@@ -8,6 +8,18 @@ namespace DOL.UnitTests
     public class UT_PvpHealPlan
     {
         [Test]
+        public void ARaisedMemberIsRebuffedInALull()
+        {
+            // The owner, 2026-11-20: "I just never received buffs after rez but I assume druids were not finding downtime".
+            var heal = new PvpHealWeights();
+            Assert.That(heal.RebuffsInFight(powerPercent: 80, beingHit: false, lowestHealthInReach: 90), Is.True);
+            Assert.That(heal.RebuffsInFight(80, false, 60), Is.False, "the hurt come first");
+            Assert.That(heal.RebuffsInFight(80, true, 100), Is.False, "not with a fighter on it");
+            Assert.That(heal.RebuffsInFight(20, false, 100), Is.False, "not on its last power");
+            Assert.That(new PvpHealWeights { RebuffInFight = false }.RebuffsInFight(100, false, 100), Is.False, "as it was");
+        }
+
+        [Test]
         public void AHealerWalksToACorpseWhenItIsSafeAndTheLivingAreWell()
         {
             // 8.5 deaths and 0.2 resurrections a match: 41 of 137 dead had a healer up that was only too far away.

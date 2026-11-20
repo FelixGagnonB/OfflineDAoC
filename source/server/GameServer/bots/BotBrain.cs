@@ -4919,6 +4919,9 @@ namespace DOL.AI.Brain
                 return true;
             if (TryResurrectSiegeComrade())
                 return true;
+            // In an 8v8 fight, in a lull: the buffs of a member that was raised (BotBrain.PvpBuffs.cs).
+            if (TryRebuffInPvpFight())
+                return true;
 
             if (!Body.CanCastHealSpells) return false;
 

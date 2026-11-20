@@ -194,7 +194,16 @@ and its updates and is sent what it does take, the removal of a dead monster (th
 and lies) and then the bot again as a ghost (the see-through flag) with "Dead" under its
 name, to click or to target from the group window (`PvpCorpse`). `/8v8 corpse fall|ghost|off`
 switches in game between that, the ghost alone, and nothing. Raising moves the bot, which
-makes it anew for the client, alive. Only 8v8 bots.
+makes it anew for the client, alive. Only 8v8 bots. *Seen by the owner and taken for broken*
+("Dead body fix doesn't work"), and then in so many words: "When a bot dies, it should lay on
+the ground, like a human and be clickable. It needs to be targetable to be rez. It cannot stay
+standup, it's way too confusing and wrong". *Third* (the body, and the bot as a marker nobody
+sees under its name, for the group window only) was installed for one fight and is a switch.
+*Fourth, installed, **not yet seen in a client**:* the client is given a human. While the bot
+is dead the monster is taken from the client and a dead player is made in its place under the
+same object id and a session id no client has, with a player's position packet in the dead
+state where the monster got its updates; a removal while it is shown so is a player's.
+`/8v8 corpse player|body|fall|ghost|off`.
 
 *Hibernia with two Bards.* The owner, on the Bard being Hibernia's only cure for mez: "we could
 always try this setup, that we ran for many years. I just don't know how it would behave in
@@ -291,7 +300,11 @@ section but one. Each line names the weight that switches it, where there is one
   pet upkeep. It took three passes: the buffs go through four separate paths (upkeep, the group
   plan, the self bladeturn restored "as soon as it is safe", the combat routine's defensive
   pick) and pet upkeep through a fifth. The gate is now in `CastCoordinatedBuff`, where the
-  first four end. Lost for now: a member raised in a fight is not rebuffed.
+  first four end. Lost with it until 2026-11-20: a member raised in a fight was not rebuffed (the
+  owner, raised and playing on: "I just never received buffs after rez but I assume druids were
+  not finding downtime to buff me"). Now the group plan's buffs that a member lacks are cast in
+  a fight too, by the member whose buff it is, when it is not being hit, has 30% power and
+  nobody alive in its reach is below 70% (`Heal.RebuffInFight`). Not seen in play yet.
 - **A shield fighter told to stay stays** (`BotBrain.PvpStaysPut`), and the first swing of a peel
   is the Slam: a style queued for the last target is dropped when this one is to be stopped.
 - **Intercept** (`Peel.InterceptWithin`, `Peel.Coming`): an enemy fighter running at a healer or

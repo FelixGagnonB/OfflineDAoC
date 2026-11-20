@@ -59,6 +59,24 @@ namespace DOL.GS
         /// <summary>The share of its power a member must have to raise (the spell takes a quarter).</summary>
         public int ResurrectPowerPercent { get; set; } = 50;
 
+        /// <summary>
+        /// A member raised in a fight has none of its buffs, and once a fight has begun nobody
+        /// begins a buff (PvpWeights.BuffsInFight). The owner, 2026-11-20, raised in a fight they
+        /// then played on in: "I just never received buffs after rez but I assume druids were not
+        /// finding downtime to buff me". There was no downtime to find: the rebuff was held back
+        /// with every other buff. On: the group plan's buffs that a member lacks are cast in a
+        /// fight too, by the member whose buff it is, when it is not being hit, has the power, and
+        /// nobody alive in its reach is below <see cref="RebuffIfNobodyBelow"/>.
+        /// </summary>
+        public bool RebuffInFight { get; set; } = true;
+        /// <summary>Higher than for a raise: a buff is worth less than a member standing.</summary>
+        public int RebuffIfNobodyBelow { get; set; } = 70;
+        public int RebuffPowerPercent { get; set; } = 30;
+
+        /// <summary>True for a member that may begin a rebuff in a fight now.</summary>
+        public bool RebuffsInFight(int powerPercent, bool beingHit, int lowestHealthInReach) =>
+            RebuffInFight && !beingHit && powerPercent >= RebuffPowerPercent && lowestHealthInReach >= RebuffIfNobodyBelow;
+
         /// <summary>True for a member that should raise this body now, from where it stands.</summary>
         public bool Raises(int distance, int range, int powerPercent, bool beingHit, int lowestHealthInReach, int freeFightersAtCorpse,
             bool anotherHealerIsRaising) =>
