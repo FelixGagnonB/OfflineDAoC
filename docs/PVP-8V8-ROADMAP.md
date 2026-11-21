@@ -2486,8 +2486,29 @@ In order:
      team now waits while an enemy is within 5,000 of its start (two minutes at most).
      Not in it: a team with some members dead and nobody to raise them goes on short until it
      is wiped; the recorder (step 4).*
+     *Two more runs that night.* The third, on the ranks the teams had earned (1L6 to 2L1): a
+     Hibernian team waited its two minutes because the Albion team that had wiped it stood on
+     its hill, stood up, and was attacked a second later. So a team of bots does not start a
+     fight with a team within 3,500 of that team's own start (`Real.StartIsSafeWithin`: nobody
+     camped a portal keep, whose guards saw to that); a fight already on goes on, and a team
+     attacked from its start answers. The fourth, with that: both Hibernian teams wiped at 308
+     and 323 s and stood up at 354 s with nobody on the hill; nine draws, four of them "joins".
+     A draw is one for a fight now, not one for each enemy team in it.
   3. [ ] The player in it (`/8v8 roam`): companions, the wipe and the walk back, realm points
      to whoever made the kill, the rosters.
+     *Built 2026-11-20, **not yet tried with a player**.* `/8v8 roam` takes the player to the
+     start of its realm and starts the roam with the player at the head of the first team of
+     that realm: seven companions that go where the player goes, the rules of a real session,
+     and five teams of bots (the second of the player's realm among them). The player's team
+     makes no draw on coming on a fight and is not kept from an enemy's start. A wipe: about
+     thirty seconds later, and not while an enemy stands at the start, the player is alive
+     again at the start without sickness, with the seven around ("do not release": a player
+     who releases is not brought back). A kill pays the bots of the killing team into its
+     roster and the player on the character and into the roster. `/8v8 ranks` lists both teams
+     of every line-up met. To decide with the owner: neither portal keep has a healer (guards,
+     a teleporter, a hastener, a merchant), a raised bot has no resurrection sickness while a
+     player has, and the server's own note says sickness from a realm-war death is not one a
+     healer cures.
   4. [ ] The recorder with more than two teams, so a roam can be replayed and counted.
   5. [ ] Thidranki as a second map.
 

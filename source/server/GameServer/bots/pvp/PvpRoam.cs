@@ -329,10 +329,15 @@ namespace DOL.GS
                 // (The player's own team does what the player does.)
                 if (mate != null && team.Leader == null && !team.Fighting.Contains(other) && !team.Draws.ContainsKey(other))
                 {
-                    bool joins = Joins(real.AddChancePercent, Random.Shared.Next(100));
+                    // One draw for one fight: what it drew for another team in the same fight of its realm-mate holds for this one.
+                    bool? drawn = team.Draws.Where(draw => mate.Fighting.Contains(draw.Key)).Select(draw => (bool?)draw.Value).FirstOrDefault();
+                    bool joins = drawn ?? Joins(real.AddChancePercent, Random.Shared.Next(100));
                     team.Draws[other] = joins;
-                    if (joins) team.Joined++; else team.LeftAlone++;
-                    Say($"{team.Name} comes on {mate.Name} fighting {other.Name}: it {(joins ? "joins" : "leaves them to it")}");
+                    if (drawn == null)
+                    {
+                        if (joins) team.Joined++; else team.LeftAlone++;
+                        Say($"{team.Name} comes on {mate.Name} fighting {other.Name}: it {(joins ? "joins" : "leaves them to it")}");
+                    }
                 }
                 else if (mate == null)
                     team.Draws.Remove(other);
