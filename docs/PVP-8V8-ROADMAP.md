@@ -2543,6 +2543,32 @@ In order:
        picked Real there and found two groups: "There should be 6 teams total?"). The roam
        takes the "Your group" pick (`/8v8 roam hib-2bard` typed); the enemy, rules and rank
        lines are not asked. "Follow" is not in the roam: the player leads.
+     *From the owner's third roam, 2026-11-21 (fourteen minutes in Emain Macha, recorded):*
+     - "Dead body still doesn't work. Now when it dies, there's also a level 1 unarmored body
+       that appears." The client does lay a dead player down. The monster beside it had been
+       sent the removal of a player and stayed; the body came without its gear; and the client
+       asked the server for the player it had been given and got no answer. All three changed
+       (`PvpCorpse.cs`). **Not seen in a client.**
+     - "When /8v8 roam, group should not spread / bard play endurance if we do not engage."
+       In a roam the player's group reckons only with an enemy team it is fighting, one that
+       attacks it, or one the player has targeted a member of within 6,500 units; any other is
+       passed by in travel order, the Bard on its speed song (`PvpRoam.PlayerTakesItOn`). A
+       single fight (lane, basin) is as before. **Not seen in a client.**
+     - "I think I am also gaining rps for just being close to the fight." A team was counted
+       in a fight when one of the two was in combat with anybody and the other within reach, and
+       was paid for that team's deaths. Two teams are in a fight now when somebody of one is in
+       combat and aimed at somebody of the other (`PvpRoam.AtEachOther`).
+     - "My group, even though the bard was dead, were getting the other group bard endurance
+       song. It should be per group." **Not found.** By the code a song goes to its singer's
+       group only, the two Hibernian groups are two groups, and in the recording the other Bard
+       was 4,700 to 12,500 units away (the song reaches 2,000) while the player's endurance
+       came back at five a second after its own Bard died at 370 s. `roam-status` now lists
+       any helpful effect on a member cast by a member of its realm's other team
+       (`FromOtherTeams`), to settle it in a run.
+     - In that roam all six teams were in one fight within four minutes ("I think all groups
+       brawled in a single fight"): "joins after all" fired straight after "leaves them to it"
+       seven times, each add drawing the next. Emain Macha's one road brings all six to the
+       same place at the same time; Thidranki does not. Not changed.
   4. [x] The recorder with more than two teams, so a roam can be replayed and counted.
      *Done 2026-11-21.* A roam writes one recording for the session in `logs/roams` (format 4,
      `PvpRecorder.BeginRoam`): the header names every team, every line of a match is there with

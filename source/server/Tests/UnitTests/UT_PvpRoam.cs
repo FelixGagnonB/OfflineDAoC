@@ -68,6 +68,26 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void ThePlayersGroupPassesByWhatThePlayerDoesNotTakeOn()
+        {
+            // "When /8v8 roam, group should not spread / bard play endurance if we do not engage."
+            Assert.That(PvpRoam.PlayerTakesItOn(false, false, false), Is.False, "an enemy team in sight is passed by");
+            Assert.That(PvpRoam.PlayerTakesItOn(false, false, true), Is.True, "the player picks one of them as a target");
+            Assert.That(PvpRoam.PlayerTakesItOn(false, true, false), Is.True, "they come for the group");
+            Assert.That(PvpRoam.PlayerTakesItOn(true, false, false), Is.True, "the fight is on, whatever the player has targeted since");
+        }
+
+        [Test]
+        public void StandingByAFightIsNotBeingInIt()
+        {
+            // "I think I am also gaining rps for just being close to the fight."
+            Assert.That(PvpRoam.IsAt(true, true, true), Is.True, "in combat and aimed at one of theirs");
+            Assert.That(PvpRoam.IsAt(true, true, false), Is.False, "in combat with somebody else");
+            Assert.That(PvpRoam.IsAt(true, false, true), Is.False, "a target looked at is not a blow");
+            Assert.That(PvpRoam.IsAt(false, true, true), Is.False);
+        }
+
+        [Test]
         public void TheDrawIsForAnyFightThatIsOn()
         {
             Assert.That(PvpRoam.ComesOnAFight(true, false, false), Is.True, "its realm-mate's fight, or one between the two other realms");

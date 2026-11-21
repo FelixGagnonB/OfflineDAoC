@@ -188,6 +188,18 @@ namespace DOL.GS
             leftAFightNearToIt && enemiesToFight == 0 && !ledByAPlayer;
 
         /// <summary>
+        /// Which enemy teams the player's own group reckons with in a roam: one it is fighting,
+        /// one that attacks it, and one the player has picked a member of as a target, within
+        /// the range the group forms up at. Any other is passed by: the companions stay in the
+        /// clump they travel in behind the player and the Bard keeps its speed song. The owner,
+        /// 2026-11-21: "When /8v8 roam, group should not spread / bard play endurance if we do
+        /// not engage". In a single fight (lane, basin) there is one enemy and it is the fight:
+        /// there the group takes its rows on sight, as before.
+        /// </summary>
+        public static bool PlayerTakesItOn(bool fightingItAlready, bool itAttacksUs, bool playerAimsAtItInReach) =>
+            fightingItAlready || itAttacksUs || playerAimsAtItInReach;
+
+        /// <summary>
         /// A team that left a fair fight alone does not go on watching when the other side adds:
         /// with two teams of one realm on its realm-mate, it joins after all. In the roam of
         /// 2026-11-21 a Midgard team stood 8,000 units off while its realm-mate fought two
@@ -249,7 +261,8 @@ namespace DOL.GS
                 {
                     Start(2, player.InternalID, player, own, map);
                     say($"The roam is on: two groups of each realm in {map.Name}, yours with you here. Kills earn realm points that are kept, " +
-                        "no timer is reset, and a wipe puts your group back here (so does /release). /8v8 ranks, /8v8 stop.");
+                        "no timer is reset, and a wipe puts your group back here (so does /release). Your group travels behind you until you " +
+                        "target an enemy within sight or one attacks you; then it takes its rows and fights. /8v8 ranks, /8v8 stop.");
                 }
                 catch (Exception exception)
                 {
@@ -441,6 +454,23 @@ namespace DOL.GS
             teams.Any(other => other.Realm != team.Realm && other.Team.Members.Any(member => member.IsAlive &&
                 member.IsWithinRadius(new Point2D(team.Start.Point.X, team.Start.Point.Y), within)));
 
+        /// <summary>
+        /// Two teams are in a fight with each other when somebody of one is in combat and aimed
+        /// at somebody of the other. Until 2026-11-21 it was enough for one of them to be in
+        /// combat, with anybody, and the other to be within reach: a team standing by a fight was
+        /// counted in it and paid for its deaths (the owner: "I think I am also gaining rps for
+        /// just being close to the fight").
+        /// </summary>
+        private static bool AtEachOther(PvpRoamTeam a, PvpRoamTeam b)
+        {
+            IReadOnlyList<GameLiving> ours = a.Team.Members, theirs = b.Team.Members;
+            return ours.Any(member => IsAt(member.IsAlive, member.InCombat, member.TargetObject is GameLiving aimed && theirs.Contains(aimed))) ||
+                   theirs.Any(member => IsAt(member.IsAlive, member.InCombat, member.TargetObject is GameLiving aimed && ours.Contains(aimed)));
+        }
+
+        /// <summary>Whether a member is fighting the other team: alive, in combat, and its target one of theirs.</summary>
+        public static bool IsAt(bool alive, bool inCombat, bool aimedAtOneOfTheirs) => alive && inCombat && aimedAtOneOfTheirs;
+
         private static bool Near(PvpRoamTeam a, PvpRoamTeam b, int within)
         {
             (double ax, double ay) = a.Centre();
@@ -538,12 +568,16 @@ namespace DOL.GS
                 if (LeavesAlone(team.Draws.TryGetValue(other, out bool joins) && !joins, other.Draws.TryGetValue(team, out bool theyJoin) && !theyJoin, attacks,
                         team.Leader?.TargetObject is GameLiving aimed && other.Team.Members.Contains(aimed)))
                     return false;
-                return team.Leader != null || !PvpRealWeights.LeftAtItsStart(FromItsStart(other), team.Fighting.Contains(other), attacks, real);
+                if (team.Leader is { } leader)
+                    return PlayerTakesItOn(team.Fighting.Contains(other), attacks,
+                        leader.TargetObject is GameLiving picked && picked.IsAlive && other.Team.Members.Contains(picked) &&
+                        leader.IsWithinRadius(picked, PvpFormation.FormRange));
+                return !PvpRealWeights.LeftAtItsStart(FromItsStart(other), team.Fighting.Contains(other), attacks, real);
             }).ToList();
             List<GameLiving> enemies = foes.SelectMany(other => other.Team.Members).Where(member => member.IsAlive).ToList();
             foreach (PvpRoamTeam other in foes)
             {
-                if ((inCombat || other.Team.Members.Any(member => member.IsAlive && member.InCombat)) && Near(team, other, PvpScrim.EngageRange) && team.Fighting.Add(other))
+                if (AtEachOther(team, other) && Near(team, other, PvpScrim.EngageRange) && team.Fighting.Add(other))
                 {
                     team.Fights++;
                     Say($"{team.Name} ({team.Alive}) fights {other.Name} ({other.Alive})",
@@ -598,6 +632,8 @@ namespace DOL.GS
                 team.Team.Squad.Decide(enemies);
                 team.Team.Engage(enemies);
             }
+            else if (team.Leader != null)
+                team.Team.Squad.LoseSight();
             // After a fight a team of bots sees to its dead before it walks on: it raises them, or goes back to its start.
             GameBot body = null;
             if (team.Leader == null && !inCombat && enemies.Count == 0 && team.Team.Bots.Any(bot => !bot.IsAlive))
@@ -700,6 +736,12 @@ namespace DOL.GS
                 Seconds = Running ? (now - _started) / 1000 : 0,
                 Error = _lastError,
                 Recording = _recording?.File,
+                // A check: effects on a member whose caster is in another team of the roam (a song is for its singer's group only).
+                FromOtherTeams = teams.SelectMany(team => team.Team.Members.Where(member => member.IsAlive).SelectMany(member =>
+                    member.effectListComponent.GetSpellEffects()
+                        .Where(effect => effect?.SpellHandler?.Caster is GameLiving caster && !effect.SpellHandler.Spell.IsHarmful &&
+                                         teams.Any(other => other != team && other.Realm == team.Realm && other.Team.Members.Contains(caster)))
+                        .Select(effect => $"{member.Name} ({team.Name}) has {effect.SpellHandler.Spell.Name} of {effect.SpellHandler.Caster.Name}"))).Take(40).ToList(),
                 Teams = teams.Select(team =>
                 {
                     (double x, double y) = team.Centre();

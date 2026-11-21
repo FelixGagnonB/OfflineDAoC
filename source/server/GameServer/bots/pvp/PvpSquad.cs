@@ -137,6 +137,16 @@ namespace DOL.GS
         /// </summary>
         public IReadOnlyList<GameLiving> Known { get; private set; } = [];
 
+        /// <summary>
+        /// Nobody is in sight any more. In a roam the player's group knows only the enemies the
+        /// player has taken on, and when there is none its Bard goes back to its speed song.
+        /// </summary>
+        public void LoseSight()
+        {
+            if (Known.Count > 0)
+                Known = [];
+        }
+
         private List<GameLiving> Look(IReadOnlyList<GameLiving> enemies)
         {
             var nav = PathfindingProvider.Instance;

@@ -43,6 +43,15 @@ namespace DOL.GS
     /// window sends back, and the server finds the bot by) and a session id no client has. It
     /// gets a player's position packet in the dead state where the monster got its updates.
     /// Raising moves the bot, which removes that player and makes the monster anew, alive.
+    /// - of that, 2026-11-21: "Dead body still doesn't work. Now when it dies, there's also a
+    ///   level 1 unarmored body that appears". So the client does lay a dead player down, and
+    ///   three things were wrong around it. The monster was taken away with the packet that
+    ///   removes a player (ObjectDelete, used for nothing else but players) and so stayed,
+    ///   standing, with the body under the same id beside it: it goes with the monster's own
+    ///   removal now, in the kind that makes it vanish (the kind for a dead one lays a second
+    ///   body down). The body was sent without its gear. And the client, told where a player
+    ///   it did not know was, asked the server for that player and got nothing ("requested
+    ///   invalid client 1010" in the log, every ten seconds): it is answered now.
     /// Only 8v8 bots: companions and gamebots are shown as before. <c>/8v8 corpse</c> switches.
     /// </summary>
     public static class PvpCorpse
@@ -87,6 +96,33 @@ namespace DOL.GS
         public static ushort SessionFor(int counter) => (ushort)(1000 + Math.Abs(counter % 2000));
 
         private static int _sessions;
+        // The dead shown as players, by the session id each was given: a client asks for a player by that.
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<ushort, GameBot> Bodies = new();
+
+        /// <summary>The removal that makes a monster vanish from a client (kind 1), whatever its health: kind 0 lays it down as a body.</summary>
+        public const ushort VanishKind = 1;
+
+        public static void SendMonsterGone(GamePlayer viewer, GameObject monster)
+        {
+            using GSTCPPacketOut pak = PooledObjectFactory.GetForTick<GSTCPPacketOut>().Init(AbstractPacketLib.GetPacketCode(eServerPackets.RemoveObject));
+            pak.WriteShort((ushort)monster.ObjectID);
+            pak.WriteShort(VanishKind);
+            viewer.Out.SendTCP(pak);
+        }
+
+        /// <summary>
+        /// A client asks for the player with a session id (it was told where one is that it does
+        /// not have). True when that is a dead bot's body, which it is then sent.
+        /// </summary>
+        public static bool AnswerRequest(GamePlayer viewer, ushort session)
+        {
+            if (viewer == null || !Bodies.TryGetValue(session, out GameBot bot))
+                return false;
+            if (IsPlayerBody(bot) && bot.ObjectState is GameObject.eObjectState.Active && bot.CurrentRegion == viewer.CurrentRegion &&
+                bot.IsWithinRadius(viewer, WorldMgr.VISIBILITY_DISTANCE))
+                SendBodyCreate(viewer, bot);
+            return true;
+        }
 
         /// <summary>Set while a bot that has just died is made: it is made standing, and the death packet lays it down.</summary>
         [ThreadStatic]
@@ -104,7 +140,7 @@ namespace DOL.GS
                 if (Show == PvpCorpseShow.Player)
                 {
                     // The monster goes, a player comes in its place standing, and dies as a player does.
-                    player.Out.SendObjectDelete(bot);
+                    SendMonsterGone(player, bot);
                     _falling = true;
                     try
                     {
@@ -133,6 +169,7 @@ namespace DOL.GS
                 return;
             if (bot.PvpBodySession == 0)
                 bot.PvpBodySession = SessionFor(Interlocked.Increment(ref _sessions));
+            Bodies[bot.PvpBodySession] = bot;
             bot.PvpShownAsBody = true;
             using GSTCPPacketOut pak = PooledObjectFactory.GetForTick<GSTCPPacketOut>().Init(AbstractPacketLib.GetPacketCode(eServerPackets.PlayerCreate172));
             pak.WriteFloatLowEndian(bot.X);
@@ -142,7 +179,7 @@ namespace DOL.GS
             pak.WriteShort((ushort)bot.ObjectID);
             pak.WriteShort(bot.Heading);
             pak.WriteShort(PlayerModel(bot.Model));
-            pak.WriteByte(bot.GetDisplayLevel(viewer));
+            pak.WriteByte(bot.Level);
             int flags = (GameServer.ServerRules.GetLivingRealm(viewer, bot) & 0x03) << 2;
             if (!_falling)
                 flags |= 0x01; // dead
@@ -156,6 +193,9 @@ namespace DOL.GS
             pak.WritePascalString(string.Empty); // title
             pak.WriteByte(0);                    // no horse
             viewer.Out.SendTCP(pak);
+            // What it wears and holds, as for any player just made.
+            if (bot.Inventory != null)
+                viewer.Out.SendLivingEquipmentUpdate(bot);
         }
 
         /// <summary>A player's position packet in the dead state, where the monster got its update (PlayerPositionUpdateHandler).</summary>
@@ -211,7 +251,7 @@ namespace DOL.GS
                     if (bot.PvpShownAsBody)
                         player.Out.SendObjectRemove(bot);
                     else
-                        player.Out.SendObjectDelete(bot);
+                        SendMonsterGone(player, bot);
                 }
                 bot.PvpShownAsBody = false;
             }
