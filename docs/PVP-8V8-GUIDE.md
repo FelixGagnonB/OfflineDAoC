@@ -43,7 +43,10 @@ starts of the setup window.
 - **Where they start.** Emain Macha: Albion and Midgard in front of their portal keeps, Hibernia
   on the hill by the tower in front of the Albion gate. Thidranki: each realm in front of its
   portal keep, round a middle; the groups there meet sooner and more often two by two.
-- **You lead.** Your seven go where you go and take their rows when an enemy comes in sight.
+- **You lead, and you pick the fights.** Your seven travel behind you, the Bard on its speed
+  song, and pass by any enemy group you do not take on. Target an enemy within sight (6,500
+  units), or get attacked, and they take their rows, the Bard goes to its endurance song, and
+  the group fights.
 - **Adding on a fight.** A group of bots that comes on a fight already going on joins it three
   times in ten and otherwise stands off until it is over. If the other side adds on its
   realm-mate, it joins after all. Your own group does what you do.
@@ -53,7 +56,8 @@ starts of the setup window.
 - **Nobody is fought at its own start.** A group of bots leaves a group alone that stands within
   3,500 units of its own start point, unless that group attacks it.
 - **Realm points.** A kill is worth what a player of that level and rank is worth, five times
-  over, shared among the members of the killing groups that are near. Yours go on your character.
+  over, shared among the members of the groups that were fighting the dead one's group and are
+  near. Standing by a fight earns nothing. Yours go on your character.
   Every group keeps what it earns from one session to the next: `/8v8 ranks` lists them.
 
 ## Your group
