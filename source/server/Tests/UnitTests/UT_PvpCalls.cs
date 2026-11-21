@@ -57,6 +57,42 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void ControlThatOneIsACallOfItsOwn()
+        {
+            Assert.That(PvpCalls.IsControlCall("control"), Is.True);
+            Assert.That(PvpCalls.IsControlCall(" Mez "), Is.True);
+            Assert.That(PvpCalls.IsControlCall("cc"), Is.True);
+            Assert.That(PvpCalls.IsControlCall("push"), Is.False);
+            Assert.That(PvpCalls.IsControlCall(null), Is.False);
+            Assert.That(PvpCalls.OrderFor("control"), Is.Null, "it names a target and no order");
+            Assert.That(PvpCalls.Control("Finnarar", eCharacterClass.Healer), Is.EqualTo("Control on Finnarar (Healer)."));
+
+            // The player's call puts a mez on that enemy ahead of the same mez on another, and does nothing for damage.
+            var weights = new PvpWeights();
+            var mez = new PvpOption(PvpActionKind.Mez, 0, PvpBuffArchetype.Caster, false, false, 100, false, false, false, false, 100);
+            Assert.That(PvpActionChoice.Score(eCharacterClass.Sorcerer, mez with { Called = true }, weights) -
+                        PvpActionChoice.Score(eCharacterClass.Sorcerer, mez, weights), Is.EqualTo(weights.ControlCalledByPlayer));
+            var root = mez with { Kind = PvpActionKind.Root };
+            Assert.That(PvpActionChoice.Score(eCharacterClass.Sorcerer, root with { Called = true }, weights) -
+                        PvpActionChoice.Score(eCharacterClass.Sorcerer, root, weights), Is.EqualTo(weights.ControlCalledByPlayer));
+            var damage = mez with { Kind = PvpActionKind.Damage };
+            Assert.That(PvpActionChoice.Score(eCharacterClass.Sorcerer, damage with { Called = true }, weights),
+                Is.EqualTo(PvpActionChoice.Score(eCharacterClass.Sorcerer, damage, weights)));
+        }
+
+        [Test]
+        public void AMezThatLandedAndAPurgeAreSaid()
+        {
+            Assert.That(PvpCalls.WorthMezLanded(3, 0), Is.True);
+            Assert.That(PvpCalls.WorthMezLanded(1, 0), Is.False, "one asleep is not worth a line");
+            Assert.That(PvpCalls.WorthMezLanded(3, 3), Is.False, "said when it lands, not while it lasts");
+            Assert.That(PvpCalls.WorthMezLanded(2, 4), Is.False, "they are waking");
+            Assert.That(PvpCalls.MezLanded(4), Is.EqualTo("4 of them are mezzed."));
+            Assert.That(PvpCalls.Purged(false), Is.EqualTo("Purge used."));
+            Assert.That(PvpCalls.Purged(true), Is.EqualTo("Group Purge used."));
+        }
+
+        [Test]
         public void AssistAndAnythingElseAreNoOrder()
         {
             Assert.That(PvpCalls.OrderFor("assist"), Is.Null);

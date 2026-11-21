@@ -690,7 +690,8 @@ namespace DOL.AI.Brain
                         instant, PvpActionChoice.IsController(PvpMember.ClassOf(enemy), weights),
                         PvpSquad?.IsPursuer(enemy) == true, PvpSquad?.Order == PvpOrder.Extend, walkDanger,
                         PvpSquad?.IsOnTrained(enemy) == true, walkInsideEdge, killOutOfReach,
-                        enemy.effectListComponent.ContainsEffectForEffectType(eEffect.MovementSpeedDebuff)));
+                        enemy.effectListComponent.ContainsEffectForEffectType(eEffect.MovementSpeedDebuff),
+                        Called: PvpSquad?.IsCalledControl(enemy) == true));
                 }
             }
             // Enemy pets in melee on this group's healers and casters, after the enemies and the friends: a target for

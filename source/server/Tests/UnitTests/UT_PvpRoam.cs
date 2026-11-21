@@ -78,6 +78,34 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void AReleasedPlayersGroupStandsUpWhenItsCompanionsAreDown()
+        {
+            Assert.That(PvpRoam.IsWiped(0, false, false, false), Is.True, "a team of bots with nobody alive");
+            Assert.That(PvpRoam.IsWiped(3, false, false, false), Is.False);
+            Assert.That(PvpRoam.IsWiped(0, true, false, false), Is.True, "the player and the seven dead");
+            Assert.That(PvpRoam.IsWiped(0, true, true, true), Is.True, "the player released to the start, the seven dead");
+            Assert.That(PvpRoam.IsWiped(0, true, true, false), Is.False, "the player is the last one standing in the fight");
+            Assert.That(PvpRoam.IsWiped(2, true, true, true), Is.False, "two companions still fight: the player waits for them");
+            Assert.That(PvpRoam.ReleasePoint(null), Is.Null, "nobody in a roam releases as the game has it");
+        }
+
+        [Test]
+        public void ATeamThatLeavesAFightAloneWaitsItOutWhereItIs()
+        {
+            Assert.That(PvpRoam.WaitsOutAFight(true, 0, false), Is.True, "it does not walk through the fight it left alone");
+            Assert.That(PvpRoam.WaitsOutAFight(true, 8, false), Is.False, "another enemy team has come for it");
+            Assert.That(PvpRoam.WaitsOutAFight(false, 0, false), Is.False, "nothing near: it walks its route");
+            Assert.That(PvpRoam.WaitsOutAFight(true, 0, true), Is.False, "the player goes where the player likes");
+        }
+
+        [Test]
+        public void ATeamThatStoodAsideJoinsWhenTheOtherSideAdds()
+        {
+            Assert.That(PvpRoam.EvensTheOdds(1), Is.False, "one against one is theirs to settle");
+            Assert.That(PvpRoam.EvensTheOdds(2), Is.True, "two on its realm-mate: it joins after all");
+        }
+
+        [Test]
         public void ARealmsSecondTeamOfBotsFollowsItsFirstByHalfAMinute()
         {
             // The owner, 2026-11-21, of a gap of ninety seconds: "The 2nd hib team never left the spawn point".

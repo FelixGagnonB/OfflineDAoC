@@ -26,6 +26,16 @@ namespace DOL.GS
     /// is on, guards and has interrupt duty for. "squad" also carries the group's order and the
     /// two readings it came from (bots/pvp/PvpReading.cs).
     ///
+    /// Version 4 (2026-11-21) is a roam (M9.7): one file for the session, in logs/roams, whose
+    /// first line is "roam" instead of "match", with any number of teams, each under its own
+    /// name ("hib-main#2") where a match has "A" and "B". Every other line is as in a match,
+    /// and a roam adds "team" (each team's state, place and whom it is fighting, every second),
+    /// "ev" (a team sets off, a fight begins, a draw for adding on a fight, a wipe, a team
+    /// standing up, realm points paid) and "spawn" (the members of a team that stood up: they
+    /// are new bots under the old names). A team with no enemy near is written every fifth
+    /// second only. <c>source/tools/pvp_roam.py</c> counts a roam and cuts its two-team fights
+    /// out as matches, which every tool for a match then reads.
+    ///
     /// Several matches can be recorded at once (parallel arenas, M2.5): each has its own
     /// <see cref="PvpRecording"/>, and an event goes to the recording its bots belong to.
     /// Events arrive from game threads that run in parallel, so they are queued and written by
@@ -34,6 +44,7 @@ namespace DOL.GS
     public static class PvpRecorder
     {
         public const int FormatVersion = 3;
+        public const int RoamFormatVersion = 4;
 
         internal static readonly Logger Log = LoggerManager.Create(typeof(PvpRecorder));
         // Every bot of every match being recorded, and its recording.
@@ -41,17 +52,79 @@ namespace DOL.GS
         private static bool _hooked;
 
         public static string Folder => Path.Combine(AppContext.BaseDirectory, "logs", "scrims");
+        public static string RoamFolder => Path.Combine(AppContext.BaseDirectory, "logs", "roams");
+
+        private static void Hook()
+        {
+            if (_hooked)
+                return;
+            GameEventMgr.AddHandler(GameLivingEvent.AttackedByEnemy, OnAttacked);
+            GameEventMgr.AddHandler(GameLivingEvent.CastFinished, OnCastFinished);
+            GameEventMgr.AddHandler(GameLivingEvent.Dying, OnDying);
+            _hooked = true;
+        }
+
+        // What a member is at the start, to check a bot against a player of the same build.
+        private static object Describe(GameLiving member, string team) => member is GameBot bot
+            ? (object)new
+            {
+                n = bot.Name, team, build = bot.PvpBuild.Id, cls = ((eCharacterClass)bot.ClassId).ToString(),
+                hp = bot.MaxHealth, pow = bot.MaxMana, rl = PvpRealmPoints.RealmLevelOf(bot),
+                af = (int)bot.GetArmorAF(eArmorSlot.TORSO), abs = (int)Math.Round(bot.GetArmorAbsorb(eArmorSlot.TORSO) * 100),
+                qui = bot.GetModified(eProperty.Quickness), swing = bot.AttackSpeed(bot.ActiveWeapon),
+                crit = bot.GetModified(eProperty.CriticalMeleeHitChance), spellCrit = bot.GetModified(eProperty.CriticalSpellHitChance),
+            }
+            : new
+            {
+                n = member.Name, team, build = PvpMember.BuildOf(member), cls = PvpMember.ClassOf(member).ToString(),
+                hp = member.MaxHealth, pow = member.MaxMana, rl = PvpRealmPoints.RealmLevelOf(member), player = true, level = (int)member.Level,
+                af = (int)member.GetArmorAF(eArmorSlot.TORSO), abs = (int)Math.Round(member.GetArmorAbsorb(eArmorSlot.TORSO) * 100),
+                qui = member.GetModified(eProperty.Quickness),
+            };
+
+        /// <summary>
+        /// A roam: one recording for the whole session and all of its teams, each under its own
+        /// name. <paramref name="teams"/>: name, line-up, realm and members (a player among them).
+        /// </summary>
+        public static PvpRecording BeginRoam(string label, IReadOnlyList<(string Name, string Group, eRealm Realm, IReadOnlyList<GameLiving> Members)> teams)
+        {
+            Hook();
+            Directory.CreateDirectory(RoamFolder);
+            var recording = new PvpRecording(Path.Combine(RoamFolder, $"{DateTime.UtcNow:yyyyMMdd-HHmmss}-{label}.jsonl"),
+                teams.SelectMany(team => team.Members.Select(member => (member, team.Name))));
+            foreach (GameLiving member in recording.Teams.Keys)
+                ByBot[member] = recording;
+            recording.Line(new
+            {
+                k = "roam", v = RoamFormatVersion, label, utc = DateTime.UtcNow,
+                weights = PvpWeights.Current,
+                teams = teams.Select(team => new
+                {
+                    name = team.Name, group = team.Group, realm = team.Realm.ToString(),
+                    player = team.Members.OfType<GamePlayer>().FirstOrDefault()?.Name,
+                }),
+                bots = teams.SelectMany(team => team.Members.Select(member => Describe(member, team.Name))),
+            });
+            return recording;
+        }
+
+        /// <summary>A team of a roam stood up again as new bots: the old ones leave the recording, the new ones come into it.</summary>
+        public static void Regroup(PvpRecording recording, string team, IReadOnlyList<GameLiving> members)
+        {
+            if (recording == null)
+                return;
+            foreach (GameLiving gone in recording.Teams.Where(pair => pair.Value == team && !members.Contains(pair.Key)).Select(pair => pair.Key).ToList())
+                ByBot.TryRemove(new KeyValuePair<GameLiving, PvpRecording>(gone, recording));
+            recording.Regroup(team, members);
+            foreach (GameLiving member in members)
+                ByBot[member] = recording;
+            recording.Line(new { k = "spawn", t = recording.Now, team, bots = members.Select(member => Describe(member, team)) });
+        }
 
         public static PvpRecording Begin(int number, PvpGroupTemplate groupA, PvpGroupTemplate groupB,
             IReadOnlyList<GameBot> teamA, IReadOnlyList<GameBot> teamB, int realmLevel, string batch, GamePlayer leader = null)
         {
-            if (!_hooked)
-            {
-                GameEventMgr.AddHandler(GameLivingEvent.AttackedByEnemy, OnAttacked);
-                GameEventMgr.AddHandler(GameLivingEvent.CastFinished, OnCastFinished);
-                GameEventMgr.AddHandler(GameLivingEvent.Dying, OnDying);
-                _hooked = true;
-            }
+            Hook();
             Directory.CreateDirectory(Folder);
             var recording = new PvpRecording(Path.Combine(Folder, $"{batch}-match-{number:000}.jsonl"), teamA, teamB, leader);
             foreach (GameLiving member in recording.Teams.Keys)
@@ -271,19 +344,35 @@ namespace DOL.GS
         }
         private StreamWriter _writer;
         private volatile bool _open = true;
+        // Replaced as a whole when a team of a roam stands up again: brains read it while the session writes it.
+        private volatile Dictionary<GameLiving, string> _teams;
+        private int _snapshots;
 
         public string File { get; }
-        internal Dictionary<GameLiving, string> Teams { get; }
+        internal Dictionary<GameLiving, string> Teams => _teams;
 
         internal PvpRecording(string file, IReadOnlyList<GameBot> teamA, IReadOnlyList<GameBot> teamB, GamePlayer leader = null)
+            : this(file, teamA.Select(bot => ((GameLiving)bot, "A")).Concat(teamB.Select(bot => ((GameLiving)bot, "B")))
+                .Concat(leader == null ? [] : new[] { ((GameLiving)leader, "A") }))
+        {
+        }
+
+        internal PvpRecording(string file, IEnumerable<(GameLiving Member, string Team)> members)
         {
             File = file;
             _writer = new StreamWriter(file, false) { AutoFlush = false };
-            Teams = teamA.ToDictionary(bot => (GameLiving)bot, _ => "A")
-                .Concat(teamB.ToDictionary(bot => (GameLiving)bot, _ => "B"))
-                .ToDictionary(pair => pair.Key, pair => pair.Value);
-            if (leader != null)
-                Teams[leader] = "A";
+            var teams = new Dictionary<GameLiving, string>();
+            foreach ((GameLiving member, string team) in members)
+                teams[member] = team;
+            _teams = teams;
+        }
+
+        internal void Regroup(string team, IReadOnlyList<GameLiving> members)
+        {
+            var teams = _teams.Where(pair => pair.Value != team).ToDictionary(pair => pair.Key, pair => pair.Value);
+            foreach (GameLiving member in members)
+                teams[member] = team;
+            _teams = teams;
         }
 
         internal long Now => GameLoop.GameLoopTime - _startTick;
@@ -301,18 +390,26 @@ namespace DOL.GS
             return owner != null && Teams.TryGetValue(owner, out team) ? (owner.Name, team, living.Name) : (living.Name, null, null);
         }
 
-        /// <summary>Once a second from the match's tick: every bot's state, then everything queued since.</summary>
-        public void Snapshot()
+        /// <summary>
+        /// Once a second from the match's tick: every bot's state, then everything queued since.
+        /// In a roam a team that is <paramref name="quiet"/> (no enemy near) is written every
+        /// fifth second only: six teams walk for minutes between fights.
+        /// </summary>
+        public void Snapshot(Func<string, bool> quiet = null)
         {
             if (!_open)
                 return;
-            foreach ((GameLiving bot, string _) in Teams)
+            Dictionary<GameLiving, string> teams = Teams;
+            bool sparse = quiet != null && _snapshots++ % 5 != 0;
+            foreach ((GameLiving bot, string team) in teams)
             {
+                if (sparse && quiet(team))
+                    continue;
                 // A player in the match has every row a bot has; what a brain decides (aim, ward, duty, state) stays empty.
                 var brain = (bot as GameBot)?.Brain as BotBrain;
                 Line(new
                 {
-                    k = "snap", t = Now, n = bot.Name, x = bot.X, y = bot.Y, z = bot.Z,
+                    k = "snap", t = Now, n = bot.Name, team, x = bot.X, y = bot.Y, z = bot.Z,
                     ns = bot.effectListComponent.ContainsEffectForEffectType(eEffect.Nearsight),
                     dis = bot.IsDiseased, sil = bot.IsSilenced, intr = bot.IsBeingInterrupted,
                     // Whom it is on, whom it guards, whom it has interrupt duty for.
@@ -332,8 +429,10 @@ namespace DOL.GS
                 });
             }
             // What each group has decided, so any second of the fight can be read on its own.
-            foreach (IGrouping<string, GameLiving> side in Teams.Keys.GroupBy(living => Teams[living]))
+            foreach (IGrouping<string, GameLiving> side in teams.Keys.GroupBy(living => teams[living]))
             {
+                if (sparse && quiet(side.Key))
+                    continue;
                 PvpSquad squad = side.Select(living => (living as GameBot)?.Brain as BotBrain).FirstOrDefault(brain => brain?.PvpSquad != null)?.PvpSquad;
                 if (squad != null)
                     Line(new
@@ -379,6 +478,15 @@ namespace DOL.GS
                 _writer?.Dispose();
                 _writer = null;
             }
+        }
+
+        /// <summary>Closes the file of a roam; <paramref name="last"/> is its last line.</summary>
+        public void Finish(object last)
+        {
+            if (!_open)
+                return;
+            Line(last);
+            End(null);
         }
 
         internal void Line(object value)

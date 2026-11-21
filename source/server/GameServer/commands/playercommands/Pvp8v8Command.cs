@@ -84,9 +84,15 @@ namespace DOL.GS.Commands
                             Say("Target an enemy your group can see, then /8v8 call assist.");
                         return;
                     }
+                    if (PvpCalls.IsControlCall(word))
+                    {
+                        if (!squad.CallControl(player, player.TargetObject as GameLiving))
+                            Say("Target an enemy your group can see, then /8v8 call control.");
+                        return;
+                    }
                     if (PvpCalls.OrderFor(word) is not { } called)
                     {
-                        Say("/8v8 call push, regroup, hold, engage, extend or assist.");
+                        Say("/8v8 call push, regroup, hold, engage, extend, assist or control.");
                         return;
                     }
                     squad.CallOrder(player, called);
@@ -147,7 +153,8 @@ namespace DOL.GS.Commands
                 case "roam":
                     try
                     {
-                        PvpRoam.StartFor(player, Say);
+                        // "/8v8 roam hib-2bard": with another of the realm's groups than its main one.
+                        PvpRoam.StartFor(player, Say, args.Length > 2 ? PvpBuildCatalog.FindGroup(args[2]) : null);
                     }
                     catch (System.Exception exception)
                     {

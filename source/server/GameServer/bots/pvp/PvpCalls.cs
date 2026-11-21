@@ -73,6 +73,26 @@ namespace DOL.GS
         public const int PlayerAssistSeconds = 45;
 
         /// <summary>
+        /// "Control that one" (/8v8 call control, M9.3): the player's target is the one the
+        /// group's mez, stun, root and nearsight go to first, for this long or until it is held.
+        /// </summary>
+        public const int PlayerControlSeconds = 20;
+
+        public static bool IsControlCall(string word) => (word ?? string.Empty).Trim().ToLowerInvariant() is "control" or "mez" or "cc";
+
+        public static string Control(string name, eCharacterClass characterClass) => $"Control on {name} ({characterClass}).";
+
+        /// <summary>Said by the member that used it: a healer player need not cure what a Purge has taken off.</summary>
+        public static string Purged(bool group) => group ? "Group Purge used." : "Purge used.";
+
+        /// <summary>Said when a mez has put two or more of the enemy to sleep that were not asleep a second ago.</summary>
+        public static string MezLanded(int asleep) => $"{asleep} of them are mezzed.";
+
+        public const int MezLandedEveryMilliseconds = 6_000;
+
+        public static bool WorthMezLanded(int asleep, int asleepBefore) => asleep >= 2 && asleep > asleepBefore;
+
+        /// <summary>
         /// The order a player's call stands for (/8v8 call regroup): push, regroup, hold, engage,
         /// or extend. Null for anything else, "assist" among them, which names a target and no order.
         /// </summary>

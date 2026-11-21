@@ -303,6 +303,23 @@ namespace DOL.GS
             }
         }
 
+        /// <summary>Everybody stops where it is (a team of a roam waiting out a fight it has left alone).</summary>
+        public void Halt()
+        {
+            foreach (GameBot bot in Bots)
+            {
+                if (!bot.IsAlive || bot.IsCasting)
+                    continue;
+                if (bot.FollowTarget != null)
+                    bot.StopFollowing();
+                if (bot.IsMoving)
+                {
+                    bot.StopMovingOnPath();
+                    bot.StopMoving();
+                }
+            }
+        }
+
         /// <summary>
         /// The companions' places around the player once the enemy is in sight: the same two rows
         /// as <see cref="SpreadPlaces"/>, but set on the player, who goes where it likes. The

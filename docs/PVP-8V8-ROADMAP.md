@@ -2522,7 +2522,43 @@ In order:
      a teleporter, a hastener, a merchant), a raised bot has no resurrection sickness while a
      player has, and the server's own note says sickness from a realm-war death is not one a
      healer cures.
-  4. [ ] The recorder with more than two teams, so a roam can be replayed and counted.
+     *The same day, from three roams of bots watched as they ran* (none of this seen with a
+     player):
+     - With the half-minute gap a realm's second team reaches its first team's fight while it
+       is on. One that drew "leaves them to it" walked on along its route, which is the road
+       the fight is on, and was in it twenty seconds later. It now **waits where the draw
+       fell** (some 9,000 units off) until that fight is over or an enemy comes for it
+       (`PvpRoam.WaitsOutAFight`; seen: a Midgard team standing 8,000 units from its
+       realm-mate's fight for three minutes).
+     - That Midgard team watched its realm-mate fight two Hibernian teams, the second of which
+       had drawn "joins". A team that left a fair fight alone now **joins when the other side
+       adds**: two or more enemy teams on its realm-mate (`PvpRoam.EvensTheOdds`). Built, not
+       yet seen in a run.
+     - **Release.** A player who released went to its bind point in another region, and a
+       player out of the zone was taken for one who had left the game: the roam ended. A
+       player at the head of a roam team now releases to its team's start, and its group
+       stands up there once the seven are down too (`PvpRoam.ReleasePoint`, `IsWiped`); one
+       who releases while companions still fight waits for them.
+     - **The setup window has the roam**: Start is Lane, Basin or Roam (the owner, having
+       picked Real there and found two groups: "There should be 6 teams total?"). The roam
+       takes the "Your group" pick (`/8v8 roam hib-2bard` typed); the enemy, rules and rank
+       lines are not asked. "Follow" is not in the roam: the player leads.
+  4. [x] The recorder with more than two teams, so a roam can be replayed and counted.
+     *Done 2026-11-21.* A roam writes one recording for the session in `logs/roams` (format 4,
+     `PvpRecorder.BeginRoam`): the header names every team, every line of a match is there with
+     the team's own name where a match has A and B, and a roam adds a line a second for each
+     team (state, place, whom it fights), its events (sets off, fight, draw, waits, wipe,
+     stands up, points paid) and the members of a team that stood up again (new bots under the
+     old names). A team with no enemy near is written every fifth second: five minutes of six
+     teams came to 5 MB. `source/tools/pvp_roam.py <recording or folder>` prints the events,
+     every fight (found from the blows: who began it, who came later and when, deaths, who was
+     left standing, where) and a line a team (fights, time in fights, killing blows, deaths,
+     wipes, points). `--cut` writes each fight of exactly two teams as a match recording, which
+     the tools for a match read as they are: checked with `pvp_referee.py` on a fight cut from
+     a roam of three teams. A fight of three teams or more is counted and not cut.
+     Seen in the first recorded roam of six teams: all six met on the one road within ninety
+     seconds, and the only fight had four teams in it. That is what Thidranki (step 5), with
+     its three starts round a middle, may do better.
   5. [ ] Thidranki as a second map.
 
 - [ ] **M9.2** (M) Bot shot-caller: calls announced in group chat (assist target, mez landed,
@@ -2532,12 +2568,18 @@ In order:
   (Healer), at 62%."), the order when it changes (push, regroup on the healers, extend, hold),
   incoming on a member with two or more on it ("3 on you, Nayas!"), a member out of power, and
   a caster calling the group to stack for pets. Orders no more often than every 5 seconds and
-  incoming every 8; `/8v8 calls off` silences them. Not in it yet: mez landed, purge used,
-  and anything the player says back (M9.3).
+  incoming every 8; `/8v8 calls off` silences them.
+  *Added 2026-11-21, not yet seen in a client:* "3 of them are mezzed." when a mez puts two or
+  more of the enemy to sleep (said by the member that mezzes, no more often than every six
+  seconds), and "Purge used." / "Group Purge used." by the member that used it.
 - [ ] **M9.3** (M) Owner's calls: `/call` macros for target, push, retreat, control that one,
   regroup. The squad brain treats them as its own decisions.
   *Built 2026-11-20 as `/8v8 call <assist|push|regroup|hold|engage|extend>`, not yet tried in a
-  client.* "Control that one" is not in it.
+  client.* *"Control that one" added 2026-11-21, not yet tried in a client:*
+  `/8v8 call control` (or `mez`, `cc`) on the player's target: for twenty seconds a mez, stun,
+  root or nearsight on that enemy scores 80 more (`ControlCalledByPlayer`), which puts it ahead
+  of the group's own first choice without making a cast that would do nothing; the group's
+  mezzer answers "Control on Finnarar (Healer)."
 - [x] **M9.4** (M) `/8v8` play session: pick the enemy realm and group, enemy roams the arena,
   rematch after each fight. The enemy roster keeps its own realm points.
 - [x] **M9.5** (S) Play sessions are recorded and analyzed like scrims.

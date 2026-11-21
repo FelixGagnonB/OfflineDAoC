@@ -389,6 +389,42 @@ namespace DOL.GS
             return true;
         }
 
+        // "Control that one": the enemy a player of the group has called for control on, and until when.
+        private GameLiving _calledControl;
+        private long _calledControlUntil;
+        // How many of the enemy were asleep a second ago ("mez landed").
+        private int _asleepBefore;
+
+        /// <summary>
+        /// A player of the group calls for control on its own target (M9.3): the group's mez,
+        /// stun, root and nearsight lean to it (<see cref="PvpWeights.ControlCalledByPlayer"/>)
+        /// for <see cref="PvpCalls.PlayerControlSeconds"/>. False when the target is not an enemy
+        /// the group knows.
+        /// </summary>
+        public bool CallControl(GameLiving caller, GameLiving target)
+        {
+            if (target is not { IsAlive: true } || !Known.Contains(target))
+                return false;
+            _calledControl = target;
+            _calledControlUntil = GameLoop.GameLoopTime + PvpCalls.PlayerControlSeconds * 1_000L;
+            // Answered by the member that mezzes for the group, when it has one alive.
+            GameBot voice = _members.FirstOrDefault(member => member.IsAlive && PvpActionChoice.IsController(PvpMember.ClassOf(member), PvpWeights.Of(member)))
+                            ?? _members.FirstOrDefault(member => member.IsAlive);
+            if (voice != null)
+            {
+                PvpRecorder.Decision(voice, new { kind = "PlayerControl", d = target.Name, by = caller.Name }, [], null);
+                Call(voice, "answer", PvpCalls.Control(target.Name, PvpMember.ClassOf(target)));
+            }
+            return true;
+        }
+
+        /// <summary>True for the enemy a player's call for control stands on.</summary>
+        public bool IsCalledControl(GameLiving enemy) =>
+            enemy != null && enemy == _calledControl && enemy.IsAlive && GameLoop.GameLoopTime < _calledControlUntil;
+
+        /// <summary>A member has used its Purge or Group Purge: said in group chat (M9.2).</summary>
+        public void SayPurged(GameBot bot, bool group) => Call(bot, "purge-" + bot.Name, PvpCalls.Purged(group), 2_000);
+
         /// <summary>The player a called regroup gathers on, while that call stands; null otherwise.</summary>
         private GameLiving RegroupsOn => _calledOrder == PvpOrder.Regroup && _caller is { IsAlive: true } &&
                                          GameLoop.GameLoopTime < _calledUntil ? _caller : null;
@@ -494,6 +530,12 @@ namespace DOL.GS
             Read(enemies, known);
             SayOrder(GameLoop.GameLoopTime);
             KillTarget = CallTarget(_members, known, KillTarget is { IsAlive: true } current && known.Contains(current) ? current : null);
+            // "Mez landed" (M9.2): two or more of them asleep that were not a second ago, said by the member that mezzes.
+            int asleep = known.Count(enemy => enemy.IsAlive && enemy.IsMezzed);
+            if (FightStarted && PvpCalls.WorthMezLanded(asleep, _asleepBefore))
+                Call(_members.FirstOrDefault(member => member.IsAlive && PvpActionChoice.IsController(PvpMember.ClassOf(member), PvpWeights.Of(member)))
+                     ?? _members.FirstOrDefault(member => member.IsAlive), "mez", PvpCalls.MezLanded(asleep), PvpCalls.MezLandedEveryMilliseconds);
+            _asleepBefore = asleep;
             // A player who heals is told when the group is out of its reach: the bots' own healers follow by themselves.
             if (FightStarted)
             {

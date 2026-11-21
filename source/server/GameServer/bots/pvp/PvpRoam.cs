@@ -24,6 +24,10 @@ namespace DOL.GS
         public readonly List<GameBot> All = [];
         public string State = "Buffing";
         public long StateSince, LeavesAt, ContactTick, LastEnemyNearTick;
+        /// <summary>No enemy team near: the recorder writes it every fifth second only.</summary>
+        public bool Quiet = true;
+        /// <summary>Standing by a fight it has left to its realm-mate.</summary>
+        public bool Waiting;
         /// <summary>The enemy teams it is in a fight with now.</summary>
         public readonly HashSet<PvpRoamTeam> Fighting = [];
         /// <summary>Its draw for each enemy team its realm's other team is fighting: true, it joins.</summary>
@@ -94,6 +98,7 @@ namespace DOL.GS
         private static long _started;
         private static string _lastError;
         private static readonly List<string> Events = [];
+        private static PvpRecording _recording;
 
         public static bool Running => _teams.Count > 0;
 
@@ -114,6 +119,25 @@ namespace DOL.GS
         public static bool LeavesAlone(bool weLeftThemToIt, bool theyLeftUsToIt, bool theyAttackUs, bool ourPlayerAimsAtThem) =>
             (weLeftThemToIt || theyLeftUsToIt) && !theyAttackUs && !ourPlayerAimsAtThem;
 
+        /// <summary>
+        /// A team of bots that has left a fight near it to its realm-mate, and has nobody of its
+        /// own to fight, waits where the draw fell (some 9,000 units off) until that fight is
+        /// over. Its road is the fight's road: in the first roam with the half-minute gap
+        /// (2026-11-21) the second Hibernian team drew "leaves them to it" at 142 s, walked on
+        /// into the fight and was in it at 166 s, with the second Midgard team that had done the
+        /// same from the other side.
+        /// </summary>
+        public static bool WaitsOutAFight(bool leftAFightNearToIt, int enemiesToFight, bool ledByAPlayer) =>
+            leftAFightNearToIt && enemiesToFight == 0 && !ledByAPlayer;
+
+        /// <summary>
+        /// A team that left a fair fight alone does not go on watching when the other side adds:
+        /// with more enemy teams on its realm-mate than the one it left to it, it joins after
+        /// all. In the roam of 2026-11-21 a Midgard team stood 8,000 units off while its
+        /// realm-mate fought two Hibernian teams, the second of which had drawn "joins".
+        /// </summary>
+        public static bool EvensTheOdds(int enemyTeamsOnItsRealmMate) => enemyTeamsOnItsRealmMate >= 2;
+
         /// <summary>The squad of the team a player leads in the roam; null for a player who leads none.</summary>
         public static PvpSquad SquadOf(GamePlayer player) =>
             player == null ? null : _teams.FirstOrDefault(team => team.Leader == player)?.Team.Squad;
@@ -129,9 +153,29 @@ namespace DOL.GS
             return new Point3D((int)point.X, (int)point.Y, (int)point.Z);
         }
 
+        /// <summary>
+        /// Where a player who releases goes: the start of the team it leads in a running roam
+        /// ("Albion would spawn (and release) at their principal keep"); null for anybody else,
+        /// who releases as the game has it. The bind point is in another region, and a player
+        /// who left the zone was a player who had left the game: the roam ended.
+        /// </summary>
+        public static Point3D ReleasePoint(GamePlayer player) =>
+            player != null && _teams.Any(team => team.Leader == player) ? StartSpot(player.Realm) : null;
+
+        /// <summary>
+        /// Whether a team is wiped: nobody alive, or, for the player's, every companion dead and
+        /// the player dead or back at the start (released). A player who releases while
+        /// companions still fight waits for them at the start; they come to the player if they win.
+        /// </summary>
+        public static bool IsWiped(int botsAlive, bool hasPlayer, bool playerAlive, bool playerAtStart) =>
+            botsAlive == 0 && (!hasPlayer || !playerAlive || playerAtStart);
+
         /// <summary><c>/8v8 roam</c>: the player is taken to the start of its realm and leads the first team of it.</summary>
-        public static void StartFor(GamePlayer player, Action<string> say)
+        /// <param name="own">The player's group when it is not the realm's main one (PvpBuildCatalog.Variants).</param>
+        public static void StartFor(GamePlayer player, Action<string> say, PvpGroupTemplate own = null)
         {
+            if (own != null && own.Realm != player.Realm)
+                own = null;
             if (PvpScrim.Running)
                 throw new InvalidOperationException("A fight or a roam is already running. /8v8 stop ends it.");
             if (PvpPlayerReady.EnterReal(player) is { } set)
@@ -140,9 +184,9 @@ namespace DOL.GS
             {
                 try
                 {
-                    Start(2, player.InternalID, player);
+                    Start(2, player.InternalID, player, own);
                     say("The roam is on: two groups of each realm in Emain Macha, yours with you here. Kills earn realm points that are kept, " +
-                        "no timer is reset, and a wipe puts your group back here. /8v8 ranks, /8v8 stop.");
+                        "no timer is reset, and a wipe puts your group back here (so does /release). /8v8 ranks, /8v8 stop.");
                 }
                 catch (Exception exception)
                 {
@@ -151,7 +195,7 @@ namespace DOL.GS
             });
         }
 
-        public static object Start(int teamsPerRealm, string owner, GamePlayer leader = null)
+        public static object Start(int teamsPerRealm, string owner, GamePlayer leader = null, PvpGroupTemplate own = null)
         {
             if (PvpScrim.Running)
                 throw new InvalidOperationException("A scrim or a session is running. Stop it first.");
@@ -169,7 +213,7 @@ namespace DOL.GS
                     bool led = leader != null && start.Realm == leader.Realm && number == 1;
                     var team = new PvpRoamTeam
                     {
-                        Name = TeamName(template.Id, number), Template = template, Realm = start.Realm, Start = start,
+                        Name = TeamName(template.Id, number), Template = led && own != null ? own : template, Realm = start.Realm, Start = start,
                         // The player's companions are kept under the player; every other team under its own name.
                         Roster = led ? owner : PvpRealmPoints.EnemyRoster(owner, TeamName(template.Id, number)),
                         // A realm's teams of bots set off one after the other; the player's own goes when the player does.
@@ -185,6 +229,9 @@ namespace DOL.GS
             }
             _teams = teams;
             _started = now;
+            // One recording for the session (M9.7 step 4): every team under its own name.
+            _recording = PvpRecorder.BeginRoam(leader != null ? "roam-play" : "roam",
+                teams.Select(team => (team.Name, team.Template.Id, team.Realm, team.Team.Members)).ToList());
             lock (Events) Events.Clear();
             _timer?.Dispose();
             _timer = new Timer(_ => NpcService.Instance.Post(Tick, 0), null, 1_000, 1_000);
@@ -197,6 +244,12 @@ namespace DOL.GS
             _timer = null;
             List<PvpRoamTeam> teams = _teams;
             _teams = [];
+            PvpRecording recording = Interlocked.Exchange(ref _recording, null);
+            recording?.Finish(new
+            {
+                k = "end", t = recording.Now, Seconds = (int)((GameLoop.GameLoopTime - _started) / 1000),
+                teams = teams.Select(team => new { name = team.Name, team.Fights, team.Kills, team.Deaths, team.Wipes, team.Joined, team.LeftAlone, team.Earned }),
+            });
             foreach (PvpRoamTeam team in teams)
                 PvpArena.Remove(team.All);
         }
@@ -222,6 +275,7 @@ namespace DOL.GS
             team.Paid.Clear();
             team.Fighting.Clear();
             team.Draws.Clear();
+            team.Waiting = false;
             (team.State, team.StateSince, team.ContactTick, team.LastEnemyNearTick) = (leader != null ? "Roaming" : "Buffing", now, 0, now);
         }
 
@@ -239,13 +293,16 @@ namespace DOL.GS
                     leader.TempProperties.SetProperty(GamePlayer.RESURRECT_REZ_SICK_EFFECTIVENESS, 0.0);
                     leader.StopReleaseTimer();
                     leader.Notify(GamePlayerEvent.Revive, leader, null);
-                    (leader.Health, leader.Mana, leader.Endurance) = (leader.MaxHealth, leader.MaxMana, leader.MaxEndurance);
                 }
-                leader.MoveTo(EmainRegion, spot.X, spot.Y, spot.Z, leader.Heading);
+                (leader.Health, leader.Mana, leader.Endurance) = (leader.MaxHealth, leader.MaxMana, leader.MaxEndurance);
+                // A player who released is there already.
+                if (!leader.IsWithinRadius(spot, 1_500))
+                    leader.MoveTo(EmainRegion, spot.X, spot.Y, spot.Z, leader.Heading);
                 Tell(team, "Your group stands up at its start.");
             }
             Spawn(team, now);
             team.LeavesAt = now + 1000L * PvpWeights.Current.Real.BuffsAtStartSeconds;
+            PvpRecorder.Regroup(_recording, team.Name, team.Team.Members);
         }
 
         private static void Tell(PvpRoamTeam team, string what)
@@ -254,9 +311,12 @@ namespace DOL.GS
                 team.Leader.Out.SendMessage("[8v8] " + what, PacketHandler.eChatType.CT_Important, PacketHandler.eChatLoc.CL_SystemWindow);
         }
 
-        private static void Say(string what)
+        /// <summary>For the log and the status; <paramref name="row"/>, when given, is what the recording keeps of it.</summary>
+        private static void Say(string what, object row = null)
         {
             Log.Info("8v8 roam: " + what);
+            if (_recording is { } recording)
+                recording.Line(new { k = "ev", t = recording.Now, text = what, ev = row });
             lock (Events)
             {
                 Events.Add($"{(GameLoop.GameLoopTime - _started) / 1000,5}s {what}");
@@ -282,6 +342,21 @@ namespace DOL.GS
                 }
                 foreach (PvpRoamTeam team in teams)
                     Step(team, teams, now, real);
+                if (_recording is { } recording)
+                {
+                    foreach (PvpRoamTeam team in teams)
+                    {
+                        if (team.Quiet && (now - _started) / 1000 % 5 != 0)
+                            continue;
+                        (double x, double y) = team.Centre();
+                        recording.Line(new
+                        {
+                            k = "team", t = recording.Now, name = team.Name, state = team.State, x = (int)x, y = (int)y, alive = team.Alive,
+                            wp = team.Team.Waypoint, fighting = team.Fighting.Select(other => other.Name).ToList(),
+                        });
+                    }
+                    recording.Snapshot(name => teams.FirstOrDefault(team => team.Name == name)?.Quiet != false);
+                }
             }
             catch (Exception exception)
             {
@@ -310,7 +385,8 @@ namespace DOL.GS
         private static void Step(PvpRoamTeam team, List<PvpRoamTeam> teams, long now, PvpRealWeights real)
         {
             // Nobody left: it stands up at its start point after a wait, as a new group of the same eight.
-            if (team.Alive == 0)
+            if (IsWiped(team.Team.Bots.Count(bot => bot.IsAlive), team.Leader != null, team.Leader?.IsAlive == true,
+                    team.Leader?.IsWithinRadius(new Point2D(team.Start.Point.X, team.Start.Point.Y), real.StartIsSafeWithin) == true))
             {
                 if (team.State != "Down")
                 {
@@ -319,19 +395,23 @@ namespace DOL.GS
                     // Its last to fall are paid for before the fight is forgotten.
                     Pay(team, real, now);
                     team.Fighting.Clear();
-                    Say($"{team.Name} is wiped (its {team.Wipes}.)");
-                    Tell(team, $"Your group is wiped. You stand up at your start in about {real.WipeStandsUpAfterSeconds} seconds; do not release.");
+                    Say($"{team.Name} is wiped (its {team.Wipes}.)", new { what = "wipe", team = team.Name });
+                    Tell(team, team.Leader?.IsAlive == true
+                        ? $"Your group is down. It stands up here in about {real.WipeStandsUpAfterSeconds} seconds."
+                        : $"Your group is wiped. You stand up at your start in about {real.WipeStandsUpAfterSeconds} seconds, or release to go there now.");
                 }
                 else if (PvpRealWeights.StandsUp((now - team.StateSince) / 1000.0, EnemyNearStart(team, teams, real.StartIsClearBeyond), real))
                 {
                     StandUp(team, now);
-                    Say($"{team.Name} stands up at its start");
+                    Say($"{team.Name} stands up at its start", new { what = "standup", team = team.Name });
                 }
+                team.Quiet = true;
                 return;
             }
 
             // The teams of another realm that are near, and which of them it is fighting.
             List<PvpRoamTeam> others = teams.Where(other => other.Realm != team.Realm && other.Alive > 0 && Near(team, other, 9_000)).ToList();
+            team.Quiet = others.Count == 0 && team.ContactTick == 0;
             bool inCombat = team.Team.Members.Any(member => member.IsAlive && member.InCombat);
             team.Fighting.RemoveWhere(other => other.Alive == 0 || !Near(team, other, 6_000));
             foreach (PvpRoamTeam other in others)
@@ -348,11 +428,22 @@ namespace DOL.GS
                     if (drawn == null)
                     {
                         if (joins) team.Joined++; else team.LeftAlone++;
-                        Say($"{team.Name} comes on {mate.Name} fighting {other.Name}: it {(joins ? "joins" : "leaves them to it")}");
+                        Say($"{team.Name} comes on {mate.Name} fighting {other.Name}: it {(joins ? "joins" : "leaves them to it")}",
+                            new { what = "draw", team = team.Name, mate = mate.Name, other = other.Name, joins });
                     }
                 }
                 else if (mate == null)
                     team.Draws.Remove(other);
+            }
+            // It left a fair fight to its realm-mate; the other side has added, so it does too.
+            if (team.Leader == null && teams.FirstOrDefault(own => own != team && own.Realm == team.Realm && own.Alive > 0 &&
+                    EvensTheOdds(own.Fighting.Count) && own.Fighting.Any(enemy => team.Draws.TryGetValue(enemy, out bool joined) && !joined)) is { } pressed)
+            {
+                foreach (PvpRoamTeam enemy in pressed.Fighting)
+                    team.Draws[enemy] = true;
+                team.Joined++;
+                Say($"{team.Name} joins {pressed.Name} after all: {pressed.Fighting.Count} teams are on it",
+                    new { what = "evens", team = team.Name, mate = pressed.Name, others = pressed.Fighting.Select(enemy => enemy.Name).ToList() });
             }
             // Left alone, unless they come for it: by its draw, or because they stand at their own start.
             bool Attacks(PvpRoamTeam other) => other.Team.Members.Any(member => member.IsAlive && member.TargetObject is GameLiving aimed &&
@@ -376,7 +467,8 @@ namespace DOL.GS
                 if ((inCombat || other.Team.Members.Any(member => member.IsAlive && member.InCombat)) && Near(team, other, PvpScrim.EngageRange) && team.Fighting.Add(other))
                 {
                     team.Fights++;
-                    Say($"{team.Name} ({team.Alive}) fights {other.Name} ({other.Alive})");
+                    Say($"{team.Name} ({team.Alive}) fights {other.Name} ({other.Alive})",
+                        new { what = "fight", team = team.Name, other = other.Name, alive = team.Alive, theirs = other.Alive });
                 }
             }
 
@@ -418,7 +510,7 @@ namespace DOL.GS
                     foreach (GameBot bot in team.Team.Bots.Where(bot => bot.IsAlive))
                         (bot.Health, bot.Mana, bot.Endurance) = (bot.MaxHealth, bot.MaxMana, bot.MaxEndurance);
                     team.State = "Roaming";
-                    Say($"{team.Name} sets off");
+                    Say($"{team.Name} sets off", new { what = "setoff", team = team.Name });
                 }
             }
 
@@ -427,9 +519,20 @@ namespace DOL.GS
                 team.Team.Squad.Decide(enemies);
                 team.Team.Engage(enemies);
             }
-            // The player's seven go where the player goes; a team of bots walks its route.
+            // The player's seven go where the player goes; a team of bots walks its route, or waits out a fight it has left alone.
+            // (Once it waits it goes on waiting while that fight is within 12,000: at 9,000 it would walk and stop by turns.)
+            bool waits = WaitsOutAFight(team.Draws.Any(draw => !draw.Value && draw.Key.Alive > 0 && Near(team, draw.Key, team.Waiting ? 12_000 : 9_000)),
+                enemies.Count, team.Leader != null);
+            if (waits != team.Waiting)
+            {
+                team.Waiting = waits;
+                if (waits)
+                    Say($"{team.Name} waits where it is", new { what = "wait", team = team.Name });
+            }
             if (team.Leader != null)
                 team.Team.TravelWithLeader(enemies);
+            else if (waits)
+                team.Team.Halt();
             else if (team.State != "Buffing")
                 team.Team.March(enemies, team.Start.Point, null, null, team.ContactTick);
             if (enemies.Count > 0)
@@ -476,6 +579,8 @@ namespace DOL.GS
                         }
                     }
                     PvpRoster.Credit(AppContext.BaseDirectory, byTeam.Key.Roster, earned);
+                    if (_recording is { } recording)
+                        recording.Line(new { k = "ev", t = recording.Now, ev = new { what = "pay", dead = dead.Name, team = team.Name, to = byTeam.Key.Name, share, members = byTeam.Count() } });
                     Tell(byTeam.Key, $"{dead.Name} of {team.Name} is down: {share} realm points each.");
                 }
             }
@@ -492,12 +597,13 @@ namespace DOL.GS
                 Running,
                 Seconds = Running ? (now - _started) / 1000 : 0,
                 Error = _lastError,
+                Recording = _recording?.File,
                 Teams = teams.Select(team =>
                 {
                     (double x, double y) = team.Centre();
                     return new
                     {
-                        team.Name, Realm = team.Realm.ToString(), team.State, team.Alive, At = $"{(int)x},{(int)y}",
+                        team.Name, Realm = team.Realm.ToString(), team.State, team.Waiting, team.Alive, At = $"{(int)x},{(int)y}",
                         Waypoint = team.Team.Waypoint, Moving = team.Team.Bots.Count(bot => bot.IsAlive && bot.IsMoving),
                         Fighting = team.Fighting.Select(other => other.Name).ToList(),
                         team.Fights, team.Kills, team.Deaths, team.Wipes, team.Joined, team.LeftAlone, team.Earned,

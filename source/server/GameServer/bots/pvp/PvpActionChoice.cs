@@ -59,7 +59,8 @@ namespace DOL.GS
         int WalkInsideEdge = 0,   // how far inside the edge distance of the nearest awake enemy the walk would end
         bool KillOutOfReach = false, // no kill target is called, or it is beyond this spell's range from where the caster stands
         bool Rooted = false,      // held by a root or slowed by a spell, which damage would break
-        bool PetOnBackline = false); // the target is an enemy pet in melee on one of the group's healers or casters
+        bool PetOnBackline = false, // the target is an enemy pet in melee on one of the group's healers or casters
+        bool Called = false);     // the player of the group has called for control on this enemy (/8v8 call control)
 
     /// <summary>
     /// The numbers behind the choice. Every one is a weight added to an option's score, so none is
@@ -289,6 +290,13 @@ namespace DOL.GS
         /// 66% against 57%, wins 13 against 11, deaths 4.5 against 5.3. A lean, not a proof.
         /// </summary>
         public int RootOnPursuer { get; set; } = 60;
+
+        /// <summary>
+        /// "Control that one" (M9.3): a mez, stun, root or nearsight on the enemy the player has
+        /// called for. Enough to put it ahead of the group's own first choice, not so much that a
+        /// cast which would do nothing (the target immune, or a nearsight on a fighter) is made.
+        /// </summary>
+        public int ControlCalledByPlayer { get; set; } = 80;
         /// <summary>
         /// A stun on an enemy fighter that is on the group's healers and casters and is not held
         /// yet (the Pacification Healer's, for one). The owner, 2026-11-20: "It really comes down
@@ -589,6 +597,8 @@ namespace DOL.GS
                 if (option.Instant)
                     score += weights.InstantSpent + (option.Casting ? weights.InstantOnCastingTarget : 0);
             }
+            if (option.Called && option.Kind is PvpActionKind.Mez or PvpActionKind.MezArea or PvpActionKind.Stun or PvpActionKind.Root or PvpActionKind.Nearsight)
+                score += weights.ControlCalledByPlayer;
             score -= weights.PowerScarcity * option.CostPercent * (100 - option.PowerPercent) / 100.0;
             score -= weights.PerHundredUnitsShort * option.Short / 100.0 - (option.Short > 0 ? weights.NeedsWalk : 0);
             if (option.Short > 0)
