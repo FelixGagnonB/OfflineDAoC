@@ -211,7 +211,7 @@ namespace DOL.GS
                     return PvpScrim.ScanLanes(int.Parse(Arg("Distance") ?? "0"), int.Parse(Arg("Step") ?? "500"));
 
                 case "roam-start":
-                    return PvpRoam.Start(int.Parse(Arg("Teams") ?? "2"), Arg("Owner") ?? "roam");
+                    return PvpRoam.Start(int.Parse(Arg("Teams") ?? "2"), Arg("Owner") ?? "roam", null, null, PvpRoam.MapFor(Arg("Map")));
 
                 case "roam-status":
                     return PvpRoam.Status();

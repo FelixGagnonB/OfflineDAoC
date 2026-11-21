@@ -2559,7 +2559,41 @@ In order:
      Seen in the first recorded roam of six teams: all six met on the one road within ninety
      seconds, and the only fight had four teams in it. That is what Thidranki (step 5), with
      its three starts round a middle, may do better.
-  5. [ ] Thidranki as a second map.
+  5. [x] Thidranki as a second map.
+     *Done 2026-11-21, with bots only: **not yet tried with a player**.* `/8v8 roam thid`, the
+     **Thidranki** start of the setup window, `roam-start Map=thid`. A roam has a map now
+     (`PvpRoamMap`: region, starts, routes), Emain Macha being the first.
+     What the world data and the installed navmesh say of Thidranki (region 252): three portal
+     keeps round a neutral keep with guards, 33,700 to 40,900 units from each other on foot
+     and 16,300 to 27,700 from the middle, every way between them within 8% of the straight
+     line. Its level cap (20 to 24) acts on the zone's own doors and on a logout there, and
+     stops neither a level 50 who is put there nor the points a roam pays itself.
+     Each realm starts 2,500 units in front of its portal keep. Three points to walk between,
+     one between each two realms, none within 8,500 of the neutral keep; a realm's first team
+     goes round them one way and its second the other, so each point is the first of two
+     teams of two realms.
+     The first run: the six met as two fights of eight against eight at 110 and 112 s, and a
+     team of the third realm was in each within a minute. So **the draw is for any fight that
+     is on**, a realm-mate's or one between the two other realms (`PvpRoam.ComesOnAFight`):
+     three times in ten a team joins, and otherwise it waits where it is and takes on whoever
+     is left ("should we assjam or not an ongoing fight. Most of the respected 8v8 team were
+     not"). To ask the owner: a team that waited attacks the winner as soon as the fight is
+     over, without letting it rest.
+     The third run, seven and a half minutes: four fights, three of them of two teams from
+     first blow to last (cut and read by `pvp_referee.py`); three wipes and each team standing
+     up at its keep; a Midgard team that came on Albion fighting Hibernia waited 51 seconds and
+     then fought the Hibernian team that had won; 9 MB of recording.
+     Also from these runs:
+     - "Joins after all" was taken for an add when its realm-mate was in a three-way fight (one
+       team of each other realm on it). It is for two teams of *one* realm on its realm-mate.
+     - **After a fight a team of bots sees to its dead before it walks on** (it walked on short
+       before, the dead left where they fell): with a member alive that can raise, it gathers
+       at its dead for up to 90 seconds; with nobody to raise them, or when that time is up, it
+       goes back to its start and forms up again as after a wipe
+       (`Real.RaisesItsDeadForSeconds`, `Real.ReformsAfterSeconds`). Built; the three runs had
+       no team left in that state, so it is unseen.
+     - A second cloak was refused with an error and a stack trace in the log for every 8v8 bot
+       made, 2,000 times that morning: a bot that wears one is not given another.
 
 - [ ] **M9.2** (M) Bot shot-caller: calls announced in group chat (assist target, mez landed,
   retreat), with an assist key for the owner.
@@ -2637,6 +2671,10 @@ round:*
 - [ ] **M10.4** (M) Tuning rounds with the owner: 20 fights, review the analyzer's failure list,
   fix, repeat.
 - [ ] **M10.5** (S) Player guide for the 8v8 mode and an update of the developer docs.
+  *Player guide written 2026-11-21: [PVP-8V8-GUIDE.md](PVP-8V8-GUIDE.md)* (the three ways to
+  play, the roam's rules, the calls, what has and has not been tried in a client). The owner
+  had twice taken one mode for another ("I misunderstood how to use the /8v8 practice vs real";
+  "There should be 6 teams total?"). The developer docs are not updated yet.
 
 **Exit check:** all four points of the definition of done.
 

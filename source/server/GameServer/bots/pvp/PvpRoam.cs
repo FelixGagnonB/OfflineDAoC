@@ -9,7 +9,17 @@ using DOL.Logging;
 namespace DOL.GS
 {
     /// <summary>Where a realm's teams start in a roam, and the points they walk between.</summary>
-    public sealed record PvpRoamStart(eRealm Realm, (int X, int Y) Point, (int X, int Y)[] Route);
+    /// <param name="SecondRoute">The way of the realm's second team, when it is not the first team's.</param>
+    public sealed record PvpRoamStart(eRealm Realm, (int X, int Y) Point, (int X, int Y)[] Route, (int X, int Y)[] SecondRoute = null)
+    {
+        public (int X, int Y)[] RouteOf(int teamNumber) => teamNumber >= 2 && SecondRoute != null ? SecondRoute : Route;
+    }
+
+    /// <summary>A zone a roam is held in: its region and where each realm's teams start and walk.</summary>
+    public sealed record PvpRoamMap(string Id, string Name, ushort Region, IReadOnlyList<PvpRoamStart> Starts)
+    {
+        public PvpRoamStart StartOf(eRealm realm) => Starts.First(start => start.Realm == realm);
+    }
 
     /// <summary>One team of a roam.</summary>
     public sealed class PvpRoamTeam
@@ -28,6 +38,9 @@ namespace DOL.GS
         public bool Quiet = true;
         /// <summary>Standing by a fight it has left to its realm-mate.</summary>
         public bool Waiting;
+        /// <summary>Out of a fight with dead members since this tick (0: none); and gone back to its start to form up again.</summary>
+        public long DeadSince;
+        public bool Reforming;
         /// <summary>The enemy teams it is in a fight with now.</summary>
         public readonly HashSet<PvpRoamTeam> Fighting = [];
         /// <summary>Its draw for each enemy team its realm's other team is fighting: true, it joins.</summary>
@@ -90,6 +103,37 @@ namespace DOL.GS
             new(eRealm.Hibernia, HiberniaHill, [South, North]),
         ];
 
+        // Thidranki (region 252, M9.7 step 5): three portal keeps round a middle, 33,700 to 40,900
+        // units from each other on foot, and a neutral keep with its guards between them
+        // (33089,38271). Each realm starts 2,500 units in front of its portal keep, on the way to
+        // the middle. Three points to walk between, one between each two realms and none within
+        // 8,500 of the neutral keep: HM between Hibernia and Midgard, HA between Hibernia and
+        // Albion, MA between Midgard and Albion. A realm's first team goes round them one way and
+        // its second the other, so that the six meet two by two: at their first points Hibernia's
+        // first and Midgard's second (16,800 and 17,600 to walk), Hibernia's second and Albion's
+        // first (15,400 and 20,300), Midgard's first and Albion's second (12,300 and 17,600).
+        // Every leg checked on the installed navmesh, 2026-11-21: each is within 8% of the straight line.
+        public static readonly (int X, int Y) ThidHM = (36207, 21468), ThidHA = (26000, 33500), ThidMA = (47000, 36500);
+
+        public static readonly IReadOnlyList<PvpRoamStart> ThidrankiStarts =
+        [
+            new(eRealm.Albion, (36585, 49967), [ThidHA, ThidHM, ThidMA], [ThidMA, ThidHM, ThidHA]),
+            new(eRealm.Midgard, (51955, 26040), [ThidMA, ThidHA, ThidHM], [ThidHM, ThidHA, ThidMA]),
+            new(eRealm.Hibernia, (19844, 20271), [ThidHM, ThidMA, ThidHA], [ThidHA, ThidMA, ThidHM]),
+        ];
+
+        public static readonly PvpRoamMap Emain = new("emain", "Emain Macha", EmainRegion, EmainStarts);
+        public static readonly PvpRoamMap Thidranki = new("thid", "Thidranki", 252, ThidrankiStarts);
+
+        /// <summary>The map a word stands for ("thid", "thidranki", "emain"); null for a word that names none.</summary>
+        public static PvpRoamMap MapFor(string word) => (word ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "thid" or "thidranki" => Thidranki,
+            "emain" or "emainmacha" => Emain,
+            _ => null,
+        };
+
+        private static volatile PvpRoamMap _map = Emain;
         private static volatile List<PvpRoamTeam> _teams = [];
         // No bot team comes in below this realm level: the average of the player's group, when there is a player.
         private static int _floor = 1;
@@ -105,8 +149,21 @@ namespace DOL.GS
         /// <summary>The names of a realm's teams: "mid-main" and "mid-main#2".</summary>
         public static string TeamName(string groupId, int number) => number <= 1 ? groupId : $"{groupId}#{number}";
 
-        /// <summary>Whether a team that comes on its realm-mate's fight joins it: one draw, <paramref name="roll"/> from 0 to 99.</summary>
+        /// <summary>Whether a team that comes on a fight joins it: one draw, <paramref name="roll"/> from 0 to 99.</summary>
         public static bool Joins(int addChancePercent, int roll) => roll < addChancePercent;
+
+        /// <summary>
+        /// Whether an enemy team is in a fight this team has come on from outside, which is what
+        /// the draw is for: it fights somebody else, this team is not fighting it, and that
+        /// somebody is not one this team is fighting (then the enemy team came into this team's
+        /// fight, and is simply an enemy). The somebody may be this team's realm-mate or a team
+        /// of the third realm: "should we assjam or not an ongoing fight. Most of the respected
+        /// 8v8 team were not." Until 2026-11-21 the draw was for a realm-mate's fight only, and
+        /// in the first roam in Thidranki each of the two 8v8 fights had a team of the third
+        /// realm in it within a minute.
+        /// </summary>
+        public static bool ComesOnAFight(bool theyFightSomebodyElse, bool thatSomebodyIsInOurFight, bool weFightThemAlready) =>
+            theyFightSomebodyElse && !thatSomebodyIsInOurFight && !weFightThemAlready;
 
         /// <summary>
         /// A fight left alone is left alone by both sides: the team that drew "leaves them to it"
@@ -132,22 +189,27 @@ namespace DOL.GS
 
         /// <summary>
         /// A team that left a fair fight alone does not go on watching when the other side adds:
-        /// with more enemy teams on its realm-mate than the one it left to it, it joins after
-        /// all. In the roam of 2026-11-21 a Midgard team stood 8,000 units off while its
-        /// realm-mate fought two Hibernian teams, the second of which had drawn "joins".
+        /// with two teams of one realm on its realm-mate, it joins after all. In the roam of
+        /// 2026-11-21 a Midgard team stood 8,000 units off while its realm-mate fought two
+        /// Hibernian teams, the second of which had drawn "joins". One team of each other realm
+        /// on its realm-mate is a three-way fight and nobody's sixteen against eight: in the
+        /// second roam in Thidranki that was taken for an add, and the fight had four teams.
         /// </summary>
-        public static bool EvensTheOdds(int enemyTeamsOnItsRealmMate) => enemyTeamsOnItsRealmMate >= 2;
+        public static bool EvensTheOdds(int mostTeamsOfOneRealmOnItsRealmMate) => mostTeamsOfOneRealmOnItsRealmMate >= 2;
+
+        private static int MostOfOneRealm(IEnumerable<PvpRoamTeam> teams) =>
+            teams.GroupBy(team => team.Realm).Select(realm => realm.Count()).DefaultIfEmpty(0).Max();
 
         /// <summary>The squad of the team a player leads in the roam; null for a player who leads none.</summary>
         public static PvpSquad SquadOf(GamePlayer player) =>
             player == null ? null : _teams.FirstOrDefault(team => team.Leader == player)?.Team.Squad;
 
         /// <summary>Where a team of this realm starts, on the ground.</summary>
-        public static Point3D StartSpot(eRealm realm)
+        public static Point3D StartSpot(PvpRoamMap map, eRealm realm)
         {
-            PvpRoamStart start = EmainStarts.First(entry => entry.Realm == realm);
+            PvpRoamStart start = map.StartOf(realm);
             var nav = PathfindingProvider.Instance;
-            Zone zone = WorldMgr.GetRegion(EmainRegion)?.GetZone(start.Point.X, start.Point.Y);
+            Zone zone = WorldMgr.GetRegion(map.Region)?.GetZone(start.Point.X, start.Point.Y);
             System.Numerics.Vector3 point = zone != null && nav.GetFloorBeneath(zone, new System.Numerics.Vector3(start.Point.X, start.Point.Y, 20_000), 20_000, nav.DefaultFilters)
                 is { } floor && floor.Z < 19_999 ? floor : new System.Numerics.Vector3(start.Point.X, start.Point.Y, 4_000);
             return new Point3D((int)point.X, (int)point.Y, (int)point.Z);
@@ -159,8 +221,8 @@ namespace DOL.GS
         /// who releases as the game has it. The bind point is in another region, and a player
         /// who left the zone was a player who had left the game: the roam ended.
         /// </summary>
-        public static Point3D ReleasePoint(GamePlayer player) =>
-            player != null && _teams.Any(team => team.Leader == player) ? StartSpot(player.Realm) : null;
+        public static (ushort Region, Point3D Spot)? ReleasePoint(GamePlayer player) =>
+            player != null && _teams.Any(team => team.Leader == player) ? (_map.Region, StartSpot(_map, player.Realm)) : null;
 
         /// <summary>
         /// Whether a team is wiped: nobody alive, or, for the player's, every companion dead and
@@ -172,20 +234,21 @@ namespace DOL.GS
 
         /// <summary><c>/8v8 roam</c>: the player is taken to the start of its realm and leads the first team of it.</summary>
         /// <param name="own">The player's group when it is not the realm's main one (PvpBuildCatalog.Variants).</param>
-        public static void StartFor(GamePlayer player, Action<string> say, PvpGroupTemplate own = null)
+        public static void StartFor(GamePlayer player, Action<string> say, PvpGroupTemplate own = null, PvpRoamMap map = null)
         {
+            map ??= Emain;
             if (own != null && own.Realm != player.Realm)
                 own = null;
             if (PvpScrim.Running)
                 throw new InvalidOperationException("A fight or a roam is already running. /8v8 stop ends it.");
             if (PvpPlayerReady.EnterReal(player) is { } set)
                 say(set);
-            PvpScrim.TravelThen(player, EmainRegion, StartSpot(player.Realm), say, () =>
+            PvpScrim.TravelThen(player, map.Region, StartSpot(map, player.Realm), say, () =>
             {
                 try
                 {
-                    Start(2, player.InternalID, player, own);
-                    say("The roam is on: two groups of each realm in Emain Macha, yours with you here. Kills earn realm points that are kept, " +
+                    Start(2, player.InternalID, player, own, map);
+                    say($"The roam is on: two groups of each realm in {map.Name}, yours with you here. Kills earn realm points that are kept, " +
                         "no timer is reset, and a wipe puts your group back here (so does /release). /8v8 ranks, /8v8 stop.");
                 }
                 catch (Exception exception)
@@ -195,17 +258,19 @@ namespace DOL.GS
             });
         }
 
-        public static object Start(int teamsPerRealm, string owner, GamePlayer leader = null, PvpGroupTemplate own = null)
+        public static object Start(int teamsPerRealm, string owner, GamePlayer leader = null, PvpGroupTemplate own = null, PvpRoamMap map = null)
         {
+            map ??= Emain;
             if (PvpScrim.Running)
                 throw new InvalidOperationException("A scrim or a session is running. Stop it first.");
             PvpArena.Clear();
             PvpWeights.Reload(AppContext.BaseDirectory);
+            _map = map;
             var teams = new List<PvpRoamTeam>();
             long now = GameLoop.GameLoopTime;
             PvpRealWeights real = PvpWeights.Current.Real;
             // The player's own team first: the others are made no lower in rank than it is (PvpRealWeights.EnemyKeepsUp).
-            foreach (PvpRoamStart start in EmainStarts.OrderBy(entry => leader != null && entry.Realm == leader.Realm ? 0 : 1))
+            foreach (PvpRoamStart start in map.Starts.OrderBy(entry => leader != null && entry.Realm == leader.Realm ? 0 : 1))
             {
                 PvpGroupTemplate template = PvpBuildCatalog.Groups.First(group => group.Realm == start.Realm);
                 for (int number = 1; number <= Math.Clamp(teamsPerRealm, 1, 2); number++)
@@ -220,7 +285,7 @@ namespace DOL.GS
                         LeavesAt = now + 1000L * PvpRealWeights.SetsOffAfterSeconds(teams.Count(other => other.Realm == start.Realm && other.Leader == null), real),
                     };
                     team.Team.Leader = led ? leader : null;
-                    team.Team.Route = start.Route;
+                    team.Team.Route = start.RouteOf(number);
                     _floor = leader == null || teams.Count == 0 ? 1 : PvpRealmPoints.EnemyLevel(1,
                         teams[0].Team.Bots.Select(bot => bot.RealmLevel).Append(leader.RealmLevel).ToList(), PvpWeights.Current.Real.EnemyKeepsUp);
                     Spawn(team, now);
@@ -230,7 +295,7 @@ namespace DOL.GS
             _teams = teams;
             _started = now;
             // One recording for the session (M9.7 step 4): every team under its own name.
-            _recording = PvpRecorder.BeginRoam(leader != null ? "roam-play" : "roam",
+            _recording = PvpRecorder.BeginRoam((leader != null ? "roam-play" : "roam") + (map == Emain ? string.Empty : "-" + map.Id),
                 teams.Select(team => (team.Name, team.Template.Id, team.Realm, team.Team.Members)).ToList());
             lock (Events) Events.Clear();
             _timer?.Dispose();
@@ -262,7 +327,7 @@ namespace DOL.GS
             // The player's seven are put around the player, who stands at the start; a team of bots around its start.
             team.Team.Bots = leader != null
                 ? PvpArena.SpawnCompanions(leader, 0, team.All, team.Template, true).ToList()
-                : PvpArena.SpawnGroup(team.Template, EmainRegion, team.Start.Point.X, team.Start.Point.Y, 0, team.All, team.Roster, _floor).ToList();
+                : PvpArena.SpawnGroup(team.Template, _map.Region, team.Start.Point.X, team.Start.Point.Y, 0, team.All, team.Roster, _floor).ToList();
             team.Team.Home = team.Start.Point;
             team.Team.Waypoint = 0;
             team.Team.NewMatch(leader);
@@ -276,6 +341,7 @@ namespace DOL.GS
             team.Fighting.Clear();
             team.Draws.Clear();
             team.Waiting = false;
+            (team.DeadSince, team.Reforming) = (0, false);
             (team.State, team.StateSince, team.ContactTick, team.LastEnemyNearTick) = (leader != null ? "Roaming" : "Buffing", now, 0, now);
         }
 
@@ -287,7 +353,7 @@ namespace DOL.GS
         {
             if (team.Leader is { } leader)
             {
-                Point3D spot = StartSpot(team.Realm);
+                Point3D spot = StartSpot(_map, team.Realm);
                 if (!leader.IsAlive)
                 {
                     leader.TempProperties.SetProperty(GamePlayer.RESURRECT_REZ_SICK_EFFECTIVENESS, 0.0);
@@ -297,7 +363,7 @@ namespace DOL.GS
                 (leader.Health, leader.Mana, leader.Endurance) = (leader.MaxHealth, leader.MaxMana, leader.MaxEndurance);
                 // A player who released is there already.
                 if (!leader.IsWithinRadius(spot, 1_500))
-                    leader.MoveTo(EmainRegion, spot.X, spot.Y, spot.Z, leader.Heading);
+                    leader.MoveTo(_map.Region, spot.X, spot.Y, spot.Z, leader.Heading);
                 Tell(team, "Your group stands up at its start.");
             }
             Spawn(team, now);
@@ -385,10 +451,17 @@ namespace DOL.GS
         private static void Step(PvpRoamTeam team, List<PvpRoamTeam> teams, long now, PvpRealWeights real)
         {
             // Nobody left: it stands up at its start point after a wait, as a new group of the same eight.
-            if (IsWiped(team.Team.Bots.Count(bot => bot.IsAlive), team.Leader != null, team.Leader?.IsAlive == true,
+            if (team.Reforming || IsWiped(team.Team.Bots.Count(bot => bot.IsAlive), team.Leader != null, team.Leader?.IsAlive == true,
                     team.Leader?.IsWithinRadius(new Point2D(team.Start.Point.X, team.Start.Point.Y), real.StartIsSafeWithin) == true))
             {
-                if (team.State != "Down")
+                if (team.State != "Down" && team.Reforming)
+                {
+                    // Gone from the field at once (nobody is near to see it), and back at its start after the wait of a wipe.
+                    (team.State, team.StateSince) = ("Down", now);
+                    team.Fighting.Clear();
+                    PvpArena.Remove(team.All);
+                }
+                else if (team.State != "Down")
                 {
                     (team.State, team.StateSince) = ("Down", now);
                     team.Wipes++;
@@ -410,39 +483,45 @@ namespace DOL.GS
             }
 
             // The teams of another realm that are near, and which of them it is fighting.
-            List<PvpRoamTeam> others = teams.Where(other => other.Realm != team.Realm && other.Alive > 0 && Near(team, other, 9_000)).ToList();
+            List<PvpRoamTeam> others = teams.Where(other => other.Realm != team.Realm && other.Alive > 0 && !other.Reforming && Near(team, other, 9_000)).ToList();
             team.Quiet = others.Count == 0 && team.ContactTick == 0;
             bool inCombat = team.Team.Members.Any(member => member.IsAlive && member.InCombat);
             team.Fighting.RemoveWhere(other => other.Alive == 0 || !Near(team, other, 6_000));
             foreach (PvpRoamTeam other in others)
             {
-                // Its realm's other team is already fighting this one: it joins, or it leaves them to it. One draw.
-                PvpRoamTeam mate = teams.FirstOrDefault(own => own != team && own.Realm == team.Realm && own.Alive > 0 && own.Fighting.Contains(other));
+                // This enemy team is already in a fight, with this team's realm-mate or with a team of the
+                // third realm: this team joins, or it leaves them to it and waits. One draw for the fight.
+                List<PvpRoamTeam> theirFight = teams.Where(third => third != team && third != other && third.Alive > 0 &&
+                    (other.Fighting.Contains(third) || third.Fighting.Contains(other))).ToList();
+                bool onAFight = ComesOnAFight(theirFight.Count > 0, theirFight.Any(team.Fighting.Contains), team.Fighting.Contains(other));
                 // (The player's own team does what the player does.)
-                if (mate != null && team.Leader == null && !team.Fighting.Contains(other) && !team.Draws.ContainsKey(other))
+                if (onAFight && team.Leader == null && !team.Draws.ContainsKey(other))
                 {
-                    // One draw for one fight: what it drew for another team in the same fight of its realm-mate holds for this one.
-                    bool? drawn = team.Draws.Where(draw => mate.Fighting.Contains(draw.Key)).Select(draw => (bool?)draw.Value).FirstOrDefault();
+                    // What it drew for another team of the same fight holds for this one.
+                    bool? drawn = team.Draws.Where(draw => theirFight.Contains(draw.Key)).Select(draw => (bool?)draw.Value).FirstOrDefault();
                     bool joins = drawn ?? Joins(real.AddChancePercent, Random.Shared.Next(100));
                     team.Draws[other] = joins;
                     if (drawn == null)
                     {
                         if (joins) team.Joined++; else team.LeftAlone++;
-                        Say($"{team.Name} comes on {mate.Name} fighting {other.Name}: it {(joins ? "joins" : "leaves them to it")}",
-                            new { what = "draw", team = team.Name, mate = mate.Name, other = other.Name, joins });
+                        PvpRoamTeam mate = theirFight.FirstOrDefault(third => third.Realm == team.Realm);
+                        Say(mate != null
+                                ? $"{team.Name} comes on {mate.Name} fighting {other.Name}: it {(joins ? "joins" : "leaves them to it")}"
+                                : $"{team.Name} comes on {other.Name} fighting {string.Join(" and ", theirFight.Select(third => third.Name))}: it {(joins ? "joins" : "waits for it to end")}",
+                            new { what = "draw", team = team.Name, mate = mate?.Name, other = other.Name, joins });
                     }
                 }
-                else if (mate == null)
+                else if (theirFight.Count == 0)
                     team.Draws.Remove(other);
             }
             // It left a fair fight to its realm-mate; the other side has added, so it does too.
             if (team.Leader == null && teams.FirstOrDefault(own => own != team && own.Realm == team.Realm && own.Alive > 0 &&
-                    EvensTheOdds(own.Fighting.Count) && own.Fighting.Any(enemy => team.Draws.TryGetValue(enemy, out bool joined) && !joined)) is { } pressed)
+                    EvensTheOdds(MostOfOneRealm(own.Fighting)) && own.Fighting.Any(enemy => team.Draws.TryGetValue(enemy, out bool joined) && !joined)) is { } pressed)
             {
                 foreach (PvpRoamTeam enemy in pressed.Fighting)
                     team.Draws[enemy] = true;
                 team.Joined++;
-                Say($"{team.Name} joins {pressed.Name} after all: {pressed.Fighting.Count} teams are on it",
+                Say($"{team.Name} joins {pressed.Name} after all: two teams of one realm are on it",
                     new { what = "evens", team = team.Name, mate = pressed.Name, others = pressed.Fighting.Select(enemy => enemy.Name).ToList() });
             }
             // Left alone, unless they come for it: by its draw, or because they stand at their own start.
@@ -519,6 +598,26 @@ namespace DOL.GS
                 team.Team.Squad.Decide(enemies);
                 team.Team.Engage(enemies);
             }
+            // After a fight a team of bots sees to its dead before it walks on: it raises them, or goes back to its start.
+            GameBot body = null;
+            if (team.Leader == null && !inCombat && enemies.Count == 0 && team.Team.Bots.Any(bot => !bot.IsAlive))
+            {
+                if (team.DeadSince == 0)
+                    team.DeadSince = now;
+                List<GameBot> living = team.Team.Bots.Where(bot => bot.IsAlive).ToList();
+                bool canRaise = living.Any(bot => bot.ResurrectionSpell != null);
+                if (PvpRealWeights.Reforms(canRaise, (now - team.DeadSince) / 1000.0, real))
+                {
+                    team.Reforming = true;
+                    Say($"{team.Name} goes back to its start to form up again ({team.Team.Bots.Count - living.Count} dead, {(canRaise ? "not raised in time" : "nobody to raise them")})",
+                        new { what = "reform", team = team.Name, dead = team.Team.Bots.Count - living.Count, canRaise });
+                    return;
+                }
+                (double x, double y) = team.Centre();
+                body = team.Team.Bots.Where(bot => !bot.IsAlive).OrderBy(bot => (bot.X - x) * (bot.X - x) + (bot.Y - y) * (bot.Y - y)).First();
+            }
+            else
+                team.DeadSince = 0;
             // The player's seven go where the player goes; a team of bots walks its route, or waits out a fight it has left alone.
             // (Once it waits it goes on waiting while that fight is within 12,000: at 9,000 it would walk and stop by turns.)
             bool waits = WaitsOutAFight(team.Draws.Any(draw => !draw.Value && draw.Key.Alive > 0 && Near(team, draw.Key, team.Waiting ? 12_000 : 9_000)),
@@ -531,6 +630,8 @@ namespace DOL.GS
             }
             if (team.Leader != null)
                 team.Team.TravelWithLeader(enemies);
+            else if (body != null)
+                team.Team.GatherAt(body, 500);
             else if (waits)
                 team.Team.Halt();
             else if (team.State != "Buffing")
@@ -595,6 +696,7 @@ namespace DOL.GS
             return new
             {
                 Running,
+                Map = _map.Name,
                 Seconds = Running ? (now - _started) / 1000 : 0,
                 Error = _lastError,
                 Recording = _recording?.File,

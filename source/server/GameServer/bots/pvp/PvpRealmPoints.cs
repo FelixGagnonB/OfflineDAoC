@@ -25,9 +25,9 @@ namespace DOL.GS
         public int ShareWithin { get; set; } = 6_000;
 
         /// <summary>
-        /// A roam: a bot team that comes on a fight its own realm's other team is in joins it this
-        /// often, in percent, and otherwise leaves that enemy team alone until the fight is over
-        /// (unless it is attacked). The owner, 2026-11-20: "It could be random, like 30% would add
+        /// A roam: a bot team that comes on a fight that is on (its realm's other team's, or one
+        /// between teams of the two other realms) joins it this often, in percent, and otherwise
+        /// leaves the teams in it alone until the fight is over (unless it is attacked). The owner, 2026-11-20: "It could be random, like 30% would add
         /// 70% won't add or so. It always been a heated discussion, should we assjam or not an
         /// ongoing fight. Most of the respected 8v8 team were not."
         /// </summary>
@@ -48,6 +48,21 @@ namespace DOL.GS
         /// <summary>How long after the start a team of bots sets off: <paramref name="botTeamsBefore"/> of its realm leave before it.</summary>
         public static int SetsOffAfterSeconds(int botTeamsBefore, PvpRealWeights real) =>
             real.BuffsAtStartSeconds + Math.Max(0, botTeamsBefore) * real.NextTeamFollowsAfterSeconds;
+
+        /// <summary>
+        /// A roam, after a fight: a team of bots with dead members does not walk on without them.
+        /// With a member alive that can raise, it gathers at its dead and raises them, for up to
+        /// the first number of seconds; with nobody to raise them, or when that time is up, it
+        /// goes back to its start after the second (as players release and form up again) and
+        /// stands up there as after a wipe. Until 2026-11-21 it walked on short, the dead left
+        /// where they fell, until the next fight wiped it.
+        /// </summary>
+        public int RaisesItsDeadForSeconds { get; set; } = 90;
+        public int ReformsAfterSeconds { get; set; } = 20;
+
+        /// <summary>Whether a team out of a fight, with dead it has had for this long, gives up on them and goes back to its start.</summary>
+        public static bool Reforms(bool someoneCanRaise, double secondsWithItsDead, PvpRealWeights real) =>
+            secondsWithItsDead >= (someoneCanRaise ? real.RaisesItsDeadForSeconds : real.ReformsAfterSeconds);
 
         /// <summary>A roam: a team with nobody left alive stands up at its start point after this many seconds.</summary>
         public int WipeStandsUpAfterSeconds { get; set; } = 30;

@@ -30,6 +30,7 @@ namespace DOL.GS.Commands
                 case "lane": return this with { Start = "lane" };
                 case "basin": return this with { Start = "basin" };
                 case "roam": return this with { Start = "roam" };
+                case "thidranki": return this with { Start = "thid" };
                 case "practice": return this with { Real = false };
                 case "real": return this with { Real = true };
                 case string id when PvpBuildCatalog.FindGroup(id) is { } group && group.Realm == own:
@@ -55,12 +56,13 @@ namespace DOL.GS.Commands
             return "8v8: you and seven companions against a group of eight, in Emain Macha.\n\n" +
                    ownLine +
                    $"Enemy:   {realms}\n\n" +
-                   $"Start:   {Pick("Lane", Start == "lane")}   {Pick("Basin", Start == "basin")}   {Pick("Roam", Start == "roam")}\n" +
+                   $"Start:   {Pick("Lane", Start == "lane")}   {Pick("Basin", Start == "basin")}   {Pick("Roam", Start == "roam")}   {Pick("Thidranki", Start == "thid")}\n" +
                    $"On the road:   {Pick("Lead", !BotDrives)}   {Pick("Follow", BotDrives)}\n" +
                    "Lead: your group follows you. Follow: your Bard, Skald or Minstrel drives and you stick to it.\n" +
                    "Lane: face to face, 6,000 units apart. Basin: opposite ends, out of sight; the enemy roams and you find it.\n" +
-                   "Roam: six groups in the zone, two of each realm, yours one of them, each from its realm's start; it goes on from " +
-                   "fight to fight until /8v8 stop. Always by the Real rules and with you leading: the enemy, the rules and the rank below are not asked.\n\n" +
+                   "Roam: six groups in Emain Macha, two of each realm, yours one of them, each from its realm's start; it goes on from " +
+                   "fight to fight until /8v8 stop. Thidranki: the same in the battleground, where the three realms start round a middle and meet sooner. " +
+                   "Both always by the Real rules and with you leading: the enemy, the rules and the rank below are not asked.\n\n" +
                    $"Rules:   {Pick("Practice", !Real)}   {Pick("Real", Real)}\n" +
                    "Practice: everybody at the rank picked below, your timers reset, nothing earned. " +
                    "Real: everybody at the rank it has earned, from rank 1, kills earn realm points that are kept (/8v8 ranks), no timer is reset.\n" +
@@ -150,12 +152,12 @@ namespace DOL.GS.Commands
                     return true;
                 }
                 // The owner, 2026-11-21, having picked Real here and found two groups: "There should be 6 teams total?"
-                if (setup.Start == "roam")
+                if (setup.Start is "roam" or "thid")
                 {
                     void Said(string said) => owner.Out.SendMessage(said, eChatType.CT_System, eChatLoc.CL_SystemWindow);
                     try
                     {
-                        PvpRoam.StartFor(owner, Said, PvpBuildCatalog.FindGroup(setup.Own));
+                        PvpRoam.StartFor(owner, Said, PvpBuildCatalog.FindGroup(setup.Own), setup.Start == "thid" ? PvpRoam.Thidranki : PvpRoam.Emain);
                     }
                     catch (System.Exception exception)
                     {

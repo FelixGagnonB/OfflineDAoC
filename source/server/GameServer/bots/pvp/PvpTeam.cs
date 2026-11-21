@@ -303,6 +303,31 @@ namespace DOL.GS
             }
         }
 
+        /// <summary>Out of a fight, everybody goes to a place and stops there: a dead groupmate, so that it is in reach to be raised.</summary>
+        public void GatherAt(GameObject at, int within)
+        {
+            foreach (GameBot bot in Bots)
+            {
+                if (!bot.IsAlive || bot.IsCasting || bot.IsIncapacitated)
+                    continue;
+                if (bot.FollowTarget != null)
+                    bot.StopFollowing();
+                if (bot.IsWithinRadius(at, within))
+                {
+                    if (bot.IsMoving)
+                    {
+                        bot.StopMovingOnPath();
+                        bot.StopMoving();
+                    }
+                    continue;
+                }
+                // Repeated every few seconds: the brain's own idle logic stops a walking bot.
+                if (bot.IsMoving && GameLoop.GameLoopTime % 4_000 >= 1_000)
+                    continue;
+                bot.PathTo(new Vector3(at.X, at.Y, at.Z), bot.MaxSpeed);
+            }
+        }
+
         /// <summary>Everybody stops where it is (a team of a roam waiting out a fight it has left alone).</summary>
         public void Halt()
         {

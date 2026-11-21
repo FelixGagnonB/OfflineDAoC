@@ -68,6 +68,15 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void TheDrawIsForAnyFightThatIsOn()
+        {
+            Assert.That(PvpRoam.ComesOnAFight(true, false, false), Is.True, "its realm-mate's fight, or one between the two other realms");
+            Assert.That(PvpRoam.ComesOnAFight(false, false, false), Is.False, "a team on its own is simply an enemy");
+            Assert.That(PvpRoam.ComesOnAFight(true, true, false), Is.False, "they came into this team's fight");
+            Assert.That(PvpRoam.ComesOnAFight(true, false, true), Is.False, "it is in that fight already");
+        }
+
+        [Test]
         public void AFightLeftAloneIsLeftAloneByBothSides()
         {
             Assert.That(PvpRoam.LeavesAlone(true, false, false, false), Is.True, "the team that drew it does not attack");
@@ -75,6 +84,49 @@ namespace DOL.UnitTests
             Assert.That(PvpRoam.LeavesAlone(true, false, true, false), Is.False, "attacked, it answers");
             Assert.That(PvpRoam.LeavesAlone(false, true, false, true), Is.False, "the player picks its own fights");
             Assert.That(PvpRoam.LeavesAlone(false, false, false, false), Is.False, "no draw, no truce");
+        }
+
+        [Test]
+        public void ThidrankiIsASecondMapWhoseSixTeamsMeetTwoByTwo()
+        {
+            Assert.That(PvpRoam.MapFor("thid"), Is.SameAs(PvpRoam.Thidranki));
+            Assert.That(PvpRoam.MapFor(" Thidranki "), Is.SameAs(PvpRoam.Thidranki));
+            Assert.That(PvpRoam.MapFor("emain"), Is.SameAs(PvpRoam.Emain));
+            Assert.That(PvpRoam.MapFor("hib-2bard"), Is.Null, "a group's name is no map");
+            Assert.That(PvpRoam.MapFor(null), Is.Null);
+            Assert.That(PvpRoam.Thidranki.Region, Is.EqualTo(252));
+            Assert.That(PvpRoam.Emain.Region, Is.EqualTo(200));
+            Assert.That(PvpRoam.Thidranki.Starts.Select(start => start.Realm), Is.EquivalentTo(new[] { eRealm.Albion, eRealm.Midgard, eRealm.Hibernia }));
+
+            // A realm's two teams go round the three points opposite ways...
+            foreach (PvpRoamStart start in PvpRoam.Thidranki.Starts)
+            {
+                Assert.That(start.RouteOf(2), Is.EqualTo(Enumerable.Reverse(start.RouteOf(1)).ToArray()), start.Realm.ToString());
+                Assert.That(start.RouteOf(1), Is.EquivalentTo(new[] { PvpRoam.ThidHM, PvpRoam.ThidHA, PvpRoam.ThidMA }));
+            }
+            // ...so each point is the first of exactly two teams, of two realms.
+            var first = PvpRoam.Thidranki.Starts.SelectMany(start => new[] { (start.Realm, Point: start.RouteOf(1)[0]), (start.Realm, Point: start.RouteOf(2)[0]) }).ToList();
+            foreach ((int X, int Y) point in new[] { PvpRoam.ThidHM, PvpRoam.ThidHA, PvpRoam.ThidMA })
+                Assert.That(first.Where(entry => entry.Point == point).Select(entry => entry.Realm).Distinct().Count(), Is.EqualTo(2), point.ToString());
+            // No point within reach of the neutral keep's guards, and none at a start.
+            foreach ((int X, int Y) point in new[] { PvpRoam.ThidHM, PvpRoam.ThidHA, PvpRoam.ThidMA })
+            {
+                Assert.That(System.Math.Sqrt(System.Math.Pow(point.X - 33089, 2) + System.Math.Pow(point.Y - 38271, 2)), Is.GreaterThan(8_000));
+                foreach (PvpRoamStart start in PvpRoam.Thidranki.Starts)
+                    Assert.That(System.Math.Sqrt(System.Math.Pow(point.X - start.Point.X, 2) + System.Math.Pow(point.Y - start.Point.Y, 2)), Is.GreaterThan(10_000));
+            }
+            // In Emain Macha both teams of a realm walk the one road.
+            Assert.That(PvpRoam.Emain.StartOf(eRealm.Albion).RouteOf(2), Is.EqualTo(PvpRoam.Emain.StartOf(eRealm.Albion).RouteOf(1)));
+        }
+
+        [Test]
+        public void AfterAFightATeamRaisesItsDeadOrGoesBackToItsStart()
+        {
+            var real = new PvpRealWeights();
+            Assert.That(PvpRealWeights.Reforms(true, 30, real), Is.False, "somebody can raise: it stays with its dead");
+            Assert.That(PvpRealWeights.Reforms(true, 90, real), Is.True, "but not for ever");
+            Assert.That(PvpRealWeights.Reforms(false, 5, real), Is.False, "nobody can: a moment to be sure the fight is over");
+            Assert.That(PvpRealWeights.Reforms(false, 20, real), Is.True, "then it goes back and forms up again");
         }
 
         [Test]
@@ -102,7 +154,8 @@ namespace DOL.UnitTests
         public void ATeamThatStoodAsideJoinsWhenTheOtherSideAdds()
         {
             Assert.That(PvpRoam.EvensTheOdds(1), Is.False, "one against one is theirs to settle");
-            Assert.That(PvpRoam.EvensTheOdds(2), Is.True, "two on its realm-mate: it joins after all");
+            Assert.That(PvpRoam.EvensTheOdds(2), Is.True, "two of one realm on its realm-mate: it joins after all");
+            Assert.That(PvpRoam.EvensTheOdds(0), Is.False);
         }
 
         [Test]
