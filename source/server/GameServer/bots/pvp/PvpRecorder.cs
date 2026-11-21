@@ -415,6 +415,10 @@ namespace DOL.GS
                     // Whom it is on, whom it guards, whom it has interrupt duty for.
                     aim = brain?.PvpAssignedTarget?.Name, ward = bot is GameBot own ? brain?.PvpSquad?.WardOf(own)?.Name : null, duty = brain?.PvpDutyTarget?.Name,
                     hp = bot.IsAlive ? bot.Health : 0, pow = bot.Mana, end = bot.Endurance,
+                    // What it regains a tick (er), and what its songs and chants add to that (erb): a song up that adds nothing, or less, is a fault.
+                    er = bot.GetModified(eProperty.EnduranceRegenerationAmount), erb = bot.BaseBuffBonusCategory[eProperty.EnduranceRegenerationAmount],
+                    // The song a singer has running (its pulse, not what it last cast): a song can be begun and then lost.
+                    song = bot.effectListComponent.GetPulseEffects().FirstOrDefault(pulse => pulse?.SpellHandler?.Spell is { IsHarmful: false } && !pulse.IsEnding && !pulse.IsEnded)?.SpellHandler.Spell.Name,
                     alive = bot.IsAlive, mez = bot.IsMezzed, stun = bot.IsStunned,
                     root = bot.effectListComponent.ContainsEffectForEffectType(eEffect.MovementSpeedDebuff) ||
                            bot.effectListComponent.ContainsEffectForEffectType(eEffect.Snare),

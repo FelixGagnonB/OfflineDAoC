@@ -100,6 +100,14 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void ALullIsNotTheEndOfAFight()
+        {
+            Assert.That(PvpRoam.FightIsOver(3_000), Is.False, "the player between two targets: the Bard keeps its endurance song");
+            Assert.That(PvpRoam.FightIsOver(12_000), Is.False);
+            Assert.That(PvpRoam.FightIsOver(13_000), Is.True);
+        }
+
+        [Test]
         public void TheDrawIsForAnyFightThatIsOn()
         {
             Assert.That(PvpRoam.ComesOnAFight(true, false, false), Is.True, "its realm-mate's fight, or one between the two other realms");

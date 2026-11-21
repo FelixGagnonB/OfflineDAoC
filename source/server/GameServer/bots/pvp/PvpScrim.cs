@@ -472,7 +472,7 @@ namespace DOL.GS
         }
 
         /// <summary>Every series: its lane, pairing, phase, results so far.</summary>
-        public static object Status() => new { Running, Runs = _runs.Select(run => run.Status()).ToList() };
+        public static object Status() => new { Running, Runs = _runs.Select(run => run.Status()).ToList(), EffectListComponent.StaleCopiesRetired };
 
         /// <summary>
         /// For choosing lanes: every straight stretch of <paramref name="distance"/> in the arena

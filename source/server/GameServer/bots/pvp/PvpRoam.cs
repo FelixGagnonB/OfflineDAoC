@@ -199,6 +199,11 @@ namespace DOL.GS
         public static bool PlayerTakesItOn(bool fightingItAlready, bool itAttacksUs, bool playerAimsAtItInReach) =>
             fightingItAlready || itAttacksUs || playerAimsAtItInReach;
 
+        /// <summary>A team's fight is over when it has had no enemy to reckon with for this long: twelve seconds.</summary>
+        public const int FightOverAfterMilliseconds = 12_000;
+
+        public static bool FightIsOver(long millisecondsWithNoEnemy) => millisecondsWithNoEnemy > FightOverAfterMilliseconds;
+
         /// <summary>
         /// A team that left a fair fight alone does not go on watching when the other side adds:
         /// with two teams of one realm on its realm-mate, it joins after all. In the roam of
@@ -277,7 +282,9 @@ namespace DOL.GS
             });
         }
 
-        public static object Start(int teamsPerRealm, string owner, GamePlayer leader = null, PvpGroupTemplate own = null, PvpRoamMap map = null)
+        /// <param name="lineups">Groups to use for their realms' teams of bots in place of the main ones (a test of a line-up; null: the main ones).</param>
+        public static object Start(int teamsPerRealm, string owner, GamePlayer leader = null, PvpGroupTemplate own = null, PvpRoamMap map = null,
+            IReadOnlyList<PvpGroupTemplate> lineups = null)
         {
             map ??= Emain;
             if (PvpScrim.Running)
@@ -291,7 +298,7 @@ namespace DOL.GS
             // The player's own team first: the others are made no lower in rank than it is (PvpRealWeights.EnemyKeepsUp).
             foreach (PvpRoamStart start in map.Starts.OrderBy(entry => leader != null && entry.Realm == leader.Realm ? 0 : 1))
             {
-                PvpGroupTemplate template = PvpBuildCatalog.Groups.First(group => group.Realm == start.Realm);
+                PvpGroupTemplate template = lineups?.FirstOrDefault(group => group.Realm == start.Realm) ?? PvpBuildCatalog.Groups.First(group => group.Realm == start.Realm);
                 for (int number = 1; number <= Math.Clamp(teamsPerRealm, 1, 2); number++)
                 {
                     bool led = leader != null && start.Realm == leader.Realm && number == 1;
@@ -607,7 +614,7 @@ namespace DOL.GS
                 }
             }
             // The fight is over when no enemy has been near for a while: a fresh squad for the next one.
-            else if (team.ContactTick != 0 && !inCombat && now - team.LastEnemyNearTick > 12_000)
+            else if (team.ContactTick != 0 && !inCombat && FightIsOver(now - team.LastEnemyNearTick))
             {
                 team.ContactTick = 0;
                 team.State = "Roaming";
@@ -638,7 +645,10 @@ namespace DOL.GS
                 team.Team.Squad.Decide(enemies);
                 team.Team.Engage(enemies);
             }
-            else if (team.Leader != null)
+            // A lull is not the end of a fight: with nobody to reckon with for a moment (the player between two
+            // targets, the enemy dead or asleep) the group's Bard went to its speed song and back, twice in the
+            // owner's fight of 2026-11-21, each change a three-second cast and twenty seconds without the other song.
+            else if (team.Leader != null && FightIsOver(now - team.LastEnemyNearTick))
                 team.Team.Squad.LoseSight();
             // "/8v8 call retreat": the player's group fights nobody and runs with the player.
             if (team.Leader != null && team.Team.Squad.RetreatsTo != null)
@@ -748,6 +758,7 @@ namespace DOL.GS
                 Seconds = Running ? (now - _started) / 1000 : 0,
                 Error = _lastError,
                 Recording = _recording?.File,
+                EffectListComponent.StaleCopiesRetired,
                 // A check: effects on a member whose caster is in another team of the roam (a song is for its singer's group only).
                 FromOtherTeams = teams.SelectMany(team => team.Team.Members.Where(member => member.IsAlive).SelectMany(member =>
                     member.effectListComponent.GetSpellEffects()
