@@ -57,12 +57,14 @@ namespace DOL.UnitTests
         }
 
         [Test]
-        public void ATeamAddsOnItsRealmMatesFightThreeTimesInTen()
+        public void ATeamAddsOnAFightOneTimeInTen()
         {
             // "It could be random, like 30% would add 70% won't add or so."
             var real = new PvpRealWeights();
-            Assert.That(real.AddChancePercent, Is.EqualTo(30));
-            Assert.That(Enumerable.Range(0, 100).Count(roll => PvpRoam.Joins(real.AddChancePercent, roll)), Is.EqualTo(30));
+            // And after a roam of 48 minutes: "I feel like 30% add 70% run by is too high... it always ends up like a huge brawl".
+            // And the number the owner then gave: "maybe 15% add 85% run by".
+            Assert.That(real.AddChancePercent, Is.EqualTo(15));
+            Assert.That(Enumerable.Range(0, 100).Count(roll => PvpRoam.Joins(real.AddChancePercent, roll)), Is.EqualTo(15));
             Assert.That(PvpRoam.Joins(0, 0), Is.False, "never");
             Assert.That(PvpRoam.Joins(100, 99), Is.True, "always");
         }
@@ -186,6 +188,7 @@ namespace DOL.UnitTests
             Assert.That(PvpRoam.EvensTheOdds(1), Is.False, "one against one is theirs to settle");
             Assert.That(PvpRoam.EvensTheOdds(2), Is.True, "two of one realm on its realm-mate: it joins after all");
             Assert.That(PvpRoam.EvensTheOdds(0), Is.False);
+            Assert.That(PvpRoam.EvensTheOdds(2, true), Is.False, "its realm-mate jumped that fight itself: no help is owed");
         }
 
         [Test]

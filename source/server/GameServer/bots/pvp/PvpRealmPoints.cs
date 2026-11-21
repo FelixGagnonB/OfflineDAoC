@@ -31,7 +31,17 @@ namespace DOL.GS
         /// 70% won't add or so. It always been a heated discussion, should we assjam or not an
         /// ongoing fight. Most of the respected 8v8 team were not."
         /// </summary>
-        public int AddChancePercent { get; set; } = 30;
+        /// <remarks>
+        /// 30 until 2026-11-21, when the owner had played a roam of 48 minutes: "I feel like 30%
+        /// add 70% run by is too high. I feel like it always ends up like a huge brawl with all
+        /// the teams". Counted in its recording: 36 draws, 8 of them "joins"; and "joins after
+        /// all" (PvpRoam.EvensTheOdds) had overturned 16 of the 28 others, so that two draws in
+        /// three ended in an add, and three of the nine fights had all six teams in them. With
+        /// four teams passing a fight, one in ten each is an add in a third of the fights where
+        /// three in ten is one in three fights out of four. The owner's number: "maybe 15% add
+        /// 85% run by".
+        /// </remarks>
+        public int AddChancePercent { get; set; } = 15;
 
         /// <summary>
         /// A roam: a team of bots buffs at its start for this long and sets off, and each further

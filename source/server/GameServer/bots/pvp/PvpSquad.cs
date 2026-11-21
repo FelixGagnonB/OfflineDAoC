@@ -370,6 +370,7 @@ namespace DOL.GS
         /// </summary>
         public void CallOrder(GameLiving caller, PvpOrder order)
         {
+            _retreatUntil = 0;
             _calledOrder = order;
             _caller = caller;
             _calledUntil = GameLoop.GameLoopTime + PvpCalls.PlayerCallSeconds * 1_000L;
@@ -389,6 +390,7 @@ namespace DOL.GS
         {
             if (target is not { IsAlive: true } || !Known.Contains(target))
                 return false;
+            _retreatUntil = 0;
             _calledTarget = target;
             _calledTargetUntil = GameLoop.GameLoopTime + PvpCalls.PlayerAssistSeconds * 1_000L;
             if (_members.FirstOrDefault(member => member.IsAlive) is { } voice)
@@ -415,6 +417,7 @@ namespace DOL.GS
         {
             if (target is not { IsAlive: true } || !Known.Contains(target))
                 return false;
+            _retreatUntil = 0;
             _calledControl = target;
             _calledControlUntil = GameLoop.GameLoopTime + PvpCalls.PlayerControlSeconds * 1_000L;
             // Answered by the member that mezzes for the group, when it has one alive.
@@ -426,6 +429,31 @@ namespace DOL.GS
                 Call(voice, "answer", PvpCalls.Control(target.Name, PvpMember.ClassOf(target)));
             }
             return true;
+        }
+
+        private long _retreatUntil;
+
+        /// <summary>The player the group runs with while a call to retreat stands (PvpCalls.PlayerRetreatSeconds); null otherwise.</summary>
+        public GameLiving RetreatsTo => _retreatUntil != 0 && _caller is { IsAlive: true } && GameLoop.GameLoopTime < _retreatUntil ? _caller : null;
+
+        /// <summary>
+        /// A player of the group calls a retreat: every bot of it drops its target and its cast
+        /// and runs with the caller, whatever attacks it (BotBrain.TryPvpRetreat), until the call
+        /// runs out or the player makes another.
+        /// </summary>
+        public void CallRetreat(GameLiving caller)
+        {
+            _caller = caller;
+            _retreatUntil = GameLoop.GameLoopTime + PvpCalls.PlayerRetreatSeconds * 1_000L;
+            _calledOrder = null;
+            _calledTarget = null;
+            _calledControl = null;
+            LoseSight();
+            if (_members.FirstOrDefault(member => member.IsAlive) is { } voice)
+            {
+                PvpRecorder.Decision(voice, new { kind = "PlayerRetreat", d = caller.Name }, [], null);
+                Call(voice, "answer", PvpCalls.Retreating(caller.Name));
+            }
         }
 
         /// <summary>True for the enemy a player's call for control stands on.</summary>
@@ -526,6 +554,12 @@ namespace DOL.GS
         /// <summary>The group's decisions for this second: what it sees, who is being trained, kill target, interrupt duty, guard and peel.</summary>
         public void Decide(IReadOnlyList<GameLiving> enemies)
         {
+            // Under a called retreat the group decides nothing: it runs.
+            if (RetreatsTo != null)
+            {
+                LoseSight();
+                return;
+            }
             List<GameLiving> known = Look(enemies);
             Known = known;
             // A chase: the fight is on, and for some seconds no member has had an enemy near it.
@@ -983,6 +1017,8 @@ namespace DOL.GS
         /// </summary>
         public void ClearPets()
         {
+            if (RetreatsTo != null)
+                return;
             PvpPetWeights weights = PvpWeights.Of(_members.FirstOrDefault()).Pets;
             if (!FightStarted || weights.GatherAtPets <= 0 && weights.BlastAtPets <= 0)
             {
@@ -1080,6 +1116,8 @@ namespace DOL.GS
         /// </summary>
         public void KeepApart()
         {
+            if (RetreatsTo != null)
+                return;
             PvpSpreadWeights weights = PvpWeights.Of(_members.FirstOrDefault()).Spread;
             List<GameLiving> foes = Known.Where(enemy => enemy.IsAlive).ToList();
             if (weights.MinSpacing <= 0 || foes.Count == 0 || Order == PvpOrder.Hold || MakesLastStand())
@@ -1143,6 +1181,8 @@ namespace DOL.GS
 
         public void StandOff()
         {
+            if (RetreatsTo != null)
+                return;
             PvpWeights all = PvpWeights.Of(_members.FirstOrDefault());
             PvpPositionWeights weights = all.Position;
             if (weights.SafeDistance <= 0 || !FightStarted || MakesLastStand())

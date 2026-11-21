@@ -1251,6 +1251,10 @@ namespace DOL.AI.Brain
                 return;
             }
 
+            // "/8v8 call retreat": the group runs with the player and does nothing else.
+            if (TryPvpRetreat())
+                return;
+
             CompanionPvpEngagement.Observe(BotBody);
             // Goal 11: a /raid 40 or /raid 80 on a keep siege works its squad job (rams, engines) on its own.
             if (CompanionRaidSiege.Think(this))
@@ -2200,7 +2204,7 @@ namespace DOL.AI.Brain
             bool pvpBardPlays = bot.IsPvpBot && (eCharacterClass)bot.CharacterClass.ID == eCharacterClass.Bard;
             // An 8v8 group in a chase (PvpSquad.Chasing): the speed song is the one that matters, for the
             // Bard as for the Skald and the Minstrel, until the group is in contact again.
-            bool chasing = bot.IsPvpBot && PvpSquad?.Chasing == true;
+            bool chasing = bot.IsPvpBot && (PvpSquad?.Chasing == true || PvpSquad?.RetreatsTo != null);
             if (immediateCombat && !chasing && !minstrelAtRange && !pvpBardPlays)
             {
                 StopTwistedSong();

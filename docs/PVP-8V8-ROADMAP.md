@@ -2575,10 +2575,21 @@ In order:
        fight). An 8v8 Bard takes neither now (`BotBrain.PlaysThroughTheFight`). **Not seen in a
        run.** Still as it was: in a fight it starts the song at most every twenty seconds, and
        not while it is being hit or a groupmate is asleep.
-     - In that roam all six teams were in one fight within four minutes ("I think all groups
-       brawled in a single fight"): "joins after all" fired straight after "leaves them to it"
-       seven times, each add drawing the next. Emain Macha's one road brings all six to the
-       same place at the same time; Thidranki does not. Not changed.
+     - "I feel like 30% add 70% run by is too high. I feel like it always ends up like a huge
+       brawl with all the teams." Counted over the 48 minutes of that roam: nine fights, three
+       of them with all six teams in; 36 draws, 8 of them "joins" (22%); and "joins after all"
+       had overturned 16 of the 28 others, so two draws in three ended in an add. That rule
+       fired for a realm-mate that had itself jumped a fight (it then has two of one realm on
+       it by its own doing): it is now for a realm-mate that was added on in a fair fight
+       only. And the chance is **15** ("maybe 15% add 85% run by"). Emain Macha's one road
+       still brings all six to the same place at the same time; Thidranki does not.
+     - **`/8v8 call retreat`** ("retreat: everyone stop doing what they do and follow me"; also
+       `run`, `follow`). Not a regroup, under which the group goes on fighting: every bot of
+       the group drops its cast, its attack and its targets, answers no attack, and runs
+       behind the player in travel order, the speed song on (`PvpSquad.CallRetreat`,
+       `BotBrain.TryPvpRetreat`). It stands 30 seconds, is renewed by calling it again, and
+       ends with any other call. "retreat" had been another word for regroup. **Not seen in a
+       client or a run.**
   4. [x] The recorder with more than two teams, so a roam can be replayed and counted.
      *Done 2026-11-21.* A roam writes one recording for the session in `logs/roams` (format 4,
      `PvpRecorder.BeginRoam`): the header names every team, every line of a match is there with

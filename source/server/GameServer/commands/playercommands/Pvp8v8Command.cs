@@ -13,7 +13,7 @@ namespace DOL.GS.Commands
         "/8v8 play <alb|mid|hib> real [lane|basin] [follow]  a real fight: everybody at the rank it has earned, kills earn realm points that are kept, no timer is reset",
         "/8v8 roam [thid] [group]       the roam: two groups of each realm in Emain Macha (thid: in Thidranki), yours with you; real rules, and a wipe or a release puts your group back at its start",
         "/8v8 ranks                     the realm ranks of your companions, and of the enemy groups you have fought for real",
-        "/8v8 call <push|regroup|hold|engage|extend|assist|control>  your call to the group: an order stands twelve seconds; assist puts the damage dealers on your target while it lives (45 s at most); control asks for a mez, stun, root or nearsight on your target (20 s)",
+        "/8v8 call <push|regroup|hold|engage|extend|assist|control|retreat>  your call to the group: an order stands twelve seconds; assist puts the damage dealers on your target while it lives (45 s at most); control asks for a mez, stun, root or nearsight on your target (20 s); retreat: everybody drops what it does and runs with you (30 s, or until your next call)",
         "/8v8 calls <on|off>            your companions' calls in group chat (assist, incoming, orders, out of power, a mez that landed, a Purge used)",
         "/8v8 corpse <player|body|fall|ghost|off>  how a dead 8v8 bot is shown: lying as a dead player does, to click (player); a body under its name that only the group window targets (body); the body and a ghost standing over it (fall); the ghost only (ghost); standing as if alive (off)",
         "/8v8 stop                      ends the fight and removes every 8v8 bot",
@@ -84,6 +84,11 @@ namespace DOL.GS.Commands
                             Say("Target an enemy your group can see, then /8v8 call assist.");
                         return;
                     }
+                    if (PvpCalls.IsRetreatCall(word))
+                    {
+                        squad.CallRetreat(player);
+                        return;
+                    }
                     if (PvpCalls.IsControlCall(word))
                     {
                         if (!squad.CallControl(player, player.TargetObject as GameLiving))
@@ -92,7 +97,7 @@ namespace DOL.GS.Commands
                     }
                     if (PvpCalls.OrderFor(word) is not { } called)
                     {
-                        Say("/8v8 call push, regroup, hold, engage, extend, assist or control.");
+                        Say("/8v8 call push, regroup, hold, engage, extend, assist, control or retreat.");
                         return;
                     }
                     squad.CallOrder(player, called);

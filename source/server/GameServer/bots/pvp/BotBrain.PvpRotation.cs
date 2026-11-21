@@ -69,6 +69,44 @@ namespace DOL.AI.Brain
         private long _pvpRaiseTick;
 
         /// <summary>
+        /// "/8v8 call retreat" (PvpSquad.CallRetreat): while the call stands this bot drops its
+        /// cast, its attack and its targets, answers nobody, and runs behind the player that
+        /// called, as it does on the road; its Bard, Skald or Minstrel plays the speed song.
+        /// True when the turn is taken.
+        /// </summary>
+        private bool TryPvpRetreat()
+        {
+            if (BotBody?.IsPvpBot != true || !Body.IsAlive || PvpSquad?.RetreatsTo is not { } leader)
+                return false;
+            // A song may be played on the run; anything else is let go.
+            if (Body.IsCasting && Body.castingComponent?.SpellHandler?.Spell is not { InstrumentRequirement: not 0, IsHarmful: false })
+                Body.StopCurrentSpellcast();
+            if (Body.attackComponent.AttackState)
+                Body.StopAttack();
+            if (HasAggro)
+                ClearAggroList();
+            PvpAssignedTarget = null;
+            if (Body.TargetObject != null && Body.TargetObject != leader)
+                Body.TargetObject = null;
+            if (Body.IsIncapacitated)
+                return true;
+            if (!Body.IsWithinRadius(leader, BotManager.MAX_FOLLOW_DISTANCE))
+            {
+                if (Body.FollowTarget != null)
+                    Body.StopFollowing();
+                if (!Body.IsMoving || GameLoop.GameLoopTime % 2_000 < 1_000)
+                    Body.PathTo(new Vector3(leader.X, leader.Y, leader.Z), Body.MaxSpeed);
+            }
+            else if (Body.FollowTarget != leader)
+            {
+                Body.Follow(leader, BotManager.FOLLOW_DISTANCE, BotManager.MAX_FOLLOW_DISTANCE);
+                FSM.SetCurrentState(eFSMStateType.FOLLOW);
+            }
+            TryMaintainClassicSongTwist();
+            return true;
+        }
+
+        /// <summary>
         /// The dead groupmate an 8v8 bot raises now, from where it stands, or null
         /// (<see cref="PvpHealWeights.Raises"/>): a healer first, then the nearest.
         /// </summary>

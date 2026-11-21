@@ -82,6 +82,18 @@ namespace DOL.GS
 
         public static string Control(string name, eCharacterClass characterClass) => $"Control on {name} ({characterClass}).";
 
+        /// <summary>
+        /// "Retreat: everyone stop doing what they do and follow me" (the owner, 2026-11-21).
+        /// Not an order the group fights under, like regroup: nobody attacks, casts or answers
+        /// an attack; all of them run with the caller in travel order, the speed song on. It
+        /// stands this long, is renewed by calling it again, and ends with any other call.
+        /// </summary>
+        public const int PlayerRetreatSeconds = 30;
+
+        public static bool IsRetreatCall(string word) => (word ?? string.Empty).Trim().ToLowerInvariant() is "retreat" or "run" or "follow";
+
+        public static string Retreating(string caller) => $"Retreating with {caller}.";
+
         /// <summary>Said by the member that used it: a healer player need not cure what a Purge has taken off.</summary>
         public static string Purged(bool group) => group ? "Group Purge used." : "Purge used.";
 
@@ -99,7 +111,7 @@ namespace DOL.GS
         public static PvpOrder? OrderFor(string word) => (word ?? string.Empty).Trim().ToLowerInvariant() switch
         {
             "push" => PvpOrder.Push,
-            "regroup" or "back" or "retreat" => PvpOrder.Regroup,
+            "regroup" or "back" => PvpOrder.Regroup,
             "hold" or "wait" => PvpOrder.Hold,
             "engage" or "go" => PvpOrder.Engage,
             "extend" or "chase" => PvpOrder.Extend,

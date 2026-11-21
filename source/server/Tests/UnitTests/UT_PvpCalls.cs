@@ -81,6 +81,21 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void RetreatIsACallOfItsOwnAndNotARegroup()
+        {
+            // The owner, 2026-11-21: "retreat: everyone stop doing what they do and follow me".
+            Assert.That(PvpCalls.IsRetreatCall("retreat"), Is.True);
+            Assert.That(PvpCalls.IsRetreatCall(" Run "), Is.True);
+            Assert.That(PvpCalls.IsRetreatCall("follow"), Is.True);
+            Assert.That(PvpCalls.IsRetreatCall("regroup"), Is.False);
+            Assert.That(PvpCalls.IsRetreatCall(null), Is.False);
+            Assert.That(PvpCalls.OrderFor("retreat"), Is.Null, "it was another word for regroup, under which the group goes on fighting");
+            Assert.That(PvpCalls.OrderFor("back"), Is.EqualTo(PvpOrder.Regroup));
+            Assert.That(PvpCalls.Retreating("Talveh"), Is.EqualTo("Retreating with Talveh."));
+            Assert.That(PvpCalls.PlayerRetreatSeconds, Is.EqualTo(30));
+        }
+
+        [Test]
         public void AMezThatLandedAndAPurgeAreSaid()
         {
             Assert.That(PvpCalls.WorthMezLanded(3, 0), Is.True);

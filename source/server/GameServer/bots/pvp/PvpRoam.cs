@@ -207,7 +207,13 @@ namespace DOL.GS
         /// on its realm-mate is a three-way fight and nobody's sixteen against eight: in the
         /// second roam in Thidranki that was taken for an add, and the fight had four teams.
         /// </summary>
-        public static bool EvensTheOdds(int mostTeamsOfOneRealmOnItsRealmMate) => mostTeamsOfOneRealmOnItsRealmMate >= 2;
+        /// <param name="itsRealmMateAddedItself">
+        /// The realm-mate is in that fight by its own draw: it jumped two teams that were
+        /// fighting, has two of one realm on it for that, and is not owed any help. In the
+        /// owner's roam of 2026-11-21 this was most of the sixteen times the rule fired.
+        /// </param>
+        public static bool EvensTheOdds(int mostTeamsOfOneRealmOnItsRealmMate, bool itsRealmMateAddedItself = false) =>
+            mostTeamsOfOneRealmOnItsRealmMate >= 2 && !itsRealmMateAddedItself;
 
         private static int MostOfOneRealm(IEnumerable<PvpRoamTeam> teams) =>
             teams.GroupBy(team => team.Realm).Select(realm => realm.Count()).DefaultIfEmpty(0).Max();
@@ -546,7 +552,7 @@ namespace DOL.GS
             }
             // It left a fair fight to its realm-mate; the other side has added, so it does too.
             if (team.Leader == null && teams.FirstOrDefault(own => own != team && own.Realm == team.Realm && own.Alive > 0 &&
-                    EvensTheOdds(MostOfOneRealm(own.Fighting)) && own.Fighting.Any(enemy => team.Draws.TryGetValue(enemy, out bool joined) && !joined)) is { } pressed)
+                    EvensTheOdds(MostOfOneRealm(own.Fighting), own.Draws.Any(draw => draw.Value && own.Fighting.Contains(draw.Key))) && own.Fighting.Any(enemy => team.Draws.TryGetValue(enemy, out bool joined) && !joined)) is { } pressed)
             {
                 foreach (PvpRoamTeam enemy in pressed.Fighting)
                     team.Draws[enemy] = true;
@@ -634,6 +640,12 @@ namespace DOL.GS
             }
             else if (team.Leader != null)
                 team.Team.Squad.LoseSight();
+            // "/8v8 call retreat": the player's group fights nobody and runs with the player.
+            if (team.Leader != null && team.Team.Squad.RetreatsTo != null)
+            {
+                team.Team.TravelWithLeader([]);
+                return;
+            }
             // After a fight a team of bots sees to its dead before it walks on: it raises them, or goes back to its start.
             GameBot body = null;
             if (team.Leader == null && !inCombat && enemies.Count == 0 && team.Team.Bots.Any(bot => !bot.IsAlive))

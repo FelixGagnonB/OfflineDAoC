@@ -85,6 +85,9 @@ namespace DOL.GS
             // sessions of 2026-11-19 all eight stood inside one area mez eight seconds before the
             // first blow, and two to seven of them still did at the first blow.
             bool overGround = PvpWeights.Of(Bots.FirstOrDefault()).SightOverGround;
+            // Called to retreat, the group takes no rows: each of its bots runs behind the player (BotBrain.TryPvpRetreat).
+            if (Squad?.RetreatsTo != null)
+                enemies = [];
             List<GameLiving> seen = enemies.Where(enemy => enemy.IsAlive &&
                 (Leader.IsWithinRadius(enemy, PvpFormation.FormRange) && (!overGround || PvpSight.Clear(Leader, enemy)) ||
                  Bots.Any(bot => bot.IsAlive && PvpSight.Sees(bot, enemy, PvpFormation.FormRange, PvpWeights.Of(bot))))).ToList();
@@ -124,6 +127,9 @@ namespace DOL.GS
         /// <summary>A bot that is not fighting takes up the nearest living enemy it can see.</summary>
         public void Engage(IReadOnlyList<GameLiving> enemies)
         {
+            // Called to retreat, nobody takes anybody on.
+            if (Squad?.RetreatsTo != null)
+                return;
             var nav = PathfindingProvider.Instance;
             // While a group holds, its fighters go for nobody (bots/pvp/PvpReading.cs).
             bool holds = Squad?.Order == PvpOrder.Hold;

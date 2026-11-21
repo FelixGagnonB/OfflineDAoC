@@ -47,9 +47,9 @@ starts of the setup window.
   song, and pass by any enemy group you do not take on. Target an enemy within sight (6,500
   units), or get attacked, and they take their rows, the Bard goes to its endurance song, and
   the group fights.
-- **Adding on a fight.** A group of bots that comes on a fight already going on joins it three
-  times in ten and otherwise stands off until it is over. If the other side adds on its
-  realm-mate, it joins after all. Your own group does what you do.
+- **Adding on a fight.** A group of bots that comes on a fight already going on joins it about
+  one time in seven (15%) and otherwise stands off until it is over. If the other side adds on its
+  realm-mate in a fair fight, it joins after all. Your own group does what you do.
 - **A wipe.** About thirty seconds after your whole group is down you all stand up at your start,
   without resurrection sickness. `/release` takes you there at once; your group stands up there
   when the rest of it is down too.
@@ -79,7 +79,8 @@ You can call too (make macros of these):
 | `/8v8 call assist` | The damage dealers go for your target while it lives (45 seconds at most). |
 | `/8v8 call control` | A mez, stun, root or nearsight goes to your target first (20 seconds). Also `mez`, `cc`. |
 | `/8v8 call push` | Everybody presses forward. An order stands 12 seconds. |
-| `/8v8 call regroup` | Everybody comes back to you. Also `back`, `retreat`. |
+| `/8v8 call regroup` | Everybody comes back to you and goes on fighting from there. Also `back`. |
+| `/8v8 call retreat` | Everybody drops what it is doing and runs with you: no attack, no cast, no answer to an attack, the speed song on. It stands 30 seconds; call it again to keep running, or any other call to end it. Also `run`, `follow`. |
 | `/8v8 call hold` | The group stands where it is and lets them come. |
 | `/8v8 call engage`, `extend` | Back to a normal fight; chase them when they back off. |
 
