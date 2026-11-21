@@ -78,6 +78,16 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void AnEightVersusEightBardNeverPutsItsDrumAwayToFight()
+        {
+            // The owner, 2026-11-21: "we had no endurance up during the fight... bard was not dead".
+            Assert.That(DOL.AI.Brain.BotBrain.PlaysThroughTheFight(true, eCharacterClass.Bard), Is.True);
+            Assert.That(DOL.AI.Brain.BotBrain.PlaysThroughTheFight(false, eCharacterClass.Bard), Is.False, "a gamebot or a companion Bard fights as before");
+            Assert.That(DOL.AI.Brain.BotBrain.PlaysThroughTheFight(true, eCharacterClass.Skald), Is.False, "a Skald and a Minstrel are fighters");
+            Assert.That(DOL.AI.Brain.BotBrain.PlaysThroughTheFight(true, eCharacterClass.Eldritch), Is.False);
+        }
+
+        [Test]
         public void StandingByAFightIsNotBeingInIt()
         {
             // "I think I am also gaining rps for just being close to the fight."

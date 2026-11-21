@@ -2565,6 +2565,16 @@ In order:
        came back at five a second after its own Bard died at 370 s. `roam-status` now lists
        any helpful effect on a member cast by a member of its realm's other team
        (`FromOtherTeams`), to settle it in a run.
+     - "I just fought one of the albion team. For some reason, we had no endurance up during
+       the fight... bard was not dead." In the recording (1337 to 1640 s, eight against eight):
+       the Bard had its endurance song up at 1331 and 1375, was trained and ran out of power
+       (23 amnesias, 9 mezzes begun), and **swung its blade** at 1399, 1401, 1410, 1412 and
+       1465. Drawing the blade ends the song: from 1420 its Blademasters stood at 11 and 29
+       endurance and the owner at 9, until it died at 1565. Two fallbacks written for a bot
+       that fights monsters did it (hit in melee: defend with the blade; no power: walk in and
+       fight). An 8v8 Bard takes neither now (`BotBrain.PlaysThroughTheFight`). **Not seen in a
+       run.** Still as it was: in a fight it starts the song at most every twenty seconds, and
+       not while it is being hit or a groupmate is asleep.
      - In that roam all six teams were in one fight within four minutes ("I think all groups
        brawled in a single fight"): "joins after all" fired straight after "leaves them to it"
        seven times, each add drawing the next. Emain Macha's one road brings all six to the
