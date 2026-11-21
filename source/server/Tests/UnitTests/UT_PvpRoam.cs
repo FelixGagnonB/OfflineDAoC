@@ -66,5 +66,26 @@ namespace DOL.UnitTests
             Assert.That(PvpRoam.Joins(0, 0), Is.False, "never");
             Assert.That(PvpRoam.Joins(100, 99), Is.True, "always");
         }
+
+        [Test]
+        public void AFightLeftAloneIsLeftAloneByBothSides()
+        {
+            Assert.That(PvpRoam.LeavesAlone(true, false, false, false), Is.True, "the team that drew it does not attack");
+            Assert.That(PvpRoam.LeavesAlone(false, true, false, false), Is.True, "and the team it left to its fight does not turn on it");
+            Assert.That(PvpRoam.LeavesAlone(true, false, true, false), Is.False, "attacked, it answers");
+            Assert.That(PvpRoam.LeavesAlone(false, true, false, true), Is.False, "the player picks its own fights");
+            Assert.That(PvpRoam.LeavesAlone(false, false, false, false), Is.False, "no draw, no truce");
+        }
+
+        [Test]
+        public void ARealmsSecondTeamOfBotsFollowsItsFirstByHalfAMinute()
+        {
+            // The owner, 2026-11-21, of a gap of ninety seconds: "The 2nd hib team never left the spawn point".
+            var real = new PvpRealWeights();
+            Assert.That(PvpRealWeights.SetsOffAfterSeconds(0, real), Is.EqualTo(45), "a realm's first team of bots, the player's realm-mate among them");
+            Assert.That(PvpRealWeights.SetsOffAfterSeconds(1, real), Is.EqualTo(75));
+            // Albion's first needs some hundred seconds from its gate to the south end of the middle, 6,600 from Hibernia's hill.
+            Assert.That(PvpRealWeights.SetsOffAfterSeconds(1, real), Is.LessThan(45 + 100));
+        }
     }
 }

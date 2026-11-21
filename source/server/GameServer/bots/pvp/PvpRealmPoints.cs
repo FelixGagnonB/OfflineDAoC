@@ -33,6 +33,22 @@ namespace DOL.GS
         /// </summary>
         public int AddChancePercent { get; set; } = 30;
 
+        /// <summary>
+        /// A roam: a team of bots buffs at its start for this long and sets off, and each further
+        /// team of bots of its realm follows that much later, so that a realm's two do not walk
+        /// as one group of sixteen. The gap was ninety seconds until the owner's first roam
+        /// (2026-11-21): "The 2nd hib team never left the spawn point". It did, 135 seconds in,
+        /// and five seconds later the first Albion team, which needs about a hundred seconds to
+        /// the south end of the middle, was at Hibernia's hill. With the player at the head of a
+        /// realm's first team, the second is that realm's first team of bots.
+        /// </summary>
+        public int BuffsAtStartSeconds { get; set; } = 45;
+        public int NextTeamFollowsAfterSeconds { get; set; } = 30;
+
+        /// <summary>How long after the start a team of bots sets off: <paramref name="botTeamsBefore"/> of its realm leave before it.</summary>
+        public static int SetsOffAfterSeconds(int botTeamsBefore, PvpRealWeights real) =>
+            real.BuffsAtStartSeconds + Math.Max(0, botTeamsBefore) * real.NextTeamFollowsAfterSeconds;
+
         /// <summary>A roam: a team with nobody left alive stands up at its start point after this many seconds.</summary>
         public int WipeStandsUpAfterSeconds { get; set; } = 30;
 

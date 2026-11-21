@@ -2494,9 +2494,22 @@ In order:
      attacked from its start answers. The fourth, with that: both Hibernian teams wiped at 308
      and 323 s and stood up at 354 s with nobody on the hill; nine draws, four of them "joins".
      A draw is one for a fight now, not one for each enemy team in it.
-  3. [ ] The player in it (`/8v8 roam`): companions, the wipe and the walk back, realm points
+  3. [x] The player in it (`/8v8 roam`): companions, the wipe and the walk back, realm points
      to whoever made the kill, the rosters.
-     *Built 2026-11-20, **not yet tried with a player**.* `/8v8 roam` takes the player to the
+     *Played by the owner 2026-11-21, twice, as a Hibernian:* "it seems to work. Mids went to
+     Albion gate and albion went to mid gate. I fought both in 2 different fight somewhere on
+     their way to the other realm gate". One fault, "The 2nd hib team never left the spawn
+     point": it left 135 seconds in (45 of buffing and a gap of 90 behind the realm's first
+     team), which is when the first Albion team reaches Hibernia's hill. A realm's teams of
+     bots now leave 30 seconds apart, and the second team of the player's realm is its first
+     team of bots and leaves after the 45 (`Real.BuffsAtStartSeconds`,
+     `Real.NextTeamFollowsAfterSeconds`). Seen in the log of the same two roams: a draw of
+     "leaves them to it" held for one side only (the Albion team the second Hibernian team had
+     left to the owner's attacked it eight seconds later, and the owner's companions went for a
+     Midgard team that had left them alone). It holds for both now, until one attacks the other
+     or the player takes one of them as a target (`PvpRoam.LeavesAlone`). **Neither change has
+     been seen with a player.** Not yet reported on by the owner: a wipe and the standing up.
+     *Built 2026-11-20.* `/8v8 roam` takes the player to the
      start of its realm and starts the roam with the player at the head of the first team of
      that realm: seven companions that go where the player goes, the rules of a real session,
      and five teams of bots (the second of the player's realm among them). The player's team

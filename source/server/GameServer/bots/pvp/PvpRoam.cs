@@ -103,6 +103,17 @@ namespace DOL.GS
         /// <summary>Whether a team that comes on its realm-mate's fight joins it: one draw, <paramref name="roll"/> from 0 to 99.</summary>
         public static bool Joins(int addChancePercent, int roll) => roll < addChancePercent;
 
+        /// <summary>
+        /// A fight left alone is left alone by both sides: the team that drew "leaves them to it"
+        /// does not attack, and the team it left to its fight does not turn on it for walking
+        /// past, unless one of them does attack the other, or the player picks one of them as a
+        /// target. Until 2026-11-21 only the first half held: in the owner's first roam the second
+        /// Hibernian team left an Albion team to the owner's and was attacked by it eight seconds
+        /// later, and the owner's companions went for a Midgard team that had left them alone.
+        /// </summary>
+        public static bool LeavesAlone(bool weLeftThemToIt, bool theyLeftUsToIt, bool theyAttackUs, bool ourPlayerAimsAtThem) =>
+            (weLeftThemToIt || theyLeftUsToIt) && !theyAttackUs && !ourPlayerAimsAtThem;
+
         /// <summary>The squad of the team a player leads in the roam; null for a player who leads none.</summary>
         public static PvpSquad SquadOf(GamePlayer player) =>
             player == null ? null : _teams.FirstOrDefault(team => team.Leader == player)?.Team.Squad;
@@ -148,6 +159,7 @@ namespace DOL.GS
             PvpWeights.Reload(AppContext.BaseDirectory);
             var teams = new List<PvpRoamTeam>();
             long now = GameLoop.GameLoopTime;
+            PvpRealWeights real = PvpWeights.Current.Real;
             // The player's own team first: the others are made no lower in rank than it is (PvpRealWeights.EnemyKeepsUp).
             foreach (PvpRoamStart start in EmainStarts.OrderBy(entry => leader != null && entry.Realm == leader.Realm ? 0 : 1))
             {
@@ -160,8 +172,8 @@ namespace DOL.GS
                         Name = TeamName(template.Id, number), Template = template, Realm = start.Realm, Start = start,
                         // The player's companions are kept under the player; every other team under its own name.
                         Roster = led ? owner : PvpRealmPoints.EnemyRoster(owner, TeamName(template.Id, number)),
-                        // The second team of a realm sets off a minute and a half after the first.
-                        LeavesAt = now + 45_000 + (number - 1) * 90_000,
+                        // A realm's teams of bots set off one after the other; the player's own goes when the player does.
+                        LeavesAt = now + 1000L * PvpRealWeights.SetsOffAfterSeconds(teams.Count(other => other.Realm == start.Realm && other.Leader == null), real),
                     };
                     team.Team.Leader = led ? leader : null;
                     team.Team.Route = start.Route;
@@ -233,7 +245,7 @@ namespace DOL.GS
                 Tell(team, "Your group stands up at its start.");
             }
             Spawn(team, now);
-            team.LeavesAt = now + 45_000;
+            team.LeavesAt = now + 1000L * PvpWeights.Current.Real.BuffsAtStartSeconds;
         }
 
         private static void Tell(PvpRoamTeam team, string what)
@@ -353,7 +365,8 @@ namespace DOL.GS
             List<PvpRoamTeam> foes = others.Where(other =>
             {
                 bool attacks = Attacks(other);
-                if (team.Draws.TryGetValue(other, out bool joins) && !joins && !attacks)
+                if (LeavesAlone(team.Draws.TryGetValue(other, out bool joins) && !joins, other.Draws.TryGetValue(team, out bool theyJoin) && !theyJoin, attacks,
+                        team.Leader?.TargetObject is GameLiving aimed && other.Team.Members.Contains(aimed)))
                     return false;
                 return team.Leader != null || !PvpRealWeights.LeftAtItsStart(FromItsStart(other), team.Fighting.Contains(other), attacks, real);
             }).ToList();
