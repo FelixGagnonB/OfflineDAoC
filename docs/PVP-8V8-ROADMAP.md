@@ -2670,11 +2670,16 @@ round:*
   previous one, and a drop blocks it.
 - [ ] **M10.4** (M) Tuning rounds with the owner: 20 fights, review the analyzer's failure list,
   fix, repeat.
-- [ ] **M10.5** (S) Player guide for the 8v8 mode and an update of the developer docs.
+- [x] **M10.5** (S) Player guide for the 8v8 mode and an update of the developer docs.
   *Player guide written 2026-11-21: [PVP-8V8-GUIDE.md](PVP-8V8-GUIDE.md)* (the three ways to
   play, the roam's rules, the calls, what has and has not been tried in a client). The owner
   had twice taken one mode for another ("I misunderstood how to use the /8v8 practice vs real";
-  "There should be 6 teams total?"). The developer docs are not updated yet.
+  "There should be 6 teams total?"). *Developer docs the same day:* an 8v8 section in
+  [DEVELOPMENT.md](DEVELOPMENT.md) (where the code is, file by file; the scrim server and its
+  commands; the tools; the rules of the work). Both are to be kept up as the mode changes.
+  Also `pvp_roam.py --html`: a roam as a page for the browser, the zone from above with every
+  member a dot, to play and scrub, the events and fights to jump to, a view that follows one
+  team.
 
 **Exit check:** all four points of the definition of done.
 

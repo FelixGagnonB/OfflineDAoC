@@ -145,6 +145,69 @@ design. To make one:
 Patches are cumulative from the base: the next one (0.38) is built against the same 0.36 baseline, with the
 previous patch's file fingerprints accepted too.
 
+## 8v8 (group PvP)
+
+The current work of this fork: one player with seven companion bots against groups of eight.
+[PVP-8V8-ROADMAP.md](PVP-8V8-ROADMAP.md) is the plan and the progress tracker,
+[PVP-8V8-PLAYBOOK.md](PVP-8V8-PLAYBOOK.md) what a group should do and why, and
+[PVP-8V8-GUIDE.md](PVP-8V8-GUIDE.md) the player's guide.
+
+**Where the code is.** `source/server/GameServer/bots/pvp`, the `/8v8` command and its setup
+window in `GameServer/commands/playercommands/Pvp8v8*.cs`, tests in
+`Tests/UnitTests/UT_Pvp*.cs`.
+
+| File | What it holds |
+|---|---|
+| `PvpBuildCatalog.cs`, `PvpBuild.cs`, `PvpTemplate*.cs` | The builds, the line-ups of eight, a bot's spec and gear |
+| `PvpSquad.cs`, `PvpReading.cs`, `PvpKillTarget.cs`, `PvpPeel.cs`, `PvpInterruptDuty.cs` | A group's decisions each second: what it sees, kill target, order, guard, peel, interrupts |
+| `BotBrain.PvpRotation.cs`, `PvpActionChoice.cs` | What one bot casts: every option scored, the weights (`PvpWeights`) |
+| `PvpPositioning.cs`, `PvpFormation.cs`, `PvpSpacing.cs`, `PvpTeam.cs` | Where a group and its members stand and walk |
+| `PvpHealPlan.cs`, `BotBrain.PvpBuffs.cs`, `PvpBuffPlan.cs`, `PvpPurge.cs` | Healing, raising, buffs, Purge |
+| `PvpCalls.cs`, `PvpNotice.cs` | Group-chat calls and the player's calls; what a bot notices late, as a person would |
+| `PvpScrim.cs`, `PvpArena.cs` | A fight of two groups (scrim or play session), the arena lanes, spawning |
+| `PvpRoam.cs` | The roam: any number of teams on a map, wipes, the draw for adding on a fight |
+| `PvpRealmPoints.cs`, `PvpRoster.cs`, `PvpPlayerReady.cs` | The real rules: ranks earned and kept, rosters, readying the player's character |
+| `PvpRecorder.cs` | Recordings: one JSON-lines file a match (`logs/scrims`), one a roam (`logs/roams`) |
+| `PvpControlChannel.cs` | Commands from outside the game (the tools below) |
+| `PvpCorpse.cs` | How a dead bot is shown to the client |
+
+Every number that decides something is a weight with its reason beside it, and a file
+`pvp-weights.json` beside the server replaces any of them without a rebuild.
+
+**The scrim server.** A second game folder (`D:\OfflineDAoC-scrim` by default; any other must
+have "scrim" in its name) used for bots-against-bots fights and for the owner's play tests. It is
+never the game the owner plays, and only one server can use port 10300.
+
+```bash
+python source/tools/scrim_server.py start|stop|status
+powershell source/server/tools/deploy_scrim.ps1 -Apply      # runs the tests, backs up, installs; the server must be stopped
+python source/tools/pvp_request.py "D:/OfflineDAoC-scrim/runtime" scrim-status
+python source/tools/pvp_request.py "D:/OfflineDAoC-scrim/runtime" roam-start Teams=2 Owner=roam [Map=thid]
+python source/tools/pvp_request.py "D:/OfflineDAoC-scrim/runtime" roam-status
+python source/tools/pvp_request.py "D:/OfflineDAoC-scrim/runtime" scrim-stop                 # ends a fight or a roam
+python source/tools/pvp_request.py "D:/OfflineDAoC-scrim/runtime" nav-route Region=252 X1=.. Y1=.. X2=.. Y2=..
+```
+
+Do not stop or redeploy it under a player: check that nothing is running (`scrim-status`,
+`roam-status`) and that the last "Incoming connection" in `runtime/server/logs/server.log` is
+older than the last "just disconnected".
+
+**The tools** (`source/tools/pvp_*.py`, each with its usage at the top):
+
+| Tool | What it does |
+|---|---|
+| `pvp_batch.py` | Runs series of scrims side by side, unattended; `--versus` compares two sets of weights inside the same matches |
+| `pvp_versus.py` | What each set of weights did in a comparison batch |
+| `pvp_analyze.py`, `pvp_report.py`, `pvp_insight.py` | Counts over a folder of recorded matches |
+| `pvp_referee.py` | Where every bot's time went, and soft rules a competent group keeps, PASS or FAIL |
+| `pvp_replay.py` | A match from above, as picture sheets and a page to scrub |
+| `pvp_roam.py` | A roam: its events, fights and teams; `--html` a page to scrub; `--cut` its two-team fights as matches |
+| `pvp_sessions.py` | The owner's play sessions |
+
+**Rules of this work.** Recordings, `pvp-rosters.json` and the scrim database are play data: never
+commit them. Report what bots-only runs showed apart from what a player saw in a client. A
+comparison of two dozen matches is a check, not a result.
+
 ## Sharing safely
 
 - **Never commit a played database.** It contains accounts, characters, bot rosters, inventories
