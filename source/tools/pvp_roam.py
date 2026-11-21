@@ -9,6 +9,12 @@ pvp_referee.py and pvp_analyze.py read like any scrim.
 
     python pvp_roam.py <recording.jsonl>                 the newest in a folder when given a folder
     python pvp_roam.py <recording.jsonl> --cut [folder]  default: "cuts" beside the recording
+    python pvp_roam.py <recording.jsonl> --html [file]   default: <recording>.html beside it
+
+--html writes the roam as a page for the browser: the zone from above (north is up), every member
+a dot in its realm's colour, to play and scrub, with the events and the fights to jump to and a
+view that follows one team. It needs nothing but the page. A team with no enemy near is recorded
+every fifth second, so its dots move in steps while it walks.
 """
 import collections
 import json
@@ -223,6 +229,234 @@ def cut(path, rows, fights, snaps, folder):
     return written
 
 
+PAGE = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<style>
+:root { --bg:#f7f6f2; --panel:#ffffff; --ink:#1d1d1b; --soft:#6b6a65; --line:#d9d7cf; --map:#eeece4;
+        --alb:#c62d2d; --mid:#2d5fd8; --hib:#1f8f3c; --dead:#9a9891; --mark:#b8860b; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg:#161614; --panel:#1f1f1c; --ink:#ecebe6; --soft:#a3a29b; --line:#3a3934; --map:#24241f;
+          --alb:#ef6a6a; --mid:#7aa2ff; --hib:#5fcf7d; --dead:#6f6e68; --mark:#e0b84a; } }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.4 system-ui, "Segoe UI", sans-serif; }
+header { padding:12px 16px 4px; }
+h1 { font-size:18px; margin:0 0 2px; }
+header p { margin:0; color:var(--soft); }
+#bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:8px 16px; }
+#bar input[type=range] { flex:1 1 240px; min-width:160px; }
+button, select { font:inherit; color:var(--ink); background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:4px 10px; }
+#clock { font-variant-numeric:tabular-nums; min-width:64px; }
+#wrap { display:flex; flex-wrap:wrap; gap:12px; padding:0 16px 16px; }
+#mapbox { flex:3 1 520px; min-width:0; }
+canvas { width:100%; height:auto; display:block; background:var(--map); border:1px solid var(--line); border-radius:8px; }
+#side { flex:1 1 300px; min-width:0; display:flex; flex-direction:column; gap:12px; }
+.panel { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
+.panel h2 { font-size:13px; margin:0 0 6px; color:var(--soft); font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+table { border-collapse:collapse; width:100%; font-variant-numeric:tabular-nums; }
+td, th { padding:2px 6px 2px 0; text-align:left; white-space:nowrap; }
+th { color:var(--soft); font-weight:500; }
+.dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px; }
+#events, #fights { max-height:260px; overflow:auto; }
+.row { padding:2px 4px; border-radius:4px; cursor:pointer; white-space:normal; }
+.row:hover { background:var(--map); }
+.row.now { background:var(--map); font-weight:600; }
+.row span { color:var(--soft); font-variant-numeric:tabular-nums; margin-right:6px; }
+</style></head><body>
+<header><h1>__TITLE__</h1><p>North is up. A dot is a member, in its realm's colour; a ring marks the player's group; grey is dead.</p></header>
+<div id="bar">
+  <button id="play">Play</button>
+  <select id="speed"><option value="1">1x</option><option value="4" selected>4x</option><option value="16">16x</option><option value="60">60x</option></select>
+  <span id="clock">0:00</span>
+  <input id="time" type="range" min="0" max="0" value="0">
+  <label>View <select id="follow"><option value="">the whole zone</option></select></label>
+</div>
+<div id="wrap">
+  <div id="mapbox"><canvas id="map" width="1000" height="760"></canvas></div>
+  <div id="side">
+    <div class="panel"><h2>Teams</h2><table id="teams"></table></div>
+    <div class="panel"><h2>Fights</h2><div id="fights"></div></div>
+    <div class="panel"><h2>What happened</h2><div id="events"></div></div>
+  </div>
+</div>
+<script>
+const D = __DATA__;
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const colour = realm => css(realm === "Midgard" ? "--mid" : realm === "Hibernia" ? "--hib" : "--alb");
+const canvas = document.getElementById("map"), g = canvas.getContext("2d");
+const time = document.getElementById("time"), clock = document.getElementById("clock"), follow = document.getElementById("follow");
+time.max = D.frames.length - 1;
+D.teams.forEach((team, i) => follow.add(new Option(team.name + (team.player ? " (" + team.player + ")" : ""), i)));
+const fmt = s => Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+let s = 0, timer = null;
+
+function bounds() {
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  const take = (x, y) => { if (x < 0) return; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); };
+  if (follow.value !== "") {
+    const frame = D.frames[s];
+    D.members.forEach((m, i) => { if (m[0] == follow.value) take(frame[i * 3], frame[i * 3 + 1]); });
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, half = Math.max(3500, (x1 - x0) / 2 + 2500, (y1 - y0) / 2 + 2500);
+    return [cx - half * 1.3, cx + half * 1.3, cy - half, cy + half];
+  }
+  return D.box;
+}
+
+function draw() {
+  const frame = D.frames[s], [x0, x1, y0, y1] = bounds();
+  const w = canvas.width, h = canvas.height, pad = 24;
+  const scale = Math.min((w - 2 * pad) / (x1 - x0), (h - 2 * pad) / (y1 - y0));
+  const ox = (w - (x1 - x0) * scale) / 2, oy = (h - (y1 - y0) * scale) / 2;
+  const px = x => ox + (x - x0) * scale, py = y => oy + (y - y0) * scale;
+  g.clearRect(0, 0, w, h);
+  g.font = "13px system-ui, sans-serif";
+  // The places teams start from and walk between.
+  g.fillStyle = css("--soft"); g.strokeStyle = css("--line");
+  D.places.forEach(place => { const x = px(place[1]), y = py(place[2]); g.beginPath(); g.rect(x - 4, y - 4, 8, 8); g.stroke(); g.fillText(place[0], x + 8, y + 4); });
+  // A fight going on now: a ring where it began.
+  D.fights.forEach(f => { if (s >= f.start && s <= f.end && f.at) { g.strokeStyle = css("--mark"); g.lineWidth = 2; g.beginPath(); g.arc(px(f.at[0]), py(f.at[1]), Math.max(18, 1800 * scale), 0, 7); g.stroke(); g.lineWidth = 1; } });
+  const sums = D.teams.map(() => [0, 0, 0]);
+  D.members.forEach((m, i) => {
+    const x = frame[i * 3], y = frame[i * 3 + 1], alive = frame[i * 3 + 2];
+    if (x < 0) return;
+    const team = D.teams[m[0]];
+    g.fillStyle = alive ? colour(team.realm) : css("--dead");
+    g.beginPath(); g.arc(px(x), py(y), alive ? 4 : 3, 0, 7); g.fill();
+    if (m[2]) { g.strokeStyle = css("--ink"); g.lineWidth = 2; g.beginPath(); g.arc(px(x), py(y), 7, 0, 7); g.stroke(); g.lineWidth = 1; }
+    if (alive) { sums[m[0]][0] += x; sums[m[0]][1] += y; sums[m[0]][2]++; }
+  });
+  D.teams.forEach((team, i) => {
+    if (!sums[i][2]) return;
+    const x = px(sums[i][0] / sums[i][2]), y = py(sums[i][1] / sums[i][2]);
+    if (team.player) { g.strokeStyle = css("--ink"); g.beginPath(); g.arc(x, y, 16, 0, 7); g.stroke(); }
+    g.fillStyle = colour(team.realm);
+    // Names of teams that stand together are set one under the other.
+    g.fillText(team.name + " (" + sums[i][2] + ")", x + 14, y - 26 + i * 13);
+  });
+  clock.textContent = fmt(s); time.value = s;
+  const rows = D.teams.map((team, i) => {
+    const state = D.states[s] ? D.states[s][i] : "";
+    return "<tr><td><span class=dot style='background:" + colour(team.realm) + "'></span>" + team.name + "</td><td>" + sums[i][2] + " alive</td><td>" + (state || "") + "</td></tr>";
+  });
+  document.getElementById("teams").innerHTML = "<tr><th>team</th><th></th><th>doing</th></tr>" + rows.join("");
+  mark("events", D.events.map(e => e[0])); mark("fights", D.fights.map(f => f.start), D.fights.map(f => f.end));
+}
+
+function mark(id, starts, ends) {
+  const box = document.getElementById(id); let last = -1;
+  starts.forEach((start, i) => { if (ends ? s >= start && s <= ends[i] : start <= s) last = ends ? i : i; });
+  [...box.children].forEach((row, i) => row.classList.toggle("now", ends ? s >= starts[i] && s <= ends[i] : i === last));
+  // The list follows the clock (inside its own box only).
+  const now = box.querySelector(".now");
+  if (now && box.dataset.at !== String(last)) { box.dataset.at = String(last); box.scrollTop = Math.max(0, now.offsetTop - box.offsetTop - 60); }
+}
+
+function list(id, items, text) {
+  const box = document.getElementById(id);
+  items.forEach(item => { const row = document.createElement("div"); row.className = "row"; row.innerHTML = text(item);
+    row.onclick = () => { s = Math.max(0, Math.min(D.frames.length - 1, item.start !== undefined ? item.start - 5 : item[0])); draw(); }; box.appendChild(row); });
+  if (!items.length) box.textContent = "None.";
+}
+list("events", D.events, e => "<span>" + fmt(e[0]) + "</span>" + e[1]);
+list("fights", D.fights, f => "<span>" + fmt(f.start) + "</span>" + f.label);
+
+document.getElementById("play").onclick = function () {
+  if (timer) { clearInterval(timer); timer = null; this.textContent = "Play"; return; }
+  this.textContent = "Pause";
+  timer = setInterval(() => { s += Math.max(1, Math.round(document.getElementById("speed").value / 10));
+    if (s >= D.frames.length - 1) { s = D.frames.length - 1; clearInterval(timer); timer = null; document.getElementById("play").textContent = "Play"; } draw(); }, 100);
+};
+document.getElementById("speed").onchange = () => {};
+time.oninput = () => { s = +time.value; draw(); };
+follow.onchange = draw;
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", draw);
+// page.html#t=140 opens at that second; #t=140&team=2 follows the third team.
+const asked = new URLSearchParams(location.hash.slice(1));
+if (asked.get("t")) s = Math.max(0, Math.min(D.frames.length - 1, +asked.get("t") || 0));
+if (asked.get("team") && D.teams[+asked.get("team")]) follow.value = asked.get("team");
+draw();
+</script></body></html>
+"""
+
+
+def page(path, rows, fights, out):
+    """The roam as one page: where every member was each second, the events and the fights."""
+    head = rows[0]
+    teams = [team["name"] for team in head["teams"]]
+    members, index = [], {}
+
+    def member(team, name, player=False):
+        if (team, name) not in index and team in teams:
+            index[(team, name)] = len(members)
+            members.append([teams.index(team), name, 1 if player else 0])
+
+    for bot in head["bots"]:
+        member(bot["team"], bot["n"], bot.get("player", False))
+    for row in rows:
+        if row["k"] == "spawn":
+            for bot in row["bots"]:
+                member(row["team"], bot["n"], bot.get("player", False))
+    last = max((row["t"] for row in rows if "t" in row), default=0) // 1000
+    by_second = collections.defaultdict(list)
+    states = collections.defaultdict(dict)
+    for row in rows:
+        if row["k"] == "snap" and (row.get("team"), row["n"]) in index:
+            by_second[row["t"] // 1000].append(row)
+        elif row["k"] == "team" and row["name"] in teams:
+            fighting = row.get("fighting") or []
+            states[row["t"] // 1000][row["name"]] = "fights " + ", ".join(fighting) if fighting else row["state"].lower()
+    # A team with no enemy near is written every fifth second: a member stays where it was last seen.
+    current = [-1, -1, 0] * len(members)
+    state = [""] * len(teams)
+    frames, state_rows = [], []
+    xs, ys = [], []
+    for second in range(last + 1):
+        for row in by_second.get(second, ()):
+            at = index[(row["team"], row["n"])] * 3
+            current[at:at + 3] = [row["x"], row["y"], 1 if row["alive"] else 0]
+            xs.append(row["x"])
+            ys.append(row["y"])
+        for name, what in states.get(second, {}).items():
+            state[teams.index(name)] = what
+        frames.append(list(current))
+        state_rows.append(list(state))
+    if not xs:
+        sys.exit("Nothing to draw in this recording yet.")
+    margin = 2_000
+    box = [min(xs) - margin, max(xs) + margin, min(ys) - margin, max(ys) + margin]
+    # The places of the map: where each team first stood, by its realm.
+    places = []
+    for team in head["teams"]:
+        first = [frames[min(2, last)][index[key] * 3:index[key] * 3 + 2] for key in index if key[0] == team["name"]]
+        first = [spot for spot in first if spot[0] >= 0]
+        label = team["realm"].replace("_FirstPlayerRealm", "Albion") + " start"
+        if first and not any(place[0] == label for place in places):
+            places.append([label, int(sum(spot[0] for spot in first) / len(first)), int(sum(spot[1] for spot in first) / len(first))])
+    listed = []
+    for number, fight in enumerate(fights, 1):
+        order = sorted(fight["teams"], key=fight["teams"].get)
+        listed.append({
+            "start": fight["start"] // 1000, "end": fight["last"] // 1000, "at": fight["at"],
+            "label": "%d. %s, %s: deaths %s" % (number, " / ".join(order), clock(fight["last"] - fight["start"]),
+                                                 ", ".join("%s %d" % (team, fight["deaths"][team]) for team in order)),
+        })
+    data = {
+        "teams": [{"name": team["name"], "realm": team["realm"].replace("_FirstPlayerRealm", "Albion"), "player": team.get("player")} for team in head["teams"]],
+        "members": members, "frames": frames, "states": state_rows, "box": box, "places": places, "fights": listed,
+        "events": [[row["t"] // 1000, row["text"]] for row in rows if row["k"] == "ev" and row.get("text")],
+    }
+    title = "Roam of %s, %s" % (head["utc"][:16].replace("T", " "), clock(last * 1000))
+    with open(out, "w", encoding="utf-8") as handle:
+        handle.write(PAGE.replace("__TITLE__", title).replace("__DATA__", json.dumps(data, separators=(",", ":"))))
+    return out
+
+
+def option(args, name):
+    """The value after an option, or None when the next word is another option or there is none."""
+    at = args.index(name)
+    return args[at + 1] if at + 1 < len(args) and not args[at + 1].startswith("--") else None
+
+
 def main():
     args = [arg for arg in sys.argv[1:]]
     if not args:
@@ -242,9 +476,11 @@ def main():
     fights = find_fights(rows, realm)
     describe(fights, rows, snaps)
     report(path, rows, fights)
+    if "--html" in args:
+        out = page(path, rows, fights, option(args, "--html") or os.path.splitext(os.path.abspath(path))[0] + ".html")
+        print("\nThe roam as a page: %s" % out)
     if "--cut" in args:
-        at = args.index("--cut")
-        folder = args[at + 1] if at + 1 < len(args) else os.path.join(os.path.dirname(os.path.abspath(path)), "cuts")
+        folder = option(args, "--cut") or os.path.join(os.path.dirname(os.path.abspath(path)), "cuts")
         written = cut(path, rows, fights, snaps, folder)
         print("\n%d fights of two teams written to %s" % (len(written), folder))
         for name in written:

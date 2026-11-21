@@ -92,7 +92,9 @@ Every fight and every roam is recorded beside the server (`runtime/server/logs/s
 `logs/roams`). They are your own play data and are not part of any release.
 
 - `python source/tools/pvp_roam.py <logs/roams>` counts the newest roam: its events, every fight,
-  and a line for each group. `--cut` writes each fight of exactly two groups as a match.
+  and a line for each group. `--html` writes the roam as a page for the browser: the zone from
+  above with every member as a dot, to play and scrub, and a view that follows one group.
+  `--cut` writes each fight of exactly two groups as a match.
 - `python source/tools/pvp_replay.py`, `pvp_referee.py` and `pvp_analyze.py` read a match.
 
 ## What has and has not been tried in a client
