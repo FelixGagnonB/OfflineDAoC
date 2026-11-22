@@ -2777,8 +2777,10 @@ In order:
      - A second cloak was refused with an error and a stack trace in the log for every 8v8 bot
        made, 2,000 times that morning: a bot that wears one is not given another.
 
-- [ ] **M9.2** (M) Bot shot-caller: calls announced in group chat (assist target, mez landed,
+- [x] **M9.2** (M) Bot shot-caller: calls announced in group chat (assist target, mez landed,
   retreat), with an assist key for the owner.
+  *Seen by the owner in a client, 2026-11-22:* "The mez and purge in /g chat also works"; the
+  assist call earlier the same weekend ("Assist works great. I've been using it").
   *First cut 2026-11-19, not yet seen in a client.* In a group with a player, its bots say in
   group chat what the squad already decides (`PvpCalls.cs`): the assist ("Assist Finnarar
   (Healer), at 62%."), the order when it changes (push, regroup on the healers, extend, hold),
@@ -2788,8 +2790,11 @@ In order:
   *Added 2026-11-21, not yet seen in a client:* "3 of them are mezzed." when a mez puts two or
   more of the enemy to sleep (said by the member that mezzes, no more often than every six
   seconds), and "Purge used." / "Group Purge used." by the member that used it.
-- [ ] **M9.3** (M) Owner's calls: `/call` macros for target, push, retreat, control that one,
+- [x] **M9.3** (M) Owner's calls: `/call` macros for target, push, retreat, control that one,
   regroup. The squad brain treats them as its own decisions.
+  *Seen by the owner in a client:* assist and retreat (2026-11-21), the kite of `extend` and
+  `rest` (2026-11-22: "The M9.2 extend (kite) and rest works"). `control` is the one call the
+  owner has not reported on.
   *Built 2026-11-20 as `/8v8 call <assist|push|regroup|hold|engage|extend>`, not yet tried in a
   client.* *"Control that one" added 2026-11-21, not yet tried in a client:*
   `/8v8 call control` (or `mez`, `cc`) on the player's target: for twenty seconds a mez, stun,
@@ -2803,6 +2808,8 @@ In order:
   them with the player marked, and `pvp_referee.py` reads one as it reads a scrim.*
 - [ ] **M9.6** (S) Check both clients: the original client and the new client's target and assist
   buttons.
+  *The dead, 2026-11-22, the owner in the original client:* "I think the dead bot is now
+  better." Not said: whether a dead bot can be clicked and raised.
 
 **Exit check:** a full session from the launcher: ready a character, form the group, roam, fight,
 rematch, with no GM commands.
