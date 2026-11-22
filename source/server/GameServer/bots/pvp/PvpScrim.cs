@@ -720,6 +720,14 @@ namespace DOL.GS
                     PvpRealmPoints.EnemyLevel(0, _a.Bots.Select(bot => bot.RealmLevel).Append(_leader.RealmLevel).ToList(),
                         PvpWeights.Of(_a.Bots.FirstOrDefault()).Real.EnemyKeepsUp)).ToList()
                 : PvpArena.SpawnGroup(_groupB, _arena.Region, spawnB.X, spawnB.Y, _realmLevel, _bots).ToList();
+            // Bots against bots: a level for each side, when the scrim was started with one (to compare two levels).
+            if (_leader == null)
+            {
+                if (PvpSkills.BotsA is { } levelA)
+                    _a.Bots.ForEach(bot => bot.PvpHuman = PvpSkills.WeightsFor(levelA));
+                if (PvpSkills.BotsB is { } levelB)
+                    _b.Bots.ForEach(bot => bot.PvpHuman = PvpSkills.WeightsFor(levelB));
+            }
             _a.Squad = _squadBrainA ? new PvpSquad(_a.Bots, _leader != null ? [_leader] : null) : null;
             _b.Squad = _squadBrainB ? new PvpSquad(_b.Bots) : null;
             // The groups buff where they came in, standing together, and take their rows at the ready

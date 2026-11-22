@@ -111,6 +111,10 @@ namespace DOL.GS
         public static PvpSkill Group { get; set; } = PvpSkill.Seasoned;
         public static PvpSkill Others { get; set; } = PvpSkill.Seasoned;
 
+        /// <summary>A scrim of bots may give each side its own level (scrim-start SkillA, SkillB): two levels against each other.</summary>
+        public static PvpSkill? BotsA { get; set; }
+        public static PvpSkill? BotsB { get; set; }
+
         public static PvpSkill? Parse(string word) => (word ?? string.Empty).Trim().ToLowerInvariant() switch
         {
             "casual" or "easy" => PvpSkill.Casual,

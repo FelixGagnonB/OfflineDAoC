@@ -264,7 +264,9 @@ namespace DOL.GS
                                      member.CurrentRegionID == bot.CurrentRegionID &&
                                      member.TempProperties.GetProperty<GameLiving>("RESURRECT_CASTER") == null)
                     .Select(member => (member, PvpMember.RoleOf(member) == PvpRole.Heal, (int)bot.GetDistanceTo(member))),
-                PvpWeights.Of(bot).Abilities.PerfectRecoveryRange);
+                // Its reach as it is now: in six matches of 2026-11-22 a nearsighted Healer tried a body at 1,058 units
+                // every second for twelve seconds, and the game refused each one.
+                Math.Min(PvpWeights.Of(bot).Abilities.PerfectRecoveryRange, (int)(1_500 * bot.GetModified(eProperty.SpellRange) * 0.01)));
         }
 
         /// <summary>True when this 8v8 bot should press the ability now.</summary>

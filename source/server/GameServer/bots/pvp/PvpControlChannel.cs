@@ -186,6 +186,8 @@ namespace DOL.GS
                         .Select(ids => ids.Length == 2 ? (Group(ids[0]), Group(ids[1])) : throw new ArgumentException("A pairing is written A:B."))
                         .ToList();
                     PvpScrim.BotsRoam = Arg("Roam") == "1";
+                    // SkillA / SkillB (casual, seasoned, sharp): a level for each side of a scrim of bots; without them, the level of "the others".
+                    (PvpSkills.BotsA, PvpSkills.BotsB) = (PvpSkills.Parse(Arg("SkillA")), PvpSkills.Parse(Arg("SkillB")));
                     PvpScrim.Start(pairs, int.Parse(Arg("Matches") ?? "1"), (int.Parse(Arg("RealmRank") ?? "1") - 1) * 10,
                         int.Parse(Arg("Limit") ?? "300"),
                         // BrainA / BrainB: "squad" turns the squad brain on for that side; anything else is the old brain.
