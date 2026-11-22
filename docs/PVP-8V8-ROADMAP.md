@@ -2345,6 +2345,13 @@ groups play correctly as well.
 
 ## M9. The owner's group
 
+*Closed 2026-11-22 on the owner's word ("I think we can consider the exit also done"): sessions
+from the launcher, a character readied, the group formed, roams and fights and rematches, with no
+GM command. Built and run with bots, and not reported on by the owner from a client: the roam in
+Thidranki, `/8v8 status`, a group of bots resting off its road, `/8v8 call control`, clicking and
+raising a dead bot, a real session with the realm abilities of 2026-11-22, and the owner's own
+group abilities reaching the companions. They are checked as they come up in play, not as steps.*
+
 *Owner, 2026-11-17:* "I am by no means an 8v8 expert; I am going from memory." Once the owner can
 play, every one of their fights is to be recorded, and the recordings and the analyzer used both
 to improve the bots and to give the owner insight into their own play. Needed for that: the
@@ -2446,7 +2453,7 @@ In order:
      (pace, potions, who keeps a reserve) is the owner's to say.
 7. [ ] Calls (M9.2, M9.3).
 
-- [ ] **M9.1** (M) A lasting companion roster built around the owner's class, earning realm points
+- [x] **M9.1** (M) A lasting companion roster built around the owner's class, earning realm points
   with the owner.
   *First half built 2026-11-20, not yet seen with a player:* a character's seven companions
   keep their names and sex from one session to the next (`PvpRoster.cs`,
@@ -2482,7 +2489,7 @@ In order:
   Not in it yet: more than two groups, a roam that goes on from fight to fight, what a wipe
   costs, and realm abilities bought in the build's order (a bot buys what its points allow by
   the rule the gamebots use).
-- [ ] **M9.7** (L) The roam: several groups in one zone, a session that goes on (added
+- [x] **M9.7** (L) The roam: several groups in one zone, a session that goes on (added
   2026-11-20). The owner's answers that evening, which are the design:
   - *Zone.* "Are battlegrounds enabled? Navmesh good or should we generate them?" The four
     classic ones (Abermenai 253, Thidranki 252, Murdaigean 251, Caledon 250) are in the world
@@ -2808,11 +2815,16 @@ In order:
   them with the player marked, and `pvp_referee.py` reads one as it reads a scrim.*
 - [ ] **M9.6** (S) Check both clients: the original client and the new client's target and assist
   buttons.
+  *Parked 2026-11-22, optional, not part of closing M9.* Neither install has the new client
+  (it comes with the 0.37c download, about 60 GB while it installs), the owner plays 8v8 in the
+  original client ("not sure how much I want to use it"), and nobody has looked at how the new
+  client takes the `/8v8` commands, the setup window or the group-chat calls. The updater may
+  refuse the scrim folder, which holds development builds; not tried.
   *The dead, 2026-11-22, the owner in the original client:* "I think the dead bot is now
   better." Not said: whether a dead bot can be clicked and raised.
 
 **Exit check:** a full session from the launcher: ready a character, form the group, roam, fight,
-rematch, with no GM commands.
+rematch, with no GM commands. *Met, on the owner's word, 2026-11-22.*
 
 ## M10. Difficulty and tuning
 
