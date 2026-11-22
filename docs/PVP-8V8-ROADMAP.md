@@ -919,6 +919,8 @@ walls stop bots. **Passed 2026-11-16.**
   pick realm rank 5, I have no realm points and can't train purge"). The owner's Hero stands at
   rank 5 in the scrim database after it; whether the points were spent as wanted is the
   owner's to say.
+  *Earned and kept, 2026-11-20:* see M9.1, "a real session". A practice session still
+  overrides the rank.
   *Progress 2026-11-16:* a rank can be set when a group spawns (`RealmRank=5` on `spawn-group`,
   `/8v8 group 5` in game), and the bot gets the realm abilities that rank pays for; the default is
   rank 1. Checked on the scrim server at rank 5 (ten or so abilities each) and rank 1 (one).
@@ -2399,8 +2401,332 @@ In order:
   *First half built 2026-11-20, not yet seen with a player:* a character's seven companions
   keep their names and sex from one session to the next (`PvpRoster.cs`,
   `pvp-rosters.json` beside the server, by character and by build). It is the player's own
-  data: the release builder leaves it out and refuses a package that holds one. Realm points
-  earned by the companions are not in it.
+  data: the release builder leaves it out and refuses a package that holds one.
+  *Second half built 2026-11-20, not yet seen with a player: a real session.* The owner: "we
+  have a nice way to playtest 8v8 in line and basin, but everything is just for testing. All
+  abilities reset, no rps gain, only 2 groups, no real roaming". `/8v8 setup` has a Rules line
+  (Practice or Real) and `/8v8 play <realm> real` is the same typed. Practice is what there
+  was. In a real session (`PvpRealmPoints.cs`):
+  - everybody starts at rank 1 and fights at what it has earned in real sessions (the owner,
+    the same evening: "the real will have us start at rr1 and gain rps and see how it goes. We
+    would need to persist bots and companions data (or at least, rps gained). I guess if we add
+    teams, we'd need to make sure to persist all the bot / companions and their rps"): each
+    companion, the enemy group (never below the average of the player's group,
+    `Real.EnemyKeepsUp`), and the player's own character, whose earned points are kept in the
+    roster beside the companions'. A real session puts the character at that rank, up or down,
+    and going down hands its realm abilities back (a practice session may have raised it; the
+    setup window says so before Start). *To look at before this goes into a release: a
+    character with realm points from outside 8v8 would be put at its 8v8 rank too.*
+  - what is kept, in `pvp-rosters.json` beside the server: for each character its own points
+    and its seven companions by build and place, and for each enemy group it has fought that
+    group's eight members, each with name, sex and points. A second team of the same group in
+    one session will need its own roster name (not built: there is one enemy group today);
+  - no timer is reset, at the start or when both groups are ready;
+  - a death is paid for once (again if the member is raised and dies again): what a player of
+    that level and rank is worth (900 for a level 50 of rank 1), times `Real.RealmPointRate`
+    (5), shared evenly among the members of the killing group within 6,000 units, the dead
+    among them too. The player's share goes on the character, a companion's into the roster,
+    an enemy's into that enemy group's own roster (kept per character and group, by name);
+  - a bot's rank moves when it next comes into a session, not in the middle of a fight;
+  - `/8v8 ranks` lists the companions and the enemy groups fought for real.
+  Not in it yet: more than two groups, a roam that goes on from fight to fight, what a wipe
+  costs, and realm abilities bought in the build's order (a bot buys what its points allow by
+  the rule the gamebots use).
+- [ ] **M9.7** (L) The roam: several groups in one zone, a session that goes on (added
+  2026-11-20). The owner's answers that evening, which are the design:
+  - *Zone.* "Are battlegrounds enabled? Navmesh good or should we generate them?" The four
+    classic ones (Abermenai 253, Thidranki 252, Murdaigean 251, Caledon 250) are in the world
+    data and have navmeshes; nobody has checked those meshes for 8v8 movement, and the world
+    data caps them by level (Thidranki 20 to 24). Cathal Valley and New Frontiers have none.
+    Emain Macha first (the basin is proven), Thidranki as a second map once its mesh is checked.
+  - *Groups.* "There could be 2 group for each realm. PvP ruleset is not enable on this so they
+    would be fighting any of the opposite realm team." Six teams: the player's, one more of the
+    player's realm, two of each other realm; a team fights any team of another realm.
+  - *Adding on a fight.* "should the 2nd team from a realm that is already engage join the fight
+    or not. It could be random, like 30% would add 70% won't add or so. It always been a heated
+    discussion, should we assjam or not an ongoing fight. Most of the respected 8v8 team were
+    not." A bot team that comes on a fight its own realm's other team is in draws once: 30% it
+    joins, 70% it leaves that enemy team alone until the fight is over (unless it is attacked).
+    A setting. The player's team does what the player does.
+  - *Rank and pace.* "Start at Realm Rank 1 Level 1. We could earn rps at x5 or x10." Built
+    (M9.1): rank 1 level 1, five times.
+  - *A wipe.* "We revive at our start point." Every team has a start point; a team with nobody
+    left alive stands up there after a short wait, rested and buffed, the player's too.
+  - *Line-ups.* "Let's start with the main group that we defined for now."
+  - *Kept.* Every team of the session has its own roster (name, sex, points of each member):
+    the player and the seven companions, and each of the five bot teams, the second team of a
+    line-up under its own name.
+
+  Steps:
+  1. [x] The movement of a team (march, engage, rows, following a driver or the player) taken
+     out of the two-team session into something a session can have any number of, the two-team
+     session unchanged in what it does (a bots-only batch before and after).
+     *Done 2026-11-20 (`PvpTeam.cs`). Six lane matches after it ran as before: a healer with an
+     enemy fighter within 250 for 11 to 20% of the fight, the back line 500 apart, healers moving
+     40% of the time, the stops at range and the healers hanging back recorded as before.*
+  2. [x] A roam session of bot teams only, started from the control channel, to be read from
+     its status and the log: six teams, start points, wipes that stand up again, the draw for
+     adding on a fight.
+     *Done 2026-11-20 (`PvpRoam.cs`; `roam-start`, `roam-status`). Where things are, from the
+     installed navmesh (`UT_PvpRoamStartRoutes`, a probe): the two portal keeps are 48,500 units
+     apart and there is no way between them over the mountains; the way goes west round them,
+     through the open middle of the zone, whose two ends are 38,000 apart on foot. From the
+     Midgard keep to the north end is 26,600 and from the Albion keep to the south end 35,500;
+     the hill the owner picked for Hibernia (`/loc` 22984,51041) is 6,600 from the south end.
+     Asked for the Albion keep in one go, a path from the Midgard keep ends in a dead end
+     21,000 short, so a team walks from point to point (`PvpTeam.Route`).
+     The first run, eight minutes: Hibernia's teams walked the middle in about 100 seconds a
+     leg and the four teams that started in the middle of their keeps never left: the way out
+     goes through two keep doors and a bot does not open one. They start in front of the outer
+     gate now. The second run, eleven minutes: first blows at 138 s; fights of two, three and
+     four teams at the north end of the middle; five wipes and each team standing up again;
+     four draws on coming on a realm-mate's fight, all four "leaves them to it"; each team's
+     points in its own roster (9,008 a member for the Albion team that had killed sixteen, 0
+     for the Hibernian team it had wiped twice on its own hill). That last one is why a wiped
+     team now waits while an enemy is within 5,000 of its start (two minutes at most).
+     Not in it: a team with some members dead and nobody to raise them goes on short until it
+     is wiped; the recorder (step 4).*
+     *Two more runs that night.* The third, on the ranks the teams had earned (1L6 to 2L1): a
+     Hibernian team waited its two minutes because the Albion team that had wiped it stood on
+     its hill, stood up, and was attacked a second later. So a team of bots does not start a
+     fight with a team within 3,500 of that team's own start (`Real.StartIsSafeWithin`: nobody
+     camped a portal keep, whose guards saw to that); a fight already on goes on, and a team
+     attacked from its start answers. The fourth, with that: both Hibernian teams wiped at 308
+     and 323 s and stood up at 354 s with nobody on the hill; nine draws, four of them "joins".
+     A draw is one for a fight now, not one for each enemy team in it.
+  3. [x] The player in it (`/8v8 roam`): companions, the wipe and the walk back, realm points
+     to whoever made the kill, the rosters.
+     *Played by the owner 2026-11-21, twice, as a Hibernian:* "it seems to work. Mids went to
+     Albion gate and albion went to mid gate. I fought both in 2 different fight somewhere on
+     their way to the other realm gate". One fault, "The 2nd hib team never left the spawn
+     point": it left 135 seconds in (45 of buffing and a gap of 90 behind the realm's first
+     team), which is when the first Albion team reaches Hibernia's hill. A realm's teams of
+     bots now leave 30 seconds apart, and the second team of the player's realm is its first
+     team of bots and leaves after the 45 (`Real.BuffsAtStartSeconds`,
+     `Real.NextTeamFollowsAfterSeconds`). Seen in the log of the same two roams: a draw of
+     "leaves them to it" held for one side only (the Albion team the second Hibernian team had
+     left to the owner's attacked it eight seconds later, and the owner's companions went for a
+     Midgard team that had left them alone). It holds for both now, until one attacks the other
+     or the player takes one of them as a target (`PvpRoam.LeavesAlone`). **Neither change has
+     been seen with a player.** Not yet reported on by the owner: a wipe and the standing up.
+     *Built 2026-11-20.* `/8v8 roam` takes the player to the
+     start of its realm and starts the roam with the player at the head of the first team of
+     that realm: seven companions that go where the player goes, the rules of a real session,
+     and five teams of bots (the second of the player's realm among them). The player's team
+     makes no draw on coming on a fight and is not kept from an enemy's start. A wipe: about
+     thirty seconds later, and not while an enemy stands at the start, the player is alive
+     again at the start without sickness, with the seven around ("do not release": a player
+     who releases is not brought back). A kill pays the bots of the killing team into its
+     roster and the player on the character and into the roster. `/8v8 ranks` lists both teams
+     of every line-up met. To decide with the owner: neither portal keep has a healer (guards,
+     a teleporter, a hastener, a merchant), a raised bot has no resurrection sickness while a
+     player has, and the server's own note says sickness from a realm-war death is not one a
+     healer cures.
+     *The same day, from three roams of bots watched as they ran* (none of this seen with a
+     player):
+     - With the half-minute gap a realm's second team reaches its first team's fight while it
+       is on. One that drew "leaves them to it" walked on along its route, which is the road
+       the fight is on, and was in it twenty seconds later. It now **waits where the draw
+       fell** (some 9,000 units off) until that fight is over or an enemy comes for it
+       (`PvpRoam.WaitsOutAFight`; seen: a Midgard team standing 8,000 units from its
+       realm-mate's fight for three minutes).
+     - That Midgard team watched its realm-mate fight two Hibernian teams, the second of which
+       had drawn "joins". A team that left a fair fight alone now **joins when the other side
+       adds**: two or more enemy teams on its realm-mate (`PvpRoam.EvensTheOdds`). Built, not
+       yet seen in a run.
+     - **Release.** A player who released went to its bind point in another region, and a
+       player out of the zone was taken for one who had left the game: the roam ended. A
+       player at the head of a roam team now releases to its team's start, and its group
+       stands up there once the seven are down too (`PvpRoam.ReleasePoint`, `IsWiped`); one
+       who releases while companions still fight waits for them.
+     - **The setup window has the roam**: Start is Lane, Basin or Roam (the owner, having
+       picked Real there and found two groups: "There should be 6 teams total?"). The roam
+       takes the "Your group" pick (`/8v8 roam hib-2bard` typed); the enemy, rules and rank
+       lines are not asked. "Follow" is not in the roam: the player leads.
+     *From the owner's third roam, 2026-11-21 (fourteen minutes in Emain Macha, recorded):*
+     - "Dead body still doesn't work. Now when it dies, there's also a level 1 unarmored body
+       that appears." The client does lay a dead player down. The monster beside it had been
+       sent the removal of a player and stayed; the body came without its gear; and the client
+       asked the server for the player it had been given and got no answer. All three changed
+       (`PvpCorpse.cs`). **Not seen in a client.**
+     - "When /8v8 roam, group should not spread / bard play endurance if we do not engage."
+       In a roam the player's group reckons only with an enemy team it is fighting, one that
+       attacks it, or one the player has targeted a member of within 6,500 units; any other is
+       passed by in travel order, the Bard on its speed song (`PvpRoam.PlayerTakesItOn`). A
+       single fight (lane, basin) is as before. **Not seen in a client.**
+     - "I think I am also gaining rps for just being close to the fight." A team was counted
+       in a fight when one of the two was in combat with anybody and the other within reach, and
+       was paid for that team's deaths. Two teams are in a fight now when somebody of one is in
+       combat and aimed at somebody of the other (`PvpRoam.AtEachOther`).
+     - "My group, even though the bard was dead, were getting the other group bard endurance
+       song. It should be per group." **Not found.** By the code a song goes to its singer's
+       group only, the two Hibernian groups are two groups, and in the recording the other Bard
+       was 4,700 to 12,500 units away (the song reaches 2,000) while the player's endurance
+       came back at five a second after its own Bard died at 370 s. `roam-status` now lists
+       any helpful effect on a member cast by a member of its realm's other team
+       (`FromOtherTeams`), to settle it in a run.
+     - "I just fought one of the albion team. For some reason, we had no endurance up during
+       the fight... bard was not dead." In the recording (1337 to 1640 s, eight against eight):
+       the Bard had its endurance song up at 1331 and 1375, was trained and ran out of power
+       (23 amnesias, 9 mezzes begun), and **swung its blade** at 1399, 1401, 1410, 1412 and
+       1465. Drawing the blade ends the song: from 1420 its Blademasters stood at 11 and 29
+       endurance and the owner at 9, until it died at 1565. Two fallbacks written for a bot
+       that fights monsters did it (hit in melee: defend with the blade; no power: walk in and
+       fight). An 8v8 Bard takes neither now (`BotBrain.PlaysThroughTheFight`). **Not seen in a
+       run.** Still as it was: in a fight it starts the song at most every twenty seconds, and
+       not while it is being hit or a groupmate is asleep.
+     - "I feel like 30% add 70% run by is too high. I feel like it always ends up like a huge
+       brawl with all the teams." Counted over the 48 minutes of that roam: nine fights, three
+       of them with all six teams in; 36 draws, 8 of them "joins" (22%); and "joins after all"
+       had overturned 16 of the 28 others, so two draws in three ended in an add. That rule
+       fired for a realm-mate that had itself jumped a fight (it then has two of one realm on
+       it by its own doing): it is now for a realm-mate that was added on in a fair fight
+       only. And the chance is **15** ("maybe 15% add 85% run by"). Emain Macha's one road
+       still brings all six to the same place at the same time; Thidranki does not.
+     - **`/8v8 call retreat`** ("retreat: everyone stop doing what they do and follow me"; also
+       `run`, `follow`). Not a regroup, under which the group goes on fighting: every bot of
+       the group drops its cast, its attack and its targets, answers no attack, and runs
+       behind the player in travel order, the speed song on (`PvpSquad.CallRetreat`,
+       `BotBrain.TryPvpRetreat`). It stands 30 seconds, is renewed by calling it again, and
+       ends with any other call. "retreat" had been another word for regroup. **Not seen in a
+       client or a run.**
+     *The same afternoon, after the owner's fourth and fifth roams:*
+     - **Two Bards, a song up, and no endurance.** "We had no endurance most (if not) all the
+       fight but endurance song was up. It's like if I just never regain any." In the recording
+       (the owner's group with two Bards): both Bards had begun the song, and for four minutes
+       the owner landed no styled swing in 49 and the two Blademasters 1 and 3 in about 40
+       each, against well over half before. An engine fault of two singers of one song: when
+       both pulse in the same tick a member's effect is replaced in its list by the other's
+       copy, and the copy that was replaced is later ended as if it were the live one, which
+       takes the bonus away again. **Shown with bots:** a roam of twenty minutes with two Bards
+       in each Hibernian team and the fix switched off had what the songs add to a member's
+       regeneration at -80 to -105 for 12% of one team's time (it is 0 or 5). A replaced copy is
+       now retired without that (`EffectListComponent`, counted as `StaleCopiesRetired`).
+       *With the fix on:* the same roam for nineteen minutes had both teams at 0 or 5 and
+       nothing below; and in the roam the owner played that evening with two Bards the server
+       logged ten copies retired for the owner's own group in two and a half minutes (each one
+       a bonus taken away twice before), with the group's bonus at 0 or 5 throughout and the
+       endurance song running 98% of its fight time. A snapshot of a
+       recording now has what a member regains (`er`), what its songs add (`erb`) and the song
+       a singer has running (`song`).
+     - Seen on the way: sprinting costs a bot 5 endurance a second on the move and a player
+       the same by the game's rule, and the endurance song gives 5. Whoever sprints and moves
+       regains nothing. Left as it is; the owner's to say.
+     - "Let say mids are fighting alb and I walk by. Neither mids or albs will try to attack my
+       group, as they are already fighting. Only if I decide to add on their fight, they will
+       need to react." A team of bots that is in a fight takes on nobody new until that one
+       attacks it (`PvpRoam.TooBusyFor`); before, only a team of bots that had drawn "leaves
+       them to it" was spared, and the player's group was attacked by both. A player counts as
+       attacking once it is in combat, not for looking at a target. **Not seen in a run.**
+     - "Hibernia could start at Dun Crauchon to balance the starting location." It starts
+       2,400 units in front of that keep: 26,400 on foot to the south end of the middle and
+       33,000 to the north end, against 33,700 for Albion and 24,800 for Midgard to theirs
+       (from the hill it was 6,600). Both ends are reached directly, so Hibernia's first team
+       goes south first and its second north. *A roam of bots, five minutes:* both teams left
+       the keep; the second met a Midgard team at the north end at 2:16 and the first, having
+       found nobody at the south end, a second Midgard team at 3:46: two fights of eight
+       against eight side by side, the two Albion teams waiting. Not seen with a player.
+     *Seen by the owner in a client, 2026-11-22* (a roam of eleven minutes in Emain Macha):
+     "Hib starting location is ok"; "Retreat call is ok"; "We died on our 2nd fight and I just
+     waited. We all respawned at correct location, without rez sick (that's ok)"; "group no
+     adding looks like it's working". So Dun Crauchon, `/8v8 call retreat`, the standing up
+     after a wipe and the bots leaving a fight alone are confirmed with a player.
+     "I am not sure if /8v8 call extend works. I used it but I can't tell." The call was taken
+     (in the one roam it was used in, at 178 s), and the group had been on Extend by its own
+     reading for eight seconds already, so nothing changed: its back line stood 500 units from
+     the nearest enemy before and after. And the call was worded as a chase ("They are backing
+     off: extend on them", the word `chase`), which is the opposite of the order: Extend is the
+     kite of the playbook (the group falls back, healers and casters keep their distance, the
+     fighters turn on whoever follows). Reworded, `kite` in place of `chase`.
+     The owner then said what each call is to be: "Push should be us pushing into enemies.
+     Extend should be us kiting back, in the opposite direction of the enemy team. Engage
+     should be us just attacking. Retreat should be us all running away." Three were that
+     already. **A called Extend is now a kite to be seen** (`PvpCalls.KiteStepWanted`): every
+     healer and caster not in the middle of a cast steps 500 units straight away from the
+     enemy, every two and a half seconds, while an enemy is within 1,800; the fighters cover
+     as under any Extend. The group's own Extend is as it was. **Not seen in a run.**
+     And of a fight that is over: "When the fight is always over, like my team only have 1-2
+     members vs 6-8 enemies, there's no point in keeping all the rules actives. It just drags
+     the fight for no reasons." The last stand of 2026-11-20 was for the losers only. Counted
+     in that morning's roam: the last one or two of a beaten group lived a median of 15
+     seconds more and 54 at the longest, mezzed or stunned 37% of that time, while the winners
+     went on getting away, spreading, standing off and kiting. A group that has won now
+     **mops up** (`PvpPositionWeights.MopsUp`, the mirror of the last stand): no mez, amnesia
+     or nearsight, no keeping its distance, and every fighter on the kill target, its guard and
+     its peel too. **Not seen in a run.**
+     Still not reported on by the owner: the dead lying down, `/release`, the calls for a
+     landed mez and a used Purge, `/8v8 call control`, Thidranki.
+     *The same morning:* "For some reason, the bard is not playing endurance. We just killed 4
+     midgard fighter and ran away." The recording (which now has the song a singer has
+     running) says otherwise for endurance: in each of that roam's four fights the song was
+     running within a second of the first blow and for as long as the Bard lived, and the
+     owner had its bonus 60 to 100% of the time. What it shows is the speed song missing: from
+     the fight at 16:41 on the Bard played endurance on the road and on a retreat too, four
+     and a half minutes without speed. A group gets a new squad when a fight is over, and its
+     bots were given it only when it first decided something, which needs an enemy. Until
+     then they read the old one, whose fight never ends: the speed song is held back in a
+     fight, and so is every buff with a cast time on somebody else, and a call made between
+     fights went to a squad no bot listened to. A squad's bots are given it when it is made
+     (`PvpSquad`). **Not seen in a run.** The owner, asked: "I meant to say speed, not endurance. It was playing only endurance."
+     And of `/release`, used for the first time: "My group just wiped. I used /release and
+     respawn at correct location, with rez sickness. The whole team did not release." The
+     group was wiped at 21:49 of the roam, the owner was at the start ten seconds later, and
+     the seven stood up there at 22:19, when the thirty seconds of the wipe were up: twenty
+     seconds alone at the start, which read as the group not coming. A group whose player has
+     released stands up at once (not under an enemy's feet), and a release in a roam gives no
+     resurrection sickness, as the standing up by itself gives none. **Not seen in a client.**
+  4. [x] The recorder with more than two teams, so a roam can be replayed and counted.
+     *Done 2026-11-21.* A roam writes one recording for the session in `logs/roams` (format 4,
+     `PvpRecorder.BeginRoam`): the header names every team, every line of a match is there with
+     the team's own name where a match has A and B, and a roam adds a line a second for each
+     team (state, place, whom it fights), its events (sets off, fight, draw, waits, wipe,
+     stands up, points paid) and the members of a team that stood up again (new bots under the
+     old names). A team with no enemy near is written every fifth second: five minutes of six
+     teams came to 5 MB. `source/tools/pvp_roam.py <recording or folder>` prints the events,
+     every fight (found from the blows: who began it, who came later and when, deaths, who was
+     left standing, where) and a line a team (fights, time in fights, killing blows, deaths,
+     wipes, points). `--cut` writes each fight of exactly two teams as a match recording, which
+     the tools for a match read as they are: checked with `pvp_referee.py` on a fight cut from
+     a roam of three teams. A fight of three teams or more is counted and not cut.
+     Seen in the first recorded roam of six teams: all six met on the one road within ninety
+     seconds, and the only fight had four teams in it. That is what Thidranki (step 5), with
+     its three starts round a middle, may do better.
+  5. [x] Thidranki as a second map.
+     *Done 2026-11-21, with bots only: **not yet tried with a player**.* `/8v8 roam thid`, the
+     **Thidranki** start of the setup window, `roam-start Map=thid`. A roam has a map now
+     (`PvpRoamMap`: region, starts, routes), Emain Macha being the first.
+     What the world data and the installed navmesh say of Thidranki (region 252): three portal
+     keeps round a neutral keep with guards, 33,700 to 40,900 units from each other on foot
+     and 16,300 to 27,700 from the middle, every way between them within 8% of the straight
+     line. Its level cap (20 to 24) acts on the zone's own doors and on a logout there, and
+     stops neither a level 50 who is put there nor the points a roam pays itself.
+     Each realm starts 2,500 units in front of its portal keep. Three points to walk between,
+     one between each two realms, none within 8,500 of the neutral keep; a realm's first team
+     goes round them one way and its second the other, so each point is the first of two
+     teams of two realms.
+     The first run: the six met as two fights of eight against eight at 110 and 112 s, and a
+     team of the third realm was in each within a minute. So **the draw is for any fight that
+     is on**, a realm-mate's or one between the two other realms (`PvpRoam.ComesOnAFight`):
+     three times in ten a team joins, and otherwise it waits where it is and takes on whoever
+     is left ("should we assjam or not an ongoing fight. Most of the respected 8v8 team were
+     not"). To ask the owner: a team that waited attacks the winner as soon as the fight is
+     over, without letting it rest.
+     The third run, seven and a half minutes: four fights, three of them of two teams from
+     first blow to last (cut and read by `pvp_referee.py`); three wipes and each team standing
+     up at its keep; a Midgard team that came on Albion fighting Hibernia waited 51 seconds and
+     then fought the Hibernian team that had won; 9 MB of recording.
+     Also from these runs:
+     - "Joins after all" was taken for an add when its realm-mate was in a three-way fight (one
+       team of each other realm on it). It is for two teams of *one* realm on its realm-mate.
+     - **After a fight a team of bots sees to its dead before it walks on** (it walked on short
+       before, the dead left where they fell): with a member alive that can raise, it gathers
+       at its dead for up to 90 seconds; with nobody to raise them, or when that time is up, it
+       goes back to its start and forms up again as after a wipe
+       (`Real.RaisesItsDeadForSeconds`, `Real.ReformsAfterSeconds`). Built; the three runs had
+       no team left in that state, so it is unseen.
+     - A second cloak was refused with an error and a stack trace in the log for every 8v8 bot
+       made, 2,000 times that morning: a bot that wears one is not given another.
+
 - [ ] **M9.2** (M) Bot shot-caller: calls announced in group chat (assist target, mez landed,
   retreat), with an assist key for the owner.
   *First cut 2026-11-19, not yet seen in a client.* In a group with a player, its bots say in
@@ -2408,12 +2734,18 @@ In order:
   (Healer), at 62%."), the order when it changes (push, regroup on the healers, extend, hold),
   incoming on a member with two or more on it ("3 on you, Nayas!"), a member out of power, and
   a caster calling the group to stack for pets. Orders no more often than every 5 seconds and
-  incoming every 8; `/8v8 calls off` silences them. Not in it yet: mez landed, purge used,
-  and anything the player says back (M9.3).
+  incoming every 8; `/8v8 calls off` silences them.
+  *Added 2026-11-21, not yet seen in a client:* "3 of them are mezzed." when a mez puts two or
+  more of the enemy to sleep (said by the member that mezzes, no more often than every six
+  seconds), and "Purge used." / "Group Purge used." by the member that used it.
 - [ ] **M9.3** (M) Owner's calls: `/call` macros for target, push, retreat, control that one,
   regroup. The squad brain treats them as its own decisions.
   *Built 2026-11-20 as `/8v8 call <assist|push|regroup|hold|engage|extend>`, not yet tried in a
-  client.* "Control that one" is not in it.
+  client.* *"Control that one" added 2026-11-21, not yet tried in a client:*
+  `/8v8 call control` (or `mez`, `cc`) on the player's target: for twenty seconds a mez, stun,
+  root or nearsight on that enemy scores 80 more (`ControlCalledByPlayer`), which puts it ahead
+  of the group's own first choice without making a cast that would do nothing; the group's
+  mezzer answers "Control on Finnarar (Healer)."
 - [x] **M9.4** (M) `/8v8` play session: pick the enemy realm and group, enemy roams the arena,
   rematch after each fight. The enemy roster keeps its own realm points.
 - [x] **M9.5** (S) Play sessions are recorded and analyzed like scrims.
@@ -2470,7 +2802,16 @@ round:*
   previous one, and a drop blocks it.
 - [ ] **M10.4** (M) Tuning rounds with the owner: 20 fights, review the analyzer's failure list,
   fix, repeat.
-- [ ] **M10.5** (S) Player guide for the 8v8 mode and an update of the developer docs.
+- [x] **M10.5** (S) Player guide for the 8v8 mode and an update of the developer docs.
+  *Player guide written 2026-11-21: [PVP-8V8-GUIDE.md](PVP-8V8-GUIDE.md)* (the three ways to
+  play, the roam's rules, the calls, what has and has not been tried in a client). The owner
+  had twice taken one mode for another ("I misunderstood how to use the /8v8 practice vs real";
+  "There should be 6 teams total?"). *Developer docs the same day:* an 8v8 section in
+  [DEVELOPMENT.md](DEVELOPMENT.md) (where the code is, file by file; the scrim server and its
+  commands; the tools; the rules of the work). Both are to be kept up as the mode changes.
+  Also `pvp_roam.py --html`: a roam as a page for the browser, the zone from above with every
+  member a dot, to play and scrub, the events and fights to jump to, a view that follows one
+  team.
 
 **Exit check:** all four points of the definition of done.
 

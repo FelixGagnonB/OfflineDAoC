@@ -210,6 +210,21 @@ namespace DOL.GS
                 case "scrim-scan":
                     return PvpScrim.ScanLanes(int.Parse(Arg("Distance") ?? "0"), int.Parse(Arg("Step") ?? "500"));
 
+                case "roam-start":
+                    // Lineups=hib-2bard: that group for its realm's teams, in place of the main one. StaleCopies=off: an
+                    // effect fault as it was before 2026-11-21, to show it (EffectListComponent.RetireStaleCopies).
+                    EffectListComponent.RetireStaleCopies = !string.Equals(Arg("StaleCopies"), "off", StringComparison.OrdinalIgnoreCase);
+                    return PvpRoam.Start(int.Parse(Arg("Teams") ?? "2"), Arg("Owner") ?? "roam", null, null, PvpRoam.MapFor(Arg("Map")),
+                        (Arg("Lineups") ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                            .Select(PvpBuildCatalog.FindGroup).Where(group => group != null).ToList());
+
+                case "roam-status":
+                    return PvpRoam.Status();
+
+                case "nav-route":
+                    return PvpScrim.RouteCheck(ushort.Parse(Arg("Region") ?? "200"), int.Parse(Arg("X1")), int.Parse(Arg("Y1")),
+                        int.Parse(Arg("X2")), int.Parse(Arg("Y2")));
+
                 case "scrim-status":
                     return PvpScrim.Status();
 

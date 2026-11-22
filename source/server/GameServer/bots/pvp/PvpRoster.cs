@@ -6,8 +6,12 @@ using System.Text.Json;
 
 namespace DOL.GS
 {
-    /// <summary>One companion of a player's 8v8 group: its build, which of that build it is, its name and sex.</summary>
-    public sealed record PvpRosterEntry(string Build, int Place, string Name, int Gender);
+    /// <summary>
+    /// One companion of a player's 8v8 group, or one member of an enemy group of that player: its
+    /// build, which of that build it is, its name and sex, and the realm points it has earned in
+    /// real sessions (bots/pvp/PvpRealmPoints.cs; 0 for one that has been in none).
+    /// </summary>
+    public sealed record PvpRosterEntry(string Build, int Place, string Name, int Gender, long RealmPoints = 0);
 
     /// <summary>
     /// A player's lasting companions (docs/PVP-8V8-ROADMAP.md, M9.1, the first half): the same
@@ -52,6 +56,20 @@ namespace DOL.GS
                 {
                 }
             }
+        }
+
+        /// <summary>A roster with realm points added to some of its members (those it has; the others are left out). Nothing is written.</summary>
+        public static List<PvpRosterEntry> Credited(IEnumerable<PvpRosterEntry> roster, IReadOnlyDictionary<(string Build, int Place), long> earned) =>
+            roster.Select(entry => earned.TryGetValue((entry.Build.ToLowerInvariant(), entry.Place), out long points) && points > 0
+                ? entry with { RealmPoints = entry.RealmPoints + points } : entry).ToList();
+
+        /// <summary>Adds realm points to members of a kept roster. Never throws.</summary>
+        public static void Credit(string folder, string owner, IReadOnlyDictionary<(string Build, int Place), long> earned)
+        {
+            if (string.IsNullOrEmpty(owner) || earned.Count == 0)
+                return;
+            lock (Gate)
+                Save(folder, owner, Credited(Load(folder, owner), earned));
         }
 
         private static Dictionary<string, List<PvpRosterEntry>> ReadAll(string folder)

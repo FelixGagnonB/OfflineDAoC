@@ -22,7 +22,11 @@ namespace DOL.GS
             PvpOrder.Engage => "Engage.",
             PvpOrder.Push => "Push!",
             PvpOrder.Regroup => "Regroup on the healers.",
-            PvpOrder.Extend => "They are backing off: extend on them.",
+            // Extend is the kite (docs/PVP-8V8-PLAYBOOK.md, section 3): the group falls back together, its healers and
+            // casters keep their distance and its fighters turn on whoever follows. It was worded as a chase until
+            // 2026-11-21 ("They are backing off: extend on them"), which is the opposite, and the owner, having called
+            // it: "I am not sure if /8v8 call extend works. I used it but I can't tell."
+            PvpOrder.Extend => "Extend: fall back and kite, fighters on whoever follows.",
             PvpOrder.Hold => "Hold here and let them come.",
             _ => order + ".",
         };
@@ -73,16 +77,63 @@ namespace DOL.GS
         public const int PlayerAssistSeconds = 45;
 
         /// <summary>
+        /// "Control that one" (/8v8 call control, M9.3): the player's target is the one the
+        /// group's mez, stun, root and nearsight go to first, for this long or until it is held.
+        /// </summary>
+        public const int PlayerControlSeconds = 20;
+
+        public static bool IsControlCall(string word) => (word ?? string.Empty).Trim().ToLowerInvariant() is "control" or "mez" or "cc";
+
+        public static string Control(string name, eCharacterClass characterClass) => $"Control on {name} ({characterClass}).";
+
+        /// <summary>
+        /// The kite the player calls (/8v8 call extend). The owner, 2026-11-22: "Extend should be
+        /// us kiting back, in the opposite direction of the enemy team." The group's own Extend
+        /// only shifts weights (a little more distance, the fighters on whoever follows), and a
+        /// call for it changed nothing to be seen: in the one roam it was used in, the back line
+        /// stood 500 units from the nearest enemy before and after. Called, every healer and
+        /// caster that is not in the middle of a cast takes a step this long straight away from
+        /// the enemy, again and again, while an enemy is nearer than <see cref="CalledKiteKeeps"/>;
+        /// between two steps it has time for a cast. The fighters cover as under any Extend.
+        /// </summary>
+        public const int CalledKiteStep = 500, CalledKiteKeeps = 1_800, CalledKiteStepEveryMilliseconds = 2_500;
+
+        public static bool KiteStepWanted(float nearestEnemy, long millisecondsSinceItsLastStep) =>
+            nearestEnemy < CalledKiteKeeps && millisecondsSinceItsLastStep >= CalledKiteStepEveryMilliseconds;
+
+        /// <summary>
+        /// "Retreat: everyone stop doing what they do and follow me" (the owner, 2026-11-21).
+        /// Not an order the group fights under, like regroup: nobody attacks, casts or answers
+        /// an attack; all of them run with the caller in travel order, the speed song on. It
+        /// stands this long, is renewed by calling it again, and ends with any other call.
+        /// </summary>
+        public const int PlayerRetreatSeconds = 30;
+
+        public static bool IsRetreatCall(string word) => (word ?? string.Empty).Trim().ToLowerInvariant() is "retreat" or "run" or "follow";
+
+        public static string Retreating(string caller) => $"Retreating with {caller}.";
+
+        /// <summary>Said by the member that used it: a healer player need not cure what a Purge has taken off.</summary>
+        public static string Purged(bool group) => group ? "Group Purge used." : "Purge used.";
+
+        /// <summary>Said when a mez has put two or more of the enemy to sleep that were not asleep a second ago.</summary>
+        public static string MezLanded(int asleep) => $"{asleep} of them are mezzed.";
+
+        public const int MezLandedEveryMilliseconds = 6_000;
+
+        public static bool WorthMezLanded(int asleep, int asleepBefore) => asleep >= 2 && asleep > asleepBefore;
+
+        /// <summary>
         /// The order a player's call stands for (/8v8 call regroup): push, regroup, hold, engage,
         /// or extend. Null for anything else, "assist" among them, which names a target and no order.
         /// </summary>
         public static PvpOrder? OrderFor(string word) => (word ?? string.Empty).Trim().ToLowerInvariant() switch
         {
             "push" => PvpOrder.Push,
-            "regroup" or "back" or "retreat" => PvpOrder.Regroup,
+            "regroup" or "back" => PvpOrder.Regroup,
             "hold" or "wait" => PvpOrder.Hold,
             "engage" or "go" => PvpOrder.Engage,
-            "extend" or "chase" => PvpOrder.Extend,
+            "extend" or "kite" => PvpOrder.Extend,
             _ => null,
         };
 
@@ -92,7 +143,7 @@ namespace DOL.GS
             PvpOrder.Push => "Pushing.",
             PvpOrder.Regroup => $"Regrouping on {caller}.",
             PvpOrder.Hold => "Holding.",
-            PvpOrder.Extend => "Extending on them.",
+            PvpOrder.Extend => "Extending: falling back, fighters on whoever follows.",
             _ => "Engaging.",
         };
 

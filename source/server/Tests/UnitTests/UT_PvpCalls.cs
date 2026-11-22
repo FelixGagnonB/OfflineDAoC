@@ -57,6 +57,76 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void ControlThatOneIsACallOfItsOwn()
+        {
+            Assert.That(PvpCalls.IsControlCall("control"), Is.True);
+            Assert.That(PvpCalls.IsControlCall(" Mez "), Is.True);
+            Assert.That(PvpCalls.IsControlCall("cc"), Is.True);
+            Assert.That(PvpCalls.IsControlCall("push"), Is.False);
+            Assert.That(PvpCalls.IsControlCall(null), Is.False);
+            Assert.That(PvpCalls.OrderFor("control"), Is.Null, "it names a target and no order");
+            Assert.That(PvpCalls.Control("Finnarar", eCharacterClass.Healer), Is.EqualTo("Control on Finnarar (Healer)."));
+
+            // The player's call puts a mez on that enemy ahead of the same mez on another, and does nothing for damage.
+            var weights = new PvpWeights();
+            var mez = new PvpOption(PvpActionKind.Mez, 0, PvpBuffArchetype.Caster, false, false, 100, false, false, false, false, 100);
+            Assert.That(PvpActionChoice.Score(eCharacterClass.Sorcerer, mez with { Called = true }, weights) -
+                        PvpActionChoice.Score(eCharacterClass.Sorcerer, mez, weights), Is.EqualTo(weights.ControlCalledByPlayer));
+            var root = mez with { Kind = PvpActionKind.Root };
+            Assert.That(PvpActionChoice.Score(eCharacterClass.Sorcerer, root with { Called = true }, weights) -
+                        PvpActionChoice.Score(eCharacterClass.Sorcerer, root, weights), Is.EqualTo(weights.ControlCalledByPlayer));
+            var damage = mez with { Kind = PvpActionKind.Damage };
+            Assert.That(PvpActionChoice.Score(eCharacterClass.Sorcerer, damage with { Called = true }, weights),
+                Is.EqualTo(PvpActionChoice.Score(eCharacterClass.Sorcerer, damage, weights)));
+        }
+
+        [Test]
+        public void ExtendIsTheKiteAndIsSaidSo()
+        {
+            Assert.That(PvpCalls.OrderFor("kite"), Is.EqualTo(PvpOrder.Extend));
+            Assert.That(PvpCalls.OrderFor("chase"), Is.Null, "a chase is the opposite of what the order does");
+            Assert.That(PvpCalls.Order(PvpOrder.Extend), Does.Contain("fall back"));
+            Assert.That(PvpCalls.Answer(PvpOrder.Extend, "Talveh"), Does.Contain("falling back"));
+        }
+
+        [Test]
+        public void ACalledExtendIsAKiteYouCanSee()
+        {
+            // "Extend should be us kiting back, in the opposite direction of the enemy team."
+            Assert.That(PvpCalls.KiteStepWanted(900, 3_000), Is.True, "an enemy is near: another step back");
+            Assert.That(PvpCalls.KiteStepWanted(900, 1_000), Is.False, "between two steps there is time for a cast");
+            Assert.That(PvpCalls.KiteStepWanted(2_500, 10_000), Is.False, "far enough: it stands and works");
+            Assert.That(PvpCalls.CalledKiteStep, Is.InRange(300, 800));
+        }
+
+        [Test]
+        public void RetreatIsACallOfItsOwnAndNotARegroup()
+        {
+            // The owner, 2026-11-21: "retreat: everyone stop doing what they do and follow me".
+            Assert.That(PvpCalls.IsRetreatCall("retreat"), Is.True);
+            Assert.That(PvpCalls.IsRetreatCall(" Run "), Is.True);
+            Assert.That(PvpCalls.IsRetreatCall("follow"), Is.True);
+            Assert.That(PvpCalls.IsRetreatCall("regroup"), Is.False);
+            Assert.That(PvpCalls.IsRetreatCall(null), Is.False);
+            Assert.That(PvpCalls.OrderFor("retreat"), Is.Null, "it was another word for regroup, under which the group goes on fighting");
+            Assert.That(PvpCalls.OrderFor("back"), Is.EqualTo(PvpOrder.Regroup));
+            Assert.That(PvpCalls.Retreating("Talveh"), Is.EqualTo("Retreating with Talveh."));
+            Assert.That(PvpCalls.PlayerRetreatSeconds, Is.EqualTo(30));
+        }
+
+        [Test]
+        public void AMezThatLandedAndAPurgeAreSaid()
+        {
+            Assert.That(PvpCalls.WorthMezLanded(3, 0), Is.True);
+            Assert.That(PvpCalls.WorthMezLanded(1, 0), Is.False, "one asleep is not worth a line");
+            Assert.That(PvpCalls.WorthMezLanded(3, 3), Is.False, "said when it lands, not while it lasts");
+            Assert.That(PvpCalls.WorthMezLanded(2, 4), Is.False, "they are waking");
+            Assert.That(PvpCalls.MezLanded(4), Is.EqualTo("4 of them are mezzed."));
+            Assert.That(PvpCalls.Purged(false), Is.EqualTo("Purge used."));
+            Assert.That(PvpCalls.Purged(true), Is.EqualTo("Group Purge used."));
+        }
+
+        [Test]
         public void AssistAndAnythingElseAreNoOrder()
         {
             Assert.That(PvpCalls.OrderFor("assist"), Is.Null);

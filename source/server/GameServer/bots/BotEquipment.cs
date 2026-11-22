@@ -163,6 +163,10 @@ namespace DOL.GS
                 eInventorySlot slot = (eInventorySlot)i;
                 if (!ShouldEquipRegularSlot(living as IGamePlayer))
                     continue;
+                // A cloak the bot already wears stays: adding a second one was refused with an error and a
+                // stack trace in the log, once for every 8v8 bot made (2,000 of them in a morning of roams).
+                if (i == Slot.CLOAK && living.Inventory.GetItem(slot) != null)
+                    continue;
                 DbItemTemplate itemToCreate = living is GameBot { IsEndgameCompanion: true }
                     ? CreateCompanionItem(realm, charClass, level, objectType, slot)
                     : new GeneratedUniqueItem(false, realm, charClass, level, objectType, slot);

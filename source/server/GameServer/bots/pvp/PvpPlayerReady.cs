@@ -62,6 +62,53 @@ namespace DOL.GS
             return $"You are now realm rank {realmLevel / 10 + 1} with {player.RealmSpecialtyPoints} realm ability points to spend: /train opens the trainer window.";
         }
 
+        /// <summary>
+        /// Puts the character at the rank it has earned in real sessions (PvpRealmPoints), up or
+        /// down: a practice session may have raised it. Going down, its realm abilities are handed
+        /// back, since the points that bought them are gone. Returns what to tell the player, or
+        /// null when nothing changed.
+        /// </summary>
+        public static string SetRealRank(GamePlayer player, long earned)
+        {
+            if (player == null)
+                return null;
+            earned = Math.Max(0, earned);
+            int level = PvpRealmPoints.LevelFor(earned);
+            if (player.RealmPoints == earned && player.RealmLevel == level)
+                return null;
+            bool lowered = level < player.RealmLevel;
+            string was = PvpRealmPoints.RankName(player.RealmLevel);
+            player.RealmPoints = earned;
+            player.RealmLevel = level;
+            if (lowered)
+                player.RespecRealm(false);
+            player.Out.SendUpdatePlayer();
+            player.Out.SendUpdatePoints();
+            player.Out.SendUpdatePlayerSkills(true);
+            player.SaveIntoDatabase();
+            return $"A real fight: you are at realm rank {PvpRealmPoints.RankName(level)}, what you have earned in real fights (you were {was})." +
+                   (lowered ? $" Your realm abilities are handed back; you have {player.RealmSpecialtyPoints} points to spend with /train." : string.Empty);
+        }
+
+        /// <summary>
+        /// The start of a real session or a roam for a character: it is in the roster beside its
+        /// companions, and at the rank it has earned in real sessions. Returns what to tell the player, or null.
+        /// </summary>
+        public static string EnterReal(GamePlayer player)
+        {
+            List<PvpRosterEntry> roster = PvpRoster.Load(AppContext.BaseDirectory, player.InternalID);
+            if (PvpRoster.Find(roster, PvpRealmPoints.PlayerBuild, 0) == null)
+            {
+                roster.Add(new PvpRosterEntry(PvpRealmPoints.PlayerBuild, 0, player.Name, (int)player.Gender));
+                PvpRoster.Save(AppContext.BaseDirectory, player.InternalID, roster);
+            }
+            return SetRealRank(player, RealPointsOf(player));
+        }
+
+        /// <summary>What a character has earned in real sessions; 0 for one that has been in none.</summary>
+        public static long RealPointsOf(GamePlayer player) =>
+            PvpRoster.Find(PvpRoster.Load(AppContext.BaseDirectory, player.InternalID), PvpRealmPoints.PlayerBuild, 0)?.RealmPoints ?? 0;
+
         /// <summary>Null when the player may take the build, otherwise why not.</summary>
         public static string Refusal(eRealm realm, bool inCombat, bool alive, PvpBuild build)
         {

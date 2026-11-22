@@ -34,6 +34,14 @@ namespace DOL.GS
         public bool TriggersImmunity { get; set; }
         public int ImmunityDuration { get; protected set; } = 60000;
         public bool IsBeingReplaced { get; set; } // Used externally to force an effect to be silent (no message, no immunity) when being refreshed.
+
+        /// <summary>
+        /// Set when this instance is ended after a newer copy of the same spell took its place in
+        /// its owner's effect list (EffectListComponent replaces a pulsing spell's effect in
+        /// place, without stopping the old instance or starting the new one). The copy in the
+        /// list carries the effect on; this one is retired without its <see cref="OnStopEffect"/>.
+        /// </summary>
+        public bool IsStaleCopy { get; set; }
         public ServiceObjectId ServiceObjectId { get; } = new(ServiceObjectType.Effect);
 
         // State properties.

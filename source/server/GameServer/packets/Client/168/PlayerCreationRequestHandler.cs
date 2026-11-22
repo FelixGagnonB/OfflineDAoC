@@ -15,6 +15,10 @@ namespace DOL.GS.PacketHandler.Client.v168
 
             if (target == null)
             {
+                // A dead 8v8 bot is a dead player to the client, under a session id of its own (bots/pvp/PvpCorpse.cs).
+                if (PvpCorpse.AnswerRequest(client.Player, id))
+                    return;
+
                 if (Log.IsWarnEnabled)
                     Log.Warn($"Client {client.SessionID}:{client.TcpEndpointAddress} account {(client.Account == null ? "null" : client.Account.Name)} requested invalid client {id}");
 

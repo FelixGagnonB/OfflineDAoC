@@ -61,6 +61,11 @@ namespace DOL.GS
         /// </summary>
         public bool PvpSprinting { get; set; }
 
+        /// <summary>In a real 8v8 session: the roster this bot is kept in, which of its build it is, and its realm points (PvpRealmPoints).</summary>
+        public string PvpRosterOwner { get; set; }
+        public int PvpRosterPlace { get; set; }
+        public long PvpPoints { get; set; }
+
         /// <summary>While this 8v8 bot is dead a client has a dead player in its place (PvpCorpse): under this session id, and removed as a player.</summary>
         public ushort PvpBodySession { get; set; }
         public bool PvpShownAsBody { get; set; }

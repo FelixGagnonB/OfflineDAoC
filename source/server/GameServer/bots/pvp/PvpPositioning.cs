@@ -111,6 +111,38 @@ namespace DOL.GS
         /// 0.48 (five builds of eight took fewer). Off: it stands, as until 2026-11-20.
         /// </summary>
         public bool KitesWhenPinned { get; set; } = true;
+
+        /// <summary>
+        /// A group down to this many members, against at least <see cref="LastStandOutnumberedBy"/>
+        /// times as many enemies, has lost: its healers and casters stop kiting, getting away and
+        /// keeping their distance, and stand and do what they can. The owner, playing on
+        /// 2026-11-20: "There's no point to keep the rules when the fight is almost done. When
+        /// there are like 2 vs 6-8, the 2 could just stop moving instead of running around trying
+        /// to kite or something." 0 turns it off.
+        /// </summary>
+        public int LastStandAtMost { get; set; } = 2;
+        public int LastStandOutnumberedBy { get; set; } = 3;
+
+        /// <summary>True for a group that has lost and makes its last stand.</summary>
+        public bool LastStand(int ownAlive, int enemiesAlive) =>
+            LastStandAtMost > 0 && ownAlive > 0 && ownAlive <= LastStandAtMost && enemiesAlive >= ownAlive * Math.Max(1, LastStandOutnumberedBy);
+
+        /// <summary>
+        /// The other side of a last stand: a group that has won and has only to finish. The
+        /// owner again, 2026-11-22: "When the fight is always over, like my team only have 1-2
+        /// members vs 6-8 enemies, there's no point in keeping all the rules actives. It just
+        /// drags the fight for no reasons." Counted in that morning's roam, with the last stand
+        /// already in: the last one or two of a beaten group lived a median of 15 seconds more
+        /// and 54 at the longest, mezzed or stunned for 37% of them, while the winners went on
+        /// getting away (98 decisions), spreading (72), standing off (41) and kiting (40).
+        /// A group that mops up puts nobody to sleep, keeps no distance, and sends every fighter
+        /// at the kill target, its guard and its peel too.
+        /// </summary>
+        public bool MopsUp(int ownAlive, int enemiesAlive) => LastStand(enemiesAlive, ownAlive);
+
+        /// <summary>What a group that mops up no longer casts: sleep, forgetfulness and blindness only keep the last enemy alive.</summary>
+        public static bool NotInAMopUp(PvpActionKind kind) =>
+            kind is PvpActionKind.Mez or PvpActionKind.MezArea or PvpActionKind.Amnesia or PvpActionKind.Nearsight;
         public int KiteStepEveryMilliseconds { get; set; } = 700;
         /// <summary>
         /// With one of the enemy fighters on it mezzed, stunned, rooted or slowed, the bot is not

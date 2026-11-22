@@ -6,12 +6,15 @@ namespace DOL.GS.Commands
     /// <summary>The 8v8 mode from inside the game (docs/PVP-8V8-ROADMAP.md, M1.6).</summary>
     [CmdAttribute("&8v8", ePrivLevel.Player, "8v8 group: seven level-50 companions built around your class",
         "/8v8 group [realm rank 1-13]   your realm's main group without your own class, fully buffed",
-        "/8v8 setup                     a window to pick the enemy realm, the start (lane or basin) and the realm rank, then start",
+        "/8v8 setup                     a window to pick your group, the enemy realm, the start (lane, basin, or a roam in Emain Macha or Thidranki), the rules and the realm rank, then start",
         "/8v8 ready [build]             your character becomes level 50 with that build's class, spec and gear (lists the builds without one)",
         "/8v8 play <alb|mid|hib> [rank] [lane|basin] [follow]  a fight: you and seven companions against that realm's group of eight, in Emain Macha; follow: a bot drives",
         "/8v8 play hib-2bard ...  or  /8v8 play mid hib-2bard ...  another group by its name: as the enemy (first), or as your own (later)",
-        "/8v8 call <push|regroup|hold|engage|extend|assist>  your call to the group: an order stands twelve seconds; assist puts the damage dealers on your target while it lives (45 s at most)",
-        "/8v8 calls <on|off>            your companions' calls in group chat (assist, incoming, orders, out of power)",
+        "/8v8 play <alb|mid|hib> real [lane|basin] [follow]  a real fight: everybody at the rank it has earned, kills earn realm points that are kept, no timer is reset",
+        "/8v8 roam [thid] [group]       the roam: two groups of each realm in Emain Macha (thid: in Thidranki), yours with you; real rules, and a wipe or a release puts your group back at its start",
+        "/8v8 ranks                     the realm ranks of your companions, and of the enemy groups you have fought for real",
+        "/8v8 call <push|regroup|hold|engage|extend|assist|control|retreat>  your call to the group: an order stands twelve seconds; assist puts the damage dealers on your target while it lives (45 s at most); control asks for a mez, stun, root or nearsight on your target (20 s); retreat: everybody drops what it does and runs with you (30 s, or until your next call)",
+        "/8v8 calls <on|off>            your companions' calls in group chat (assist, incoming, orders, out of power, a mez that landed, a Purge used)",
         "/8v8 corpse <player|body|fall|ghost|off>  how a dead 8v8 bot is shown: lying as a dead player does, to click (player); a body under its name that only the group window targets (body); the body and a ghost standing over it (fall); the ghost only (ghost); standing as if alive (off)",
         "/8v8 stop                      ends the fight and removes every 8v8 bot",
         "/8v8 clear                     removes every 8v8 bot",
@@ -59,7 +62,8 @@ namespace DOL.GS.Commands
                     int playRank = args.Skip(3).Select(arg => int.TryParse(arg, out int wanted) ? wanted : 0).FirstOrDefault(wanted => wanted > 0);
                     string start = args.Skip(3).Any(arg => arg.ToLowerInvariant() == "basin") ? "basin" : "lane";
                     bool follow = args.Skip(3).Any(arg => arg.ToLowerInvariant() == "follow");
-                    PvpScrim.TravelAndStartPlay(player, enemy, (System.Math.Clamp(playRank == 0 ? 5 : playRank, 1, 13) - 1) * 10, start, Say, follow, ownGroup);
+                    bool real = args.Skip(3).Any(arg => arg.ToLowerInvariant() == "real");
+                    PvpScrim.TravelAndStartPlay(player, enemy, (System.Math.Clamp(playRank == 0 ? 5 : playRank, 1, 13) - 1) * 10, start, Say, follow, ownGroup, real);
                     if (ownGroup != null)
                         Say($"Your group is {ownGroup.Id}: {string.Join(", ", ownGroup.BuildIds)} (without your own place).");
                     return;
@@ -80,9 +84,20 @@ namespace DOL.GS.Commands
                             Say("Target an enemy your group can see, then /8v8 call assist.");
                         return;
                     }
+                    if (PvpCalls.IsRetreatCall(word))
+                    {
+                        squad.CallRetreat(player);
+                        return;
+                    }
+                    if (PvpCalls.IsControlCall(word))
+                    {
+                        if (!squad.CallControl(player, player.TargetObject as GameLiving))
+                            Say("Target an enemy your group can see, then /8v8 call control.");
+                        return;
+                    }
                     if (PvpCalls.OrderFor(word) is not { } called)
                     {
-                        Say("/8v8 call push, regroup, hold, engage, extend or assist.");
+                        Say("/8v8 call push, regroup, hold, engage, extend, assist, control or retreat.");
                         return;
                     }
                     squad.CallOrder(player, called);
@@ -136,6 +151,39 @@ namespace DOL.GS.Commands
                     catch (System.Exception exception)
                     {
                         Say("Making the character ready failed part way: " + exception.Message);
+                    }
+                    return;
+                }
+
+                case "roam":
+                    try
+                    {
+                        // "/8v8 roam thid hib-2bard": in Thidranki, and with another of the realm's groups than its main one.
+                        PvpRoam.StartFor(player, Say, args.Skip(2).Select(PvpBuildCatalog.FindGroup).FirstOrDefault(group => group != null),
+                            args.Skip(2).Select(PvpRoam.MapFor).FirstOrDefault(map => map != null));
+                    }
+                    catch (System.Exception exception)
+                    {
+                        Say(exception.Message);
+                    }
+                    return;
+
+                case "ranks":
+                {
+                    static string Rank(long points) => $"{PvpRealmPoints.RankName(PvpRealmPoints.LevelFor(points))} ({points:N0})";
+                    System.Collections.Generic.List<PvpRosterEntry> mine = PvpRoster.Load(System.AppContext.BaseDirectory, player.InternalID);
+                    Say($"In real fights you are at {Rank(PvpPlayerReady.RealPointsOf(player))}; your character stands at {PvpRealmPoints.RankName(player.RealmLevel)} now.");
+                    mine = mine.Where(entry => entry.Build != PvpRealmPoints.PlayerBuild).ToList();
+                    Say(mine.Count == 0 ? "You have no companions yet: they come with your first fight."
+                        : "Your companions: " + string.Join(", ", mine.Select(entry => $"{entry.Name} ({entry.Build}) {Rank(entry.RealmPoints)}")));
+                    // Every team this character has met: the one of a session, and the two of each line-up in the roam.
+                    foreach (string team in PvpBuildCatalog.Groups.Concat(PvpBuildCatalog.Variants)
+                                 .SelectMany(group => new[] { PvpRoam.TeamName(group.Id, 1), PvpRoam.TeamName(group.Id, 2) }))
+                    {
+                        System.Collections.Generic.List<PvpRosterEntry> theirs = PvpRoster.Load(System.AppContext.BaseDirectory,
+                            PvpRealmPoints.EnemyRoster(player.InternalID, team));
+                        if (theirs.Count > 0)
+                            Say($"{team}: " + string.Join(", ", theirs.Select(entry => $"{entry.Name} ({entry.Build}) {Rank(entry.RealmPoints)}")));
                     }
                     return;
                 }

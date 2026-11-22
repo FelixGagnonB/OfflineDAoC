@@ -95,9 +95,14 @@ namespace DOL.GS
         /// fighter at the body 24% of the time, by being out of range 26% (438 units short at the
         /// median), asleep or stunned 14%, being hit 12%. A group's first death was raised 24 times
         /// in 74, and the group that lost the first member lost the match 85% of the time.
-        /// Off as built: to be compared. Walking to a body still minds the fighter.
+        /// Compared that night, 24 matches with one team of each on it: 2.2 tries a team-fight
+        /// against 1.1 and 0.58 members raised against 0.17; wins 11 against 13, deaths 5.0
+        /// against 4.0 (a member raised and killed again dies twice); a group that had lost the
+        /// first member of the match won 3 times in 15 against 1 in 9. On: it is how the spell
+        /// works, it shows no cost in wins, and being raised in a fight is what the owner called
+        /// fun ("I died, got a rez and we still played"). Walking to a body still minds the fighter.
         /// </summary>
-        public bool RaisesWithFighterAtBody { get; set; }
+        public bool RaisesWithFighterAtBody { get; set; } = true;
 
         /// <summary>True for a member that should raise this body now, from where it stands.</summary>
         public bool Raises(int distance, int range, int powerPercent, bool beingHit, int lowestHealthInReach, int freeFightersAtCorpse,

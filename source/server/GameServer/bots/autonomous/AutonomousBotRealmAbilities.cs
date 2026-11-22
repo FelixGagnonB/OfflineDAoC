@@ -312,6 +312,9 @@ public static class AutonomousBotRealmAbilities
             if (bot.GetSkillDisabledDuration(ability) > 0 || !Wanted(bot, ability.KeyName)) continue;
             ability.Execute(bot);
             // A purge that removed nothing only blocks itself for 5 ms; log real uses (long reuse timers).
+            // An 8v8 bot beside a player says that it has purged (bots/pvp/PvpCalls.cs).
+            if (bot.IsPvpBot && bot.GetSkillDisabledDuration(ability) > 1_000 && ability.KeyName is Purge or PurgeReduced or PvpPurge.GroupPurgeKey)
+                (bot.Brain as DOL.AI.Brain.BotBrain)?.PvpSquad?.SayPurged(bot, ability.KeyName == PvpPurge.GroupPurgeKey);
             if (bot.GetSkillDisabledDuration(ability) > 1_000 && ability.KeyName != FirstAid)
                 Log.Info($"BOT_REALM_ABILITY_USED bot={bot.Name} ability={ability.KeyName.Replace("AtlasOF_", "")} " +
                     $"health={bot.HealthPercent} endurance={bot.EndurancePercent} region={bot.CurrentRegionID}");

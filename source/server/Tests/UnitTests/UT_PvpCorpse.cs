@@ -44,6 +44,16 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void TheMonsterVanishesBeforeTheBodyComesAndAClientThatAsksIsAnswered()
+        {
+            // 2026-11-21: "Now when it dies, there's also a level 1 unarmored body that appears": the monster had
+            // been sent the removal of a player and stayed. Kind 1 makes a monster vanish; kind 0 lays it down.
+            Assert.That(PvpCorpse.VanishKind, Is.EqualTo(1));
+            // A session id that is no dead bot's is not answered here: the handler goes on as before.
+            Assert.That(PvpCorpse.AnswerRequest(null, 1010), Is.False);
+        }
+
+        [Test]
         public void TheBodyUnderItsNameCanStillBeAskedFor()
         {
             Assert.That(PvpCorpse.BodyFalls(PvpCorpseShow.Body, true), Is.True);

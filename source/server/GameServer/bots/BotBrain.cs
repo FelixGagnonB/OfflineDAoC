@@ -1251,6 +1251,10 @@ namespace DOL.AI.Brain
                 return;
             }
 
+            // "/8v8 call retreat": the group runs with the player and does nothing else.
+            if (TryPvpRetreat())
+                return;
+
             CompanionPvpEngagement.Observe(BotBody);
             // Goal 11: a /raid 40 or /raid 80 on a keep siege works its squad job (rams, engines) on its own.
             if (CompanionRaidSiege.Think(this))
@@ -2200,7 +2204,7 @@ namespace DOL.AI.Brain
             bool pvpBardPlays = bot.IsPvpBot && (eCharacterClass)bot.CharacterClass.ID == eCharacterClass.Bard;
             // An 8v8 group in a chase (PvpSquad.Chasing): the speed song is the one that matters, for the
             // Bard as for the Skald and the Minstrel, until the group is in contact again.
-            bool chasing = bot.IsPvpBot && PvpSquad?.Chasing == true;
+            bool chasing = bot.IsPvpBot && (PvpSquad?.Chasing == true || PvpSquad?.RetreatsTo != null);
             if (immediateCombat && !chasing && !minstrelAtRange && !pvpBardPlays)
             {
                 StopTwistedSong();
@@ -3192,7 +3196,7 @@ namespace DOL.AI.Brain
                 // that order. Clearing it every think made NpcStartAttack stop the
                 // running bot and re-follow, which clients saw as rubberbanding.
                 // A caster meleeing because it is out of power chases like a melee bot.
-                bool outOfPowerMelee = rangedCaster && OutOfPowerForOffense();
+                bool outOfPowerMelee = rangedCaster && !PvpBardKeepsPlaying && OutOfPowerForOffense();
                 if (rangedCaster && !outOfPowerMelee || !IsMeleeChasing(Body.TargetObject))
                     Body.StopFollowing();
                 if (!rangedCaster && Body.TargetObject is GameLiving meleeTarget && TryEngageUnderMeleePressure(meleeTarget))
@@ -3462,8 +3466,25 @@ namespace DOL.AI.Brain
             return true;
         }
 
+        /// <summary>
+        /// An 8v8 Bard plays for its group through the fight and never puts its drum away to
+        /// fight with a blade: drawing the blade ends the song. Hit in melee or out of power it
+        /// did both, by the two fallbacks below, written for a bot that fights monsters. In the
+        /// owner's fight of 2026-11-21 against an Albion group ("we had no endurance up during the
+        /// fight... bard was not dead") the Bard, trained and out of power, swung its blade five
+        /// times in a minute, and from the first swing its Blademasters stood at 11 and 29
+        /// endurance and the owner at 9 for the two minutes until it died.
+        /// </summary>
+        public static bool PlaysThroughTheFight(bool pvpBot, eCharacterClass characterClass) =>
+            pvpBot && characterClass == eCharacterClass.Bard;
+
+        private bool PvpBardKeepsPlaying => BotBody is { IsPvpBot: true, CharacterClass: not null } bard &&
+            PlaysThroughTheFight(true, (eCharacterClass)bard.CharacterClass.ID);
+
         private bool TryEngageUnderMeleePressure(GameLiving target)
         {
+            if (PvpBardKeepsPlaying)
+                return false;
             if (target?.IsAlive != true || !Body.IsWithinRadius(target, Body.MeleeAttackRange + 35))
                 return false;
 
@@ -3568,6 +3589,8 @@ namespace DOL.AI.Brain
         /// </summary>
         private bool TryOutOfPowerMelee(GameLiving target)
         {
+            if (PvpBardKeepsPlaying)
+                return false;
             if (target?.IsAlive != true || Body.IsCasting ||
                 BotBody?.CharacterClass?.ID == (int)eCharacterClass.Necromancer ||
                 !GameServer.ServerRules.IsAllowedToAttack(Body, target, true) ||

@@ -1664,6 +1664,14 @@ namespace DOL.GS
                 }
             }
 
+            // A player at the head of a team in an 8v8 roam releases to that team's start, not to its bind (bots/pvp/PvpRoam.cs).
+            if (PvpRoam.ReleasePoint(this) is { } roamStart)
+            {
+                (relRegion, relX, relY, relZ, relHeading) = (roamStart.Region, roamStart.Spot.X, roamStart.Spot.Y, roamStart.Spot.Z, Heading);
+                // As when its group stands up by itself after a wipe: no resurrection sickness.
+                TempProperties.SetProperty(RESURRECT_REZ_SICK_EFFECTIVENESS, 0.0);
+            }
+
             Out.SendMessage(LanguageMgr.GetTranslation(Client.Account.Language, "GamePlayer.Release.YouRelease"), eChatType.CT_YouDied, eChatLoc.CL_SystemWindow);
             Out.SendCloseTimerWindow();
 

@@ -113,6 +113,12 @@ namespace DOL.UnitTests
             Assert.That(setup.After("Hibernia", eRealm.Albion).Enemy, Is.EqualTo(eRealm.Hibernia));
             Assert.That(setup.After("Basin", eRealm.Albion).Start, Is.EqualTo("basin"));
             Assert.That(setup.After("Basin", eRealm.Albion).After("Lane", eRealm.Albion).Start, Is.EqualTo("lane"));
+            // The owner, 2026-11-21, having picked Real and found two groups: "There should be 6 teams total?" The roam is a start.
+            Assert.That(setup.After("Roam", eRealm.Albion).Start, Is.EqualTo("roam"));
+            Assert.That(setup.After("Roam", eRealm.Albion).Text(eRealm.Albion), Does.Contain("<Roam>").And.Contain("[Lane]").And.Contain("six groups"));
+            Assert.That(setup.Text(eRealm.Albion), Does.Contain("[Roam]").And.Contain("[Thidranki]"));
+            Assert.That(setup.After("Thidranki", eRealm.Albion).Start, Is.EqualTo("thid"));
+            Assert.That(setup.After("Thidranki", eRealm.Albion).Text(eRealm.Albion), Does.Contain("<Thidranki>").And.Contain("[Roam]"));
             Assert.That(setup.After("Rank7", eRealm.Albion).Rank, Is.EqualTo(7));
             Assert.That(setup.After("Follow", eRealm.Albion).BotDrives, Is.True);
             Assert.That(setup.After("Follow", eRealm.Albion).After("Lead", eRealm.Albion).BotDrives, Is.False);
