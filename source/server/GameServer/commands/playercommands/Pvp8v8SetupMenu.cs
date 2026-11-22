@@ -6,7 +6,10 @@ namespace DOL.GS.Commands
     /// <summary>What a player has picked in the 8v8 setup window.</summary>
     /// <param name="Own">The player's group by its name when it is not the realm's main one (PvpBuildCatalog.Variants).</param>
     /// <param name="Real">A real fight (PvpRealmPoints): ranks as earned, realm points kept, no timer reset. Off: practice, as it was.</param>
-    public sealed record Pvp8v8Setup(eRealm Enemy, string Start, int Rank, bool BotDrives = false, string Own = null, bool Real = false)
+    /// <param name="Group">How sharp the player's own group plays (PvpSkills); null: as it is set.</param>
+    /// <param name="Others">How sharp the other groups play; null: as it is set.</param>
+    public sealed record Pvp8v8Setup(eRealm Enemy, string Start, int Rank, bool BotDrives = false, string Own = null, bool Real = false,
+        PvpSkill? Group = null, PvpSkill? Others = null)
     {
         public static readonly int[] Ranks = [1, 3, 5, 7, 10];
 
@@ -31,6 +34,12 @@ namespace DOL.GS.Commands
                 case "basin": return this with { Start = "basin" };
                 case "roam": return this with { Start = "roam" };
                 case "thidranki": return this with { Start = "thid" };
+                case "g-casual": return this with { Group = PvpSkill.Casual };
+                case "g-seasoned": return this with { Group = PvpSkill.Seasoned };
+                case "g-sharp": return this with { Group = PvpSkill.Sharp };
+                case "o-casual": return this with { Others = PvpSkill.Casual };
+                case "o-seasoned": return this with { Others = PvpSkill.Seasoned };
+                case "o-sharp": return this with { Others = PvpSkill.Sharp };
                 case "practice": return this with { Real = false };
                 case "real": return this with { Real = true };
                 case string id when PvpBuildCatalog.FindGroup(id) is { } group && group.Realm == own:
@@ -68,6 +77,9 @@ namespace DOL.GS.Commands
                    "Real: everybody at the rank it has earned, from rank 1, kills earn realm points that are kept (/8v8 ranks), no timer is reset.\n" +
                    (Real && realRank != null ? realRank + "\n" : string.Empty) + "\n" +
                    $"Realm rank of every bot (practice):   {string.Join("   ", Ranks.Select(rank => Pick("Rank" + rank, rank == Rank)))}\n\n" +
+                   $"Your seven play:   {Pick("G-Casual", (Group ?? PvpSkills.Group) == PvpSkill.Casual)}   {Pick("G-Seasoned", (Group ?? PvpSkills.Group) == PvpSkill.Seasoned)}   {Pick("G-Sharp", (Group ?? PvpSkills.Group) == PvpSkill.Sharp)}\n" +
+                   $"The others play:   {Pick("O-Casual", (Others ?? PvpSkills.Others) == PvpSkill.Casual)}   {Pick("O-Seasoned", (Others ?? PvpSkills.Others) == PvpSkill.Seasoned)}   {Pick("O-Sharp", (Others ?? PvpSkills.Others) == PvpSkill.Sharp)}\n" +
+                   "Casual: slow to answer, often looking elsewhere, takes lesser choices. Seasoned: the usual. Sharp: answers at once and takes its best choice every time.\n\n" +
                    "What is in <> is chosen. Click another to change it, then:\n\n[Start]\n\n" +
                    "Picking a rank above your own gives you that rank and its realm ability points (/train to spend them). " +
                    "/8v8 ready makes your character level 50 with a build's spec and gear.";
@@ -144,6 +156,9 @@ namespace DOL.GS.Commands
             {
                 PvpGroupTemplate enemy = PvpBuildCatalog.Groups.First(group => group.Realm == _setup.Enemy);
                 Pvp8v8Setup setup = _setup;
+                // The levels picked here hold from this start on (PvpSkills).
+                PvpSkills.Group = setup.Group ?? PvpSkills.Group;
+                PvpSkills.Others = setup.Others ?? PvpSkills.Others;
                 GamePlayer owner = _owner;
                 Close();
                 if (PvpScrim.Running)

@@ -99,6 +99,9 @@ namespace DOL.GS
             if (bot.Brain is not AI.Brain.BotBrain { PvpEnemies: { } enemies } ||
                 !enemies.Any(enemy => enemy.IsAlive && bot.IsWithinRadius(enemy, PvpScrim.EngageRange)))
                 return false;
+            // Its own Purge waits for its reaction time: a player sees the mez land before its hand is on the key.
+            if (key != GroupPurgeKey && PvpNotice.ControlBegan(bot) is var began && began > 0 && !PvpNotice.Reacted(bot, bot, PvpEvent.OwnControl, began))
+                return false;
             PvpPurgeWeights weights = PvpWeights.Of(bot).Purge;
             int score, needed;
             if (key == GroupPurgeKey)

@@ -370,6 +370,9 @@ namespace DOL.GS
         /// <summary>The weights this 8v8 bot's team fights with in a comparison of two sets; null for the usual ones.</summary>
         public PvpWeights PvpWeightsSet { get; set; }
 
+        /// <summary>The human limits of this 8v8 bot when its group was given a level (PvpSkills); null for those of its weights.</summary>
+        public PvpHumanWeights PvpHuman { get; set; }
+
         public override int MaxConcentration => IsPvpBuffbot ? 1_000_000 : GetModified(eProperty.MaxConcentration);
         public override int Concentration => MaxConcentration - (effectListComponent?.UsedConcentration ?? 0);
 

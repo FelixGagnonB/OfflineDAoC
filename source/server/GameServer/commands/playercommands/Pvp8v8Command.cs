@@ -12,6 +12,7 @@ namespace DOL.GS.Commands
         "/8v8 play hib-2bard ...  or  /8v8 play mid hib-2bard ...  another group by its name: as the enemy (first), or as your own (later)",
         "/8v8 play <alb|mid|hib> real [lane|basin] [follow]  a real fight: everybody at the rank it has earned, kills earn realm points that are kept, no timer is reset",
         "/8v8 roam [thid] [group]       the roam: two groups of each realm in Emain Macha (thid: in Thidranki), yours with you; real rules, and a wipe or a release puts your group back at its start",
+        "/8v8 skill [group|others] [casual|seasoned|sharp]  how sharp your group and the other groups play: reaction time, attention, mistakes; alone it says what is set",
         "/8v8 ranks                     the realm ranks of your companions, and of the enemy groups you have fought for real",
         "/8v8 call <push|regroup|hold|engage|extend|assist|control|retreat>  your call to the group: an order stands twelve seconds; assist puts the damage dealers on your target while it lives (45 s at most); control asks for a mez, stun, root or nearsight on your target (20 s); retreat: everybody drops what it does and runs with you (30 s, or until your next call)",
         "/8v8 calls <on|off>            your companions' calls in group chat (assist, incoming, orders, out of power, a mez that landed, a Purge used)",
@@ -101,6 +102,27 @@ namespace DOL.GS.Commands
                         return;
                     }
                     squad.CallOrder(player, called);
+                    return;
+                }
+
+                case "skill":
+                {
+                    // "/8v8 skill": what is set. "/8v8 skill group sharp", "/8v8 skill others casual": for the bots made from now on.
+                    string side = args.Length > 2 ? args[2].ToLowerInvariant() : string.Empty;
+                    PvpSkill? level = args.Length > 3 ? PvpSkills.Parse(args[3]) : null;
+                    if (level != null && side is "group" or "mine" or "own")
+                        PvpSkills.Group = level.Value;
+                    else if (level != null && side is "others" or "enemy" or "enemies")
+                        PvpSkills.Others = level.Value;
+                    else if (side.Length > 0)
+                    {
+                        Say("/8v8 skill group <casual|seasoned|sharp>   or   /8v8 skill others <casual|seasoned|sharp>");
+                        return;
+                    }
+                    Say($"Your group plays {PvpSkills.Group}, the other groups {PvpSkills.Others}. It holds for the bots made from now on, until the server restarts.");
+                    Say(PvpSkills.Describe(PvpSkill.Casual) + ".");
+                    Say(PvpSkills.Describe(PvpSkill.Seasoned) + ".");
+                    Say(PvpSkills.Describe(PvpSkill.Sharp) + ".");
                     return;
                 }
 

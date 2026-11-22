@@ -219,6 +219,8 @@ namespace DOL.GS
             .Select(spell => spell.Range).DefaultIfEmpty(0).Max();
         // Free enemy fighters in melee on the group's healers and casters.
         private List<GameLiving> _pursuers = [];
+        // Since when each enemy fighter has been on the group's healers and casters.
+        private readonly Dictionary<GameLiving, long> _onBackLineSince = new();
         // Enemy fighters running at the group's healers and casters, not yet in melee on them (PvpPeelWeights.InterceptWithin).
         private List<GameLiving> _incoming = [];
         // Replaced whole every second, never changed in place: brains read it from their own threads.
@@ -249,6 +251,20 @@ namespace DOL.GS
                 (IsFighter(enemy) || enemy.attackComponent?.AttackState == true) &&
                 enemy.TargetObject is GameLiving { IsAlive: true } victim && _allies.Contains(victim) && !IsFighter(victim) &&
                 enemy.IsWithinRadius(victim, weights.Peel.MeleeReach)).ToList();
+            // The group answers a fighter on its healers and casters after its reaction time, not in the tick it arrives
+            // (PvpHumanWeights.ReactionMinMilliseconds; one draw for the group for each arrival).
+            long tickNow = GameLoop.GameLoopTime;
+            foreach (GameLiving gone in _onBackLineSince.Keys.Where(enemy => !_pursuers.Contains(enemy)).ToList())
+                _onBackLineSince.Remove(gone);
+            if (_members.FirstOrDefault(member => member.IsAlive) is { } watcher)
+            {
+                _pursuers = _pursuers.Where(enemy =>
+                {
+                    if (!_onBackLineSince.TryGetValue(enemy, out long since))
+                        _onBackLineSince[enemy] = since = tickNow;
+                    return PvpNotice.Reacted(watcher, enemy, PvpEvent.OnTheBackLine, since);
+                }).ToList();
+            }
             List<GameLiving> inMelee = _pursuers;
             _incoming = weights.Peel.InterceptWithin <= 0 ? [] : known.Where(enemy => enemy.IsAlive && !enemy.IsMezzed && !enemy.IsStunned &&
                 IsFighter(enemy) && !inMelee.Contains(enemy) &&

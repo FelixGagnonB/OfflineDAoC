@@ -67,6 +67,8 @@ namespace DOL.GS
                     throw new InvalidOperationException($"{build.Id} could not enter region {regionId}.");
                 }
 
+                // A group that is not the player's plays at the level chosen for the others (PvpSkills).
+                bot.PvpHuman = PvpSkills.WeightsFor(PvpSkills.Others);
                 if (group == null)
                 {
                     group = new Group(bot);
@@ -157,6 +159,7 @@ namespace DOL.GS
                 if (real)
                     (bot.PvpRosterOwner, bot.PvpRosterPlace, bot.PvpPoints) = (player.InternalID, place, points);
                 bot.Heading = player.Heading;
+                bot.PvpHuman = PvpSkills.WeightsFor(PvpSkills.Group);
                 if (!bot.AddToWorld() || !player.Group.AddMember(bot))
                 {
                     bot.Delete();

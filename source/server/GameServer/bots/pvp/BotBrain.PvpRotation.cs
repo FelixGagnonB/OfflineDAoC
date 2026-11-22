@@ -614,7 +614,7 @@ namespace DOL.AI.Brain
             var caughtBy = new Dictionary<(PvpActionKind, int, bool), List<GameLiving>>();
             // Enemies first, then the mezzed members of this bot's own group (for cure mez); an option's target is an index here.
             List<GameLiving> friends = Body.Group?.GetMembersInTheGroup()
-                .Where(member => member != Body && member.IsAlive && member.IsMezzed).ToList() ?? [];
+                .Where(member => member != Body && member.IsAlive && PvpNotice.SeesAsleep(Body, member)).ToList() ?? [];
             List<GameLiving> targets = enemies.Cast<GameLiving>().Concat(friends).ToList();
             foreach ((PvpActionKind kind, Spell spell, bool instant) in spells.Select(pair => (pair.Key, pair.Value, false))
                          .Concat(instants.Select(pair => (pair.Key, pair.Value, true))))
@@ -727,7 +727,7 @@ namespace DOL.AI.Brain
                     }
                     options.Add(new PvpOption(kind, id, PvpMember.ArchetypeOf(enemy), enemy == kill,
                         enemy == PvpAssignedTarget || enemy == PvpDutyTarget, enemy.HealthPercent, hasEffect,
-                        enemy.IsCasting, enemy.IsBeingInterrupted, !mez && enemy.IsMezzed, Body.ManaPercent, cost, walk, caught, catchesKill, wakes,
+                        PvpNotice.SeesCasting(Body, enemy), enemy.IsBeingInterrupted, !mez && enemy.IsMezzed, Body.ManaPercent, cost, walk, caught, catchesKill, wakes,
                         instant, PvpActionChoice.IsController(PvpMember.ClassOf(enemy), weights),
                         PvpSquad?.IsPursuer(enemy) == true, PvpSquad?.Order == PvpOrder.Extend, walkDanger,
                         PvpSquad?.IsOnTrained(enemy) == true, walkInsideEdge, killOutOfReach,
@@ -796,6 +796,11 @@ namespace DOL.AI.Brain
                 blocked["asleep or claimed"] = offLimitsCount.ToString();
 
             List<(PvpOption Option, int Score)> ranked = PvpActionChoice.Rank(characterClass, options, weights, BotBody.PvpBuild?.Id);
+            // Mistakes (PvpHumanWeights.ChoiceNoise): each score is a little off, so the best by the numbers is not always taken.
+            PvpHumanWeights human = PvpNotice.HumanOf(BotBody);
+            if (human.ChoiceNoise > 0 && ranked.Count > 1)
+                ranked = ranked.Select(scored => (scored.Option, Score: scored.Score + PvpNotice.Noise(human, Random.Shared)))
+                    .OrderByDescending(scored => scored.Score).ToList();
             object Describe((PvpOption Option, int Score) scored) => new
             {
                 kind = scored.Option.Kind.ToString(), d = targets[scored.Option.TargetId].Name, score = scored.Score, walk = scored.Option.Short,
