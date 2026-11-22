@@ -914,6 +914,41 @@ walls stop bots. **Passed 2026-11-16.**
   choices (which build, which companion slot, the refusals).
 - [ ] **M1.5** (M) Realm rank for 8v8 bots and companions: stored realm points, earned from kills,
   realm abilities bought in the build's order. A scrim setting overrides rank.
+  *Realm abilities, passive and active, built 2026-11-22 (owner: "let's finish realm abilities
+  (passive and active)"). Automated tests only: nothing of it has run on a server yet.*
+  - **What a class buys** (`bots/pvp/PvpRealmAbilities.cs`, one order a class, 26 classes; the
+    table is in the player guide). They are the assistant's reading of 1.65 builds with what the
+    owner has said (Tireless among the first, Group Purge a Druid's first, power back through
+    Mystic Crystal Lore and Raging Power), **for the owner to correct**. Before, every 8v8 bot
+    bought by the gamebots' four builds with Purge and Mystic Crystal Lore put first.
+  - **Passives that did nothing on a bot**, found by reading every calculator (a bot is an NPC
+    type): Mastery of Arms and item haste (melee speed took the monster formula), Mastery of
+    Healing (heal effectiveness was read for players only), Long Wind (a bot's sprint cost was
+    flat), Wild Minion on a pet that is not a Necromancer's. Fixed for 8v8 bots. Veil Recovery is
+    bought last by every bot: no bot is ill from a resurrection. Serenity and Ethereal Bond had
+    no prerequisite in the bots' plan and have theirs now (all bots). The other twenty-odd
+    passives were read and work.
+  - **Active abilities a bot now buys and uses**, beside Purge, Group Purge, Ignore Pain, Second
+    Wind, First Aid, Mystic Crystal Lore and Raging Power: Speed of Sound, Mastery of
+    Concentration, Battery of Life, Bunker of Faith, Soldier's Barricade, Brilliant Aura of
+    Deflection, Ameliorating Melodies, Faith Healing, Perfect Recovery, Avoid Pain, Armor of
+    Faith, The Empty Mind. Each has one rule with its numbers in the weights (`Abilities`),
+    and nothing is pressed outside a fight. Every one of their handlers was written for a
+    player: with a bot they returned at once, or threw.
+  - **A player's group abilities reach the bots of the group** (`AtlasRAHelpers.GroupInReach`).
+    Group Purge, Speed of Sound, Bunker of Faith, Soldier's Barricade, Brilliant Aura, Ameliorating
+    Melodies and Faith Healing looked for the *players* of the group: the owner's Group Purge
+    freed none of its seven companions. This is engine code and holds for any player with any
+    bot in its group, companions outside 8v8 too. Bunker of Faith also compared its range with
+    the user's distance to itself; it is 1,500 now, as its text says.
+  - **Not used by any bot, and so not bought:** the areas of damage or control, the melee
+    abilities, the pet abilities, Majestic Will, Concentration (listed in the guide). Trip was
+    read and not touched: a player's Trip is cast on every NPC around it, its own bots included
+    as far as the code shows.
+  - **For the owner to say:** the game's data gives Speed of Sound to the Minstrel alone; the
+    owner remembers it as the Bard's and the Skald's too, and no source was found either way.
+    The orders of the Bard and the Skald have it as their third step, so two rows in the class
+    table are all it takes.
   *The player's side, 2026-11-19:* picking a rank in `/8v8 setup` above the character's own
   gives the character that rank and its points to spend with `/train` (the owner: "even if I
   pick realm rank 5, I have no realm points and can't train purge"). The owner's Hero stands at
@@ -1141,6 +1176,11 @@ Passed 2026-11-17 (four batches of five, see the progress note).
 
 ## M3. Recorder, analyzer and baseline
 
+*Closed 2026-11-22 on the owner's word ("we can close M3").* The recorder, its formats 3 and 4,
+the analyzer, the referee, the replay and the roam page are what every change since has been
+judged with. M3.6 as written (thirty matches a pairing on the AI of November 16) was never run:
+the referee's rules and the regression gate of M10.3 took its place.
+
 *Progress 2026-11-16:* the recorder (`bots/pvp/PvpRecorder.cs`) writes one JSON-lines file per
 match under `runtime/server/logs/scrims`: a header, every attack (result, damage, spell or
 style), every finished cast (spell, type, power, target), deaths, and a once-a-second snapshot of
@@ -1158,17 +1198,17 @@ Not yet recorded: the reason behind each decision (the legacy brain does not exp
 brain of M5 will), heals as amounts, mez breaks. Still to do: M3.5's build-to-build comparison,
 and the baseline batch of 30 matches per pairing (M3.6).
 
-- [ ] **M3.1** (S) Trace format, versioned: match header (groups, builds, ranks, code version),
+- [x] **M3.1** (S) Trace format, versioned: match header (groups, builds, ranks, code version),
   events, decisions, snapshots.
-- [ ] **M3.2** (M) Event capture: attacks from both sides (a new attacker-side hook is needed),
+- [x] **M3.2** (M) Event capture: attacks from both sides (a new attacker-side hook is needed),
   casts started, finished and interrupted, crowd control applied, broken and expired, heals,
   realm abilities, deaths.
-- [ ] **M3.3** (S) Snapshots twice a second: position, health, power, endurance, control state, target.
-- [ ] **M3.4** (M) Thread-safe writer, one JSONL file per match. Brains tick in parallel, so it
+- [x] **M3.3** (S) Snapshots twice a second: position, health, power, endurance, control state, target.
+- [x] **M3.4** (M) Thread-safe writer, one JSONL file per match. Brains tick in parallel, so it
   must not block them.
-- [ ] **M3.5** (L) Analyzer: a per-match report, an aggregate over a batch, and an A/B comparison
+- [x] **M3.5** (L) Analyzer: a per-match report, an aggregate over a batch, and an A/B comparison
   of two builds with the scorecard metrics.
-- [ ] **M3.6** (S) Baseline: at least 30 matches per realm pairing on today's AI. Fill the
+- [x] **M3.6** (S) Baseline: at least 30 matches per realm pairing on today's AI. Fill the
   scorecard's baseline column and write the ranked failure list.
 
 *Recorder format 3 and the fight review, 2026-11-18* (owner: first make sure the recorder and

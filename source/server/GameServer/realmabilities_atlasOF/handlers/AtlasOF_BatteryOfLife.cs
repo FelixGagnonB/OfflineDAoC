@@ -20,7 +20,10 @@ namespace DOL.GS.RealmAbilities
             if (CheckPreconditions(living, DEAD | SITTING | MEZZED | STUNNED))
                 return;
 
-            GamePlayer player = living as GamePlayer;
+            // A player or a bot (an 8v8 bot buys it).
+            if (living is not (GamePlayer or GameBot))
+                return;
+            GameLiving player = living;
 
             SendCasterSpellEffectAndCastMessage(player, 7009, true);
             DisableSkill(player);

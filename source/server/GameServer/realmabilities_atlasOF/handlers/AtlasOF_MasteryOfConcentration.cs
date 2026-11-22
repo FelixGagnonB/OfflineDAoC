@@ -45,10 +45,10 @@ namespace DOL.GS.RealmAbilities
 		public override void Execute(GameLiving living)
 		{
 			if (CheckPreconditions(living, DEAD | SITTING | MEZZED | STUNNED)) return;
-			GamePlayer caster = living as GamePlayer;
-
-			if (caster == null)
+			// A player or a bot (an 8v8 bot buys it).
+			if (living is not (GamePlayer or GameBot))
 				return;
+			GameLiving caster = living;
 
 			EffectListService.TryCancelFirstEffectOfTypeOnTarget(caster, eEffect.MasteryOfConcentration);
 
@@ -73,6 +73,7 @@ namespace DOL.GS.RealmAbilities
 			DisableSkill(living);
 
 			ECSGameEffectFactory.Create(new(caster, Duration, 1), static (in i) => new MasteryOfConcentrationECSEffect(i));
+			(living as GameBot)?.OnMasteryOfConcentration();
 		}
 	}
 }

@@ -74,6 +74,60 @@ starts of the setup window.
   (Hibernia: `hib-main`, or `hib-2bard` with two Bards). Your own class takes its place in it.
 - Your companions keep their names from one session to the next.
 
+## Realm abilities
+
+A bot has the realm ability points of its rank (one a realm level: 10 at rank 2, 40 at rank 5) and
+spends them in a fixed order for its class. A step it cannot pay for yet is passed over and comes
+first again when the points are there, as if a respec were free.
+
+| Class | What it buys first, in order |
+|---|---|
+| Druid | Tireless, Group Purge, Purge, Mystic Crystal Lore 2, Augmented Acuity 3, Mastery of Concentration, Battery of Life, Raging Power |
+| Cleric | Tireless, Purge, Mystic Crystal Lore 2, Augmented Acuity 3, Mastery of Concentration, Battery of Life, Bunker of Faith, Raging Power |
+| Healer | Tireless, Purge, Mystic Crystal Lore 2, Augmented Acuity 3, Mastery of Concentration, Perfect Recovery, Battery of Life, Raging Power |
+| Shaman | Tireless, Purge, Mystic Crystal Lore 2, Augmented Acuity 3, Mastery of Concentration, Raging Power |
+| The casters | Tireless, Purge, Mystic Crystal Lore 2, Augmented Acuity 3, Mastery of Concentration, Raging Power, Mastery of Magery 2, Wild Power 2 (the Enchanter: Brilliant Aura of Deflection after Mastery of Concentration) |
+| Minstrel | Tireless, Purge, Speed of Sound, Mystic Crystal Lore 1, First Aid 2, Ignore Pain |
+| Bard | Tireless, Purge, Mystic Crystal Lore 2, Ameliorating Melodies, Raging Power, First Aid 2, Ignore Pain |
+| Skald | Tireless, Purge, First Aid 2, Ignore Pain, Augmented Strength 3 |
+| Armsman, Warrior, Hero | Tireless, Purge (4 points), Determination 3, First Aid 2, Ignore Pain, Determination 4, Augmented Strength 2, Mastery of Pain 2 (the Armsman: Soldier's Barricade after Ignore Pain) |
+| Mercenary, Blademaster, Berserker, Savage | Tireless, Purge (4 points), Determination 3, First Aid 2, Ignore Pain, Augmented Dexterity 2, Mastery of Pain 2, Determination 4, Dualist's Reflexes 2 |
+| Paladin, Champion | Tireless, Purge, Determination 3, First Aid 2, Ignore Pain (the Paladin: then Faith Healing) |
+| Warden | Tireless, Purge, Mystic Crystal Lore 2, First Aid 2, Ignore Pain |
+
+The orders are in `bots/pvp/PvpRealmAbilities.cs`, one line a class, to be corrected there.
+In this game's data only the Minstrel has Speed of Sound; a Bard or a Skald buys it the moment its
+class is given it.
+
+When a bot presses what it has bought (all of it only in a fight; the numbers are in
+`pvp-weights.json` under `Abilities`):
+
+| Ability | When |
+|---|---|
+| Purge, Group Purge | A mez or stun worth it (a healer or a mezzer first; two or more members for the group one). |
+| Speed of Sound | On your `/8v8 call retreat` with the enemy near, or with two members rooted or snared. |
+| Mastery of Concentration | A healer that is interrupted while a member is below half; a caster interrupted by a fighter on it. |
+| Battery of Life | Two members hurt and 1,000 hit points missing. |
+| Bunker of Faith, Soldier's Barricade | Two members with a fighter on them and two hurt. |
+| Brilliant Aura of Deflection | Two enemy casters on the group and somebody hurt. |
+| Ameliorating Melodies | Two members hurt. |
+| Faith Healing | Two members below 40%. |
+| Perfect Recovery | A dead member within 1,500, a healer first. |
+| Ignore Pain | Below 30%. |
+| Avoid Pain, Armor of Faith | A fighter on it and its health below 60% (75%). |
+| The Empty Mind | Below 60% with no fighter on it. |
+| Mystic Crystal Lore, Raging Power, Second Wind, First Aid | Out of power; out of endurance; hurt after the fight. |
+
+No bot buys the realm abilities it does not know how to use: the areas of damage or control
+(Volcanic Pillar, Negative Maelstrom, Rune of Decimation, Thornweed Field, Ichor of the Deep,
+Static Tempest, Wrath of the Champion, Bladedance, Whirling Dervish), the melee ones (Trip,
+Grapple, Battle Yell, the style abilities, the Rains, Fury of the Gods, Hail of Blows), the pet
+ones, Majestic Will and Concentration.
+
+**Your own group abilities reach your companions.** Group Purge, Speed of Sound, Bunker of Faith,
+Soldier's Barricade, Brilliant Aura of Deflection, Ameliorating Melodies and Faith Healing used to
+look for the players of the group only, so they did nothing for seven bots.
+
 ## Talking to your group
 
 Your companions say in group chat what the group is doing: the assist target, an order (push,
@@ -119,4 +173,5 @@ Macha. Built and run with bots only, not yet seen with a player: the dead lying 
 roam in Thidranki, standing
 up after a wipe and `/release` in a roam, the Roam starts of the setup window, `/8v8 call control`,
 the calls for a landed mez and a used Purge, and a group of bots waiting out a fight or raising
-its dead before it walks on.
+its dead before it walks on. The realm abilities of 2026-11-22 (the orders, the new active ones,
+your group abilities on your companions) have passed their automated tests and nothing else.

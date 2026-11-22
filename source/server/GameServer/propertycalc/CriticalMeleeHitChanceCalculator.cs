@@ -31,6 +31,9 @@ namespace DOL.GS.PropertyCalc
                 chance += 10;
                 chance += botOwner.GetAbility<RealmAbilities.AtlasOF_WildMinionAbility>()?.Amount ?? 0;
             }
+            // The pet of an 8v8 bot has its owner's Wild Minion, as a player's pet has (2026-11-22).
+            else if (living is GameNPC { Brain: IControlledBrain { Owner: GameBot { IsPvpBot: true } pvpOwner } })
+                chance += pvpOwner.GetAbility<RealmAbilities.AtlasOF_WildMinionAbility>()?.Amount ?? 0;
             else if (living is GameNPC npc &&
                 npc.Brain is IControlledBrain petBrain &&
                 petBrain.GetPlayerOwner() is GamePlayer playerOwner)

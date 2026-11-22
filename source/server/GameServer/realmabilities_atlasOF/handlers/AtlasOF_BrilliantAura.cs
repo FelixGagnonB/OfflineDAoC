@@ -24,28 +24,18 @@ public class AtlasOF_BrilliantAura : TimedRealmAbility, ISpellCastingAbilityHand
     {
         if (CheckPreconditions(living, DEAD | SITTING)) return;
 
-        GamePlayer player = living as GamePlayer;
-
-        if (player == null)
+        // A player or a bot (an 8v8 bot buys it); the bots of the group are covered with its players.
+        if (living is not (GamePlayer or GameBot))
             return;
+        GameLiving player = living;
         if (m_handler == null) m_handler = CreateSpell(player);
 
-        ArrayList targets = new ArrayList();
-        if (player.Group == null)
-            targets.Add(player);
-        else
-        {
-            foreach (GamePlayer grpplayer in player.Group.GetPlayersInTheGroup())
-            {
-                if (player.IsWithinRadius(grpplayer, m_range, true) && grpplayer.IsAlive)
-                    targets.Add(grpplayer);
-            }
-        }
+        System.Collections.Generic.List<GameLiving> targets = AtlasRAHelpers.GroupInReach(player, m_range);
 
         SendCastMessage(player);
 
         bool AtLeastOneEffectRemoved = false;
-        foreach (GamePlayer target in targets)
+        foreach (GameLiving target in targets)
         {
             ECSGameEffectFactory.Create(new(target, 30000, 1, m_handler), static (in i) => new StatBuffECSEffect(i));
             foreach (GamePlayer pl in target.GetPlayersInRadius(WorldMgr.VISIBILITY_DISTANCE))

@@ -19,7 +19,10 @@ namespace DOL.GS.RealmAbilities
 		public override void Execute(GameLiving living)
 		{
 			if (CheckPreconditions(living, DEAD | SITTING | MEZZED | STUNNED)) return;
-			GamePlayer player = living as GamePlayer;
+			// A player or a bot; the bots of the group are covered with its players.
+			if (living is not (GamePlayer or GameBot))
+				return;
+			GameLiving player = living;
 
 			/// [Atlas - Takii] We don't want this "does not stack" functionality in OF.
 // 			if (player.TempProperties.GetProperty<bool>(BofBaSb))
@@ -31,19 +34,8 @@ namespace DOL.GS.RealmAbilities
 			m_value = GetArmorFactorAmount();
 			
 			DisableSkill(living);
-			ArrayList targets = new ArrayList();
-			if (player.Group == null)
-				targets.Add(player);
-			else
-			{
-				foreach (GamePlayer grpMate in player.Group.GetPlayersInTheGroup())
-				{
-					if (player.IsWithinRadius(grpMate, m_range ) && grpMate.IsAlive)
-						targets.Add(grpMate);
-				}
-			}
 			bool success;
-			foreach (GamePlayer target in targets)
+			foreach (GameLiving target in AtlasRAHelpers.GroupInReach(player, m_range))
 			{
 				//send spelleffect
 				if (!target.IsAlive) continue;

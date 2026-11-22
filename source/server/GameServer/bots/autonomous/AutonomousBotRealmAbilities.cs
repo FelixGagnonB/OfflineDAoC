@@ -44,6 +44,11 @@ public static class AutonomousBotRealmAbilities
         SecondWind or "AtlasOF_ArmorOfFaith" or "AtlasOF_AvoidPain" or "AtlasOF_BattleYell" => (AugCon, 3),
         IgnorePain or IgnorePainTank => (FirstAid, 2),
         RagingPower => (Mcl, 2),
+        // (2026-11-22: these two were missing, and a bot could have Ethereal Bond without Serenity.)
+        "AtlasOF_Serenity" => (AugAcuity, 2),
+        "AtlasOF_EtherealBond" => ("AtlasOF_Serenity", 2),
+        "AtlasOF_Concentration" => (AugAcuity, 3),
+        "AtlasOF_Grapple" => ("AtlasOF_Trip", 1),
         _ => null,
     };
 
@@ -52,7 +57,9 @@ public static class AutonomousBotRealmAbilities
 
     // Passives with little use to a bot; bought only after everything else.
     private static readonly HashSet<string> LowValue = new(StringComparer.OrdinalIgnoreCase)
-        { "AtlasOF_Lifter", "AtlasOF_MasteryOfWater", "AtlasOF_ArrowSalvaging", "AtlasOF_LongWind", "AtlasOF_MasteryOfStealth" };
+        { "AtlasOF_Lifter", "AtlasOF_MasteryOfWater", "AtlasOF_ArrowSalvaging", "AtlasOF_LongWind", "AtlasOF_MasteryOfStealth",
+          // No bot is ever ill from a resurrection (2026-11-22).
+          "AtlasOF_VeilRecovery" };
 
     private static Step[] Build(params (string Key, int Level)[] steps) =>
         steps.Select(s => new Step(s.Key.StartsWith("AtlasOF_") ? s.Key : "AtlasOF_" + s.Key, s.Level)).ToArray();
@@ -185,8 +192,8 @@ public static class AutonomousBotRealmAbilities
     /// </summary>
     public static readonly Step[] PvpFirst = [new(PvpPurge.GroupPurgeKey, 1), new(PurgeReduced, 1), new(Purge, 1), new(Mcl, 2)];
 
-    /// <summary>The actives only an 8v8 bot buys and uses.</summary>
-    public static readonly string[] PvpActives = [PvpPurge.GroupPurgeKey, Mcl, RagingPower];
+    /// <summary>The actives only an 8v8 bot buys and uses (bots/pvp/PvpRealmAbilities.cs).</summary>
+    public static readonly string[] PvpActives = PvpRealmAbilities.Actives;
 
     // An 8v8 bot's catalog is kept apart (negative key): it also holds Group Purge, which gamebots do not use.
     private static Catalog CatalogFor(int classId, bool pvp = false) => Catalogs.GetOrAdd(pvp ? -classId : classId, _ =>
@@ -205,7 +212,7 @@ public static class AutonomousBotRealmAbilities
     {
         Catalog catalog = CatalogFor(ClassOf(bot), bot.IsPvpBot);
         return Plan(catalog.Available, catalog.Archetype, ClassOf(bot), points, (key, level) => catalog.ByKey[key].CostForUpgrade(level),
-            bot.IsPvpBot ? PvpFirst : null);
+            bot.IsPvpBot ? PvpRealmAbilities.OrderOf(ClassOf(bot)) : null);
     }
 
     // Gamebots, and 8v8 bots (which get their rank set, not earned at a trainer).
@@ -295,7 +302,9 @@ public static class AutonomousBotRealmAbilities
         }
         State state = States.GetOrCreateValue(bot);
         // Group Purge before Purge: when it fires, the Druid's own Purge is no longer needed.
-        state.Actives = (bot.IsPvpBot ? UsableActives.Prepend(PvpPurge.GroupPurgeKey).Append(Mcl).Append(RagingPower) : UsableActives)
+        // An 8v8 bot looks at the Purges first (asleep, it can press nothing else), then at its own in their order:
+        // what frees or saves the group before what helps itself.
+        state.Actives = (bot.IsPvpBot ? new[] { PvpPurge.GroupPurgeKey, Purge, PurgeReduced }.Concat(PvpRealmAbilities.Actives).Concat(UsableActives).Distinct() : UsableActives)
             .Select(key => bot.GetAbility(key) as TimedRealmAbility).Where(a => a != null).ToArray();
         return gained;
     }
@@ -310,7 +319,10 @@ public static class AutonomousBotRealmAbilities
         foreach (TimedRealmAbility ability in state.Actives)
         {
             if (bot.GetSkillDisabledDuration(ability) > 0 || !Wanted(bot, ability.KeyName)) continue;
-            ability.Execute(bot);
+            if (bot.IsPvpBot)
+                PvpRealmAbilities.Use(bot, ability);
+            else
+                ability.Execute(bot);
             // A purge that removed nothing only blocks itself for 5 ms; log real uses (long reuse timers).
             // An 8v8 bot beside a player says that it has purged (bots/pvp/PvpCalls.cs).
             if (bot.IsPvpBot && bot.GetSkillDisabledDuration(ability) > 1_000 && ability.KeyName is Purge or PurgeReduced or PvpPurge.GroupPurgeKey)
@@ -329,6 +341,8 @@ public static class AutonomousBotRealmAbilities
     {
         // An 8v8 bot weighs its Purge (bots/pvp/PvpPurge.cs).
         Purge or PurgeReduced or PvpPurge.GroupPurgeKey when bot.IsPvpBot => PvpPurge.Wanted(bot, key),
+        // The abilities only an 8v8 bot has (bots/pvp/PvpRealmAbilities.cs).
+        _ when bot.IsPvpBot && PvpRealmAbilities.Decides(key) => PvpRealmAbilities.Wanted(bot, key),
         // Crowd control in a fight against other realms (or when it is going badly).
         Purge or PurgeReduced => (bot.IsMezzed || bot.IsStunned) && (bot.InCombat || bot.HealthPercent < 90) &&
             (AutonomousWorldBotController.IsBattleground(bot) || bot.HealthPercent < 60),

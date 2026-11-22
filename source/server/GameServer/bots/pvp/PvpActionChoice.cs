@@ -425,6 +425,9 @@ namespace DOL.GS
         /// <summary>What a bot does not know as exactly as the server does (bots/pvp/PvpNotice.cs).</summary>
         public PvpHumanWeights Human { get; set; } = new();
 
+        /// <summary>When an active realm ability is used (bots/pvp/PvpRealmAbilities.cs).</summary>
+        public PvpRealmAbilityWeights Abilities { get; set; } = new();
+
         /// <summary>
         /// The monsters of the zone an 8v8 session or roam is held in are taken out of the world
         /// when it starts, and once a minute while a roam runs (PvpArena.ClearMonsters). The

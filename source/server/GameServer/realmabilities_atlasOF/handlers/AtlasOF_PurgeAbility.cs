@@ -55,47 +55,15 @@ namespace DOL.GS.RealmAbilities
         {
             if (CheckPreconditions(living, DEAD | SITTING)) return;
 
-            // An 8v8 bot stands in for a player: it purges the members of its group in range.
-            if (living is GameBot { IsPvpBot: true } bot)
-            {
-                bool removed = false;
-                foreach (GameLiving member in bot.Group?.GetMembersInTheGroup() ?? [bot])
-                {
-                    if (member.IsAlive && bot.IsWithinRadius(member, m_range))
-                        removed |= RemoveNegativeEffects(member, this, true);
-                }
-                if (removed)
-                    DisableSkill(living);
-                return;
-            }
-
-            GamePlayer player = living as GamePlayer;
-
-            if (player == null)
+            // A player or a bot (an 8v8 bot buys it); the bots of the group are purged with its players.
+            if (living is not (GamePlayer or GameBot))
                 return;
 
-            ArrayList targets = new ArrayList();
-            if (player.Group == null)
-                targets.Add(player);
-            else
-            {
-                foreach (GamePlayer grpplayer in player.Group.GetPlayersInTheGroup())
-                {
-                    if (player.IsWithinRadius(grpplayer, m_range) && grpplayer.IsAlive)
-                        targets.Add(grpplayer);
-                }
-            }
-
-            SendCastMessage(player);
+            SendCastMessage(living);
 
             bool AtLeastOneEffectRemoved = false;
-            foreach (GamePlayer target in targets)
-            {                   
-                if (target != null)
-                {
-                    AtLeastOneEffectRemoved |= RemoveNegativeEffects(target, this, /* isFromGroupPurge = */ true);
-                }
-            }
+            foreach (GameLiving target in AtlasRAHelpers.GroupInReach(living, m_range))
+                AtLeastOneEffectRemoved |= RemoveNegativeEffects(target, this, /* isFromGroupPurge = */ true);
 
             if (AtLeastOneEffectRemoved)
             {

@@ -795,7 +795,8 @@ namespace DOL.GS
                                    legs.SprintNeeded(pressed, WayLeft(bot), bot.PvpSprinting) &&
                                    legs.CanSprint(bot.EndurancePercent, bot.PvpSprinting, IsFighter(bot) && !Chasing && role != PvpRole.Peel ? legs.FighterKeepsEndurancePercent : 0);
                 if (bot.PvpSprinting && bot.IsMoving && legs.SprintCostPerSecond > 0)
-                    bot.Endurance = Math.Max(0, bot.Endurance - legs.SprintCostPerSecond);
+                    bot.Endurance = Math.Max(0, bot.Endurance - PvpPositionWeights.SprintCostWith(legs.SprintCostPerSecond,
+                        bot.GetAbility<DOL.GS.RealmAbilities.AtlasOF_LongWindAbility>() is { } longWind ? longWind.GetAmountForLevel(longWind.Level) : 0));
                 // For a watcher: a member that has run out of power does nothing, and that cannot be seen from above
                 // (owner, 2026-11-19, of a Theurgist that stood still: "I do not have that information when I observe").
                 if (FightStarted && bot.IsAlive && bot.MaxMana > 0)

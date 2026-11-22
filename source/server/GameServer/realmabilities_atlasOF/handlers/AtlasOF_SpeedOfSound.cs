@@ -23,6 +23,9 @@ namespace DOL.GS.RealmAbilities
 		public override void Execute(GameLiving living)
 		{
 			if (CheckPreconditions(living, DEAD | SITTING | MEZZED | STUNNED)) return;
+			// A player or a bot (an 8v8 bot buys it); the bots of the group run with its players.
+			if (living is not (GamePlayer or GameBot))
+				return;
 			GamePlayer player = living as GamePlayer;
 			/* if (player.IsSpeedWarped)
 			 {
@@ -30,9 +33,9 @@ namespace DOL.GS.RealmAbilities
 				 return;
 			 }*/
 
-			if (player.TempProperties.GetProperty<bool>("Charging") || player.effectListComponent.ContainsEffectForEffectType(eEffect.SpeedOfSound))
+			if (living.TempProperties.GetProperty<bool>("Charging") || living.effectListComponent.ContainsEffectForEffectType(eEffect.SpeedOfSound))
 			{
-				player.Out.SendMessage("You already an effect of that type!", eChatType.CT_SpellResisted, eChatLoc.CL_SystemWindow);
+				player?.Out.SendMessage("You already an effect of that type!", eChatType.CT_SpellResisted, eChatLoc.CL_SystemWindow);
 				return;
 			}
 
@@ -40,18 +43,11 @@ namespace DOL.GS.RealmAbilities
 
 			ArrayList targets = new ArrayList();
 
-			if (player.Group == null)
-				targets.Add(player);
-			else
+			foreach (GameLiving member in AtlasRAHelpers.GroupInReach(living, m_range))
 			{
-				foreach (GamePlayer p in player.Group.GetPlayersInTheGroup())
-				{
-					if (player.IsWithinRadius( p, m_range ) && p.IsAlive)
-						targets.Add(p);
-
-					if (p.ControlledBrain != null && p.ControlledBrain.Body != null)
-						targets.Add(p.ControlledBrain.Body);
-				}
+				targets.Add(member);
+				if (member.ControlledBrain?.Body is { IsAlive: true } pet)
+					targets.Add(pet);
 			}
 
 			bool success;
@@ -59,7 +55,7 @@ namespace DOL.GS.RealmAbilities
 			{
 				//send spelleffect
 				foreach (GamePlayer visPlayer in target.GetPlayersInRadius(WorldMgr.VISIBILITY_DISTANCE))
-					visPlayer.Out.SendSpellEffectAnimation(player, target, 7021, 0, false, CastSuccess(true));
+					visPlayer.Out.SendSpellEffectAnimation(living, target, 7021, 0, false, CastSuccess(true));
 				ECSGameEffectFactory.Create(new(target, m_duration, 1), static (in i) => new SpeedOfSoundECSEffect(i));
 			}
 

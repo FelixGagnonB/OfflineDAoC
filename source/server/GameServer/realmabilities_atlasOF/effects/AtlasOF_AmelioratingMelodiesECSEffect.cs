@@ -22,32 +22,23 @@ namespace DOL.GS.Effects
 
         public override void OnEffectPulse()
         {
-            if (OwnerPlayer == null)
+            // On a player or a bot (an 8v8 bot buys it); the bots of the group are healed with its players.
+            // OF AM works on the caster as well, unlike NF AM.
+            if (Owner is not (GamePlayer or GameBot) || !Owner.IsAlive)
                 return;
 
-            List<GamePlayer> playersToHeal;
-
-            // OF AM works on the caster as well, unlike NF AM.
-            if (OwnerPlayer.Group == null)
+            foreach (GameLiving player in RealmAbilities.AtlasRAHelpers.GroupInReach(Owner, RANGE))
             {
-                playersToHeal = GameLoop.GetListForTick<GamePlayer>();
-                playersToHeal.Add(OwnerPlayer);
-            }
-            else
-                playersToHeal = OwnerPlayer.Group.GetPlayersInTheGroup();
-
-            foreach (GamePlayer player in playersToHeal)
-            {
-                if ((player.Health < player.MaxHealth) && OwnerPlayer.IsWithinRadius(player, RANGE) && player.IsAlive)
+                if (player.Health < player.MaxHealth)
                 {
                     int heal = _heal;
 
                     if (player.Health + heal > player.MaxHealth)
                         heal = player.MaxHealth - player.Health;
 
-                    heal = player.ChangeHealth(OwnerPlayer, eHealthChangeType.Regenerate, heal);
-                    OwnerPlayer.Out.SendMessage($"Your Ameliorating Melodies heal {player.Name} for {heal} hit points.", eChatType.CT_Spell, eChatLoc.CL_SystemWindow);
-                    player.Out.SendMessage($"{OwnerPlayer.Name} 's Ameliorating Melodies heals you for {heal} hit points.", eChatType.CT_Spell, eChatLoc.CL_SystemWindow);
+                    heal = player.ChangeHealth(Owner, eHealthChangeType.Regenerate, heal);
+                    OwnerPlayer?.Out.SendMessage($"Your Ameliorating Melodies heal {player.Name} for {heal} hit points.", eChatType.CT_Spell, eChatLoc.CL_SystemWindow);
+                    (player as GamePlayer)?.Out.SendMessage($"{Owner.Name} 's Ameliorating Melodies heals you for {heal} hit points.", eChatType.CT_Spell, eChatLoc.CL_SystemWindow);
                 }
             }
         }

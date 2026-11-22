@@ -349,6 +349,10 @@ namespace DOL.GS
         // 2.5 seconds more. A player that swings cannot cast for 3 seconds; an NPC for one swing.
         public override void StartInterruptTimer(int duration, AttackData.eAttackType attackType, GameLiving attacker)
         {
+            // Mastery of Concentration: a hit interrupts nothing while it runs. The spell code keeps the cast
+            // going for anybody; a bot decides by its interrupt timer whether to begin one, so that is kept off.
+            if (attacker != this && effectListComponent.ContainsEffectForEffectType(eEffect.MasteryOfConcentration))
+                return;
             // Taken off here exactly when GameNPC is about to add it.
             if (IsPvpBot && attacker != this && (Brain is not IControlledBrain controlled || controlled.GetPlayerOwner() == null))
                 duration -= 2500;
@@ -356,6 +360,9 @@ namespace DOL.GS
         }
 
         public override int SelfInterruptDurationOnMeleeAttack => IsPvpBot ? 3000 : base.SelfInterruptDurationOnMeleeAttack;
+
+        /// <summary>Mastery of Concentration has begun on this bot: it may cast again at once.</summary>
+        public void OnMasteryOfConcentration() => EndInterruptByOthers();
 
         public void SetPvpRealmLevel(int realmLevel)
         {
