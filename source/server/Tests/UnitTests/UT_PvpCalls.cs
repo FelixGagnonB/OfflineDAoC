@@ -90,6 +90,16 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void ACalledExtendIsAKiteYouCanSee()
+        {
+            // "Extend should be us kiting back, in the opposite direction of the enemy team."
+            Assert.That(PvpCalls.KiteStepWanted(900, 3_000), Is.True, "an enemy is near: another step back");
+            Assert.That(PvpCalls.KiteStepWanted(900, 1_000), Is.False, "between two steps there is time for a cast");
+            Assert.That(PvpCalls.KiteStepWanted(2_500, 10_000), Is.False, "far enough: it stands and works");
+            Assert.That(PvpCalls.CalledKiteStep, Is.InRange(300, 800));
+        }
+
+        [Test]
         public void RetreatIsACallOfItsOwnAndNotARegroup()
         {
             // The owner, 2026-11-21: "retreat: everyone stop doing what they do and follow me".

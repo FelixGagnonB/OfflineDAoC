@@ -87,6 +87,21 @@ namespace DOL.GS
         public static string Control(string name, eCharacterClass characterClass) => $"Control on {name} ({characterClass}).";
 
         /// <summary>
+        /// The kite the player calls (/8v8 call extend). The owner, 2026-11-22: "Extend should be
+        /// us kiting back, in the opposite direction of the enemy team." The group's own Extend
+        /// only shifts weights (a little more distance, the fighters on whoever follows), and a
+        /// call for it changed nothing to be seen: in the one roam it was used in, the back line
+        /// stood 500 units from the nearest enemy before and after. Called, every healer and
+        /// caster that is not in the middle of a cast takes a step this long straight away from
+        /// the enemy, again and again, while an enemy is nearer than <see cref="CalledKiteKeeps"/>;
+        /// between two steps it has time for a cast. The fighters cover as under any Extend.
+        /// </summary>
+        public const int CalledKiteStep = 500, CalledKiteKeeps = 1_800, CalledKiteStepEveryMilliseconds = 2_500;
+
+        public static bool KiteStepWanted(float nearestEnemy, long millisecondsSinceItsLastStep) =>
+            nearestEnemy < CalledKiteKeeps && millisecondsSinceItsLastStep >= CalledKiteStepEveryMilliseconds;
+
+        /// <summary>
         /// "Retreat: everyone stop doing what they do and follow me" (the owner, 2026-11-21).
         /// Not an order the group fights under, like regroup: nobody attacks, casts or answers
         /// an attack; all of them run with the caller in travel order, the speed song on. It

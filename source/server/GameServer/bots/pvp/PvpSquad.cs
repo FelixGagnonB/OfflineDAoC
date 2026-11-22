@@ -1223,6 +1223,7 @@ namespace DOL.GS
                 if (away.LengthSquared() > 1)
                     retreat = Vector2.Normalize(away);
             }
+            bool calledKite = _calledOrder == PvpOrder.Extend && now < _calledUntil;
             foreach (GameBot bot in backline)
             {
                 if (bot.Brain is not BotBrain brain || bot.IsCasting || bot.IsIncapacitated || bot.castingComponent?.HasPendingSkillRequests == true)
@@ -1231,6 +1232,29 @@ namespace DOL.GS
                 bool hunted = threats.Any(threat => threat.OnMe);
                 if (hunted)
                     _huntedTick[bot] = now;
+                // The player called the kite: the back line goes back, away from the enemy, whatever else it would weigh.
+                if (calledKite && retreat != default)
+                {
+                    var here = At(bot);
+                    float nearest = enemiesAlive.Min(enemy => Vector2.Distance(here, At(enemy)));
+                    if (PvpCalls.KiteStepWanted(nearest, LastStandStep.TryGetValue(bot, out long lastKite) ? now - lastKite : long.MaxValue))
+                    {
+                        Vector2 to = here + retreat * PvpCalls.CalledKiteStep;
+                        if (nav.GetFloorBeneath(bot.CurrentZone, new Vector3(to.X, to.Y, 20_000), 20_000, nav.DefaultFilters) is { } ground && ground.Z < 19_999)
+                        {
+                            LastStandStep[bot] = now;
+                            brain.PvpMoveFrom = now;
+                            brain.PvpMoveUntil = now + Math.Clamp((long)(PvpCalls.CalledKiteStep / (float)Math.Max(100, (int)bot.MaxSpeed) * 1000) + 300, 800, 4_500);
+                            StandStepEnds[bot] = brain.PvpMoveUntil;
+                            if (bot.attackComponent.AttackState)
+                                bot.StopAttack();
+                            bot.StopFollowing();
+                            bot.PathTo(ground, bot.MaxSpeed);
+                            PvpRecorder.Decision(bot, new { kind = "CalledKite", order = Order.ToString(), score = (int)nearest }, [], null);
+                        }
+                    }
+                    continue;
+                }
                 // Gathered against enemy pets (ClearPets): it stays, unless an enemy fighter is on it.
                 if (Gathering.Contains(bot) && !hunted)
                     continue;

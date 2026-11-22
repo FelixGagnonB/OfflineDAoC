@@ -2637,8 +2637,14 @@ In order:
      the nearest enemy before and after. And the call was worded as a chase ("They are backing
      off: extend on them", the word `chase`), which is the opposite of the order: Extend is the
      kite of the playbook (the group falls back, healers and casters keep their distance, the
-     fighters turn on whoever follows). Reworded, `kite` in place of `chase`. Whether a called
-     Extend should do more than the group's own (a real falling back) is the owner's to say.
+     fighters turn on whoever follows). Reworded, `kite` in place of `chase`.
+     The owner then said what each call is to be: "Push should be us pushing into enemies.
+     Extend should be us kiting back, in the opposite direction of the enemy team. Engage
+     should be us just attacking. Retreat should be us all running away." Three were that
+     already. **A called Extend is now a kite to be seen** (`PvpCalls.KiteStepWanted`): every
+     healer and caster not in the middle of a cast steps 500 units straight away from the
+     enemy, every two and a half seconds, while an enemy is within 1,800; the fighters cover
+     as under any Extend. The group's own Extend is as it was. **Not seen in a run.**
      Still not reported on by the owner: the dead lying down, `/release`, the calls for a
      landed mez and a used Purge, `/8v8 call control`, Thidranki.
      *The same morning:* "For some reason, the bard is not playing endurance. We just killed 4
