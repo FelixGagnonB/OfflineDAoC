@@ -2641,6 +2641,25 @@ In order:
      Extend should do more than the group's own (a real falling back) is the owner's to say.
      Still not reported on by the owner: the dead lying down, `/release`, the calls for a
      landed mez and a used Purge, `/8v8 call control`, Thidranki.
+     *The same morning:* "For some reason, the bard is not playing endurance. We just killed 4
+     midgard fighter and ran away." The recording (which now has the song a singer has
+     running) says otherwise for endurance: in each of that roam's four fights the song was
+     running within a second of the first blow and for as long as the Bard lived, and the
+     owner had its bonus 60 to 100% of the time. What it shows is the speed song missing: from
+     the fight at 16:41 on the Bard played endurance on the road and on a retreat too, four
+     and a half minutes without speed. A group gets a new squad when a fight is over, and its
+     bots were given it only when it first decided something, which needs an enemy. Until
+     then they read the old one, whose fight never ends: the speed song is held back in a
+     fight, and so is every buff with a cast time on somebody else, and a call made between
+     fights went to a squad no bot listened to. A squad's bots are given it when it is made
+     (`PvpSquad`). **Not seen in a run.** To ask the owner: was it the speed that was missed?
+     And of `/release`, used for the first time: "My group just wiped. I used /release and
+     respawn at correct location, with rez sickness. The whole team did not release." The
+     group was wiped at 21:49 of the roam, the owner was at the start ten seconds later, and
+     the seven stood up there at 22:19, when the thirty seconds of the wipe were up: twenty
+     seconds alone at the start, which read as the group not coming. A group whose player has
+     released stands up at once (not under an enemy's feet), and a release in a roam gives no
+     resurrection sickness, as the standing up by itself gives none. **Not seen in a client.**
   4. [x] The recorder with more than two teams, so a roam can be replayed and counted.
      *Done 2026-11-21.* A roam writes one recording for the session in `logs/roams` (format 4,
      `PvpRecorder.BeginRoam`): the header names every team, every line of a match is there with

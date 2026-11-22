@@ -33,6 +33,17 @@ namespace DOL.GS
         {
             _members = members.ToList();
             _allies = _members.Cast<GameLiving>().Concat(others ?? []).ToList();
+            // Its bots know it from now on. They were told only when it first decided something, which needs an
+            // enemy: in a roam a group gets a new squad when a fight is over, and until the next enemy its bots
+            // went on reading the old one, whose fight had begun and never ends. So between fights the Bard held
+            // its speed song back as "in a fight" (the owner's roam of 2026-11-22: endurance from the second
+            // fight on, on the road and on a retreat, for four and a half minutes), nobody cast a buff with a
+            // cast time on anybody else, and a call the player made went to a squad no bot was listening to.
+            foreach (GameBot bot in _members)
+            {
+                if (bot?.Brain is BotBrain brain)
+                    brain.PvpSquad = this;
+            }
         }
 
         /// <summary>Everybody in the group: the squad's bots and the players with them (docs/PVP-8V8-ROADMAP.md, M9).</summary>

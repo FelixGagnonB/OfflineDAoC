@@ -49,6 +49,9 @@ namespace DOL.UnitTests
             Assert.That(PvpRealWeights.StandsUp(30, false, real), Is.True);
             Assert.That(PvpRealWeights.StandsUp(60, true, real), Is.False, "not under the enemy's feet");
             Assert.That(PvpRealWeights.StandsUp(120, true, real), Is.True, "but it is not kept down for ever");
+            // "I used /release and respawn at correct location... The whole team did not release": it does not wait out the thirty seconds.
+            Assert.That(PvpRealWeights.StandsUp(10, false, real, playerIsBack: true), Is.True);
+            Assert.That(PvpRealWeights.StandsUp(10, true, real, playerIsBack: true), Is.False, "still not under an enemy's feet");
         }
 
         [Test]

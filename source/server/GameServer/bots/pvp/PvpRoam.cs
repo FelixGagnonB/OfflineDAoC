@@ -541,7 +541,8 @@ namespace DOL.GS
                         ? $"Your group is down. It stands up here in about {real.WipeStandsUpAfterSeconds} seconds."
                         : $"Your group is wiped. You stand up at your start in about {real.WipeStandsUpAfterSeconds} seconds, or release to go there now.");
                 }
-                else if (PvpRealWeights.StandsUp((now - team.StateSince) / 1000.0, EnemyNearStart(team, teams, real.StartIsClearBeyond), real))
+                else if (PvpRealWeights.StandsUp((now - team.StateSince) / 1000.0, EnemyNearStart(team, teams, real.StartIsClearBeyond), real,
+                             team.Leader is { IsAlive: true }))
                 {
                     StandUp(team, now);
                     Say($"{team.Name} stands up at its start", new { what = "standup", team = team.Name });

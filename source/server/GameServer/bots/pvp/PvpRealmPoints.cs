@@ -101,8 +101,14 @@ namespace DOL.GS
             real.StartIsSafeWithin > 0 && fromItsStart <= real.StartIsSafeWithin && !fightingItAlready && !itAttacksUs;
 
         /// <summary>Whether a wiped team stands up now: after its wait, and with no enemy at its start, or after the longest wait whatever is there.</summary>
-        public static bool StandsUp(double secondsDown, bool enemyAtStart, PvpRealWeights real) =>
-            secondsDown >= real.WipeStandsUpAfterSeconds && (!enemyAtStart || secondsDown >= real.WipeWaitsAtMostSeconds);
+        /// <param name="playerIsBack">
+        /// The player of the group has released and stands at the start: the group does not make
+        /// it wait. The owner, 2026-11-22, having released ten seconds after a wipe: "I used
+        /// /release and respawn at correct location... The whole team did not release". They
+        /// came twenty seconds later, when the thirty of the wipe were up.
+        /// </param>
+        public static bool StandsUp(double secondsDown, bool enemyAtStart, PvpRealWeights real, bool playerIsBack = false) =>
+            (secondsDown >= real.WipeStandsUpAfterSeconds || playerIsBack) && (!enemyAtStart || secondsDown >= real.WipeWaitsAtMostSeconds);
     }
 
     /// <summary>
