@@ -81,6 +81,15 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void ExtendIsTheKiteAndIsSaidSo()
+        {
+            Assert.That(PvpCalls.OrderFor("kite"), Is.EqualTo(PvpOrder.Extend));
+            Assert.That(PvpCalls.OrderFor("chase"), Is.Null, "a chase is the opposite of what the order does");
+            Assert.That(PvpCalls.Order(PvpOrder.Extend), Does.Contain("fall back"));
+            Assert.That(PvpCalls.Answer(PvpOrder.Extend, "Talveh"), Does.Contain("falling back"));
+        }
+
+        [Test]
         public void RetreatIsACallOfItsOwnAndNotARegroup()
         {
             // The owner, 2026-11-21: "retreat: everyone stop doing what they do and follow me".

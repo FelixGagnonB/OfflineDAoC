@@ -22,7 +22,11 @@ namespace DOL.GS
             PvpOrder.Engage => "Engage.",
             PvpOrder.Push => "Push!",
             PvpOrder.Regroup => "Regroup on the healers.",
-            PvpOrder.Extend => "They are backing off: extend on them.",
+            // Extend is the kite (docs/PVP-8V8-PLAYBOOK.md, section 3): the group falls back together, its healers and
+            // casters keep their distance and its fighters turn on whoever follows. It was worded as a chase until
+            // 2026-11-21 ("They are backing off: extend on them"), which is the opposite, and the owner, having called
+            // it: "I am not sure if /8v8 call extend works. I used it but I can't tell."
+            PvpOrder.Extend => "Extend: fall back and kite, fighters on whoever follows.",
             PvpOrder.Hold => "Hold here and let them come.",
             _ => order + ".",
         };
@@ -114,7 +118,7 @@ namespace DOL.GS
             "regroup" or "back" => PvpOrder.Regroup,
             "hold" or "wait" => PvpOrder.Hold,
             "engage" or "go" => PvpOrder.Engage,
-            "extend" or "chase" => PvpOrder.Extend,
+            "extend" or "kite" => PvpOrder.Extend,
             _ => null,
         };
 
@@ -124,7 +128,7 @@ namespace DOL.GS
             PvpOrder.Push => "Pushing.",
             PvpOrder.Regroup => $"Regrouping on {caller}.",
             PvpOrder.Hold => "Holding.",
-            PvpOrder.Extend => "Extending on them.",
+            PvpOrder.Extend => "Extending: falling back, fighters on whoever follows.",
             _ => "Engaging.",
         };
 

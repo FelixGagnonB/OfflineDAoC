@@ -2626,6 +2626,21 @@ In order:
        the keep; the second met a Midgard team at the north end at 2:16 and the first, having
        found nobody at the south end, a second Midgard team at 3:46: two fights of eight
        against eight side by side, the two Albion teams waiting. Not seen with a player.
+     *Seen by the owner in a client, 2026-11-22* (a roam of eleven minutes in Emain Macha):
+     "Hib starting location is ok"; "Retreat call is ok"; "We died on our 2nd fight and I just
+     waited. We all respawned at correct location, without rez sick (that's ok)"; "group no
+     adding looks like it's working". So Dun Crauchon, `/8v8 call retreat`, the standing up
+     after a wipe and the bots leaving a fight alone are confirmed with a player.
+     "I am not sure if /8v8 call extend works. I used it but I can't tell." The call was taken
+     (in the one roam it was used in, at 178 s), and the group had been on Extend by its own
+     reading for eight seconds already, so nothing changed: its back line stood 500 units from
+     the nearest enemy before and after. And the call was worded as a chase ("They are backing
+     off: extend on them", the word `chase`), which is the opposite of the order: Extend is the
+     kite of the playbook (the group falls back, healers and casters keep their distance, the
+     fighters turn on whoever follows). Reworded, `kite` in place of `chase`. Whether a called
+     Extend should do more than the group's own (a real falling back) is the owner's to say.
+     Still not reported on by the owner: the dead lying down, `/release`, the calls for a
+     landed mez and a used Purge, `/8v8 call control`, Thidranki.
   4. [x] The recorder with more than two teams, so a roam can be replayed and counted.
      *Done 2026-11-21.* A roam writes one recording for the session in `logs/roams` (format 4,
      `PvpRecorder.BeginRoam`): the header names every team, every line of a match is there with

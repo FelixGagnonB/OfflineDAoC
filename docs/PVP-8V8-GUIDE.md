@@ -84,7 +84,8 @@ You can call too (make macros of these):
 | `/8v8 call regroup` | Everybody comes back to you and goes on fighting from there. Also `back`. |
 | `/8v8 call retreat` | Everybody drops what it is doing and runs with you: no attack, no cast, no answer to an attack, the speed song on. It stands 30 seconds; call it again to keep running, or any other call to end it. Also `run`, `follow`. |
 | `/8v8 call hold` | The group stands where it is and lets them come. |
-| `/8v8 call engage`, `extend` | Back to a normal fight; chase them when they back off. |
+| `/8v8 call engage` | Back to a normal fight: close, mez, kill the called target. |
+| `/8v8 call extend` | The kite: healers and casters keep more distance, fighters turn on whoever follows onto them and come back to the group. Also `kite`. The group often picks this by itself, and then your call changes nothing you can see. |
 
 ## The dead
 
