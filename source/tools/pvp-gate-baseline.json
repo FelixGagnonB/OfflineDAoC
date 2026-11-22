@@ -1,0 +1,67 @@
+{
+ "made": "2026-11-22 23:30 UTC",
+ "batch": "20261122-230939",
+ "matches": 12,
+ "rules": [
+  {
+   "title": "A group does not stand still inside the enemy mezzer's reach before the fight",
+   "passed": true,
+   "measured": "0.0 s a match"
+  },
+  {
+   "title": "The two groups' healers and casters keep their distance",
+   "passed": true,
+   "measured": "1673 at 20 s, 1708 at 45 s"
+  },
+  {
+   "title": "Casters cast from the edge of their range",
+   "passed": true,
+   "measured": "median 1367 units; under 700 units 5%"
+  },
+  {
+   "title": "A group's healers do not stand together",
+   "passed": false,
+   "measured": "closer than 800 units 16% of the time"
+  },
+  {
+   "title": "A fighter running at the healers is stopped",
+   "passed": false,
+   "measured": "50% of 54 stopped within 3 s"
+  },
+  {
+   "title": "A shield fighter told to stay beside its healer stays",
+   "passed": true,
+   "measured": "an attack target 2% of the time it was told to stay"
+  },
+  {
+   "title": "Nobody stops to buff once the fight has started",
+   "passed": false,
+   "measured": "1.1 a match; most: cleric-enhance StrengthConstitutionBuff 0.3, cleric-enhance DexterityQuicknessBuff 0.2, cleric-enhance AcuityBuff 0.2, cleric-rejuv ConstitutionBuff 0.2"
+  },
+  {
+   "title": "A healer does not call its pet in a fight",
+   "passed": true,
+   "measured": "0.0 a match"
+  },
+  {
+   "title": "The Bard keeps its endurance song up without spending the fight on it",
+   "passed": true,
+   "measured": "0.0 s a match"
+  },
+  {
+   "title": "A sleeping healer is woken",
+   "passed": true,
+   "measured": "85% of 26 mezzes ended within 8 s"
+  },
+  {
+   "title": "Keeping their distance does not stop the casters casting",
+   "passed": true,
+   "measured": "casting 32%, walking 33%; least casting: sorcerer-mind 20%, runemaster-rune 28%, enchanter-light 31%"
+  },
+  {
+   "title": "Nobody dies within seconds of contact",
+   "passed": true,
+   "measured": "first death at a median of 92 s; within 20 s in 1 of 12 matches; the earliest at 19 s"
+  }
+ ]
+}

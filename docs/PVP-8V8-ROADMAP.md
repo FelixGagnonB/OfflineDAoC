@@ -2809,6 +2809,11 @@ In order:
   *Seen by the owner in a client:* assist and retreat (2026-11-21), the kite of `extend` and
   `rest` (2026-11-22: "The M9.2 extend (kite) and rest works"). `control` is the one call the
   owner has not reported on.
+  *Pets stay out of a called assist (2026-11-22, the owner: "when I use /8v8 call assist, pets
+  should not assist. It's for fighters / casters that are able to join").* The call took a
+  caster's interrupt duty away and its pet went to the called target with it. A pet now keeps
+  its duty, or the enemy it has (`PvpCalls.PetAim`), and the Theurgist's cast pets do not count
+  the called target as the kill target. Automated tests only.
   *Built 2026-11-20 as `/8v8 call <assist|push|regroup|hold|engage|extend>`, not yet tried in a
   client.* *"Control that one" added 2026-11-21, not yet tried in a client:*
   `/8v8 call control` (or `mez`, `cc`) on the player's target: for twenty seconds a mez, stun,
@@ -2870,7 +2875,9 @@ round:*
   side positions for positional styles; plans per opponent (M8.5); cooldown timing beyond Purge
   (M8.3); the amount of nearsight (above, "How exact the bots are").
 
-- [ ] **M10.1** (M) Human-like limits as settings: reaction delay, attention, mistake rate.
+- [x] **M10.1** (M) Human-like limits as settings: reaction delay, attention, mistake rate.
+  *Run in fights 2026-11-22 (the owner's own matches and twelve of bots): see "The levels, as the
+  owner met them" below.*
   *First piece 2026-11-20: the end of an enemy's mez or stun immunity is noticed 4 to 20 s late
   (`PvpNotice`).*
   *Built 2026-11-22, **not yet run in a fight**:* reaction time (a bot answers a groupmate put
@@ -2902,12 +2909,31 @@ round:*
   2026-11-20: 2 of 18 against Albion, 6 of 24 against Hibernia). Albion against Hibernia was
   9 to 15 then and is 6 to 0 over today's two runs: six matches, after the realm abilities
   and at a different default level, so a sign and not a finding.
-- [ ] **M10.2** (S) Named difficulty levels for the enemy group and, separately, for companions.
+- [x] **M10.2** (S) Named difficulty levels for the enemy group and, separately, for companions.
+  *Built and played. The owner, 2026-11-22, after assist discipline and healer attention were
+  added: "I am not sure I felt a difference between the current 3 levels." They move what was
+  measured and do not change who wins. Making them "more representative of their name" is
+  parked with the tuning (M10.4).*
   *Built 2026-11-22, **not yet run in a fight**:* Casual, Seasoned (the weights as they are)
   and Sharp, one for the player's seven and one for every other group: `/8v8 skill`, and two
   lines of the setup window. A bot is given its level when it is made.
-- [ ] **M10.3** (M) Regression gate: each new AI build plays a fixed scrim set against the
+- [x] **M10.3** (M) Regression gate: each new AI build plays a fixed scrim set against the
   previous one, and a drop blocks it.
+  *First baseline stored 2026-11-22 (`source/tools/pvp-gate-baseline.json`, 21 minutes, the
+  build with the realm abilities, the levels and Speed of Sound for three classes; rank 5,
+  everybody Seasoned).* Twelve rules, nine passing. Failing, and so listed without blocking
+  from now on: the group's healers stand closer than 800 units 16% of the time; a fighter
+  running at the healers is stopped within 3 s 50% of 54 times; 1.1 buffs a match are cast
+  once the fight has started (the enhancement Cleric's). First death at a median of 92 s.
+  In those twelve matches Speed of Sound was used 7 times each by the Bard, the Skald and the
+  Minstrel (each in eight matches): 9 times while the group extended, 4 on a push, 7 with two
+  members held by the legs, once on a regroup.
+  **And the realms again:** Albion beat Midgard 4 of 4, Midgard beat Hibernia 3 of 4, Albion
+  and Hibernia 2 each. Four hours earlier, in twelve matches, Hibernia had beaten Midgard 4
+  of 4 and Albion had beaten Hibernia 4 of 4. Only Albion over Midgard holds from run to run
+  (16 of 18 on 2026-11-20, 12 of 12 today); the other two pairings swing with four matches
+  each, and "the realm decides every match", written above the same day, said more than
+  twelve matches can.
   *Tool written 2026-11-22 (`source/tools/pvp_gate.py`):* the three main pairings, four
   matches each, judged by the referee's rules and compared with a baseline kept in the
   repository; a rule that passed and now fails makes it fail. Two builds cannot fight in one
@@ -2967,6 +2993,11 @@ round:*
   that is already on; that longest case is to be looked at.
 - [ ] **M10.4** (M) Tuning rounds with the owner: 20 fights, review the analyzer's failure list,
   fix, repeat.
+  *Parked on the owner's word, 2026-11-22:* "I think for now, I would park the tuning. The bots
+  already feel strong enough, much more mathematically playing than human." With it: the three
+  levels made to fit their names, and the balance between the realms (what holds from run to
+  run is Albion over Midgard; see the gate's baseline under M10.3). What the owner's remark says for
+  whenever this is taken up again: the bots are not too weak, they are too exact.
 - [x] **M10.5** (S) Player guide for the 8v8 mode and an update of the developer docs.
   *Player guide written 2026-11-21: [PVP-8V8-GUIDE.md](PVP-8V8-GUIDE.md)* (the three ways to
   play, the roam's rules, the calls, what has and has not been tried in a client). The owner
