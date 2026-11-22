@@ -95,7 +95,9 @@ first again when the points are there, as if a respec were free.
 | Paladin, Champion | Tireless, Purge, Determination 3, First Aid 2, Ignore Pain (the Paladin: then Faith Healing) |
 | Warden | Tireless, Purge, Mystic Crystal Lore 2, First Aid 2, Ignore Pain |
 
-The orders are in `bots/pvp/PvpRealmAbilities.cs`, one line a class, to be corrected there.
+Every class's full order, with what each step costs and at which rank it is reached, is in
+[PVP-8V8-REALM-ABILITIES.md](PVP-8V8-REALM-ABILITIES.md). The orders themselves are in
+`bots/pvp/PvpRealmAbilities.cs`, one line a class, to be corrected there.
 In this game's data only the Minstrel has Speed of Sound; a Bard or a Skald buys it the moment its
 class is given it.
 
