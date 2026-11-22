@@ -255,6 +255,16 @@ namespace DOL.UnitTests
             Assert.That(Weights.LastStand(1, 3), Is.True);
             Assert.That(Weights.LastStand(2, 5), Is.False, "two against five still play it out");
             Assert.That(Weights.LastStand(3, 8), Is.False, "three is still a group");
+            // And the winners: "there's no point in keeping all the rules actives. It just drags the fight for no reasons."
+            Assert.That(Weights.MopsUp(6, 2), Is.True);
+            Assert.That(Weights.MopsUp(8, 1), Is.True);
+            Assert.That(Weights.MopsUp(5, 2), Is.False, "five against two still play it out");
+            Assert.That(Weights.MopsUp(8, 3), Is.False);
+            Assert.That(PvpPositionWeights.NotInAMopUp(PvpActionKind.Mez), Is.True, "nobody puts the last of them to sleep");
+            Assert.That(PvpPositionWeights.NotInAMopUp(PvpActionKind.MezArea), Is.True);
+            Assert.That(PvpPositionWeights.NotInAMopUp(PvpActionKind.Damage), Is.False);
+            Assert.That(PvpPositionWeights.NotInAMopUp(PvpActionKind.Stun), Is.False, "a stun holds it for the kill");
+            Assert.That(PvpPositionWeights.NotInAMopUp(PvpActionKind.Root), Is.False, "a root catches one that runs");
             Assert.That(Weights.LastStand(0, 8), Is.False, "nobody left is no stand");
             Assert.That(new PvpPositionWeights { LastStandAtMost = 0 }.LastStand(1, 8), Is.False, "off");
         }

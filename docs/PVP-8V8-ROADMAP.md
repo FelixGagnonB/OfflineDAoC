@@ -2645,6 +2645,15 @@ In order:
      healer and caster not in the middle of a cast steps 500 units straight away from the
      enemy, every two and a half seconds, while an enemy is within 1,800; the fighters cover
      as under any Extend. The group's own Extend is as it was. **Not seen in a run.**
+     And of a fight that is over: "When the fight is always over, like my team only have 1-2
+     members vs 6-8 enemies, there's no point in keeping all the rules actives. It just drags
+     the fight for no reasons." The last stand of 2026-11-20 was for the losers only. Counted
+     in that morning's roam: the last one or two of a beaten group lived a median of 15
+     seconds more and 54 at the longest, mezzed or stunned 37% of that time, while the winners
+     went on getting away, spreading, standing off and kiting. A group that has won now
+     **mops up** (`PvpPositionWeights.MopsUp`, the mirror of the last stand): no mez, amnesia
+     or nearsight, no keeping its distance, and every fighter on the kill target, its guard and
+     its peel too. **Not seen in a run.**
      Still not reported on by the owner: the dead lying down, `/release`, the calls for a
      landed mez and a used Purge, `/8v8 call control`, Thidranki.
      *The same morning:* "For some reason, the bard is not playing endurance. We just killed 4

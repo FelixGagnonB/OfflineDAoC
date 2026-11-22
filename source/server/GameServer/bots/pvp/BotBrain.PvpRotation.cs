@@ -583,6 +583,9 @@ namespace DOL.AI.Brain
             var instants = new Dictionary<PvpActionKind, Spell>();
             foreach (PvpActionKind kind in PvpActionChoice.KindsFor(characterClass, weights))
             {
+                // The fight is won: nobody puts the last of them to sleep (PvpPositionWeights.MopsUp).
+                if (PvpSquad?.MopsUp == true && PvpPositionWeights.NotInAMopUp(kind))
+                    continue;
                 List<Spell> ofKind = known.Where(spell => IsPvpSpellOfKind(spell, kind) && spell.Level <= Body.Level &&
                         (kind != PvpActionKind.Debuff || ownDamage.Contains(spell.DamageType)))
                     .OrderByDescending(spell => spell.Level).ToList();

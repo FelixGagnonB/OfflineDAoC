@@ -573,6 +573,10 @@ namespace DOL.GS
             }
             List<GameLiving> known = Look(enemies);
             Known = known;
+            bool mopsUp = FightStarted && PvpWeights.Of(_members.FirstOrDefault()).Position.MopsUp(_allies.Count(member => member.IsAlive), known.Count(enemy => enemy.IsAlive));
+            if (mopsUp && !MopsUp && _members.FirstOrDefault(member => member.IsAlive) is { } finisher)
+                PvpRecorder.Decision(finisher, new { kind = "MopUp", score = known.Count(enemy => enemy.IsAlive) }, [], null);
+            MopsUp = mopsUp;
             // A chase: the fight is on, and for some seconds no member has had an enemy near it.
             long tick = GameLoop.GameLoopTime;
             bool contact = known.Any(enemy => enemy.IsAlive && _allies.Any(member => member.IsAlive && member.IsWithinRadius(enemy, PvpOrders.ChaseBeyond)));
@@ -749,6 +753,9 @@ namespace DOL.GS
                 // casters (owner, 2026-11-17: an enemy that pushed deep is turned on).
                 if (calledOnto)
                     aim = target;
+                // The fight is won: every fighter goes for the kill, its guard and its peel too.
+                if (MopsUp && target != null && bot.IsAlive && IsFighter(bot))
+                    aim = target;
                 if (!calledOnto && Order == PvpOrder.Extend && _pursuers.Count > 0 && role == PvpRole.Assist && onDuty == null && bot.IsAlive &&
                     IsFighter(bot) && PvpWeights.Of(bot).Order.ExtendFightersTurnOnPursuers)
                 {
@@ -766,6 +773,9 @@ namespace DOL.GS
                 bool fallsBack = home != null && role == PvpRole.Assist && bot.IsAlive && IsFighter(bot) && !calledOnto &&
                     (Order == PvpOrder.Extend && _pursuers.Count == 0 && stayWithin > 0 && onDuty == null && fromHome > stayWithin ||
                      Order == PvpOrder.Regroup && RegroupsOn == null && FromNearestHealer(bot, team) > PvpWeights.Of(bot).Order.RegroupWithin);
+                // A group that mops up does not fall back from the one or two that are left.
+                if (MopsUp)
+                    fallsBack = false;
                 // The player called the regroup: every member that is far from the player comes back to it, whatever its job.
                 Vector3? fallBackTo = home;
                 if (RegroupsOn is { } gatherOn && bot.IsAlive &&
@@ -1131,7 +1141,7 @@ namespace DOL.GS
                 return;
             PvpSpreadWeights weights = PvpWeights.Of(_members.FirstOrDefault()).Spread;
             List<GameLiving> foes = Known.Where(enemy => enemy.IsAlive).ToList();
-            if (weights.MinSpacing <= 0 || foes.Count == 0 || Order == PvpOrder.Hold || MakesLastStand())
+            if (weights.MinSpacing <= 0 || foes.Count == 0 || Order == PvpOrder.Hold || MakesLastStand() || MopsUp)
                 return;
             List<GameBot> backline = _members.Where(bot => bot.IsAlive &&
                 PvpMember.ArchetypeOf(bot) != PvpBuffArchetype.Melee).ToList();
@@ -1177,6 +1187,9 @@ namespace DOL.GS
         /// </summary>
         private bool _lastStandSaid;
 
+        /// <summary>True while the group has won and only has to finish (PvpPositionWeights.MopsUp); set by <see cref="Decide"/>.</summary>
+        public bool MopsUp { get; private set; }
+
         /// <summary>True once the group has lost (PvpPositionWeights.LastStand): the few left stand and fight.</summary>
         public bool MakesLastStand()
         {
@@ -1196,7 +1209,7 @@ namespace DOL.GS
                 return;
             PvpWeights all = PvpWeights.Of(_members.FirstOrDefault());
             PvpPositionWeights weights = all.Position;
-            if (weights.SafeDistance <= 0 || !FightStarted || MakesLastStand())
+            if (weights.SafeDistance <= 0 || !FightStarted || MakesLastStand() || MopsUp)
                 return;
             List<GameLiving> fighters = Known.Where(enemy => enemy.IsAlive && IsFighter(enemy)).ToList();
             // The enemy's healers and casters that are awake: kept at the edge of range (PvpPositionWeights.EdgeDistance).
