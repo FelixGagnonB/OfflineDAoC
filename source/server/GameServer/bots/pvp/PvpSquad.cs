@@ -516,6 +516,9 @@ namespace DOL.GS
             }
         }
 
+        /// <summary>The rest is over (an enemy has come near, or the player's group has other things to do).</summary>
+        public void EndRest() => _restUntil = 0;
+
         /// <summary>A team of bots rests between two fights, until everybody is full or the time is up.</summary>
         public void RestAsATeam(int seconds)
         {

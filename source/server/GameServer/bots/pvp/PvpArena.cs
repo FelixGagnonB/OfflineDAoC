@@ -250,6 +250,32 @@ namespace DOL.GS
 
         /// <summary>Removes these 8v8 bots from the world: one match's, while others go on.</summary>
         /// <summary>
+        /// The walk from a place to a point of the ground on the navmesh: whether it arrives, and how long it is.
+        /// </summary>
+        public static (bool Arrives, int Length) Walk(Zone zone, Vector3 from, Vector3 to)
+        {
+            var nav = PathfindingProvider.Instance;
+            Vector3 at = from;
+            double length = 0;
+            Span<WrappedPathfindingNode> nodes = stackalloc WrappedPathfindingNode[256];
+            for (int hops = 0; hops < 40 && Vector3.Distance(at, to) > 150; hops++)
+            {
+                PathfindingResult result = nav.GetPathStraight(zone, at, to, nav.DefaultFilters, nodes);
+                if (result.NodeCount <= 0 || result.Status is PathfindingStatus.NoPathFound or PathfindingStatus.NavmeshUnavailable or PathfindingStatus.NotSet)
+                    break;
+                Vector3 before = at;
+                for (int i = 0; i < Math.Min(result.NodeCount, nodes.Length); i++)
+                {
+                    length += Vector3.Distance(at, nodes[i].Position);
+                    at = nodes[i].Position;
+                }
+                if (Vector3.Distance(before, at) < 50)
+                    break;
+            }
+            return (Vector3.Distance(at, to) <= 150, (int)length);
+        }
+
+        /// <summary>
         /// What counts as a monster to clear: of no realm, not peaceful, and not a bot, a keep's
         /// guard or anybody's pet. A merchant, a teleporter, a hastener or a guard stays.
         /// </summary>

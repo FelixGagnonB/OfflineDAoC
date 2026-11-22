@@ -89,6 +89,18 @@ namespace DOL.GS
         public int TeamRestsBelowPercent { get; set; } = 60;
         public int TeamRestsAtMostSeconds { get; set; } = 40;
 
+        /// <summary>
+        /// Before it rests a team of bots walks off the road it is on, to one side, as far as the
+        /// first of these that the ground allows (a place that is there and that it can walk to
+        /// without a long way round), and comes back to its road afterwards. The owner,
+        /// 2026-11-22: "it would be nice a team decides to go hide somewhere off, or out of the
+        /// route the teams make to meet each other and rest." A group sees another from 6,500
+        /// units. With no such place it rests where it is. Empty: it always does.
+        /// </summary>
+        public int[] RestsOffTheRoadBy { get; set; } = [7_500, 5_500];
+        /// <summary>A team that rests gets up when an enemy team is within this of it.</summary>
+        public int RestEndsWithEnemyWithin { get; set; } = 5_000;
+
         /// <summary>Whether a team of bots rests now: a member is low, and nobody is near to fight.</summary>
         public static bool TeamRests(int lowestPercent, PvpRealWeights real) =>
             real.TeamRestsBelowPercent > 0 && lowestPercent < real.TeamRestsBelowPercent;

@@ -57,6 +57,12 @@ starts of the setup window.
   when the rest of it is down too.
 - **Nobody is fought at its own start.** A group of bots leaves a group alone that stands within
   3,500 units of its own start point, unless that group attacks it.
+- **What the others are doing.** `/8v8 status` lists every group of the roam: at its start buffing (and when it
+  leaves), roaming, fighting whom, resting, waiting by a fight, or wiped (and when it stands up), with how
+  many of it are alive and how far it is from you.
+- **Resting.** After a fight a group of bots with a member under 60% walks off its road to a place out of
+  the way, rests there for up to forty seconds, and comes back. It gets up if an enemy comes within 5,000
+  units.
 - **Realm points.** A kill is worth what a player of that level and rank is worth, five times
   over, shared among the members of the groups that were fighting the dead one's group and are
   near. Standing by a fight earns nothing. Yours go on your character.

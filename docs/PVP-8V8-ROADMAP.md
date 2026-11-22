@@ -2827,6 +2827,17 @@ round:*
   on its endurance song. A team of bots in a roam does the same by itself after a fight when
   a member is under 60%, for forty seconds at most, before it walks on; it used to meet its
   next enemy with what it had left. **Not seen in a run or a client.**
+- *Also 2026-11-22:* "it would be nice a team decides to go hide somewhere off, or out of the
+  route the teams make to meet each other and rest." Before it rests a team of bots walks off
+  its road, straight to one side, 7,500 units or else 5,500 (a group sees another from 6,500),
+  to a place that the navmesh has ground at and that it can walk to in no more than 1.8 times
+  the straight line; with no such place it rests where it is. It gets up when an enemy team is
+  within 5,000 (`PvpRoam.HidePlaces`, `Real.RestsOffTheRoadBy`). **Not seen in a run.**
+- *Also 2026-11-22, **`/8v8 status`*** (also `roam-status`, `teams`): "it's hard to know if
+  both opposite teams are at keep buffing, fighting or roaming". A line for each team of the
+  roam: what it is doing (at its start buffing and when it leaves, roaming, fighting whom,
+  resting, walking off to rest, raising its dead, waiting by a fight, wiped and when it stands
+  up), how many of it are alive, and how far it is from the player. **Not seen in a client.**
 - *A roam of bots on the merged build, ten minutes (2026-11-22):* out of a fight the Bards
   and Skalds were back on their speed song (the squad handed over between fights); the mop-up
   began four times, and the last one or two of a beaten group still lived a median of 16

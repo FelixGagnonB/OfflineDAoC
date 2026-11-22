@@ -40,6 +40,9 @@ namespace DOL.GS
         public bool Waiting;
         /// <summary>It has had its rest since its last fight.</summary>
         public bool Rested;
+        /// <summary>The place off its road it is walking to, to rest there; null when it rests where it is or not at all.</summary>
+        public System.Numerics.Vector3? Hide;
+        public long HideSince;
         /// <summary>Out of a fight with dead members since this tick (0: none); and gone back to its start to form up again.</summary>
         public long DeadSince;
         public bool Reforming;
@@ -224,6 +227,84 @@ namespace DOL.GS
         public static bool TooBusyFor(int teamsItIsFighting, bool fightingThatOne, bool thatOneAttacksIt) =>
             teamsItIsFighting > 0 && !fightingThatOne && !thatOneAttacksIt;
 
+        /// <summary>
+        /// The places a team may go to rest, in the order it tries them: straight off the road it
+        /// is walking (<paramref name="toward"/> is where it was going), to one side and to the
+        /// other, at each distance. <paramref name="leftFirst"/> is drawn, so the teams do not
+        /// all go the same way.
+        /// </summary>
+        public static List<(int X, int Y)> HidePlaces((double X, double Y) at, (double X, double Y) toward, IEnumerable<int> distances, bool leftFirst)
+        {
+            double dx = toward.X - at.X, dy = toward.Y - at.Y, length = Math.Sqrt(dx * dx + dy * dy);
+            var places = new List<(int X, int Y)>();
+            if (length < 1)
+                return places;
+            (double X, double Y) side = (-dy / length, dx / length);
+            foreach (int distance in distances)
+            {
+                foreach (int sign in leftFirst ? new[] { 1, -1 } : new[] { -1, 1 })
+                    places.Add(((int)(at.X + side.X * distance * sign), (int)(at.Y + side.Y * distance * sign)));
+            }
+            return places;
+        }
+
+        /// <summary>A place off its road that the team can walk to without a long way round; null when the ground has none.</summary>
+        private static System.Numerics.Vector3? PickHide(PvpRoamTeam team, PvpRealWeights real)
+        {
+            if (real.RestsOffTheRoadBy is not { Length: > 0 } distances || team.Team.Route is not { Length: > 0 } route ||
+                WorldMgr.GetRegion(_map.Region) is not { } region || team.Team.Bots.FirstOrDefault(bot => bot.IsAlive) is not { } first)
+                return null;
+            (double x, double y) = team.Centre();
+            (int X, int Y) next = route[team.Team.Waypoint % route.Length];
+            var nav = PathfindingProvider.Instance;
+            var from = new System.Numerics.Vector3((float)x, (float)y, first.Z);
+            if (nav.GetFloorBeneath(first.CurrentZone, new System.Numerics.Vector3((float)x, (float)y, 20_000), 20_000, nav.DefaultFilters) is { } here && here.Z < 19_999)
+                from = here;
+            foreach ((int X, int Y) place in HidePlaces((x, y), (next.X, next.Y), distances, Random.Shared.Next(2) == 0))
+            {
+                Zone zone = region.GetZone(place.X, place.Y);
+                if (zone == null || zone != first.CurrentZone ||
+                    nav.GetFloorBeneath(zone, new System.Numerics.Vector3(place.X, place.Y, 20_000), 20_000, nav.DefaultFilters) is not { } floor || floor.Z >= 19_999)
+                    continue;
+                (bool arrives, int length) = PvpArena.Walk(zone, from, floor);
+                if (arrives && length <= 1.8 * System.Numerics.Vector3.Distance(from, floor))
+                    return floor;
+            }
+            return null;
+        }
+
+        /// <summary>What a team is doing, in a word or two, for <c>/8v8 status</c>.</summary>
+        public static string Doing(string state, bool waiting, bool goingToRest, bool resting, bool seeingToItsDead, IReadOnlyCollection<string> fighting,
+            int leavesInSeconds, int standsUpInSeconds) =>
+            state == "Down" ? standsUpInSeconds > 0 ? $"wiped, stands up at its start in {standsUpInSeconds} s" : "wiped, about to stand up at its start"
+            : state == "Buffing" ? $"at its start, buffing (leaves in {Math.Max(0, leavesInSeconds)} s)"
+            : fighting.Count > 0 ? "fighting " + string.Join(" and ", fighting)
+            : resting ? "resting"
+            : goingToRest ? "walking off its road to rest"
+            : seeingToItsDead ? "raising its dead"
+            : waiting ? "waiting by a fight"
+            : "roaming";
+
+        /// <summary>A line for each team of the roam, for a player (<c>/8v8 status</c>); empty when no roam runs.</summary>
+        public static List<string> StatusLines(GamePlayer viewer)
+        {
+            List<PvpRoamTeam> teams = _teams;
+            long now = GameLoop.GameLoopTime;
+            PvpRealWeights real = PvpWeights.Current.Real;
+            var lines = new List<string>();
+            foreach (PvpRoamTeam team in teams)
+            {
+                (double x, double y) = team.Centre();
+                int away = viewer == null ? 0 : (int)Math.Sqrt(Math.Pow(x - viewer.X, 2) + Math.Pow(y - viewer.Y, 2));
+                string doing = Doing(team.State, team.Waiting, team.Hide != null, team.Team.Squad?.Resting == true, team.DeadSince != 0 && !team.Reforming,
+                    team.Fighting.Select(other => other.Name).ToList(), (int)((team.LeavesAt - now) / 1000),
+                    (int)(real.WipeStandsUpAfterSeconds - (now - team.StateSince) / 1000));
+                lines.Add($"{team.Name}{(team.Leader != null ? " (yours)" : string.Empty)}: {doing}; {team.Alive} alive" +
+                          (team.Leader != null || viewer == null ? string.Empty : $", {away:N0} from you"));
+            }
+            return lines;
+        }
+
         /// <summary>A team's fight is over when it has had no enemy to reckon with for this long: twelve seconds.</summary>
         public const int FightOverAfterMilliseconds = 12_000;
 
@@ -397,6 +478,7 @@ namespace DOL.GS
             team.Fighting.Clear();
             team.Draws.Clear();
             team.Waiting = false;
+            (team.Hide, team.Rested) = (null, false);
             (team.DeadSince, team.Reforming) = (0, false);
             (team.State, team.StateSince, team.ContactTick, team.LastEnemyNearTick) = (leader != null ? "Roaming" : "Buffing", now, 0, now);
         }
@@ -697,18 +779,50 @@ namespace DOL.GS
                 return;
             }
             // After a fight a team of bots rests when somebody is low, before it walks on (PvpRealWeights.TeamRestsBelowPercent).
+            // It first walks off its road to a place out of the way, where the ground has one (PvpRealWeights.RestsOffTheRoadBy).
             bool resting = false;
-            if (team.Leader == null && !inCombat && enemies.Count == 0 && others.Count == 0 && team.State == "Roaming")
+            if (team.Leader == null)
             {
-                List<GameBot> up = team.Team.Bots.Where(bot => bot.IsAlive).ToList();
-                int lowest = up.Count == 0 ? 100 : up.Min(bot => Math.Min((int)bot.HealthPercent, bot.MaxMana > 0 ? (int)bot.ManaPercent : 100));
-                if (!team.Rested && PvpRealWeights.TeamRests(lowest, real))
+                bool enemyNear = others.Any(other => Near(team, other, real.RestEndsWithEnemyWithin));
+                if (inCombat || enemyNear || team.State != "Roaming")
                 {
-                    team.Rested = true;
-                    team.Team.Squad.RestAsATeam(real.TeamRestsAtMostSeconds);
-                    Say($"{team.Name} rests (its lowest member at {lowest}%)", new { what = "rest", team = team.Name, lowest });
+                    // Found, or back in a fight: it gets up and gives the place up.
+                    if (team.Hide != null || team.Team.Squad.Resting)
+                    {
+                        team.Team.Squad.EndRest();
+                        team.Hide = null;
+                    }
                 }
-                resting = team.Team.Squad.Resting;
+                else if (team.Hide is { } place)
+                {
+                    (double cx, double cy) = team.Centre();
+                    bool there = Math.Sqrt(Math.Pow(cx - place.X, 2) + Math.Pow(cy - place.Y, 2)) < 700;
+                    if (there || now - team.HideSince > 45_000)
+                    {
+                        team.Hide = null;
+                        team.Team.Squad.RestAsATeam(real.TeamRestsAtMostSeconds);
+                        Say($"{team.Name} rests{(there ? " off its road" : " where it has got to")}", new { what = "rest", team = team.Name, there });
+                    }
+                }
+                else if (!team.Rested && enemies.Count == 0 && others.Count == 0)
+                {
+                    List<GameBot> up = team.Team.Bots.Where(bot => bot.IsAlive).ToList();
+                    int lowest = up.Count == 0 ? 100 : up.Min(bot => Math.Min((int)bot.HealthPercent, bot.MaxMana > 0 ? (int)bot.ManaPercent : 100));
+                    if (PvpRealWeights.TeamRests(lowest, real))
+                    {
+                        team.Rested = true;
+                        team.Hide = PickHide(team, real);
+                        team.HideSince = now;
+                        if (team.Hide == null)
+                        {
+                            team.Team.Squad.RestAsATeam(real.TeamRestsAtMostSeconds);
+                            Say($"{team.Name} rests where it is (its lowest member at {lowest}%)", new { what = "rest", team = team.Name, lowest });
+                        }
+                        else
+                            Say($"{team.Name} walks off its road to rest (its lowest member at {lowest}%)", new { what = "hide", team = team.Name, lowest });
+                    }
+                }
+                resting = team.Hide == null && team.Team.Squad.Resting;
             }
             // After a fight a team of bots sees to its dead before it walks on: it raises them, or goes back to its start.
             GameBot body = null;
@@ -744,6 +858,8 @@ namespace DOL.GS
                 team.Team.TravelWithLeader(enemies);
             else if (body != null)
                 team.Team.GatherAt(body, 500);
+            else if (team.Hide is { } hide && enemies.Count == 0)
+                team.Team.GatherAt(hide, 500);
             else if (resting)
                 team.Team.Halt();
             else if (waits)
@@ -815,6 +931,8 @@ namespace DOL.GS
                 Error = _lastError,
                 Recording = _recording?.File,
                 EffectListComponent.StaleCopiesRetired,
+                // What a player is told by /8v8 status.
+                Lines = StatusLines(null),
                 // A check: effects on a member whose caster is in another team of the roam (a song is for its singer's group only).
                 FromOtherTeams = teams.SelectMany(team => team.Team.Members.Where(member => member.IsAlive).SelectMany(member =>
                     member.effectListComponent.GetSpellEffects()

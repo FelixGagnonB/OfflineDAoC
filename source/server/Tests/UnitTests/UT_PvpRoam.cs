@@ -132,6 +132,35 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void ATeamGoesOffItsRoadToRest()
+        {
+            // "it would be nice a team decides to go hide somewhere off, or out of the route the teams make to meet each other and rest"
+            var places = PvpRoam.HidePlaces((1_000, 1_000), (1_000, 9_000), new[] { 7_500, 5_500 }, true);
+            Assert.That(places, Has.Count.EqualTo(4));
+            // Walking south (y grows): straight off the road is east and west, the farther place first.
+            Assert.That(places.Select(place => place.Y).Distinct().Single(), Is.EqualTo(1_000));
+            Assert.That(places.Select(place => System.Math.Abs(place.X - 1_000)), Is.EqualTo(new[] { 7_500, 7_500, 5_500, 5_500 }));
+            Assert.That(places[0].X, Is.Not.EqualTo(places[1].X), "one to each side");
+            Assert.That(PvpRoam.HidePlaces((0, 0), (0, 0), new[] { 7_500 }, true), Is.Empty, "nowhere to go: no side");
+            Assert.That(new PvpRealWeights().RestsOffTheRoadBy.Min(), Is.GreaterThan(5_000), "beyond where a passing group forms up");
+        }
+
+        [Test]
+        public void TheStatusSaysWhatATeamIsDoing()
+        {
+            // "It could be just: fighting - resting - respawn (before they leave the keep)"
+            string[] nobody = [];
+            Assert.That(PvpRoam.Doing("Buffing", false, false, false, false, nobody, 20, 0), Is.EqualTo("at its start, buffing (leaves in 20 s)"));
+            Assert.That(PvpRoam.Doing("Fighting", false, false, false, false, new[] { "mid-main", "alb-main#2" }, 0, 0), Is.EqualTo("fighting mid-main and alb-main#2"));
+            Assert.That(PvpRoam.Doing("Roaming", false, false, true, false, nobody, 0, 0), Is.EqualTo("resting"));
+            Assert.That(PvpRoam.Doing("Roaming", false, true, false, false, nobody, 0, 0), Is.EqualTo("walking off its road to rest"));
+            Assert.That(PvpRoam.Doing("Roaming", true, false, false, false, nobody, 0, 0), Is.EqualTo("waiting by a fight"));
+            Assert.That(PvpRoam.Doing("Roaming", false, false, false, true, nobody, 0, 0), Is.EqualTo("raising its dead"));
+            Assert.That(PvpRoam.Doing("Roaming", false, false, false, false, nobody, 0, 0), Is.EqualTo("roaming"));
+            Assert.That(PvpRoam.Doing("Down", false, false, false, false, nobody, 0, 12), Is.EqualTo("wiped, stands up at its start in 12 s"));
+        }
+
+        [Test]
         public void ALullIsNotTheEndOfAFight()
         {
             Assert.That(PvpRoam.FightIsOver(3_000), Is.False, "the player between two targets: the Bard keeps its endurance song");
