@@ -102,6 +102,7 @@ namespace DOL.GS
                 {
                     name = team.Name, group = team.Group, realm = team.Realm.ToString(),
                     player = team.Members.OfType<GamePlayer>().FirstOrDefault()?.Name,
+                    skill = PvpSkills.NameOf(team.Members.OfType<GameBot>().FirstOrDefault()),
                 }),
                 bots = teams.SelectMany(team => team.Members.Select(member => Describe(member, team.Name))),
             });
@@ -147,6 +148,7 @@ namespace DOL.GS
                 // In a comparison of two sets of weights the teams fight with different ones.
                 weights = PvpWeights.Of(teamA[0]), weightsB = PvpWeights.Of(teamB[0]) == PvpWeights.Of(teamA[0]) ? null : PvpWeights.Of(teamB[0]),
                 setA = SetName(teamA[0]), setB = SetName(teamB[0]),
+                skillA = PvpSkills.NameOf(teamA[0]), skillB = PvpSkills.NameOf(teamB[0]),
                 bots = teamA.Concat(teamB).Select(bot => (object)new
                 {
                     n = bot.Name, team = recording.Teams[bot], build = bot.PvpBuild.Id, cls = ((eCharacterClass)bot.ClassId).ToString(),

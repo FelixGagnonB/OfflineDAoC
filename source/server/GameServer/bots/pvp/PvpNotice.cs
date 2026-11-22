@@ -94,6 +94,16 @@ namespace DOL.GS
             _ => null,
         };
 
+        /// <summary>
+        /// The level a bot was made with, for a recording's header. On 2026-11-22 the owner could not
+        /// tell Casual from Sharp in three matches, and the recordings did not say which was which.
+        /// </summary>
+        public static string NameOf(GameBot bot) =>
+            bot?.PvpHuman is not { } human ? nameof(PvpSkill.Seasoned)
+            : human.ReactionMaxMilliseconds <= PvpHumanWeights.For(PvpSkill.Sharp).ReactionMaxMilliseconds ? nameof(PvpSkill.Sharp)
+            : human.ReactionMinMilliseconds >= PvpHumanWeights.For(PvpSkill.Casual).ReactionMinMilliseconds ? nameof(PvpSkill.Casual)
+            : nameof(PvpSkill.Seasoned);
+
         /// <summary>What a bot of that level is given; nothing for Seasoned, which reads the weights.</summary>
         public static PvpHumanWeights WeightsFor(PvpSkill skill) => skill == PvpSkill.Seasoned ? null : PvpHumanWeights.For(skill);
 
