@@ -100,6 +100,27 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void RestIsACallThatEndsWhenThePlayerWalksOnOrIsAttacked()
+        {
+            // "to tell the bot to redo their self-timed buffs, druid resists, sit to regen endurance/mana"
+            Assert.That(PvpCalls.IsRestCall("rest"), Is.True);
+            Assert.That(PvpCalls.IsRestCall(" Sit "), Is.True);
+            Assert.That(PvpCalls.IsRestCall("retreat"), Is.False);
+            Assert.That(PvpCalls.OrderFor("rest"), Is.Null);
+            Assert.That(PvpCalls.RestStands(10_000, 130_000, false, 0), Is.True);
+            Assert.That(PvpCalls.RestStands(131_000, 130_000, false, 0), Is.False, "two minutes are up");
+            Assert.That(PvpCalls.RestStands(10_000, 130_000, true, 0), Is.False, "somebody is in combat: everybody gets up");
+            Assert.That(PvpCalls.RestStands(10_000, 130_000, false, 2_000), Is.False, "the player has walked on");
+            Assert.That(PvpCalls.RestStands(10_000, 0, false, 0), Is.False, "nobody called it");
+            // An 8v8 bot regains a twentieth a second where a companion of the other modes regains a tenth.
+            Assert.That(BotRestRecovery.RecoveryAmount(3, 1_000, 5), Is.EqualTo(50));
+            Assert.That(BotRestRecovery.RecoveryAmount(80, 1_000, 5), Is.EqualTo(80), "a stronger native regeneration is kept");
+            var real = new PvpRealWeights();
+            Assert.That(PvpRealWeights.TeamRests(40, real), Is.True, "a team of bots with a member at 40% rests before it walks on");
+            Assert.That(PvpRealWeights.TeamRests(80, real), Is.False);
+        }
+
+        [Test]
         public void RetreatIsACallOfItsOwnAndNotARegroup()
         {
             // The owner, 2026-11-21: "retreat: everyone stop doing what they do and follow me".

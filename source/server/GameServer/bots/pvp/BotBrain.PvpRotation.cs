@@ -67,6 +67,46 @@ namespace DOL.AI.Brain
         }
 
         private long _pvpRaiseTick;
+        private bool _pvpRestLocked;
+
+        /// <summary>
+        /// The group rests (PvpSquad.Resting): this bot first casts what it keeps up, one buff a
+        /// turn, then rests where it stands; the Bard's endurance song plays through it. True
+        /// when the turn is taken. A bot that was resting and no longer is gets up.
+        /// </summary>
+        private bool TryPvpRest()
+        {
+            if (BotBody?.IsPvpBot != true || !Body.IsAlive || PvpSquad?.Resting != true)
+            {
+                if (_pvpRestLocked)
+                {
+                    _pvpRestLocked = false;
+                    BotBody?.WakeRecoveryRest();
+                }
+                return false;
+            }
+            if (Body.IsIncapacitated)
+                return true;
+            // A buff on its way is finished before anything else.
+            if (Body.IsCasting || Body.castingComponent?.HasPendingSkillRequests == true)
+                return true;
+            if (HasAggro)
+                ClearAggroList();
+            if (Body.attackComponent.AttackState)
+                Body.StopAttack();
+            if (TryMaintainTravelAndClassBuffs())
+            {
+                _pvpRestLocked = false;
+                return true;
+            }
+            TryMaintainClassicSongTwist();
+            if (Body.IsCasting || Body.castingComponent?.HasPendingSkillRequests == true)
+                return true;
+            if (!BotBody.IsRecoveryResting)
+                BotBody.BeginRecoveryRest();
+            _pvpRestLocked = true;
+            return true;
+        }
 
         /// <summary>
         /// "/8v8 call retreat" (PvpSquad.CallRetreat): while the call stands this bot drops its

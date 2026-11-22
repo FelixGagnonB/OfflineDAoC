@@ -398,6 +398,7 @@ namespace DOL.GS
         public void CallOrder(GameLiving caller, PvpOrder order)
         {
             _retreatUntil = 0;
+            _restUntil = 0;
             _calledOrder = order;
             _caller = caller;
             _calledUntil = GameLoop.GameLoopTime + PvpCalls.PlayerCallSeconds * 1_000L;
@@ -418,6 +419,7 @@ namespace DOL.GS
             if (target is not { IsAlive: true } || !Known.Contains(target))
                 return false;
             _retreatUntil = 0;
+            _restUntil = 0;
             _calledTarget = target;
             _calledTargetUntil = GameLoop.GameLoopTime + PvpCalls.PlayerAssistSeconds * 1_000L;
             if (_members.FirstOrDefault(member => member.IsAlive) is { } voice)
@@ -445,6 +447,7 @@ namespace DOL.GS
             if (target is not { IsAlive: true } || !Known.Contains(target))
                 return false;
             _retreatUntil = 0;
+            _restUntil = 0;
             _calledControl = target;
             _calledControlUntil = GameLoop.GameLoopTime + PvpCalls.PlayerControlSeconds * 1_000L;
             // Answered by the member that mezzes for the group, when it has one alive.
@@ -468,8 +471,67 @@ namespace DOL.GS
         /// and runs with the caller, whatever attacks it (BotBrain.TryPvpRetreat), until the call
         /// runs out or the player makes another.
         /// </summary>
+        private long _restUntil, _restSince;
+        private Point3D _restCalledAt;
+        private bool _restUntilFull;
+
+        /// <summary>
+        /// True while the group rests: the player called it (PvpCalls.RestStands), or a team of
+        /// bots took it between two fights and somebody is still not full.
+        /// </summary>
+        public bool Resting
+        {
+            get
+            {
+                if (_restUntil == 0)
+                    return false;
+                // A blow given or taken since the rest began: the flag of the fight just over lingers and is no reason.
+                bool combat = _allies.Any(member => member.IsAlive && Math.Max(member.LastAttackTick, member.LastAttackedByEnemyTick) > _restSince + 500);
+                int moved = _restCalledAt != null && _caller is { IsAlive: true } ? (int)_caller.GetDistanceTo(_restCalledAt) : 0;
+                bool stands = PvpCalls.RestStands(GameLoop.GameLoopTime, _restUntil, combat, moved) &&
+                    (!_restUntilFull || _members.Any(member => member.IsAlive &&
+                        (member.HealthPercent < 95 || member.MaxMana > 0 && member.ManaPercent < 95)));
+                if (!stands)
+                    _restUntil = 0;
+                return stands;
+            }
+        }
+
+        /// <summary>A player of the group calls a rest (PvpCalls.PlayerRestSeconds).</summary>
+        public void CallRest(GameLiving caller)
+        {
+            _caller = caller;
+            _restCalledAt = new Point3D(caller.X, caller.Y, caller.Z);
+            _restUntilFull = false;
+            _restSince = GameLoop.GameLoopTime;
+            _restUntil = GameLoop.GameLoopTime + PvpCalls.PlayerRestSeconds * 1_000L;
+            _retreatUntil = 0;
+            _calledOrder = null;
+            _calledTarget = null;
+            _calledControl = null;
+            if (_members.FirstOrDefault(member => member.IsAlive) is { } voice)
+            {
+                PvpRecorder.Decision(voice, new { kind = "PlayerRest", d = caller.Name }, [], null);
+                Call(voice, "answer", PvpCalls.Resting);
+            }
+        }
+
+        /// <summary>A team of bots rests between two fights, until everybody is full or the time is up.</summary>
+        public void RestAsATeam(int seconds)
+        {
+            if (_restUntil != 0)
+                return;
+            _restCalledAt = null;
+            _restUntilFull = true;
+            _restSince = GameLoop.GameLoopTime;
+            _restUntil = GameLoop.GameLoopTime + seconds * 1_000L;
+            if (_members.FirstOrDefault(member => member.IsAlive) is { } voice)
+                PvpRecorder.Decision(voice, new { kind = "TeamRest", score = seconds }, [], null);
+        }
+
         public void CallRetreat(GameLiving caller)
         {
+            _restUntil = 0;
             _caller = caller;
             _retreatUntil = GameLoop.GameLoopTime + PvpCalls.PlayerRetreatSeconds * 1_000L;
             _calledOrder = null;

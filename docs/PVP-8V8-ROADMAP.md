@@ -2816,6 +2816,17 @@ round:*
   The monsters of the zone a session or a roam is held in are taken out of the world when it
   starts and once a minute while a roam runs (`PvpArena.ClearMonsters`; guards, merchants and
   whoever is of a realm or peaceful stay; nothing leaves the database). **Not seen in a run.**
+- *Also 2026-11-22, **`/8v8 call rest`*** (also `sit`, `buff`): "to tell the bot to redo their
+  self-timed buffs, druid resists, sit to regen endurance/mana. After a fight, I try to go hide
+  somewhere to regain mana/endurance, but bot just stand up idle". The companions of the other
+  game modes rest and keep their buffs up when their player stands still; an 8v8 bot is not
+  one of those and did neither. While the call stands (two minutes; until the player walks
+  1,500 units on, calls something else, or somebody gives or takes a blow) every bot of the
+  group casts what it keeps up, one buff a turn, and then rests where it stands: a twentieth
+  of its health, power and endurance a second (`Real.RestRegainsPercentPerSecond`), the Bard
+  on its endurance song. A team of bots in a roam does the same by itself after a fight when
+  a member is under 60%, for forty seconds at most, before it walks on; it used to meet its
+  next enemy with what it had left. **Not seen in a run or a client.**
 - *A roam of bots on the merged build, ten minutes (2026-11-22):* out of a fight the Bards
   and Skalds were back on their speed song (the squad handed over between fights); the mop-up
   began four times, and the last one or two of a beaten group still lived a median of 16

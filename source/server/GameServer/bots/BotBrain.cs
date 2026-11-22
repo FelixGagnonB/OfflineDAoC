@@ -1254,6 +1254,9 @@ namespace DOL.AI.Brain
             // "/8v8 call retreat": the group runs with the player and does nothing else.
             if (TryPvpRetreat())
                 return;
+            // "/8v8 call rest", and a team of bots between two fights: buffs, then rest.
+            if (TryPvpRest())
+                return;
 
             CompanionPvpEngagement.Observe(BotBody);
             // Goal 11: a /raid 40 or /raid 80 on a keep siege works its squad job (rams, engines) on its own.
@@ -2231,7 +2234,8 @@ namespace DOL.AI.Brain
 
             // Only what the group sees: by distance alone (tried for a night) its speed dropping told
             // the group an enemy was near before anybody had seen one (the owner, 2026-11-20).
-            bool pvpBardEnemyNear = pvpBardPlays && PvpSquad?.Known.Count > 0 && !chasing;
+            // (A group that rests wants its endurance back: the same song.)
+            bool pvpBardEnemyNear = pvpBardPlays && (PvpSquad?.Known.Count > 0 || PvpSquad?.Resting == true) && !chasing;
             IEnumerable<Spell> songCandidates = (bot.MiscSpells ?? [])
                 .Concat(bot.InstantMiscSpells ?? [])
                 .Where(spell => spell != null && spell.IsPulsing && !spell.IsHarmful &&

@@ -498,12 +498,17 @@ namespace DOL.GS
                 brain.NextThinkTick = GameLoop.GameLoopTime;
         }
 
+        // What a resting bot regains a tick: a tenth, or an 8v8 bot's own pace.
+        private int RestAmount(int native, int maximum) => IsPvpBot
+            ? BotRestRecovery.RecoveryAmount(native, maximum, PvpWeights.Of(this).Real.RestRegainsPercentPerSecond)
+            : BotRestRecovery.RecoveryAmount(native, maximum);
+
         protected override int HealthRegenerationTimerCallback(ECSGameTimer timer)
         {
             if (!IsEnhancedResting || Health >= MaxHealth) return base.HealthRegenerationTimerCallback(timer);
             int native = GetModified(eProperty.HealthRegenerationAmount);
             // Disease/bleed regen suppression remains authoritative.
-            if (native > 0) ChangeHealth(this, eHealthChangeType.Regenerate, BotRestRecovery.RecoveryAmount(native, MaxHealth));
+            if (native > 0) ChangeHealth(this, eHealthChangeType.Regenerate, RestAmount(native, MaxHealth));
             WakeAfterRecovery();
             return BotRestRecovery.TickMilliseconds;
         }
@@ -512,7 +517,7 @@ namespace DOL.GS
         {
             if (!IsEnhancedResting || Mana >= MaxMana) return base.PowerRegenerationTimerCallback(timer);
             ChangeMana(this, eManaChangeType.Regenerate,
-                BotRestRecovery.RecoveryAmount(GetModified(eProperty.PowerRegenerationAmount), MaxMana));
+                RestAmount(GetModified(eProperty.PowerRegenerationAmount), MaxMana));
             WakeAfterRecovery();
             return BotRestRecovery.TickMilliseconds;
         }
@@ -546,7 +551,7 @@ namespace DOL.GS
             }
 
             int regen = GetModified(eProperty.EnduranceRegenerationAmount);
-            if (IsEnhancedResting) regen = BotRestRecovery.RecoveryAmount(regen, maxEndurance);
+            if (IsEnhancedResting) regen = RestAmount(regen, maxEndurance);
             if (regen != 0)
                 ChangeEndurance(this, eEnduranceChangeType.Regenerate, regen);
 

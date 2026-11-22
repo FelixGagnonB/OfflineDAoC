@@ -84,6 +84,9 @@ namespace DOL.GS
             // places in rows around the player, the player's own place left free. In the six
             // sessions of 2026-11-19 all eight stood inside one area mez eight seconds before the
             // first blow, and two to seven of them still did at the first blow.
+            // A group that rests stays where it is (PvpSquad.Resting): no order to follow or to take its rows.
+            if (Squad?.Resting == true)
+                return;
             bool overGround = PvpWeights.Of(Bots.FirstOrDefault()).SightOverGround;
             // Called to retreat, the group takes no rows: each of its bots runs behind the player (BotBrain.TryPvpRetreat).
             if (Squad?.RetreatsTo != null)

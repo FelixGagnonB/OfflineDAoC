@@ -74,6 +74,25 @@ namespace DOL.GS
         public static bool Reforms(bool someoneCanRaise, double secondsWithItsDead, PvpRealWeights real) =>
             secondsWithItsDead >= (someoneCanRaise ? real.RaisesItsDeadForSeconds : real.ReformsAfterSeconds);
 
+        /// <summary>
+        /// Resting (the player's call, and a team of bots between two fights): a bot regains this
+        /// share of its health, power and endurance a second, where a companion of the other
+        /// game modes regains a tenth. At 5 an empty caster is full in twenty seconds.
+        /// </summary>
+        public int RestRegainsPercentPerSecond { get; set; } = 5;
+
+        /// <summary>
+        /// A roam: after a fight a team of bots with a member below this share of its health or
+        /// power rests before it walks on, for at most the seconds below. It walked on as it
+        /// was, and met its next enemy with what it had left.
+        /// </summary>
+        public int TeamRestsBelowPercent { get; set; } = 60;
+        public int TeamRestsAtMostSeconds { get; set; } = 40;
+
+        /// <summary>Whether a team of bots rests now: a member is low, and nobody is near to fight.</summary>
+        public static bool TeamRests(int lowestPercent, PvpRealWeights real) =>
+            real.TeamRestsBelowPercent > 0 && lowestPercent < real.TeamRestsBelowPercent;
+
         /// <summary>A roam: a team with nobody left alive stands up at its start point after this many seconds.</summary>
         public int WipeStandsUpAfterSeconds { get; set; } = 30;
 

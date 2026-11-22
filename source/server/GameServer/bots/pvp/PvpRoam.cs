@@ -38,6 +38,8 @@ namespace DOL.GS
         public bool Quiet = true;
         /// <summary>Standing by a fight it has left to its realm-mate.</summary>
         public bool Waiting;
+        /// <summary>It has had its rest since its last fight.</summary>
+        public bool Rested;
         /// <summary>Out of a fight with dead members since this tick (0: none); and gone back to its start to form up again.</summary>
         public long DeadSince;
         public bool Reforming;
@@ -642,6 +644,7 @@ namespace DOL.GS
             if (team.ContactTick == 0 && inCombat && enemies.Count > 0)
             {
                 team.ContactTick = now;
+                team.Rested = false;
                 team.State = "Fighting";
                 team.Team.Squad.FightStarted = true;
                 foreach (GameBot bot in team.Team.Bots)
@@ -693,6 +696,20 @@ namespace DOL.GS
                 team.Team.TravelWithLeader([]);
                 return;
             }
+            // After a fight a team of bots rests when somebody is low, before it walks on (PvpRealWeights.TeamRestsBelowPercent).
+            bool resting = false;
+            if (team.Leader == null && !inCombat && enemies.Count == 0 && others.Count == 0 && team.State == "Roaming")
+            {
+                List<GameBot> up = team.Team.Bots.Where(bot => bot.IsAlive).ToList();
+                int lowest = up.Count == 0 ? 100 : up.Min(bot => Math.Min((int)bot.HealthPercent, bot.MaxMana > 0 ? (int)bot.ManaPercent : 100));
+                if (!team.Rested && PvpRealWeights.TeamRests(lowest, real))
+                {
+                    team.Rested = true;
+                    team.Team.Squad.RestAsATeam(real.TeamRestsAtMostSeconds);
+                    Say($"{team.Name} rests (its lowest member at {lowest}%)", new { what = "rest", team = team.Name, lowest });
+                }
+                resting = team.Team.Squad.Resting;
+            }
             // After a fight a team of bots sees to its dead before it walks on: it raises them, or goes back to its start.
             GameBot body = null;
             if (team.Leader == null && !inCombat && enemies.Count == 0 && team.Team.Bots.Any(bot => !bot.IsAlive))
@@ -727,6 +744,8 @@ namespace DOL.GS
                 team.Team.TravelWithLeader(enemies);
             else if (body != null)
                 team.Team.GatherAt(body, 500);
+            else if (resting)
+                team.Team.Halt();
             else if (waits)
                 team.Team.Halt();
             else if (team.State != "Buffing")

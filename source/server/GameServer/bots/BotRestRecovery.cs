@@ -26,6 +26,10 @@ namespace DOL.GS
         public static int RecoveryAmount(int nativeAmount, int maximum) =>
             Math.Max(nativeAmount, Math.Max(1, (int)Math.Ceiling(maximum * 0.10)));
 
+        /// <summary>The same floor at another pace: an 8v8 bot rests at PvpRealWeights.RestRegainsPercentPerSecond.</summary>
+        public static int RecoveryAmount(int nativeAmount, int maximum, int percent) =>
+            Math.Max(nativeAmount, Math.Max(1, (int)Math.Ceiling(maximum * Math.Clamp(percent, 1, 100) / 100.0)));
+
         public static bool HasAnyResourceDeficit(
             int health, int maxHealth,
             int mana, int maxMana,

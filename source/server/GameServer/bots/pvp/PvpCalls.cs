@@ -102,6 +102,27 @@ namespace DOL.GS
             nearestEnemy < CalledKiteKeeps && millisecondsSinceItsLastStep >= CalledKiteStepEveryMilliseconds;
 
         /// <summary>
+        /// "/8v8 call rest": the owner, 2026-11-22, "to tell the bot to redo their self-timed
+        /// buffs, druid resists, sit to regen endurance/mana. After a fight, I try to go hide
+        /// somewhere to regain mana/endurance, but bot just stand up idle". While the call
+        /// stands every bot of the group first casts what it keeps up (its own buffs, the group's
+        /// resistances, its pet), then rests where it stands and regains health, power and
+        /// endurance as a player sitting does (PvpRealWeights.RestRegainsPercentPerSecond); the
+        /// Bard plays its endurance song. It ends when the time is up, with any other call, when
+        /// somebody of the group is in combat, or when the player has walked this far from where
+        /// it called.
+        /// </summary>
+        public const int PlayerRestSeconds = 120, RestEndsBeyond = 1_500;
+
+        public static bool IsRestCall(string word) => (word ?? string.Empty).Trim().ToLowerInvariant() is "rest" or "sit" or "buff";
+
+        public const string Resting = "Resting: buffs first, then sitting down.";
+
+        /// <summary>Whether a rest that was called still stands.</summary>
+        public static bool RestStands(long now, long until, bool somebodyInCombat, int callerHasMoved) =>
+            until != 0 && now < until && !somebodyInCombat && callerHasMoved <= RestEndsBeyond;
+
+        /// <summary>
         /// "Retreat: everyone stop doing what they do and follow me" (the owner, 2026-11-21).
         /// Not an order the group fights under, like regroup: nobody attacks, casts or answers
         /// an attack; all of them run with the caller in travel order, the speed song on. It
