@@ -4996,6 +4996,9 @@ namespace DOL.AI.Brain
                 {
                     if (!member.IsAlive || !InSupportReach(member))
                         continue;
+                    // An 8v8 healer has not seen yet that this one is hurt (healer attention, bots/pvp/PvpNotice.cs).
+                    if (!PvpNotice.SeesHurt(BotBody, member))
+                        continue;
 
                     int deficit = member.MaxHealth - member.Health;
 
@@ -5161,6 +5164,7 @@ namespace DOL.AI.Brain
             // An 8v8 healer heals the member the enemy's fighters are on before it is badly hurt
             // (owner, 2026-11-17), unless somebody else is already in an emergency.
             if (PvpSquad?.Trained is { IsAlive: true } trainedMember && InSupportReach(trainedMember) &&
+                PvpNotice.SeesHurt(BotBody, trainedMember) &&
                 trainedMember.HealthPercent < PvpWeights.Of(BotBody).Heal.TrainedHealBelowPercent &&
                 (spellTarget == null || spellTarget == trainedMember || spellTarget.HealthPercent >= 40))
             {

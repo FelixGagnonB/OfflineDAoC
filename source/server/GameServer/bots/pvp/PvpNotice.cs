@@ -49,6 +49,29 @@ namespace DOL.GS
         /// </summary>
         public int ChoiceNoise { get; set; } = 6;
 
+        /// <summary>
+        /// Assist discipline: a member goes for a newly called kill target after a moment drawn
+        /// between these two, and meanwhile stays on the one it had. This often, in percent, it
+        /// did not hear the call and stays on its old target for
+        /// <see cref="KeepsOldTargetMilliseconds"/>. The owner, 2026-11-22, after three matches
+        /// against Casual and Sharp: "I do not seem to find a difference". The levels changed four
+        /// reactions by a second or two, and whether the kill target dies is decided by how fast
+        /// the group's damage lands on it together. Every member took the call in the tick it was
+        /// made. Both 0: at once, as it was.
+        /// </summary>
+        public int AssistSwitchMinMilliseconds { get; set; } = 400;
+        public int AssistSwitchMaxMilliseconds { get; set; } = 1_200;
+        public int KeepsOldTargetPercent { get; set; } = 8;
+        public int KeepsOldTargetMilliseconds { get; set; } = 6_000;
+
+        /// <summary>
+        /// Healer attention: a healer sees that a member is hurt its reaction time (the same one,
+        /// with the same distraction) after that member's health has gone below this. Once it has
+        /// seen it, it watches that member until it is above this again. A healer read every
+        /// health bar in the tick it moved. 0: at once, as it was.
+        /// </summary>
+        public int HurtNoticedBelowPercent { get; set; } = 90;
+
         /// <summary>The settings of a named level (docs/PVP-8V8-ROADMAP.md, M10.2).</summary>
         public static PvpHumanWeights For(PvpSkill skill) => skill switch
         {
@@ -57,11 +80,13 @@ namespace DOL.GS
             {
                 ImmunityEndNoticedAfterMinSeconds = 1, ImmunityEndNoticedAfterMaxSeconds = 6,
                 ReactionMinMilliseconds = 150, ReactionMaxMilliseconds = 450, DistractedPercent = 0, ChoiceNoise = 0,
+                AssistSwitchMinMilliseconds = 100, AssistSwitchMaxMilliseconds = 350, KeepsOldTargetPercent = 0,
             },
             PvpSkill.Casual => new PvpHumanWeights
             {
                 ImmunityEndNoticedAfterMinSeconds = 8, ImmunityEndNoticedAfterMaxSeconds = 35,
                 ReactionMinMilliseconds = 900, ReactionMaxMilliseconds = 2_500, DistractedPercent = 30, ChoiceNoise = 14,
+                AssistSwitchMinMilliseconds = 2_000, AssistSwitchMaxMilliseconds = 4_000, KeepsOldTargetPercent = 25, KeepsOldTargetMilliseconds = 8_000,
             },
             _ => new PvpHumanWeights(),
         };
@@ -109,9 +134,9 @@ namespace DOL.GS
 
         public static string Describe(PvpSkill skill) => skill switch
         {
-            PvpSkill.Sharp => "Sharp: answers in a quarter to half a second, never distracted, always takes its best choice",
-            PvpSkill.Casual => "Casual: answers in one to two and a half seconds, distracted three times in ten, often takes a lesser choice",
-            _ => "Seasoned: answers in half a second to a second, distracted now and then, mostly takes its best choice",
+            PvpSkill.Sharp => "Sharp: answers in a quarter to half a second, never distracted, always takes its best choice; the whole group is on a new kill target at once and its healers see a health bar move at once",
+            PvpSkill.Casual => "Casual: answers in one to two and a half seconds, distracted three times in ten, often takes a lesser choice; its members come to a new kill target two to four seconds late, one in four much later, and its healers are slow to see who is hurt",
+            _ => "Seasoned: answers in half a second to a second, distracted now and then, mostly takes its best choice; on a new kill target within a second, its healers a moment behind",
         };
     }
 
@@ -122,6 +147,10 @@ namespace DOL.GS
         OwnControl,
         EnemyCasting,
         OnTheBackLine,
+        /// <summary>The group has called a new kill target (PvpHumanWeights.AssistSwitchMinMilliseconds).</summary>
+        KillCalled,
+        /// <summary>A member's health has gone below what a healer notices (PvpHumanWeights.HurtNoticedBelowPercent).</summary>
+        MemberHurt,
     }
 
     /// <summary>What each bot believes about each enemy's immunities, which lags what is true.</summary>
@@ -177,6 +206,43 @@ namespace DOL.GS
             return random.Next(100) < weights.DistractedPercent ? drawn * Math.Max(1, weights.DistractedTimes) : drawn;
         }
 
+        /// <summary>How long a member takes to go for a newly called kill target, in milliseconds; now and then it does not hear the call.</summary>
+        public static int DrawAssistSwitch(PvpHumanWeights weights, Random random)
+        {
+            if (random.Next(100) < weights.KeepsOldTargetPercent)
+                return Math.Max(0, weights.KeepsOldTargetMilliseconds);
+            int min = Math.Max(0, weights.AssistSwitchMinMilliseconds), max = Math.Max(min, weights.AssistSwitchMaxMilliseconds);
+            return max == 0 ? 0 : random.Next(min, max + 1);
+        }
+
+        /// <summary>
+        /// Since when a member has been hurt: what was stored while it stays below the mark, now
+        /// when it has just gone below, 0 above it.
+        /// </summary>
+        public static long HurtBegan(long stored, int healthPercent, int belowPercent, long now) =>
+            healthPercent >= belowPercent ? 0 : stored != 0 ? stored : now;
+
+        private static readonly ConditionalWeakTable<GameLiving, StrongBox<long>> HurtSinceOf = new();
+
+        /// <summary>Keeps track of since when this member has been hurt; the squad looks once a turn, and every healer that looks at it.</summary>
+        public static long HurtSince(GameLiving member, int belowPercent)
+        {
+            StrongBox<long> box = HurtSinceOf.GetOrCreateValue(member);
+            return box.Value = HurtBegan(box.Value, member.IsAlive ? member.HealthPercent : 100, belowPercent, GameLoop.GameLoopTime);
+        }
+
+        /// <summary>True once this healer has seen that the member is hurt; itself it sees at once.</summary>
+        public static bool SeesHurt(GameBot healer, GameLiving member)
+        {
+            if (healer is not { IsPvpBot: true } || member == null || member == healer)
+                return true;
+            PvpHumanWeights weights = HumanOf(healer);
+            if (weights.HurtNoticedBelowPercent <= 0)
+                return true;
+            long began = HurtSince(member, weights.HurtNoticedBelowPercent);
+            return began == 0 || Reacted(healer, member, PvpEvent.MemberHurt, began);
+        }
+
         /// <summary>How far off one option's score is: up to the noise either way.</summary>
         public static int Noise(PvpHumanWeights weights, Random random) =>
             weights.ChoiceNoise <= 0 ? 0 : random.Next(-weights.ChoiceNoise, weights.ChoiceNoise + 1);
@@ -202,13 +268,16 @@ namespace DOL.GS
             if (observer is not GameBot { IsPvpBot: true } bot || subject == null)
                 return true;
             PvpHumanWeights weights = HumanOf(bot);
-            if (weights.ReactionMaxMilliseconds <= 0)
+            // A called kill target has its own time (assist discipline); everything else the reaction time.
+            bool assist = what == PvpEvent.KillCalled;
+            if (assist ? weights.AssistSwitchMaxMilliseconds <= 0 && weights.KeepsOldTargetPercent <= 0 : weights.ReactionMaxMilliseconds <= 0)
                 return true;
             Dictionary<(object, PvpEvent), (long Began, long ReadyAt)> mine = Reactions.GetOrCreateValue(observer);
             lock (mine)
             {
                 mine.TryGetValue((subject, what), out (long Began, long ReadyAt) memory);
-                bool ready = Reacted(ref memory, began, GameLoop.GameLoopTime, () => DrawReaction(weights, Random.Shared));
+                bool ready = Reacted(ref memory, began, GameLoop.GameLoopTime,
+                    () => assist ? DrawAssistSwitch(weights, Random.Shared) : DrawReaction(weights, Random.Shared));
                 mine[(subject, what)] = memory;
                 return ready;
             }

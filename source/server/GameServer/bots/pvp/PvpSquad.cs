@@ -552,6 +552,26 @@ namespace DOL.GS
         public bool IsCalledControl(GameLiving enemy) =>
             enemy != null && enemy == _calledControl && enemy.IsAlive && GameLoop.GameLoopTime < _calledControlUntil;
 
+        // What each member last took for the group's kill target.
+        private readonly Dictionary<GameBot, GameLiving> _heard = new();
+
+        /// <summary>
+        /// The kill target as this member has it: the group's call once its time to switch has passed
+        /// since the call was made; until then the one it had, while that one lives.
+        /// </summary>
+        private GameLiving Hears(GameBot bot, GameLiving called)
+        {
+            _heard.TryGetValue(bot, out GameLiving had);
+            if (had == called)
+                return called;
+            if (called == null || PvpNotice.Reacted(bot, called, PvpEvent.KillCalled, _killCalledTick))
+            {
+                _heard[bot] = called;
+                return called;
+            }
+            return had is { IsAlive: true } ? had : null;
+        }
+
         /// <summary>A member has used its Purge or Group Purge: said in group chat (M9.2).</summary>
         public void SayPurged(GameBot bot, bool group) => Call(bot, "purge-" + bot.Name, PvpCalls.Purged(group), 2_000);
 
@@ -810,7 +830,11 @@ namespace DOL.GS
                         OutOfPower.Remove(bot);
                 }
                 brain.PvpEnemies = enemies;
-                brain.PvpKillTarget = target;
+                // What this member takes for the kill target: the group's call once it has heard it, and the
+                // one it had until then (assist discipline, PvpHumanWeights.AssistSwitchMinMilliseconds).
+                GameLiving mine = Hears(bot, target);
+                PvpNotice.HurtSince(bot, PvpNotice.HumanOf(bot).HurtNoticedBelowPercent);
+                brain.PvpKillTarget = mine;
                 duty.TryGetValue(bot, out GameLiving onDuty);
                 // The player called this target: the group's damage dealers all go for it while the call
                 // stands, whatever they were on. In the first test of the call the Warrior was the kill
@@ -818,8 +842,8 @@ namespace DOL.GS
                 // the Armsman was turned on an enemy that had followed onto the back line, and the
                 // Cabalist stood 1,400 units off. The shield fighter keeps its guard, the healers heal,
                 // and whoever interrupts with pets keeps them where they are.
-                bool calledOnto = target != null && role == PvpRole.Assist && bot.IsAlive &&
-                    (target == _calledTarget || PvpWeights.Of(bot).Kill.Collapses(GameLoop.GameLoopTime, _killCalledTick));
+                bool calledOnto = mine != null && role == PvpRole.Assist && bot.IsAlive &&
+                    (mine == _calledTarget || PvpWeights.Of(bot).Kill.Collapses(GameLoop.GameLoopTime, _killCalledTick));
                 if (calledOnto)
                     onDuty = null;
                 brain.PvpDutyTarget = onDuty;
@@ -827,17 +851,17 @@ namespace DOL.GS
                 GameLiving aim = null;
                 if (onDuty != null && means is PvpInterruptMeans.Pets or PvpInterruptMeans.Melee && !critical && bot.IsAlive)
                     aim = onDuty;
-                else if (target != null && PvpRoles.JoinsKill(role, target.HealthPercent))
-                    aim = target;
+                else if (mine != null && PvpRoles.JoinsKill(role, mine.HealthPercent))
+                    aim = mine;
                 else if (role == PvpRole.Peel && bot.IsAlive)
-                    aim = Peel(bot, brain, team, alive, target, guarded);
+                    aim = Peel(bot, brain, team, alive, mine, guarded);
                 // Under Extend the group's fighters turn on whoever followed onto its healers and
                 // casters (owner, 2026-11-17: an enemy that pushed deep is turned on).
                 if (calledOnto)
-                    aim = target;
+                    aim = mine;
                 // The fight is won: every fighter goes for the kill, its guard and its peel too.
-                if (MopsUp && target != null && bot.IsAlive && IsFighter(bot))
-                    aim = target;
+                if (MopsUp && mine != null && bot.IsAlive && IsFighter(bot))
+                    aim = mine;
                 if (!calledOnto && Order == PvpOrder.Extend && _pursuers.Count > 0 && role == PvpRole.Assist && onDuty == null && bot.IsAlive &&
                     IsFighter(bot) && PvpWeights.Of(bot).Order.ExtendFightersTurnOnPursuers)
                 {
@@ -894,7 +918,7 @@ namespace DOL.GS
                     // Its brain runs with no player near (AutonomousSummonActivity.IsPvpBotSummon); started here if it is not.
                     if (!pet.ServiceObjectId.IsSet)
                         pet.Start();
-                    GameLiving petAim = onDuty is { IsAlive: true, IsMezzed: false } ? onDuty : target is { IsAlive: true } ? target : null;
+                    GameLiving petAim = onDuty is { IsAlive: true, IsMezzed: false } ? onDuty : mine is { IsAlive: true } ? mine : null;
                     if (petAim == null)
                     {
                         if (pet.OrderedAttackTarget is { IsMezzed: true })

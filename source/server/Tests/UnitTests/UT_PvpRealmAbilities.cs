@@ -215,6 +215,29 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void ASharpGroupIsOnANewKillTargetAtOnce_ACasualOneLateAndNotAllOfIt()
+        {
+            var random = new System.Random(7);
+            PvpHumanWeights sharp = PvpHumanWeights.For(PvpSkill.Sharp), casual = PvpHumanWeights.For(PvpSkill.Casual), seasoned = new();
+            List<int> Draws(PvpHumanWeights weights) => Enumerable.Range(0, 400).Select(_ => PvpNotice.DrawAssistSwitch(weights, random)).ToList();
+            Assert.That(Draws(sharp).Max(), Is.LessThanOrEqualTo(350));
+            List<int> late = Draws(casual);
+            Assert.That(late.Min(), Is.GreaterThanOrEqualTo(2_000));
+            Assert.That(late.Count(delay => delay == casual.KeepsOldTargetMilliseconds), Is.InRange(60, 140), "about one in four does not hear the call");
+            Assert.That(Draws(seasoned).OrderBy(delay => delay).ElementAt(200), Is.InRange(400, 1_200), "the middle one within a second or so");
+            Assert.That(PvpNotice.DrawAssistSwitch(new PvpHumanWeights { AssistSwitchMinMilliseconds = 0, AssistSwitchMaxMilliseconds = 0, KeepsOldTargetPercent = 0 }, random), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void AMemberIsHurtFromTheMomentItGoesBelowTheMarkUntilItIsAboveItAgain()
+        {
+            Assert.That(PvpNotice.HurtBegan(0, 100, 90, 5_000), Is.EqualTo(0), "not hurt");
+            Assert.That(PvpNotice.HurtBegan(0, 80, 90, 5_000), Is.EqualTo(5_000), "it has just gone below");
+            Assert.That(PvpNotice.HurtBegan(5_000, 30, 90, 9_000), Is.EqualTo(5_000), "still hurt: the healer that has seen it goes on seeing it");
+            Assert.That(PvpNotice.HurtBegan(5_000, 95, 90, 9_000), Is.EqualTo(0), "topped up: the next blow is a new thing to see");
+        }
+
+        [Test]
         public void SerenityAndEtherealBondHaveTheirPrerequisites()
         {
             Assert.That(AutonomousBotRealmAbilities.Requirement("AtlasOF_Serenity", 6), Is.EqualTo((AutonomousBotRealmAbilities.AugAcuity, 2)));
