@@ -2652,7 +2652,7 @@ In order:
      then they read the old one, whose fight never ends: the speed song is held back in a
      fight, and so is every buff with a cast time on somebody else, and a call made between
      fights went to a squad no bot listened to. A squad's bots are given it when it is made
-     (`PvpSquad`). **Not seen in a run.** To ask the owner: was it the speed that was missed?
+     (`PvpSquad`). **Not seen in a run.** The owner, asked: "I meant to say speed, not endurance. It was playing only endurance."
      And of `/release`, used for the first time: "My group just wiped. I used /release and
      respawn at correct location, with rez sickness. The whole team did not release." The
      group was wiped at 21:49 of the roam, the owner was at the start ten seconds later, and
