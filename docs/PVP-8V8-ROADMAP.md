@@ -2602,7 +2602,11 @@ In order:
        in each Hibernian team and the fix switched off had what the songs add to a member's
        regeneration at -80 to -105 for 12% of one team's time (it is 0 or 5). A replaced copy is
        now retired without that (`EffectListComponent`, counted as `StaleCopiesRetired`).
-       **The same twenty minutes with the fix on have not been run yet.** A snapshot of a
+       *With the fix on:* the same roam for nineteen minutes had both teams at 0 or 5 and
+       nothing below; and in the roam the owner played that evening with two Bards the server
+       logged ten copies retired for the owner's own group in two and a half minutes (each one
+       a bonus taken away twice before), with the group's bonus at 0 or 5 throughout and the
+       endurance song running 98% of its fight time. A snapshot of a
        recording now has what a member regains (`er`), what its songs add (`erb`) and the song
        a singer has running (`song`).
      - Seen on the way: sprinting costs a bot 5 endurance a second on the move and a player
@@ -2618,7 +2622,10 @@ In order:
        2,400 units in front of that keep: 26,400 on foot to the south end of the middle and
        33,000 to the north end, against 33,700 for Albion and 24,800 for Midgard to theirs
        (from the hill it was 6,600). Both ends are reached directly, so Hibernia's first team
-       goes south first and its second north. **Not seen in a run.**
+       goes south first and its second north. *A roam of bots, five minutes:* both teams left
+       the keep; the second met a Midgard team at the north end at 2:16 and the first, having
+       found nobody at the south end, a second Midgard team at 3:46: two fights of eight
+       against eight side by side, the two Albion teams waiting. Not seen with a player.
   4. [x] The recorder with more than two teams, so a roam can be replayed and counted.
      *Done 2026-11-21.* A roam writes one recording for the session in `logs/roams` (format 4,
      `PvpRecorder.BeginRoam`): the header names every team, every line of a match is there with
