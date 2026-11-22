@@ -912,10 +912,20 @@ walls stop bots. **Passed 2026-11-16.**
   companions leave out the build the player took (Albion has two Clerics). It changes a real
   character for good and nothing on the scrim server can check it: the tests cover only the
   choices (which build, which companion slot, the refusals).
-- [ ] **M1.5** (M) Realm rank for 8v8 bots and companions: stored realm points, earned from kills,
+- [x] **M1.5** (M) Realm rank for 8v8 bots and companions: stored realm points, earned from kills,
   realm abilities bought in the build's order. A scrim setting overrides rank.
   *Realm abilities, passive and active, built 2026-11-22 (owner: "let's finish realm abilities
-  (passive and active)"). Automated tests only: nothing of it has run on a server yet.*
+  (passive and active)").*
+  *Run with bots the same day, not seen with a player.* The three main groups spawned at ranks 5
+  and 8 had bought what their orders say (a Druid at 5: Tireless, Group Purge, Purge, Mystic
+  Crystal Lore 2, Augmented Acuity 2; at 8 also Mastery of Concentration and Battery of Life).
+  Six matches at rank 8: Mastery of Concentration 42 times, Battery of Life 20, The Empty Mind
+  10, Perfect Recovery 7, Speed of Sound and Avoid Pain 4 each, Ameliorating Melodies and
+  Soldier's Barricade 3, Brilliant Aura and Bunker of Faith 2, Faith Healing once, and no error
+  in the server's log. Whether each did what its text says (a group running, a heal landing)
+  was not measured. One fault found and fixed: a nearsighted Healer tried Perfect Recovery on
+  a body beyond its shortened reach every second, and the game refused each one. A player's
+  group ability on its companions has run in no client.
   - **What a class buys** (`bots/pvp/PvpRealmAbilities.cs`, one order a class, 26 classes; the
     table is in the player guide). They are the assistant's reading of 1.65 builds with what the
     owner has said (Tireless among the first, Group Purge a Druid's first, power back through
@@ -2842,6 +2852,30 @@ round:*
   casters after a moment drawn between 400 and 1,200 ms), attention (15% of the time three
   times as long) and mistakes (every option weighed is off by up to 6 points). All in
   `PvpHumanWeights`; all 0 is the bots as they were.
+- *The levels, as the owner met them (2026-11-22).* "I do not seem to find a difference between
+  Casual and Sharp." Three of the owner's matches: the enemy's Purge came a median 3.6 s after
+  a mez in one and 0.9 s in the two others, its cure 2.1 s and 0.5 s: the setting reached the
+  bots (the recordings did not say which level each was; a header has `skillA`/`skillB` now).
+  But a level moved four reactions by a second or two and nothing a player sees. Added on the
+  owner's choice: **assist discipline** (a member goes for a newly called kill target after its
+  own time: Sharp 0.1 to 0.35 s, Seasoned 0.4 to 1.2 s, Casual 2 to 4 s and one time in four
+  8 s) and **healer attention** (a healer sees a member hurt its reaction time after that
+  member went below 90%). `scrim-start SkillA= SkillB=` puts two levels against each other.
+  **Twelve matches, a Casual side against a Sharp one, each realm on both sides, rank 5:**
+  - the first heal on a member came a median 4.2 s after it went below 90% on the Casual
+    side and 1.7 s on the Sharp side (snapshots are a second apart);
+  - a side's members were on a newly called target a median 5.2 s (Casual) and 4.7 s (Sharp)
+    after the call: most of that time is the way there and the cast, and the delay shows
+    little. Not looked into: a member whose old target has died has no kill target meanwhile
+    and may pick the same enemy by itself;
+  - **Casual won 6 and Sharp 6; 50 deaths against 51.** The level decided nothing. The realm
+    decided everything: Albion won its 8, Midgard lost its 8, Hibernia beat Midgard 4 of 4,
+    most of them 8 dead to none or one.
+  So the levels are a matter of how a group feels, not of how hard it is, and what makes a
+  fight hard or easy today is which realm stands opposite. Midgard losing is not new (rank 5,
+  2026-11-20: 2 of 18 against Albion, 6 of 24 against Hibernia). Albion against Hibernia was
+  9 to 15 then and is 6 to 0 over today's two runs: six matches, after the realm abilities
+  and at a different default level, so a sign and not a finding.
 - [ ] **M10.2** (S) Named difficulty levels for the enemy group and, separately, for companions.
   *Built 2026-11-22, **not yet run in a fight**:* Casual, Seasoned (the weights as they are)
   and Sharp, one for the player's seven and one for every other group: `/8v8 skill`, and two
