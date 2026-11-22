@@ -415,6 +415,10 @@ namespace DOL.AI.Brain
             if (!Body.IsAlive || Body.ObjectState != GameObject.eObjectState.Active || FSM.GetCurrentState() == FSM.GetState(eFSMStateType.PASSIVE))
                 return;
 
+            // In an 8v8 roam a bot hit from the fight beside its own does not turn on that team (PvpRoam.IgnoresHit).
+            if (ad.GeneratesAggro && PvpRoam.IgnoresHit(BotBody, PvpEnemies, ad.Attacker))
+                return;
+
             if (ad.GeneratesAggro)
             {
                 if (BotBody?.IsRecoveryResting == true)

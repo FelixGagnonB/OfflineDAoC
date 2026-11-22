@@ -2838,6 +2838,28 @@ round:*
   roam: what it is doing (at its start buffing and when it leaves, roaming, fighting whom,
   resting, walking off to rest, raising its dead, waiting by a fight, wiped and when it stands
   up), how many of it are alive, and how far it is from the player. **Not seen in a client.**
+- *Emain Macha as one long fight, and what was done about it (2026-11-22, three roams of
+  bots on the M10 build, the owner away).* The first, seventeen minutes: one fight at the
+  north end of the road from the third minute to the end, all six teams going through it, and
+  no team ever out of an enemy's reach long enough to rest. How it formed, from the events: a
+  fight of two teams; two teams waiting beside it met and fought each other; a bot of one
+  fight, hit by an area spell of the other, took its attacker as a target, which made the
+  teams "at each other"; and "joins after all" brought the rest in. Three changes:
+  - A bot of a roam does not answer a hit from somebody of the roam that its group is not
+    fighting (`PvpRoam.IgnoresHit`). The second roam: the fights stayed apart and the two
+    Albion teams waited four minutes for theirs.
+  - A team that is in a fight makes no draw on another one; and a team on its own does not
+    start on a team that has its realm-mate beside it (`AvoidsTwo`: a Hibernian team had taken
+    on both Midgard teams in the same second).
+  - **Six points in place of two.** Every team walked the one road between its two ends. The
+    navmesh has open ground west of it (three points 10,000 west are within 10% of the
+    straight line from either end and from Dun Crauchon; a point 10,000 east is 47,000 on
+    foot). The road's middle and three points on the west side are added, and a realm's two
+    teams go round the six different ways. The third roam, nine minutes: two fights of eight
+    against eight from the start, 8,000 units apart, the Albion teams each taking on a winner
+    in turn, and the first rest (an Albion team at 2% walking off its road at 8:17).
+  The monster clearing took 227 monsters out of Emain Macha at the first start. `/8v8 status`
+  as the control channel prints it read as meant. **None of this seen with a player.**
 - *A roam of bots on the merged build, ten minutes (2026-11-22):* out of a fight the Bards
   and Skalds were back on their speed song (the squad handed over between fights); the mop-up
   began four times, and the last one or two of a beaten group still lived a median of 16

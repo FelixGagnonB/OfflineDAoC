@@ -107,6 +107,20 @@ namespace DOL.GS
         public static readonly (int X, int Y) DunCrauchon = (427772, 320193);
 
         /// <summary>
+        /// Four more points of Emain Macha to walk between (2026-11-22): the middle of the road
+        /// between its two ends, and three in the open ground west of it, towards Dun Crauchon.
+        /// With the two ends alone every team walked the one road, and in two roams of bots that
+        /// day all six stood at its north end from the third minute on: one fight for fifteen
+        /// minutes, and nobody ever out of reach of an enemy long enough to rest. Every leg is on
+        /// the installed navmesh within 10% of the straight line: the road 20,600 and 18,600 from
+        /// its middle to its ends, the west side 11,500 and 12,500 a leg, 13,700 from the north
+        /// end and 10,900 from the south end to it, 10,400 across from its middle to the road's.
+        /// East of the road the ground is mountain (a point 10,000 east is 47,000 on foot).
+        /// A realm's first team goes round the six one way and its second the other.
+        /// </summary>
+        public static readonly (int X, int Y) Middle = (447500, 316500), WestNorth = (438000, 305000), WestMiddle = (438000, 316000), WestSouth = (438000, 328000);
+
+        /// <summary>
         /// Albion and Midgard at their portal keeps, Hibernia at Dun Crauchon. "At" a keep is in front
         /// of its outer gate, some 1,800 units out on the way to the middle: the way from the
         /// middle of either keep goes through two keep doors (800 and 1,100 units from it), and in
@@ -115,9 +129,9 @@ namespace DOL.GS
         /// </summary>
         public static readonly IReadOnlyList<PvpRoamStart> EmainStarts =
         [
-            new(eRealm.Albion, (473395, 342169), [South, North]),
-            new(eRealm.Midgard, (472166, 297011), [North, South]),
-            new(eRealm.Hibernia, DunCrauchon, [South, North], [North, South]),
+            new(eRealm.Albion, (473395, 342169), [South, Middle, North, WestNorth, WestMiddle, WestSouth], [South, WestSouth, WestMiddle, WestNorth, North, Middle]),
+            new(eRealm.Midgard, (472166, 297011), [North, Middle, South, WestSouth, WestMiddle, WestNorth], [North, WestNorth, WestMiddle, WestSouth, South, Middle]),
+            new(eRealm.Hibernia, DunCrauchon, [WestSouth, South, Middle, North, WestNorth, WestMiddle], [WestNorth, North, Middle, South, WestSouth, WestMiddle]),
         ];
 
         // Thidranki (region 252, M9.7 step 5): three portal keeps round a middle, 33,700 to 40,900
@@ -228,6 +242,18 @@ namespace DOL.GS
             teamsItIsFighting > 0 && !fightingThatOne && !thatOneAttacksIt;
 
         /// <summary>
+        /// A team of bots on its own does not start a fight with a team that has its realm-mate
+        /// beside it: eight do not walk into sixteen. In a roam of 2026-11-22 a Hibernian team
+        /// took on both Midgard teams, which had just finished a fight together, in the same
+        /// second. If the two come for it, it answers.
+        /// </summary>
+        public static bool AvoidsTwo(bool itHasItsRealmMateBesideIt, bool weHaveOursBesideUs, bool fightingItAlready, bool itAttacksUs) =>
+            itHasItsRealmMateBesideIt && !weHaveOursBesideUs && !fightingItAlready && !itAttacksUs;
+
+        /// <summary>How near a realm-mate is "beside" a team.</summary>
+        public const int BesideWithin = 3_500;
+
+        /// <summary>
         /// The places a team may go to rest, in the order it tries them: straight off the road it
         /// is walking (<paramref name="toward"/> is where it was going), to one side and to the
         /// other, at each distance. <paramref name="leftFirst"/> is drawn, so the teams do not
@@ -303,6 +329,29 @@ namespace DOL.GS
                           (team.Leader != null || viewer == null ? string.Empty : $", {away:N0} from you"));
             }
             return lines;
+        }
+
+        /// <summary>
+        /// A bot of a roam does not turn on somebody of the roam that its group is not fighting,
+        /// whatever hit it: an area spell thrown in the fight next to its own. Counted in a roam
+        /// of bots on 2026-11-22: a fight of two teams at the north end of Emain Macha, two
+        /// teams waiting beside it that met and fought each other, and within twenty seconds all
+        /// four in one fight that the two others then walked into; it went on for fifteen
+        /// minutes. Each time, a bot hit from the fight beside it had taken its attacker as a
+        /// target, which made the two teams "at each other", and "joins after all" did the rest.
+        /// A team that does mean to attack it is among its group's enemies a second later.
+        /// </summary>
+        public static bool IgnoresHit(bool roamRuns, bool hasItsGroupsEnemies, bool attackerIsOfTheRoam, bool attackerIsAnEnemyOfItsGroup) =>
+            roamRuns && hasItsGroupsEnemies && attackerIsOfTheRoam && !attackerIsAnEnemyOfItsGroup;
+
+        /// <summary>True when a bot should not answer this attacker (<see cref="IgnoresHit"/>); a pet counts as its owner.</summary>
+        public static bool IgnoresHit(GameBot bot, IReadOnlyList<GameLiving> itsGroupsEnemies, GameLiving attacker)
+        {
+            if (bot?.IsPvpBot != true || attacker == null || itsGroupsEnemies == null || !Running)
+                return false;
+            GameLiving who = attacker is GameNPC { Brain: IControlledBrain owned } ? owned.GetLivingOwner() ?? attacker : attacker;
+            List<PvpRoamTeam> teams = _teams;
+            return IgnoresHit(true, true, teams.Any(team => team.Team.Members.Contains(who)), itsGroupsEnemies.Contains(who));
         }
 
         /// <summary>A team's fight is over when it has had no enemy to reckon with for this long: twelve seconds.</summary>
@@ -654,7 +703,8 @@ namespace DOL.GS
                     (other.Fighting.Contains(third) || third.Fighting.Contains(other))).ToList();
                 bool onAFight = ComesOnAFight(theirFight.Count > 0, theirFight.Any(team.Fighting.Contains), team.Fighting.Contains(other));
                 // (The player's own team does what the player does.)
-                if (onAFight && team.Leader == null && !team.Draws.ContainsKey(other))
+                // (A team that is in a fight of its own has no eyes for another: it draws when it is free.)
+                if (onAFight && team.Leader == null && team.Fighting.Count == 0 && !team.Draws.ContainsKey(other))
                 {
                     // What it drew for another team of the same fight holds for this one.
                     bool? drawn = team.Draws.Where(draw => theirFight.Contains(draw.Key)).Select(draw => (bool?)draw.Value).FirstOrDefault();
@@ -701,6 +751,12 @@ namespace DOL.GS
                     return false;
                 // Already in a fight, a team of bots lets anybody else walk by.
                 if (team.Leader == null && TooBusyFor(team.Fighting.Count, team.Fighting.Contains(other), attacks))
+                    return false;
+                // On its own, it does not start on a team that has its realm-mate beside it.
+                if (team.Leader == null && AvoidsTwo(
+                        teams.Any(mate => mate != other && mate.Realm == other.Realm && mate.Alive > 0 && Near(other, mate, BesideWithin)),
+                        teams.Any(mate => mate != team && mate.Realm == team.Realm && mate.Alive > 0 && Near(team, mate, BesideWithin)),
+                        team.Fighting.Contains(other), attacks))
                     return false;
                 if (team.Leader is { } leader)
                     return PlayerTakesItOn(team.Fighting.Contains(other), attacks,
