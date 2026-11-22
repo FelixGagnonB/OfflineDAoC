@@ -955,10 +955,17 @@ walls stop bots. **Passed 2026-11-16.**
     abilities, the pet abilities, Majestic Will, Concentration (listed in the guide). Trip was
     read and not touched: a player's Trip is cast on every NPC around it, its own bots included
     as far as the code shows.
-  - **For the owner to say:** the game's data gives Speed of Sound to the Minstrel alone; the
-    owner remembers it as the Bard's and the Skald's too, and no source was found either way.
-    The orders of the Bard and the Skald have it as their third step, so two rows in the class
-    table are all it takes.
+  - **Speed of Sound** (2026-11-22, the owner: "I have not seen Speed of Sound from either
+    Bard, Skald or Minstrel"). The game's data gave it to the Minstrel alone, and a bot used
+    it on a called retreat or with two members held by the legs. It is the Bard's and the
+    Skald's too now (added when the server loads its class table, `SkillBase.cs`: every
+    install of the build, a player of those classes as well; no source was found for 1.65
+    either way, it is the owner's memory). Two more uses, as the owner described them on
+    2026-11-19: to get in (a push with the group's fighters still more than 1,200 from any
+    enemy) and to get away (falling back with two healers or casters under a fighter). In the
+    bots' matches of the day a Minstrel's group ran at 330 to 460 units a second after it,
+    from 180 to 240 before. The Bard's and the Skald's, and the two new uses: automated
+    tests only.
   *The player's side, 2026-11-19:* picking a rank in `/8v8 setup` above the character's own
   gives the character that rank and its points to spend with `/train` (the owner: "even if I
   pick realm rank 5, I have no realm points and can't train purge"). The owner's Hero stands at

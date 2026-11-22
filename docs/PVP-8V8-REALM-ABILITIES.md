@@ -49,18 +49,18 @@ owner's to correct.
 |---|---|---|---|---|
 | 1 | Tireless | 1 | 1 | 1L1 |
 | 2 | Purge | 10 | 11 | 2L1 |
-| 3 | Speed of Sound | (10) | | not in the game's data for this class: skipped |
-| 4 | Mystic Crystal Lore 2 | 9 | 20 | 3L0 |
-| 5 | Ameliorating Melodies | 14 | 34 | 4L4 |
-| 6 | Raging Power | 10 | 44 | 5L4 |
-| 7 | First Aid 2 | 9 | 53 | 6L3 |
-| 8 | Ignore Pain | 14 | 67 | 7L7 |
-| 9 | Augmented Constitution 2 | 4 | 71 | 8L1 |
-| 10 | Toughness 2 | 4 | 75 | 8L5 |
+| 3 | Speed of Sound | 10 | 21 | 3L1 |
+| 4 | Mystic Crystal Lore 2 | 9 | 30 | 4L0 |
+| 5 | Ameliorating Melodies | 14 | 44 | 5L4 |
+| 6 | Raging Power | 10 | 54 | 6L4 |
+| 7 | First Aid 2 | 9 | 63 | 7L3 |
+| 8 | Ignore Pain | 14 | 77 | 8L7 |
+| 9 | Augmented Constitution 2 | 4 | 81 | 9L1 |
+| 10 | Toughness 2 | 4 | 85 | 9L5 |
 
-*At rank 5 (40 points), from its order:* Tireless, Purge, Mystic Crystal Lore 2, Ameliorating Melodies, First Aid 1, Augmented Constitution 1, Toughness 1; 1 left for the build of its kind.
+*At rank 5 (40 points), from its order:* Tireless, Purge, Speed of Sound, Mystic Crystal Lore 2, Raging Power.
 
-*At rank 8 (70 points), from its order:* Tireless, Purge, Mystic Crystal Lore 2, Ameliorating Melodies, Raging Power, First Aid 2, Ignore Pain, Augmented Constitution 1, Toughness 1; 1 left for the build of its kind.
+*At rank 8 (70 points), from its order:* Tireless, Purge, Speed of Sound, Mystic Crystal Lore 2, Ameliorating Melodies, Raging Power, First Aid 2, Augmented Constitution 2, Toughness 1; 2 left for the build of its kind.
 
 ### Hero
 
@@ -361,18 +361,18 @@ owner's to correct.
 |---|---|---|---|---|
 | 1 | Tireless | 1 | 1 | 1L1 |
 | 2 | Purge | 10 | 11 | 2L1 |
-| 3 | Speed of Sound | (10) | | not in the game's data for this class: skipped |
-| 4 | First Aid 2 | 9 | 20 | 3L0 |
-| 5 | Ignore Pain | 14 | 34 | 4L4 |
-| 6 | Augmented Strength 3 | 10 | 44 | 5L4 |
-| 7 | Augmented Dexterity 2 | 4 | 48 | 5L8 |
-| 8 | Mastery of Pain 2 | 4 | 52 | 6L2 |
-| 9 | Augmented Constitution 2 | 4 | 56 | 6L6 |
-| 10 | Toughness 2 | 4 | 60 | 7L0 |
+| 3 | Speed of Sound | 10 | 21 | 3L1 |
+| 4 | First Aid 2 | 9 | 30 | 4L0 |
+| 5 | Ignore Pain | 14 | 44 | 5L4 |
+| 6 | Augmented Strength 3 | 10 | 54 | 6L4 |
+| 7 | Augmented Dexterity 2 | 4 | 58 | 6L8 |
+| 8 | Mastery of Pain 2 | 4 | 62 | 7L2 |
+| 9 | Augmented Constitution 2 | 4 | 66 | 7L6 |
+| 10 | Toughness 2 | 4 | 70 | 8L0 |
 
-*At rank 5 (40 points), from its order:* Tireless, Purge, First Aid 2, Ignore Pain, Augmented Strength 2, Augmented Dexterity 1, Augmented Constitution 1.
+*At rank 5 (40 points), from its order:* Tireless, Purge, Speed of Sound, First Aid 2, Augmented Strength 3.
 
-*At rank 8 (70 points), from its order:* Tireless, Purge, First Aid 2, Ignore Pain, Augmented Strength 3, Augmented Dexterity 2, Mastery of Pain 2, Augmented Constitution 2, Toughness 2; 10 left for the build of its kind.
+*At rank 8 (70 points), from its order:* Tireless, Purge, Speed of Sound, First Aid 2, Ignore Pain, Augmented Strength 3, Augmented Dexterity 2, Mastery of Pain 2, Augmented Constitution 2, Toughness 2.
 
 ### Warrior
 
@@ -459,8 +459,8 @@ owner's to correct.
 
 ## Open
 
-- **Speed of Sound for the Bard and the Skald.** The game's data gives it to the Minstrel alone. The
-  two orders have it as their third step and buy it the moment the class is given it.
+- **Speed of Sound** is the Bard's and the Skald's as well as the Minstrel's since 2026-11-22 (the owner's
+  word). The game's class table has it for the Minstrel alone; the server adds the two when it loads.
 - **Bought by no bot**, because no bot knows how to use it: Volcanic Pillar, Negative Maelstrom, Rune of
   Decimation, Thornweed Field, Ichor of the Deep, Static Tempest, Wrath of the Champion, Bladedance,
   Whirling Dervish, Corporeal Disintegration, Trip, Grapple, Battle Yell, the style abilities, Rain of

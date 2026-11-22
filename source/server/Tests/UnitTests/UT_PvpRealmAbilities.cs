@@ -13,8 +13,10 @@ namespace DOL.UnitTests
 
         private static PvpAbilityView View(bool inFight = true, int health = 100, bool hitInMelee = false, bool interrupted = false, int hurt = 0,
             int badlyHurt = 0, int lowestOther = 100, int missing = 0, int membersHitInMelee = 0, int slowed = 0, int enemyCasters = 0,
-            bool retreating = false, PvpBuffArchetype archetype = PvpBuffArchetype.Healer) =>
-            new(inFight, health, hitInMelee, interrupted, hurt, badlyHurt, lowestOther, missing, membersHitInMelee, slowed, enemyCasters, retreating, archetype);
+            bool retreating = false, PvpBuffArchetype archetype = PvpBuffArchetype.Healer, PvpOrder order = PvpOrder.Engage, int fightersFromEnemy = 0,
+            int softHit = 0) =>
+            new(inFight, health, hitInMelee, interrupted, hurt, badlyHurt, lowestOther, missing, membersHitInMelee, slowed, enemyCasters, retreating, archetype,
+                order, fightersFromEnemy, softHit);
 
         private static bool Wanted(string key, PvpAbilityView view) => PvpRealmAbilities.Wanted(view, key, Weights);
 
@@ -143,6 +145,18 @@ namespace DOL.UnitTests
             Assert.That(Wanted(PvpRealmAbilities.SpeedOfSound, View(slowed: 2)), Is.True);
             Assert.That(Wanted(PvpRealmAbilities.SpeedOfSound, View(slowed: 1)), Is.False, "one snared member is not worth thirty minutes");
             Assert.That(Wanted(PvpRealmAbilities.SpeedOfSound, View()), Is.False);
+        }
+
+        [Test]
+        public void SpeedOfSoundToGetInOnAPushAndToGetAwayWhenJumped()
+        {
+            Assert.That(Wanted(PvpRealmAbilities.SpeedOfSound, View(order: PvpOrder.Push, fightersFromEnemy: 1_800)), Is.True, "they kite: the group runs in");
+            Assert.That(Wanted(PvpRealmAbilities.SpeedOfSound, View(order: PvpOrder.Push, fightersFromEnemy: 600)), Is.False, "its fighters are on them already");
+            Assert.That(Wanted(PvpRealmAbilities.SpeedOfSound, View(order: PvpOrder.Engage, fightersFromEnemy: 1_800)), Is.False, "nobody called the push");
+            Assert.That(Wanted(PvpRealmAbilities.SpeedOfSound, View(order: PvpOrder.Extend, softHit: 2)), Is.True, "jumped: the group repositions");
+            Assert.That(Wanted(PvpRealmAbilities.SpeedOfSound, View(order: PvpOrder.Regroup, softHit: 2)), Is.True);
+            Assert.That(Wanted(PvpRealmAbilities.SpeedOfSound, View(order: PvpOrder.Extend, softHit: 1)), Is.False);
+            Assert.That(Wanted(PvpRealmAbilities.SpeedOfSound, View(order: PvpOrder.Engage, softHit: 3)), Is.False, "it stands and fights");
         }
 
         [Test]

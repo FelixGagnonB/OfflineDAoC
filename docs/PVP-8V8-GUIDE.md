@@ -88,8 +88,8 @@ first again when the points are there, as if a respec were free.
 | Shaman | Tireless, Purge, Mystic Crystal Lore 2, Augmented Acuity 3, Mastery of Concentration, Raging Power |
 | The casters | Tireless, Purge, Mystic Crystal Lore 2, Augmented Acuity 3, Mastery of Concentration, Raging Power, Mastery of Magery 2, Wild Power 2 (the Enchanter: Brilliant Aura of Deflection after Mastery of Concentration) |
 | Minstrel | Tireless, Purge, Speed of Sound, Mystic Crystal Lore 1, First Aid 2, Ignore Pain |
-| Bard | Tireless, Purge, Mystic Crystal Lore 2, Ameliorating Melodies, Raging Power, First Aid 2, Ignore Pain |
-| Skald | Tireless, Purge, First Aid 2, Ignore Pain, Augmented Strength 3 |
+| Bard | Tireless, Purge, Speed of Sound, Mystic Crystal Lore 2, Ameliorating Melodies, Raging Power, First Aid 2, Ignore Pain |
+| Skald | Tireless, Purge, Speed of Sound, First Aid 2, Ignore Pain, Augmented Strength 3 |
 | Armsman, Warrior, Hero | Tireless, Purge (4 points), Determination 3, First Aid 2, Ignore Pain, Determination 4, Augmented Strength 2, Mastery of Pain 2 (the Armsman: Soldier's Barricade after Ignore Pain) |
 | Mercenary, Blademaster, Berserker, Savage | Tireless, Purge (4 points), Determination 3, First Aid 2, Ignore Pain, Augmented Dexterity 2, Mastery of Pain 2, Determination 4, Dualist's Reflexes 2 |
 | Paladin, Champion | Tireless, Purge, Determination 3, First Aid 2, Ignore Pain (the Paladin: then Faith Healing) |
@@ -98,8 +98,8 @@ first again when the points are there, as if a respec were free.
 Every class's full order, with what each step costs and at which rank it is reached, is in
 [PVP-8V8-REALM-ABILITIES.md](PVP-8V8-REALM-ABILITIES.md). The orders themselves are in
 `bots/pvp/PvpRealmAbilities.cs`, one line a class, to be corrected there.
-In this game's data only the Minstrel has Speed of Sound; a Bard or a Skald buys it the moment its
-class is given it.
+Speed of Sound is the Bard's and the Skald's as well as the Minstrel's (10 points, from rank 3 level 1);
+a player of those classes can train it too.
 
 When a bot presses what it has bought (all of it only in a fight; the numbers are in
 `pvp-weights.json` under `Abilities`):
@@ -107,7 +107,7 @@ When a bot presses what it has bought (all of it only in a fight; the numbers ar
 | Ability | When |
 |---|---|
 | Purge, Group Purge | A mez or stun worth it (a healer or a mezzer first; two or more members for the group one). |
-| Speed of Sound | On your `/8v8 call retreat` with the enemy near, or with two members rooted or snared. |
+| Speed of Sound | On your `/8v8 call retreat` with the enemy near; with two members rooted or snared; on a push while the group's fighters are still more than 1,200 units from any enemy; when the group falls back (extend, regroup) with two of its healers and casters under an enemy fighter. |
 | Mastery of Concentration | A healer that is interrupted while a member is below half; a caster interrupted by a fighter on it. |
 | Battery of Life | Two members hurt and 1,000 hit points missing. |
 | Bunker of Faith, Soldier's Barricade | Two members with a fighter on them and two hurt. |

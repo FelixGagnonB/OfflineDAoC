@@ -21,9 +21,12 @@ namespace DOL.GS
     /// <param name="MembersSlowed">Members rooted or snared.</param>
     /// <param name="EnemyCastersOnUs">Enemy casters, awake, whose target is a member.</param>
     /// <param name="Retreating">The group follows a called retreat.</param>
+    /// <param name="Order">What the group is doing (push, extend, regroup).</param>
+    /// <param name="FightersFromEnemy">How far the group's fighters are from the nearest enemy, the middle one of them; 0 without fighters.</param>
+    /// <param name="SoftMembersHitInMelee">Healers and casters of the group with an enemy fighter on them.</param>
     public readonly record struct PvpAbilityView(bool InFight, int Health, bool HitInMelee, bool Interrupted, int Hurt, int BadlyHurt,
         int LowestOther, int MissingHealthOfOthers, int MembersHitInMelee, int MembersSlowed, int EnemyCastersOnUs, bool Retreating,
-        PvpBuffArchetype Archetype);
+        PvpBuffArchetype Archetype, PvpOrder Order = PvpOrder.Engage, int FightersFromEnemy = 0, int SoftMembersHitInMelee = 0);
 
     /// <summary>Part of <see cref="PvpWeights"/>: when an active realm ability is worth its fifteen or thirty minutes.</summary>
     public sealed class PvpRealmAbilityWeights
@@ -35,6 +38,17 @@ namespace DOL.GS
         /// <summary>Speed of Sound: on a called retreat with the enemy near, or with this many members rooted or snared in a fight.</summary>
         public bool SpeedOfSoundOnRetreat { get; set; } = true;
         public int SpeedOfSoundAtSlowed { get; set; } = 2;
+
+        /// <summary>
+        /// Speed of Sound to get in: the group pushes and its fighters are still farther than this
+        /// from any enemy. And to get away: the group falls back (extend, regroup) with this many of
+        /// its healers and casters under an enemy fighter. The owner, 2026-11-19: a group that is
+        /// jumped uses it "to reposition or to run through", and a group that is kited uses it to
+        /// get in. Until 2026-11-22 a bot used it on a called retreat or with two members held by the
+        /// legs, and the owner had "not seen Speed of Sound" from anybody. 0: not for that.
+        /// </summary>
+        public int SpeedOfSoundToCloseBeyond { get; set; } = 1_200;
+        public int SpeedOfSoundAtSoftMembersJumped { get; set; } = 2;
 
         /// <summary>Mastery of Concentration, a healer: interrupted, with a member below this.</summary>
         public int ConcentrationHealerAtMemberBelow { get; set; } = 50;
@@ -198,7 +212,11 @@ namespace DOL.GS
             return key switch
             {
                 SpeedOfSound => weights.SpeedOfSoundOnRetreat && view.Retreating ||
-                                weights.SpeedOfSoundAtSlowed > 0 && view.MembersSlowed >= weights.SpeedOfSoundAtSlowed,
+                                weights.SpeedOfSoundAtSlowed > 0 && view.MembersSlowed >= weights.SpeedOfSoundAtSlowed ||
+                                weights.SpeedOfSoundToCloseBeyond > 0 && view.Order == PvpOrder.Push &&
+                                view.FightersFromEnemy > weights.SpeedOfSoundToCloseBeyond ||
+                                weights.SpeedOfSoundAtSoftMembersJumped > 0 && view.Order is PvpOrder.Extend or PvpOrder.Regroup &&
+                                view.SoftMembersHitInMelee >= weights.SpeedOfSoundAtSoftMembersJumped,
                 Concentration => view.Interrupted && (view.Archetype == PvpBuffArchetype.Healer
                     ? view.LowestOther < weights.ConcentrationHealerAtMemberBelow
                     : view.Archetype == PvpBuffArchetype.Caster && view.HitInMelee && view.Health > weights.ConcentrationCasterAtHealthAbove),
@@ -250,7 +268,19 @@ namespace DOL.GS
                 enemies.Count(enemy => Awake(enemy) && PvpMember.ArchetypeOf(enemy) == PvpBuffArchetype.Caster &&
                                        enemy.TargetObject is GameLiving aim && members.Contains(aim)),
                 (bot.Brain as AI.Brain.BotBrain)?.PvpSquad?.RetreatsTo != null,
-                PvpMember.ArchetypeOf(bot));
+                PvpMember.ArchetypeOf(bot),
+                (bot.Brain as AI.Brain.BotBrain)?.PvpSquad?.Order ?? PvpOrder.Engage,
+                Middle(members.Where(PvpMember.IsFighter).Select(fighter => enemies.Where(enemy => enemy.IsAlive)
+                    .Select(enemy => (int)fighter.GetDistanceTo(enemy)).DefaultIfEmpty(0).Min()).ToList()),
+                members.Count(member => !PvpMember.IsFighter(member) && FighterOn(enemies, member)));
+        }
+
+        private static int Middle(List<int> values)
+        {
+            if (values.Count == 0)
+                return 0;
+            values.Sort();
+            return values[values.Count / 2];
         }
 
         /// <summary>The dead member this bot's Perfect Recovery would raise now; null when there is none.</summary>

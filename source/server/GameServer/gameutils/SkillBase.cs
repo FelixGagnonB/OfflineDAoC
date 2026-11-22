@@ -475,6 +475,21 @@ namespace DOL.GS
 					}
 				}
 
+				// Speed of Sound is the Bard's and the Skald's as well as the Minstrel's: so the owner of this fork
+				// played 1.65 ("the Bard, Skald and Minstrel's realm ability"; 2026-11-22: "I have not seen Speed of
+				// Sound from either Bard, Skald or Minstrel"). The class table has it for the Minstrel alone. Added
+				// here and not in the table, so that every install of this build has it; a player of those classes
+				// can train it too.
+				const string speedOfSound = "AtlasOF_SpeedOfSound";
+				if (m_abilityIndex.ContainsKey(speedOfSound))
+				{
+					foreach (int speedClass in new[] { (int) eCharacterClass.Bard, (int) eCharacterClass.Skald })
+					{
+						if (m_classRealmAbilities.TryGetValue(speedClass, out List<string> theirs) && !theirs.Contains(speedOfSound))
+							theirs.Add(speedOfSound);
+					}
+				}
+
 				if (log.IsInfoEnabled)
 					log.Info("Realm Abilities assigned to classes!");
 			}
