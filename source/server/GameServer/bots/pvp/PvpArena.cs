@@ -249,6 +249,44 @@ namespace DOL.GS
         }
 
         /// <summary>Removes these 8v8 bots from the world: one match's, while others go on.</summary>
+        /// <summary>
+        /// What counts as a monster to clear: of no realm, not peaceful, and not a bot, a keep's
+        /// guard or anybody's pet. A merchant, a teleporter, a hastener or a guard stays.
+        /// </summary>
+        public static bool IsMonster(bool bot, bool keepGuard, bool pet, bool ofARealm, bool peaceful) =>
+            !bot && !keepGuard && !pet && !ofARealm && !peaceful;
+
+        /// <summary>
+        /// Takes the monsters of the zones these points lie in out of the world (not out of the
+        /// database). Returns how many. One that was dead and comes back later is caught by the
+        /// next call.
+        /// </summary>
+        public static int ClearMonsters(ushort regionId, IEnumerable<(int X, int Y)> points)
+        {
+            if (!PvpWeights.Current.ClearMonsters || WorldMgr.GetRegion(regionId) is not { } region)
+                return 0;
+            HashSet<Zone> zones = points.Select(point => region.GetZone(point.X, point.Y)).Where(zone => zone != null).ToHashSet();
+            int removed = 0;
+            foreach (GameNPC npc in WorldMgr.GetNPCsFromRegion(regionId))
+            {
+                if (npc == null || npc.ObjectState != GameObject.eObjectState.Active || !zones.Contains(npc.CurrentZone) ||
+                    !IsMonster(npc is GameBot, npc is Keeps.GameKeepGuard, npc.Brain is IControlledBrain, npc.Realm != eRealm.None,
+                        (npc.Flags & GameNPC.eFlags.PEACE) != 0))
+                    continue;
+                try
+                {
+                    npc.RemoveFromWorld();
+                    npc.Delete();
+                    removed++;
+                }
+                catch (Exception)
+                {
+                    // One monster that will not go is no reason to stop a session.
+                }
+            }
+            return removed;
+        }
+
         public static int Remove(IEnumerable<GameBot> bots)
         {
             List<GameBot> all = bots.ToList();

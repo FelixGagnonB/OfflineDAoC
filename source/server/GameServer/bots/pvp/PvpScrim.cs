@@ -136,6 +136,7 @@ namespace DOL.GS
             if (count > lanes.Count)
                 throw new ArgumentException($"{count} series asked for and there are {lanes.Count} lanes.");
             PvpArena.Clear();
+            PvpArena.ClearMonsters(PvpArenaBox.EmainSouthEast.Region, [PvpArenaBox.EmainSouthEast.SpawnA]);
             if (!_hooked)
             {
                 GameEventMgr.AddHandler(GameLivingEvent.CastFinished, OnCastFinished);
@@ -410,6 +411,7 @@ namespace DOL.GS
             if (own == null || own.Realm != player.Realm)
                 own = PvpBuildCatalog.Groups.First(group => group.Realm == player.Realm);
             PvpArena.Clear();
+            PvpArena.ClearMonsters(PvpArenaBox.EmainSouthEast.Region, [PvpArenaBox.EmainSouthEast.SpawnA]);
             if (!_hooked)
             {
                 GameEventMgr.AddHandler(GameLivingEvent.CastFinished, OnCastFinished);
@@ -439,6 +441,7 @@ namespace DOL.GS
                 run.Stop();
             PvpRoam.Stop();
             PvpArena.Clear();
+            PvpArena.ClearMonsters(PvpArenaBox.EmainSouthEast.Region, [PvpArenaBox.EmainSouthEast.SpawnA]);
         }
 
         private static void Tick(int _)

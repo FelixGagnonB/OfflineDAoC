@@ -2796,10 +2796,31 @@ round:*
 
 - [ ] **M10.1** (M) Human-like limits as settings: reaction delay, attention, mistake rate.
   *First piece 2026-11-20: the end of an enemy's mez or stun immunity is noticed 4 to 20 s late
-  (`PvpNotice`). Not yet: reaction time before answering a mez or a dive, attention, mistakes.*
+  (`PvpNotice`).*
+  *Built 2026-11-22, **not yet run in a fight**:* reaction time (a bot answers a groupmate put
+  to sleep, its own mez or stun, an enemy's cast begun and an enemy fighter on its healers and
+  casters after a moment drawn between 400 and 1,200 ms), attention (15% of the time three
+  times as long) and mistakes (every option weighed is off by up to 6 points). All in
+  `PvpHumanWeights`; all 0 is the bots as they were.
 - [ ] **M10.2** (S) Named difficulty levels for the enemy group and, separately, for companions.
+  *Built 2026-11-22, **not yet run in a fight**:* Casual, Seasoned (the weights as they are)
+  and Sharp, one for the player's seven and one for every other group: `/8v8 skill`, and two
+  lines of the setup window. A bot is given its level when it is made.
 - [ ] **M10.3** (M) Regression gate: each new AI build plays a fixed scrim set against the
   previous one, and a drop blocks it.
+  *Tool written 2026-11-22 (`source/tools/pvp_gate.py`):* the three main pairings, four
+  matches each, judged by the referee's rules and compared with a baseline kept in the
+  repository; a rule that passed and now fails makes it fail. Two builds cannot fight in one
+  match, so it is the rules that are compared, not wins. **No baseline is stored yet.**
+- *Also 2026-11-22:* "Could you remove all monsters from Emain Macha? useless for our tests."
+  The monsters of the zone a session or a roam is held in are taken out of the world when it
+  starts and once a minute while a roam runs (`PvpArena.ClearMonsters`; guards, merchants and
+  whoever is of a realm or peaceful stay; nothing leaves the database). **Not seen in a run.**
+- *A roam of bots on the merged build, ten minutes (2026-11-22):* out of a fight the Bards
+  and Skalds were back on their speed song (the squad handed over between fights); the mop-up
+  began four times, and the last one or two of a beaten group still lived a median of 16
+  seconds, mezzed or stunned 44% of it, 185 seconds once. The mop-up stops new mezzes, not one
+  that is already on; that longest case is to be looked at.
 - [ ] **M10.4** (M) Tuning rounds with the owner: 20 fights, review the analyzer's failure list,
   fix, repeat.
 - [x] **M10.5** (S) Player guide for the 8v8 mode and an update of the developer docs.

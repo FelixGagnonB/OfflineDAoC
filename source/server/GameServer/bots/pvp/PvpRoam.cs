@@ -315,6 +315,9 @@ namespace DOL.GS
             PvpArena.Clear();
             PvpWeights.Reload(AppContext.BaseDirectory);
             _map = map;
+            int cleared = PvpArena.ClearMonsters(map.Region, map.Starts.Select(start => start.Point));
+            if (cleared > 0)
+                Log.Info($"8v8 roam: {cleared} monsters taken out of {map.Name}");
             var teams = new List<PvpRoamTeam>();
             long now = GameLoop.GameLoopTime;
             PvpRealWeights real = PvpWeights.Current.Real;
@@ -459,6 +462,9 @@ namespace DOL.GS
                 }
                 foreach (PvpRoamTeam team in teams)
                     Step(team, teams, now, real);
+                // A monster that was dead when the roam began has come back: once a minute.
+                if ((now - _started) / 1000 % 60 == 59)
+                    PvpArena.ClearMonsters(_map.Region, _map.Starts.Select(start => start.Point));
                 if (_recording is { } recording)
                 {
                     foreach (PvpRoamTeam team in teams)

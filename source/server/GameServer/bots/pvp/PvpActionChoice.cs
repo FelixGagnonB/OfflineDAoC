@@ -426,6 +426,14 @@ namespace DOL.GS
         public PvpHumanWeights Human { get; set; } = new();
 
         /// <summary>
+        /// The monsters of the zone an 8v8 session or roam is held in are taken out of the world
+        /// when it starts, and once a minute while a roam runs (PvpArena.ClearMonsters). The
+        /// owner, 2026-11-22: "Could you remove all monsters from Emain Macha? useless for our
+        /// tests." Nothing is deleted from the database: a restart brings them back.
+        /// </summary>
+        public bool ClearMonsters { get; set; } = true;
+
+        /// <summary>
         /// For a set drawn at random for one team of one match (bots/pvp/PvpWeightDraw.cs): which
         /// weights were moved, -1 down and +1 up. Null for any other set.
         /// </summary>

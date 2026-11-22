@@ -119,6 +119,19 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void MonstersGoAndGuardsAndMerchantsStay()
+        {
+            // "Could you remove all monsters from Emain Macha? useless for our tests."
+            Assert.That(PvpArena.IsMonster(false, false, false, false, false), Is.True, "a monster: of no realm and not peaceful");
+            Assert.That(PvpArena.IsMonster(true, false, false, false, false), Is.False, "a bot");
+            Assert.That(PvpArena.IsMonster(false, true, false, false, false), Is.False, "a keep's guard");
+            Assert.That(PvpArena.IsMonster(false, false, true, false, false), Is.False, "somebody's pet");
+            Assert.That(PvpArena.IsMonster(false, false, false, true, false), Is.False, "a merchant, a teleporter or a hastener of a realm");
+            Assert.That(PvpArena.IsMonster(false, false, false, false, true), Is.False, "a peaceful one");
+            Assert.That(new PvpWeights().ClearMonsters, Is.True);
+        }
+
+        [Test]
         public void ALullIsNotTheEndOfAFight()
         {
             Assert.That(PvpRoam.FightIsOver(3_000), Is.False, "the player between two targets: the Bard keeps its endurance song");
