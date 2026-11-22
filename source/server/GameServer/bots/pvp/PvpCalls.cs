@@ -134,6 +134,15 @@ namespace DOL.GS
 
         public static string Retreating(string caller) => $"Retreating with {caller}.";
 
+        /// <summary>
+        /// Where a caster's pet is sent: the enemy its owner interrupts, else the group's kill target.
+        /// Not onto a target the player called with <c>/8v8 call assist</c>: the owner, 2026-11-22,
+        /// "when I use /8v8 call assist, pets should not assist. It's for fighters / casters that are
+        /// able to join". On such a call a pet goes on with the enemy it has, or with none.
+        /// </summary>
+        public static T PetAim<T>(T duty, T kill, T has, bool killIsThePlayersCall) where T : class =>
+            duty ?? (killIsThePlayersCall ? has : kill);
+
         /// <summary>Said by the member that used it: a healer player need not cure what a Purge has taken off.</summary>
         public static string Purged(bool group) => group ? "Group Purge used." : "Purge used.";
 

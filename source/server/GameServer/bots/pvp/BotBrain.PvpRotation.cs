@@ -765,7 +765,9 @@ namespace DOL.AI.Brain
                         caught = inside.Count(other => !other.IsMezzed && other.IsCasting && other.CurrentSpellHandler?.Spell.InstrumentRequirement == 0);
                         wakes = inside.Count(other => other.IsMezzed && other != kill);
                     }
-                    options.Add(new PvpOption(kind, id, PvpMember.ArchetypeOf(enemy), enemy == kill,
+                    // A pet that is cast (the Theurgist's) does not count a player's called assist as the kill target either.
+                    options.Add(new PvpOption(kind, id, PvpMember.ArchetypeOf(enemy),
+                        enemy == kill && !(kind == PvpActionKind.Pet && PvpSquad?.IsCalledAssist(enemy) == true),
                         enemy == PvpAssignedTarget || enemy == PvpDutyTarget, enemy.HealthPercent, hasEffect,
                         PvpNotice.SeesCasting(Body, enemy), enemy.IsBeingInterrupted, !mez && enemy.IsMezzed, Body.ManaPercent, cost, walk, caught, catchesKill, wakes,
                         instant, PvpActionChoice.IsController(PvpMember.ClassOf(enemy), weights),

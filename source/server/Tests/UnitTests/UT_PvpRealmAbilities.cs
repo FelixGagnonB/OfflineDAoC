@@ -252,6 +252,16 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void APetDoesNotJoinAPlayersAssistCall()
+        {
+            Assert.That(PvpCalls.PetAim("its duty", "the kill", "what it has", false), Is.EqualTo("its duty"));
+            Assert.That(PvpCalls.PetAim<string>(null, "the kill", "what it has", false), Is.EqualTo("the kill"), "the group's own call: the pet goes too");
+            Assert.That(PvpCalls.PetAim<string>(null, "the player's call", "what it has", true), Is.EqualTo("what it has"), "it stays on its enemy");
+            Assert.That(PvpCalls.PetAim<string>(null, "the player's call", null, true), Is.Null, "or on none");
+            Assert.That(PvpCalls.PetAim("its duty", "the player's call", "what it has", true), Is.EqualTo("its duty"));
+        }
+
+        [Test]
         public void SerenityAndEtherealBondHaveTheirPrerequisites()
         {
             Assert.That(AutonomousBotRealmAbilities.Requirement("AtlasOF_Serenity", 6), Is.EqualTo((AutonomousBotRealmAbilities.AugAcuity, 2)));

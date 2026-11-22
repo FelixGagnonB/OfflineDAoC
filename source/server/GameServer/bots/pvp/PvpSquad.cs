@@ -552,6 +552,9 @@ namespace DOL.GS
         public bool IsCalledControl(GameLiving enemy) =>
             enemy != null && enemy == _calledControl && enemy.IsAlive && GameLoop.GameLoopTime < _calledControlUntil;
 
+        /// <summary>True for the enemy a player has called with <c>/8v8 call assist</c>, while that call stands.</summary>
+        public bool IsCalledAssist(GameLiving enemy) => enemy != null && enemy == _calledTarget;
+
         // What each member last took for the group's kill target.
         private readonly Dictionary<GameBot, GameLiving> _heard = new();
 
@@ -844,6 +847,8 @@ namespace DOL.GS
                 // and whoever interrupts with pets keeps them where they are.
                 bool calledOnto = mine != null && role == PvpRole.Assist && bot.IsAlive &&
                     (mine == _calledTarget || PvpWeights.Of(bot).Kill.Collapses(GameLoop.GameLoopTime, _killCalledTick));
+                // (Its pet keeps the duty: a called assist is for the members themselves, PvpCalls.PetAim.)
+                GameLiving petsDuty = onDuty;
                 if (calledOnto)
                     onDuty = null;
                 brain.PvpDutyTarget = onDuty;
@@ -918,7 +923,11 @@ namespace DOL.GS
                     // Its brain runs with no player near (AutonomousSummonActivity.IsPvpBotSummon); started here if it is not.
                     if (!pet.ServiceObjectId.IsSet)
                         pet.Start();
-                    GameLiving petAim = onDuty is { IsAlive: true, IsMezzed: false } ? onDuty : mine is { IsAlive: true } ? mine : null;
+                    GameLiving petAim = PvpCalls.PetAim(
+                        petsDuty is { IsAlive: true, IsMezzed: false } ? petsDuty : null,
+                        mine is { IsAlive: true } ? mine : null,
+                        pet.OrderedAttackTarget is { IsAlive: true, IsMezzed: false } has ? has : null,
+                        IsCalledAssist(mine));
                     if (petAim == null)
                     {
                         if (pet.OrderedAttackTarget is { IsMezzed: true })
