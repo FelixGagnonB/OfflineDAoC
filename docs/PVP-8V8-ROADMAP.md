@@ -2590,6 +2590,35 @@ In order:
        `BotBrain.TryPvpRetreat`). It stands 30 seconds, is renewed by calling it again, and
        ends with any other call. "retreat" had been another word for regroup. **Not seen in a
        client or a run.**
+     *The same afternoon, after the owner's fourth and fifth roams:*
+     - **Two Bards, a song up, and no endurance.** "We had no endurance most (if not) all the
+       fight but endurance song was up. It's like if I just never regain any." In the recording
+       (the owner's group with two Bards): both Bards had begun the song, and for four minutes
+       the owner landed no styled swing in 49 and the two Blademasters 1 and 3 in about 40
+       each, against well over half before. An engine fault of two singers of one song: when
+       both pulse in the same tick a member's effect is replaced in its list by the other's
+       copy, and the copy that was replaced is later ended as if it were the live one, which
+       takes the bonus away again. **Shown with bots:** a roam of twenty minutes with two Bards
+       in each Hibernian team and the fix switched off had what the songs add to a member's
+       regeneration at -80 to -105 for 12% of one team's time (it is 0 or 5). A replaced copy is
+       now retired without that (`EffectListComponent`, counted as `StaleCopiesRetired`).
+       **The same twenty minutes with the fix on have not been run yet.** A snapshot of a
+       recording now has what a member regains (`er`), what its songs add (`erb`) and the song
+       a singer has running (`song`).
+     - Seen on the way: sprinting costs a bot 5 endurance a second on the move and a player
+       the same by the game's rule, and the endurance song gives 5. Whoever sprints and moves
+       regains nothing. Left as it is; the owner's to say.
+     - "Let say mids are fighting alb and I walk by. Neither mids or albs will try to attack my
+       group, as they are already fighting. Only if I decide to add on their fight, they will
+       need to react." A team of bots that is in a fight takes on nobody new until that one
+       attacks it (`PvpRoam.TooBusyFor`); before, only a team of bots that had drawn "leaves
+       them to it" was spared, and the player's group was attacked by both. A player counts as
+       attacking once it is in combat, not for looking at a target. **Not seen in a run.**
+     - "Hibernia could start at Dun Crauchon to balance the starting location." It starts
+       2,400 units in front of that keep: 26,400 on foot to the south end of the middle and
+       33,000 to the north end, against 33,700 for Albion and 24,800 for Midgard to theirs
+       (from the hill it was 6,600). Both ends are reached directly, so Hibernia's first team
+       goes south first and its second north. **Not seen in a run.**
   4. [x] The recorder with more than two teams, so a roam can be replayed and counted.
      *Done 2026-11-21.* A roam writes one recording for the session in `logs/roams` (format 4,
      `PvpRecorder.BeginRoam`): the header names every team, every line of a match is there with

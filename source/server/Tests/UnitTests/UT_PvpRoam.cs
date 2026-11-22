@@ -18,8 +18,14 @@ namespace DOL.UnitTests
             (int X, int Y) midgard = PvpRoam.EmainStarts.Single(start => start.Realm == eRealm.Midgard).Point;
             Assert.That(System.Math.Sqrt(System.Math.Pow(albion.X - 475844, 2) + System.Math.Pow(albion.Y - 343696, 2)), Is.InRange(1_500, 3_500), "the Albion Portal Keep");
             Assert.That(System.Math.Sqrt(System.Math.Pow(midgard.X - 474129, 2) + System.Math.Pow(midgard.Y - 295207, 2)), Is.InRange(1_500, 3_500), "the Midgard Portal Keep");
-            // "Hibernia ... could spawn on the hill near the tower in front of Albion Main Gate": the owner's /loc there.
-            Assert.That(PvpRoam.EmainStarts.Single(start => start.Realm == eRealm.Hibernia).Point, Is.EqualTo((440776, 337761)));
+            // First "on the hill near the tower in front of Albion Main Gate" (the owner's /loc, 440776,337761), 6,600 units
+            // from the south end of the middle; then, 2026-11-21: "hibernia could start at Dun Crauchon to balance the
+            // starting location". In front of the keep, as the two others are in front of theirs.
+            PvpRoamStart hibernia = PvpRoam.EmainStarts.Single(start => start.Realm == eRealm.Hibernia);
+            Assert.That(System.Math.Sqrt(System.Math.Pow(hibernia.Point.X - 425877, 2) + System.Math.Pow(hibernia.Point.Y - 318720, 2)), Is.InRange(1_500, 3_500), "Dun Crauchon");
+            // It reaches both ends of the middle directly: its two teams go opposite ways.
+            Assert.That(hibernia.RouteOf(1).First(), Is.EqualTo(PvpRoam.South));
+            Assert.That(hibernia.RouteOf(2).First(), Is.EqualTo(PvpRoam.North));
             // Every team first walks to its own end of the open middle, then to the other: never a far goal across the mountains.
             Assert.That(PvpRoam.EmainStarts.Single(start => start.Realm == eRealm.Albion).Route.First(), Is.EqualTo(PvpRoam.South));
             Assert.That(PvpRoam.EmainStarts.Single(start => start.Realm == eRealm.Midgard).Route.First(), Is.EqualTo(PvpRoam.North));
@@ -97,6 +103,16 @@ namespace DOL.UnitTests
             Assert.That(PvpRoam.IsAt(true, true, false), Is.False, "in combat with somebody else");
             Assert.That(PvpRoam.IsAt(true, false, true), Is.False, "a target looked at is not a blow");
             Assert.That(PvpRoam.IsAt(false, true, true), Is.False);
+        }
+
+        [Test]
+        public void ATeamInAFightLetsAnybodyElseWalkBy()
+        {
+            // "Let say mids are fighting alb and I walk by. Neither mids or albs will try to attack my group."
+            Assert.That(PvpRoam.TooBusyFor(1, false, false), Is.True, "in a fight, and the group walking by does nothing");
+            Assert.That(PvpRoam.TooBusyFor(1, false, true), Is.False, "\"Only if I decide to add on their fight, they will need to react.\"");
+            Assert.That(PvpRoam.TooBusyFor(1, true, false), Is.False, "the one it is fighting");
+            Assert.That(PvpRoam.TooBusyFor(0, false, false), Is.False, "a team on its own takes on whom it meets");
         }
 
         [Test]

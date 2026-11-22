@@ -90,7 +90,19 @@ namespace DOL.GS
         public static readonly (int X, int Y) HiberniaHill = (417792 + 22984, 286720 + 51041);
 
         /// <summary>
-        /// Albion and Midgard at their portal keeps, Hibernia on its hill. "At" a keep is in front
+        /// Where Hibernia starts since 2026-11-21: in front of Dun Crauchon, its keep in the zone
+        /// (the keep's middle is at 425877,318720), 2,400 units out on the way to the middle. The
+        /// owner, after an afternoon of roams from the hill: "hibernia could start at Dun Crauchon
+        /// to balance the starting location". From the hill the south end of the middle was 6,600
+        /// units away, against 33,700 for Albion and 24,800 from Midgard's start to the north end,
+        /// so Hibernia was at every first fight and was fought on its own doorstep. From here it
+        /// is 26,400 on foot to the south end and 33,000 to the north end (the installed navmesh),
+        /// and both are reached directly: its first team goes south first, its second north.
+        /// </summary>
+        public static readonly (int X, int Y) DunCrauchon = (427772, 320193);
+
+        /// <summary>
+        /// Albion and Midgard at their portal keeps, Hibernia at Dun Crauchon. "At" a keep is in front
         /// of its outer gate, some 1,800 units out on the way to the middle: the way from the
         /// middle of either keep goes through two keep doors (800 and 1,100 units from it), and in
         /// the first roam of 2026-11-20 the four teams that started inside stood there for eight
@@ -100,7 +112,7 @@ namespace DOL.GS
         [
             new(eRealm.Albion, (473395, 342169), [South, North]),
             new(eRealm.Midgard, (472166, 297011), [North, South]),
-            new(eRealm.Hibernia, HiberniaHill, [South, North]),
+            new(eRealm.Hibernia, DunCrauchon, [South, North], [North, South]),
         ];
 
         // Thidranki (region 252, M9.7 step 5): three portal keeps round a middle, 33,700 to 40,900
@@ -198,6 +210,17 @@ namespace DOL.GS
         /// </summary>
         public static bool PlayerTakesItOn(bool fightingItAlready, bool itAttacksUs, bool playerAimsAtItInReach) =>
             fightingItAlready || itAttacksUs || playerAimsAtItInReach;
+
+        /// <summary>
+        /// A team of bots that is in a fight takes on nobody new: a group that walks by is left
+        /// alone until it attacks. The owner, 2026-11-21: "Let say mids are fighting alb and I
+        /// walk by. Neither mids or albs will try to attack my group, as they are already
+        /// fighting. Only if I decide to add on their fight, they will need to react." Until then
+        /// only a team of bots that had drawn "leaves them to it" was spared; the player's group,
+        /// which makes no draw, was attacked by both.
+        /// </summary>
+        public static bool TooBusyFor(int teamsItIsFighting, bool fightingThatOne, bool thatOneAttacksIt) =>
+            teamsItIsFighting > 0 && !fightingThatOne && !thatOneAttacksIt;
 
         /// <summary>A team's fight is over when it has had no enemy to reckon with for this long: twelve seconds.</summary>
         public const int FightOverAfterMilliseconds = 12_000;
@@ -335,6 +358,8 @@ namespace DOL.GS
             _timer = null;
             List<PvpRoamTeam> teams = _teams;
             _teams = [];
+            // A test run may have switched the effect fault back on (roam-start StaleCopies=off): never past its own roam.
+            EffectListComponent.RetireStaleCopies = true;
             PvpRecording recording = Interlocked.Exchange(ref _recording, null);
             recording?.Finish(new
             {
@@ -568,7 +593,9 @@ namespace DOL.GS
                     new { what = "evens", team = team.Name, mate = pressed.Name, others = pressed.Fighting.Select(enemy => enemy.Name).ToList() });
             }
             // Left alone, unless they come for it: by its draw, or because they stand at their own start.
+            // (A player who only looks at one of them is not attacking: a player counts once it is in combat.)
             bool Attacks(PvpRoamTeam other) => other.Team.Members.Any(member => member.IsAlive && member.TargetObject is GameLiving aimed &&
+                (member is not GamePlayer || member.InCombat) &&
                 team.Team.Members.Contains(aimed) && member.IsWithinRadius(aimed, 2_000));
             double FromItsStart(PvpRoamTeam other)
             {
@@ -580,6 +607,9 @@ namespace DOL.GS
                 bool attacks = Attacks(other);
                 if (LeavesAlone(team.Draws.TryGetValue(other, out bool joins) && !joins, other.Draws.TryGetValue(team, out bool theyJoin) && !theyJoin, attacks,
                         team.Leader?.TargetObject is GameLiving aimed && other.Team.Members.Contains(aimed)))
+                    return false;
+                // Already in a fight, a team of bots lets anybody else walk by.
+                if (team.Leader == null && TooBusyFor(team.Fighting.Count, team.Fighting.Contains(other), attacks))
                     return false;
                 if (team.Leader is { } leader)
                     return PlayerTakesItOn(team.Fighting.Contains(other), attacks,

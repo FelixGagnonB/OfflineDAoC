@@ -41,7 +41,7 @@ starts of the setup window.
 - **Six groups**: yours, a second one of your realm, and two of each other realm. Each is its
   realm's main line-up. A group fights any group of another realm.
 - **Where they start.** Emain Macha: Albion and Midgard in front of their portal keeps, Hibernia
-  on the hill by the tower in front of the Albion gate. Thidranki: each realm in front of its
+  in front of Dun Crauchon, each a similar walk from the middle of the zone. Thidranki: each realm in front of its
   portal keep, round a middle; the groups there meet sooner and more often two by two.
 - **You lead, and you pick the fights.** Your seven travel behind you, the Bard on its speed
   song, and pass by any enemy group you do not take on. Target an enemy within sight (6,500
@@ -50,6 +50,8 @@ starts of the setup window.
 - **Adding on a fight.** A group of bots that comes on a fight already going on joins it about
   one time in seven (15%) and otherwise stands off until it is over. If the other side adds on its
   realm-mate in a fair fight, it joins after all. Your own group does what you do.
+- **Walking by a fight.** Groups that are fighting each other leave you alone as you pass. They
+  turn on you only if you attack one of them.
 - **A wipe.** About thirty seconds after your whole group is down you all stand up at your start,
   without resurrection sickness. `/release` takes you there at once; your group stands up there
   when the rest of it is down too.
