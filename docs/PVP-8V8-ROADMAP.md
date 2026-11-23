@@ -3073,13 +3073,33 @@ That is one measurement of one size: what 24 or 36 teams cost is M11.2.
   Emain Macha has them, and teams that port from one frontier to another.
 - [ ] **M11.4** (M) The evening: a pool larger than who is out, teams that log on and off, a
   population that rises, peaks and thins.
-- [ ] **M11.5** (S) What a player hears and can ask: sightings in realm chat ("3 groups of
-  Albion at the milegate"), and `/8v8 who` for the guilds that are out and where.
+- [ ] **M11.5** (S) What a player hears and can ask. *Built 2026-11-22, automated tests only;
+  not yet run on a server.*
+  - A group of the player's realm calls out in realm chat what it sees within 5,500 units:
+    "2fg albs at south road", "fighting 1fg mids at mid road", and when it is wiped "wiped at
+    north road, 3fg mids". One call in eight seconds, the same group about the same realm after
+    75, and nothing about enemies the player stands beside. The points of a map have names for
+    it; they are mine and the owner's to correct (Emain Macha: south, mid and north road, and
+    the north-west, west and south-west hills).
+  - `/8v8 who`: the guilds of the player's realm that are out, with rank, classes and whom they
+    walk with; of the other realms only how many groups are out.
+  - On a prime-time evening `/8v8 status` tells of the player's realm only. In the roam of six
+    it still lists every team, as the owner asked on 2026-11-22.
+  - `roam-start Listener=hibernia` writes that realm's chat to the recording when no player is
+    in the roam, to read it by.
 - [ ] **M11.6** (S) Memory: each guild's record against the player, and a grudge (a team beaten
   twice comes looking; a team that was added on remembers). Teams earn only while the player is
   online.
 - [ ] **M11.7** (M) The play install: 8v8 only (the gamebot population off, the frontier's
   monsters), delivery, and a backup of what is replaced. Only on the owner's word.
+
+**Found on the way (owner, 2026-11-22):** "I was the only one remaining alive from my group and
+I still had endurance up and running." In the recording of that roam the group's Bard died three
+times, and each time its song stayed up until the group stood up again, the last time for seven
+minutes. Dying ended every effect on a living except the pulse of a song itself, and the pulse
+went on casting for its dead caster. Fixed in the shared code (a death ends the pulses; a pulse
+whose caster is dead in the world ends at its next tick), for players, bots and monsters alike.
+*Automated test only; not yet installed.*
 
 **Exit check:** the owner plays an evening on the play install and names what is missing.
 
