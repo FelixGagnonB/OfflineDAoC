@@ -3089,7 +3089,7 @@ That is one measurement of one size: what 24 or 36 teams cost is M11.2.
     - *Not yet looked at:* whether a team that walks past a fight is left alone by it; what the
       teams that never add do all evening (two Midgard teams walked five legs in ten minutes
       without a fight).
-- [ ] **M11.2** (S) What it costs: 12, 24 and 36 teams on the scrim server, with the processor
+- [x] **M11.2** (S) What it costs: 12, 24 and 36 teams on the scrim server, with the processor
   time, the memory and the server's own stall warnings of each. Realm points are written to the
   roster file at every death, which may not hold at that size.
   *Measured 2026-11-22, bots only, one zone, on the owner's machine (six cores, twelve threads):*
@@ -3099,6 +3099,14 @@ That is one measurement of one size: what 24 or 36 teams cost is M11.2.
   | 6 (the owner's roam) | 48 | 15% | 6.4 GB | none while it ran |
   | 12 | 96 | 18% | 5.4 GB | one of 6.9 s at the start (every team made at once; fixed) |
   | 24 | 192 | 23% | 5.7 GB | none |
+  | 36 | 288 | 31% | 5.9 GB | none |
+
+  The machine is not what limits it: the zone is. With 36 guilds in Emain Macha, twelve minutes
+  in, 23 of the 36 were fighting at once, and by seconds of fighting 47% was in fights of five
+  teams or more, up to eleven (two-team fights: 15%; among twelve guilds they were 50%). So the
+  number that is out wants spreading over more zones (M11.3) before it wants raising. No error
+  in the server's log in any of the three evenings; nobody logged off in twelve minutes (the
+  most wipes of one team was two), so the rotation of M11.4 has not been seen to happen yet.
 - [ ] **M11.3** (M) More maps: Odin's Gate and Hadrian's Wall with points and walked legs as
   Emain Macha has them, and teams that port from one frontier to another.
 - [ ] **M11.4** (M) The evening: a pool larger than who is out, teams that log on and off, a
@@ -3126,6 +3134,14 @@ That is one measurement of one size: what 24 or 36 teams cost is M11.2.
 - [ ] **M11.6** (S) Memory: each guild's record against the player, and a grudge (a team beaten
   twice comes looking; a team that was added on remembers). Teams earn only while the player is
   online.
+  *Built 2026-11-22, automated tests only: a grudge needs a player, and none has played this.*
+  A guild's record against the player is kept from evening to evening (how often the player's
+  group wiped it, how often it was in on the player's wipe); `/8v8 rivals` lists the enemy
+  guilds that have one. A guild the player's group has wiped twice in an evening, or has added
+  on (come into a fight it had with somebody else), comes looking: from each point it takes the
+  way toward the player's group. One that was added on joins the next fight of the player's
+  group it comes on, whatever its kind. Teams exist only while a session runs, so they earn
+  only then.
 - [ ] **M11.7** (M) The play install: 8v8 only (the gamebot population off, the frontier's
   monsters), delivery, and a backup of what is replaced. Only on the owner's word.
 
