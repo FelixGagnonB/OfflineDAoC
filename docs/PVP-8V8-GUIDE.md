@@ -18,9 +18,11 @@ unfinished are in [PVP-8V8-ROADMAP.md](PVP-8V8-ROADMAP.md).
 | **Practice** (Lane or Basin) | One fight against one enemy group, for trying things. | 2 | Everybody at the rank you pick. Your timers are reset. Nothing is earned. |
 | **Real** (Lane or Basin) | The same one fight, for keeps. | 2 | Everybody at the rank it has earned, from rank 1. Kills earn realm points that are kept. No timer is reset. |
 | **Roam** (Emain Macha or Thidranki) | A session that goes on from fight to fight until you stop it. | 6: two of each realm, yours one of them | Always the Real rules. |
+| **Prime time** (the three frontiers) | An evening: guilds of every kind out in Emain Macha, Odin's Gate and Hadrian's Wall. | 24 by default: eight of each realm, yours one of them | Always the Real rules. Each guild has the rank of its kind and of what it has earned. |
 
 Picking **Real** does not start the roam: Real and Practice are the rules of a single fight. The
-six groups are the **Roam** and **Thidranki** starts.
+six groups are the **Roam** and **Thidranki** starts. Prime time is typed (`/8v8 prime`); it is
+not in the setup window yet.
 
 ### A single fight: Lane or Basin
 
@@ -67,6 +69,47 @@ starts of the setup window.
   over, shared among the members of the groups that were fighting the dead one's group and are
   near. Standing by a fight earns nothing. Yours go on your character.
   Every group keeps what it earns from one session to the next: `/8v8 ranks` lists them.
+
+### Prime time
+
+`/8v8 prime` starts an evening over the three old frontiers. **It has only been run with bots: no
+player has played it yet.**
+
+- `/8v8 prime [zone] [number] [one]`. *zone* is where you begin: `emain` (if you give none),
+  `odin` or `hadrian`; `thid` is Thidranki alone. *number* is the groups of each realm: 8 if you
+  give none, 12 at most. `one` keeps the evening in that one zone.
+- **Who is out.** Guilds, each with a name its members wear, a kind, its own eight and a rank.
+  They are kept from evening to evening (`pvp-teams.json` beside the server), with their records.
+  The names are invented; you can put guilds you remember in the file.
+
+  | Kind | Share | Walks | Adds on a fight | Its eight | Rank it began at |
+  |---|---|---|---|---|---|
+  | Bad | 30% | in a pack of two to five | always, and without counting the enemy | one or two healers, speed six times in ten, anybody | 1 to 3 |
+  | Casual, stays near others | 15% | 1,800 to 3,500 behind a group of its realm (maybe yours) | nine times in ten | two healers, speed, anybody | 2 to 4 |
+  | Casual 8v8 | 15% | alone | eight times in ten | the main group with one or two changed | 3 to 5 |
+  | Decent 8v8 | 20% | alone | never | the main group | 4 to 6 |
+  | Strong 8v8 | 15% | alone | never | the main group | 6 to 8 |
+  | Elite 8v8 | 5% | alone, leaning to the quiet ground | never | the main group | 8 to 10 |
+
+  A guild's rank does not follow yours: an elite team outranks a new character by a lot.
+- **Where they go.** Nobody walks a fixed round. At each point a guild picks where to go next,
+  not back the way it came. One that does not add turns back from a fight it comes on, or walks
+  on past it. One that does not count heads walks into anything; the others do not start on more
+  groups than they have together.
+- **The evening moves.** Guilds come out one by one over the first minutes. A guild logs off
+  when it has been wiped three times, or after 25 to 50 minutes, and another of its realm comes
+  out. A guild that walks alone and is wiped ports to another frontier one time in three.
+- **What you know.** Of your own realm: `/8v8 who` (the guilds that are out, rank, classes,
+  zone, whom they walk with) and `/8v8 status` (what each is doing). Of the others: how many
+  groups are out, and what your realm calls out in realm chat when it sees them, such as
+  "2fg albs at south road (Emain)", "fighting 1fg mids at north road (Odin's)", "wiped at east
+  gate (Hadrian's), 3fg mids". The names of the places are made up for now.
+- **Going elsewhere.** `/8v8 go odin`, `/8v8 go hadrian`, `/8v8 go emain`: your group ports to
+  your realm's start there. Not out of a fight.
+- **Grudges.** A guild your group has wiped twice in an evening comes looking for you. One you
+  added on (you came into a fight it had with somebody else) comes looking too, and joins the
+  next fight of yours it comes on, whatever its kind. `/8v8 rivals` lists the enemy guilds you
+  have wiped or been wiped by, over all evenings.
 
 ## Your group
 

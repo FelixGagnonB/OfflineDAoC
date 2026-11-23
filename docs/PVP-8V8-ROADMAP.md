@@ -3109,6 +3109,31 @@ That is one measurement of one size: what 24 or 36 teams cost is M11.2.
   most wipes of one team was two), so the rotation of M11.4 has not been seen to happen yet.
 - [ ] **M11.3** (M) More maps: Odin's Gate and Hadrian's Wall with points and walked legs as
   Emain Macha has them, and teams that port from one frontier to another.
+  *Built 2026-11-22 and run with bots only; seen in no client.*
+  - Eight points in each zone, every leg checked by itself on the installed navmesh (within 13%
+    of the straight line), found with `source/tools/pvp_map_points.py`. **Hadrian's Wall** is a
+    U round the wall, crossed in the west and in the east: its north half is cut in two between
+    the portal keeps, and Caer Benowyc opens to the west, so Albion's first point is the road
+    west of its keep. **Odin's Gate** is a ring through its east half: its west side is cut in
+    two between the two portal keeps and its middle is not crossed, so Hibernia goes east along
+    the north and Albion along the south. Each realm starts 2,500 units in front of its keep
+    (its own in its home zone, its portal keep elsewhere). The names of the points are mine.
+  - Each team is in one zone and reckons only with teams of that zone. A team that walks alone,
+    or the head of a pack, takes the zone that has the fewest groups of its realm, so a realm's
+    pack is in one zone one evening and in another the next; a team that walks with another
+    goes where that one goes. A guild that walks alone and is wiped ports to another frontier
+    one time in three. `/8v8 go <zone>` takes the player's group to its realm's start in
+    another zone, out of a fight only; the seven are made anew there. Realm chat names the
+    zone. `roam-start Prime=8 Zones=all` on the control channel.
+  - **A three-zone evening of 24 guilds, 12 minutes, bots only:** 23% of one core, as in one
+    zone. Fights in all three zones (Emain Macha 70, Odin's Gate 16, Hadrian's Wall 16, with
+    twelve of the 24 in Emain Macha: each realm's pack had been put in the first zone, which
+    is what the rule above replaced; the next start had 8, 9 and 7 guilds a zone, each realm's
+    pack in a different one). By seconds of fighting: two teams 41%, three 35%, four or more
+    24%. One stall of 1.2 s in the first minutes, while teams were coming out. No port and no
+    log-off happened in twelve minutes: neither has been seen yet.
+  - The roam of six stays in Emain Macha and Thidranki: the ways of the two new zones do not
+    close into a round.
 - [ ] **M11.4** (M) The evening: a pool larger than who is out, teams that log on and off, a
   population that rises, peaks and thins.
   *Built 2026-11-22:* a guild comes out when its time has come (M11.1); it logs off when it has
