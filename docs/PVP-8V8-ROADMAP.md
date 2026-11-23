@@ -3013,6 +3013,76 @@ round:*
 
 ---
 
+## M11. Prime time
+
+**Goal (owner, 2026-11-22):** "I always preferred the competitive aspect of 8v8 and the unknown
+from roaming: which team will we face, how many teams (1 team, a zerg [many teams]), where, will
+we jump them or will we get jumped, etc. I am interested in looking if we can recreate the early
+2000 DAoC evening prime time." For the play install (`D:\OfflineDAoC`), which the owner wants
+"mostly only 8v8". Everything is built and tried on the scrim server first; nothing goes to the
+play install without the owner's word.
+
+**The kinds of team, in the owner's words, and a ratio** ("like 5% elite, 15% strong, 20% decent,
+30% casual and 30% bad, or something like that"):
+
+| Kind | Share | Walks | Adds | Group | Rank it begins at | Level of play |
+|---|---|---|---|---|---|---|
+| Bad: "running with more than 1 other group, sometime up to 5-6 groups sticking with each others. Most of these groups would run sub optimal composition" | 30% | in a pack of two to five | always | one healer, speed six times in ten, anybody | 1 to 3 | Casual |
+| Casual: "roaming but staying close to other groups" | 15% | within sight of a friendly group | nine times in ten | two healers, speed, anybody | 2 to 4 | Casual |
+| Casual 8v8: "would not hesitate to add and collect rps" | 15% | alone | eight times in ten | the main group with one or two changed | 3 to 5 | Seasoned |
+| Decent 8v8: "would not add" | 20% | alone | never | the main group | 4 to 6 | Seasoned |
+| Strong 8v8 | 15% | alone | never | the main group | 6 to 8 | Sharp |
+| Elite 8v8: "only 8v8 in specific area to avoid not clean fights" | 5% | alone, leaning to the quiet ground | never | the main group | 8 to 10 | Sharp |
+
+The kinds differ in what a player can see (who they walk with, whether they add, who is in the
+group, their rank), because the three levels of play alone were not felt (M10.2). No kind makes a
+bot stronger in itself.
+
+**What was measured before starting (2026-11-22):** during the owner's roam of six teams (48 bots)
+the scrim server used 15% of one processor core of twelve threads and 6.4 GB, which is what it
+holds idle. Navigation data is installed for all the old frontier zones and the battlegrounds.
+That is one measurement of one size: what 24 or 36 teams cost is M11.2.
+
+- [ ] **M11.1** (M) A pool of guild teams and a roam of any number of them. *Built 2026-11-22,
+  automated tests only; not yet run on a server.*
+  - A team is a guild: a name, a kind, eight builds and the realm level its members begin at,
+    kept beside the server in `pvp-teams.json` by pool (`world` for play; a test names its own).
+    Its members' names and realm points are in the roster file under the pool and its id, and
+    what it earns comes on top of what it began with. 26 invented guild names a realm; the owner
+    may put remembered ones in the file.
+  - `/8v8 prime [thid] [number]` (4 groups a realm by default, 12 at most until M11.2 has
+    measured), and `roam-start Prime=8 Pool=test` on the control channel. The player's group is
+    one of its realm's.
+  - A guild team walks from point to point as it pleases along the legs of the map that were
+    walked (Emain Macha: seven legs between its six points), not back the way it came. The head
+    of a pack leans to the road, an elite team to the west side.
+  - The bad groups of a realm are put in packs of two to five behind one of them: they set off
+    together, walk to the same point, a group that falls more than 2,000 behind runs after the
+    head, and the head gives them up to 25 seconds at each point. A casual group that stays near
+    others picks a group of its realm that walks alone (the player's may be it) and keeps within
+    4,500 of it.
+  - Each kind adds as the table says. "Joins after all" (two teams of one realm on a realm-mate)
+    is off for guild teams. A team that counts heads does not start on more groups than it has
+    together itself; a bad group does not count.
+  - Its members play at the level of their kind and wear the guild's name.
+  - Not built yet: an elite team leaving a fight that gets dirty; a group with fewer than eight.
+- [ ] **M11.2** (S) What it costs: 12, 24 and 36 teams on the scrim server, with the processor
+  time, the memory and the server's own stall warnings of each. Realm points are written to the
+  roster file at every death, which may not hold at that size.
+- [ ] **M11.3** (M) More maps: Odin's Gate and Hadrian's Wall with points and walked legs as
+  Emain Macha has them, and teams that port from one frontier to another.
+- [ ] **M11.4** (M) The evening: a pool larger than who is out, teams that log on and off, a
+  population that rises, peaks and thins.
+- [ ] **M11.5** (S) What a player hears and can ask: sightings in realm chat ("3 groups of
+  Albion at the milegate"), and `/8v8 who` for the guilds that are out and where.
+- [ ] **M11.6** (S) Memory: each guild's record against the player, and a grudge (a team beaten
+  twice comes looking; a team that was added on remembers). Teams earn only while the player is
+  online.
+- [ ] **M11.7** (M) The play install: 8v8 only (the gamebot population off, the frontier's
+  monsters), delivery, and a backup of what is replaced. Only on the owner's word.
+
+**Exit check:** the owner plays an evening on the play install and names what is missing.
+
 ## Scorecard
 
 Targets are first guesses and will be reset once the M3 baseline exists.
