@@ -3134,6 +3134,26 @@ That is one measurement of one size: what 24 or 36 teams cost is M11.2.
     log-off happened in twelve minutes: neither has been seen yet.
   - The roam of six stays in Emain Macha and Thidranki: the ways of the two new zones do not
     close into a round.
+  - **Two longer evenings the same night (24 guilds, three zones, bots only), 25 and 20
+    minutes.** No error in the server's log and no stall in either.
+    - *Seen to happen:* five ports to another frontier, four log-offs after a third wipe, each
+      followed within a minute by another guild of that realm coming out.
+    - *The first showed, and the second was run after changing:* a pack came apart whenever
+      its head was wiped (its followers were within reach of the head 0 to 23% of the time in
+      two packs of three): the pack now goes on behind whoever of it is on the road. A group
+      that stays near others crossed the zone alone to the group it had been with (one was a
+      middle 29,000 units from it and was wiped three times): it now picks the nearest group
+      of its realm when it stands up. A strong team walked 31 legs in 25 minutes and fought
+      nobody, because a guild that does not add turned back from every fight at once: it now
+      stands by for 45 seconds for the fight to end, then turns back or walks on.
+    - *The second, after those changes:* every one of the 24 guilds that began the evening
+      had fights (two at the least, nine at the most); the teams that never add had three to
+      seven each. By seconds of fighting: two teams 28%, three 40%, four 26%, five or more 6%.
+      Draws: bad 21 joins of 21, casual near others 21 of 22, casual 8v8 11 of 11, decent 0 of
+      17, strong 0 of 10, elite 0 of 6.
+    - *Not measured properly:* how well a pack holds together now. The reader
+      (`source/tools/pvp_prime.py`) still measures a follower's distance to the pack's first
+      head, not to the team it walks behind.
 - [ ] **M11.4** (M) The evening: a pool larger than who is out, teams that log on and off, a
   population that rises, peaks and thins.
   *Built 2026-11-22:* a guild comes out when its time has come (M11.1); it logs off when it has
@@ -3177,6 +3197,16 @@ minutes. Dying ended every effect on a living except the pulse of a song itself,
 went on casting for its dead caster. Fixed in the shared code (a death ends the pulses; a pulse
 whose caster is dead in the world ends at its next tick), for players, bots and monsters alike.
 *Automated test only; not yet installed.*
+
+**Where M11 stands after its first night (2026-11-22 to 23).** Built and run with bots on the
+scrim server: M11.1 to M11.6. Seen in a client: nothing. Needs a player to be seen at all: the
+grudges and `/8v8 rivals` (M11.6), `/8v8 go`, `/8v8 who`, realm chat as a player reads it, the
+guild names under the bots, and whether a team coming out or standing up is felt as a hitch (one
+stall of 1.2 s was logged in four evenings after teams stopped being made all at once). Not
+built: an elite team leaving a fight that gets dirty; a group of fewer than eight; a population
+that rises and thins; prime time in the setup window. The play install has the release build of
+2026-10-18, with no 8v8 in it at all: M11.7 is an install of the current build over it, with a
+backup, on the owner's word.
 
 **Exit check:** the owner plays an evening on the play install and names what is missing.
 
