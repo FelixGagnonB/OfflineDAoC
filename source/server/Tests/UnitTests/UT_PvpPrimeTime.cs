@@ -311,6 +311,39 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void AGuildRemembers()
+        {
+            // "a team beaten twice comes looking; a team that was added on remembers"
+            Assert.That(PvpRoam.ComesLooking(1, false), Is.False);
+            Assert.That(PvpRoam.ComesLooking(2, false), Is.True);
+            Assert.That(PvpRoam.ComesLooking(0, true), Is.True);
+            Assert.That(PvpRoam.PaysBack(true, true), Is.True);
+            Assert.That(PvpRoam.PaysBack(true, false), Is.False, "somebody else's fight: it does as its kind does");
+            Assert.That(PvpRoam.PaysBack(false, true), Is.False);
+            // Added on: the player's group came into a fight it had with somebody else.
+            Assert.That(PvpRoam.WasAddedOn(true, 1, false), Is.True);
+            Assert.That(PvpRoam.WasAddedOn(true, 0, false), Is.False, "a fight of the two of them");
+            Assert.That(PvpRoam.WasAddedOn(true, 1, true), Is.False, "it was the one that added");
+            Assert.That(PvpRoam.WasAddedOn(false, 2, false), Is.False);
+            // It goes toward the player's group: from the south end of the road, north along it for a group in the north, west for one in the west.
+            Assert.That(PvpRoam.PointToward(PvpRoam.Emain, PvpRoam.South, (PvpRoam.North.X, PvpRoam.North.Y)), Is.EqualTo(PvpRoam.Middle));
+            Assert.That(PvpRoam.PointToward(PvpRoam.Emain, PvpRoam.South, (PvpRoam.WestSouth.X - 500, PvpRoam.WestSouth.Y)), Is.EqualTo(PvpRoam.WestSouth));
+            Assert.That(PvpRoam.PointToward(new PvpRoamMap("y", "y", 1, []), (5, 5), (0, 0)), Is.EqualTo((5, 5)));
+
+            // Its record against the player is kept from evening to evening.
+            List<PvpGuildTeam> pool = PvpTeamPool.Generate(2, new Random(5));
+            var evening = new Dictionary<string, PvpEvening> { [pool[0].Id] = new PvpEvening(4, 20, 16, 2, 2, 1) };
+            List<PvpGuildTeam> after = PvpTeamPool.Recorded(PvpTeamPool.Recorded(pool, evening), evening);
+            Assert.That(after[0].Evenings, Is.EqualTo(2));
+            Assert.That(after[0].WipedByPlayer, Is.EqualTo(4));
+            Assert.That(after[0].WipedPlayer, Is.EqualTo(2));
+            Assert.That(after[0].Wipes, Is.EqualTo(4));
+            Assert.That(after[1], Is.EqualTo(pool[1]), "it was not out");
+            Assert.That(PvpRoam.RivalLine("The Iron Longship", "Midgard", 3, 2, 1, 0),
+                Is.EqualTo("The Iron Longship <Midgard>: you wiped them 3 times (2 tonight), they were in on your wipe 1 time"));
+        }
+
+        [Test]
         public void TeamsComeOutOneByOne()
         {
             var real = new PvpRealWeights();

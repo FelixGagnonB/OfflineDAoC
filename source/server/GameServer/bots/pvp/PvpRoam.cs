@@ -61,6 +61,9 @@ namespace DOL.GS
         public long ComesOutAt, LogsOffAt;
         /// <summary>Which of its realm's teams it is at the start (its place there, and which first point it takes).</summary>
         public int Index;
+        /// <summary>This evening: how often the player's group wiped it, how often it was in the fight that wiped the player's, and whether the player's group came into a fight of its own.</summary>
+        public int WipedByPlayer, WipedPlayer;
+        public bool AddedOnByPlayer;
         public readonly PvpTeam Team = new();
         /// <summary>Everything it put in the world: its eight and its buffbot.</summary>
         public readonly List<GameBot> All = [];
@@ -313,6 +316,33 @@ namespace DOL.GS
         /// <summary>How long a guild stays out, in seconds: 25 to 50 minutes. <paramref name="roll"/> is any number that is not negative.</summary>
         public static int EveningSeconds(int roll) => 25 * 60 + Math.Abs(roll) % (25 * 60 + 1);
 
+        /// <summary>
+        /// A guild's grudge (M11.6), this evening: one the player's group has wiped twice "comes
+        /// looking" (it goes from point to point toward the player's group instead of as it
+        /// pleases), and so does one the player's group has added on.
+        /// </summary>
+        public static bool ComesLooking(int wipedByThePlayerThisEvening, bool addedOnByThePlayer) => wipedByThePlayerThisEvening >= 2 || addedOnByThePlayer;
+
+        /// <summary>
+        /// "A team that was added on remembers": a guild the player's group has added on joins
+        /// the next fight of the player's group it comes on, whatever its kind does otherwise.
+        /// </summary>
+        public static bool PaysBack(bool addedOnByThePlayer, bool thePlayersGroupIsInTheFight) => addedOnByThePlayer && thePlayersGroupIsInTheFight;
+
+        /// <summary>
+        /// The player's group has added on a team: it came into a fight that team was in with
+        /// somebody else, and that team had not come into the fight by a draw of its own.
+        /// </summary>
+        public static bool WasAddedOn(bool thePlayersGroupIsNewInItsFight, int othersItWasFighting, bool itJoinedByItsOwnDraw) =>
+            thePlayersGroupIsNewInItsFight && othersItWasFighting >= 1 && !itJoinedByItsOwnDraw;
+
+        /// <summary>The point a way leads to from <paramref name="at"/> that is nearest to a place: where a team that comes looking goes next.</summary>
+        public static (int X, int Y) PointToward(PvpRoamMap map, (int X, int Y) at, (double X, double Y) place)
+        {
+            List<(int X, int Y)> choices = map.From(at);
+            return choices.Count == 0 ? at : choices.OrderBy(point => Math.Pow(point.X - place.X, 2) + Math.Pow(point.Y - place.Y, 2)).First();
+        }
+
         /// <summary>A group that stays near others comes no nearer to them than this: it trails, it does not stand in them.</summary>
         public const int TrailsBehind = 1_800;
 
@@ -543,6 +573,33 @@ namespace DOL.GS
                 lines.Add(OutAgainst(teams.Where(team => team.Realm != viewer.Realm && team.State != "Away").GroupBy(team => team.Realm).Select(realm => (realm.Key, realm.Count())).ToList()));
             return lines;
         }
+
+        /// <summary>
+        /// <c>/8v8 rivals</c>: the guilds of the other realms the player's group has wiped or
+        /// been wiped by, most met first, with this evening's numbers beside those of all
+        /// evenings. Only what the player has seen happen: nothing about where anybody is.
+        /// </summary>
+        public static List<string> RivalLines(GamePlayer viewer)
+        {
+            List<PvpRoamTeam> teams = _teams;
+            Dictionary<string, PvpRoamTeam> tonight = teams.Concat(Gone).Where(team => team.Guild != null)
+                .GroupBy(team => team.Guild.Id).ToDictionary(same => same.Key, same => same.First());
+            var lines = new List<string>();
+            foreach (PvpGuildTeam guild in PvpTeamPool.Load(AppContext.BaseDirectory, _pool ?? PvpTeamPool.World)
+                         .Where(guild => viewer == null || guild.ToRealm() != viewer.Realm))
+            {
+                tonight.TryGetValue(guild.Id, out PvpRoamTeam now);
+                int wiped = guild.WipedByPlayer + (now?.WipedByPlayer ?? 0), wipedYou = guild.WipedPlayer + (now?.WipedPlayer ?? 0);
+                if (wiped + wipedYou == 0)
+                    continue;
+                lines.Add(RivalLine(guild.Guild, NameOf(guild.ToRealm()), wiped, now?.WipedByPlayer ?? 0, wipedYou, now?.WipedPlayer ?? 0));
+            }
+            return lines.OrderByDescending(line => line.Length).ToList();
+        }
+
+        public static string RivalLine(string guild, string realm, int wiped, int wipedTonight, int wipedYou, int wipedYouTonight) =>
+            $"{guild} <{realm}>: you wiped them {wiped} {(wiped == 1 ? "time" : "times")}{(wipedTonight > 0 ? $" ({wipedTonight} tonight)" : string.Empty)}, " +
+            $"they were in on your wipe {wipedYou} {(wipedYou == 1 ? "time" : "times")}{(wipedYouTonight > 0 ? $" ({wipedYouTonight} tonight)" : string.Empty)}";
 
         /// <summary>A line of realm chat for the player, from a member of a group of its realm; written to the log and the recording too.</summary>
         private static void RealmChat(List<PvpRoamTeam> teams, PvpRoamTeam from, string text)
@@ -825,7 +882,8 @@ namespace DOL.GS
             // What each guild did this evening goes on its record.
             if (Interlocked.Exchange(ref _pool, null) is { } pool)
                 PvpTeamPool.Record(AppContext.BaseDirectory, pool, teams.Concat(Gone).Where(team => team.Guild != null && team.ComesOutAt <= GameLoop.GameLoopTime)
-                    .GroupBy(team => team.Guild.Id).ToDictionary(same => same.Key, same => (same.First().Fights, same.First().Kills, same.First().Deaths, same.First().Wipes)));
+                    .GroupBy(team => team.Guild.Id).ToDictionary(same => same.Key, same => new PvpEvening(same.First().Fights, same.First().Kills,
+                        same.First().Deaths, same.First().Wipes, same.First().WipedByPlayer, same.First().WipedPlayer)));
             foreach (PvpRoamTeam team in Gone)
                 PvpArena.Remove(team.All);
             Gone.Clear();
@@ -1041,6 +1099,14 @@ namespace DOL.GS
                     team.Wipes++;
                     // Its last to fall are paid for before the fight is forgotten.
                     Pay(team, real, now);
+                    // Who wiped whom, for the guilds' records against the player and for their grudges.
+                    foreach (PvpRoamTeam winner in team.Fighting)
+                    {
+                        if (team.Leader != null)
+                            winner.WipedPlayer++;
+                        else if (winner.Leader != null)
+                            team.WipedByPlayer++;
+                    }
                     // On a prime-time evening the realm hears of it.
                     if (Prime && team.Leader == null && team.Realm == Hears(teams) && team.Fighting.Count > 0)
                     {
@@ -1083,7 +1149,8 @@ namespace DOL.GS
                     // What it drew for another team of the same fight holds for this one.
                     bool? drawn = team.Draws.Where(draw => theirFight.Contains(draw.Key)).Select(draw => (bool?)draw.Value).FirstOrDefault();
                     // (A guild adds as its kind does: a bad group always, a decent one never.)
-                    bool joins = drawn ?? Joins(team.Profile?.AddChancePercent ?? real.AddChancePercent, Random.Shared.Next(100));
+                    bool joins = drawn ?? (PaysBack(team.AddedOnByPlayer, other.Leader != null || theirFight.Any(third => third.Leader != null)) ||
+                                           Joins(team.Profile?.AddChancePercent ?? real.AddChancePercent, Random.Shared.Next(100)));
                     team.Draws[other] = joins;
                     if (drawn == null)
                     {
@@ -1149,6 +1216,12 @@ namespace DOL.GS
                 if (AtEachOther(team, other) && Near(team, other, PvpScrim.EngageRange) && team.Fighting.Add(other))
                 {
                     team.Fights++;
+                    if (team.Guild != null && !team.AddedOnByPlayer &&
+                        WasAddedOn(other.Leader != null, team.Fighting.Count(third => third != other && third.Alive > 0), team.Draws.Any(draw => draw.Value)))
+                    {
+                        team.AddedOnByPlayer = true;
+                        Say($"{team.Name} was added on by {other.Name}, and remembers", new { what = "addedon", team = team.Name, by = other.Name });
+                    }
                     Say($"{team.Name} ({team.Alive}) fights {other.Name} ({other.Alive})",
                         new { what = "fight", team = team.Name, other = other.Name, alive = team.Alive, theirs = other.Alive });
                 }
@@ -1431,7 +1504,12 @@ namespace DOL.GS
             // The head of a pack keeps to the road, where the fights are; an elite group to the quiet ground.
             int leaning = team.Profile is { KeepsToQuietGround: true } ? 1 : team.Profile is { Company: PvpCompany.Zerg } ? -1 : 0;
             (int X, int Y) next = NextPoint(_map, at, team.CameFrom, leaning, Random.Shared.Next());
-            Say($"{team.Name} goes on", new { what = "leg", team = team.Name, from = new[] { at.X, at.Y }, to = new[] { next.X, next.Y } });
+            // A guild with a grudge goes toward the player's group.
+            bool looking = ComesLooking(team.WipedByPlayer, team.AddedOnByPlayer) && teams.FirstOrDefault(mine => mine.Leader != null && mine.Alive > 0) is { } hunted;
+            if (looking)
+                next = PointToward(_map, at, teams.First(mine => mine.Leader != null && mine.Alive > 0).Centre());
+            Say($"{team.Name} goes on{(looking ? ", looking for the player's group" : string.Empty)}",
+                new { what = "leg", team = team.Name, from = new[] { at.X, at.Y }, to = new[] { next.X, next.Y }, looking });
             (team.CameFrom, team.Team.Route, team.Team.Waypoint, team.ArrivedAt) = (at, [next], 0, 0);
             return false;
         }

@@ -78,13 +78,17 @@ namespace DOL.GS
     /// it is and what it has done.
     /// </summary>
     /// <param name="SeedLevel">The realm level its members had on their first evening; what they earn comes on top.</param>
+    /// <param name="WipedByPlayer">How often the player's group has wiped it, over all evenings; and how often it was in the fight that wiped the player's.</param>
     public sealed record PvpGuildTeam(string Id, string Guild, string Realm, string Kind, List<string> Builds, int SeedLevel,
-        int Evenings = 0, int Fights = 0, int Kills = 0, int Deaths = 0, int Wipes = 0)
+        int Evenings = 0, int Fights = 0, int Kills = 0, int Deaths = 0, int Wipes = 0, int WipedByPlayer = 0, int WipedPlayer = 0)
     {
         public eRealm ToRealm() => Enum.TryParse(Realm, true, out eRealm realm) ? realm : eRealm.None;
         public PvpTeamProfile ToProfile() => PvpTeamProfile.Of(Kind);
         public PvpGroupTemplate ToTemplate() => new(Id, ToRealm(), Builds);
     }
+
+    /// <summary>What a guild did in one evening, for its record.</summary>
+    public readonly record struct PvpEvening(int Fights, int Kills, int Deaths, int Wipes, int WipedByPlayer = 0, int WipedPlayer = 0);
 
     /// <summary>
     /// The teams of the world (M11): made once, with a guild name and a kind each in the owner's
@@ -328,7 +332,7 @@ namespace DOL.GS
         }
 
         /// <summary>Adds an evening to the record of the teams that were out. Never throws.</summary>
-        public static void Record(string folder, string pool, IReadOnlyDictionary<string, (int Fights, int Kills, int Deaths, int Wipes)> evening)
+        public static void Record(string folder, string pool, IReadOnlyDictionary<string, PvpEvening> evening)
         {
             if (evening == null || evening.Count == 0)
                 return;
@@ -337,15 +341,20 @@ namespace DOL.GS
                 List<PvpGuildTeam> teams = Load(folder, pool);
                 if (teams.Count == 0)
                     return;
-                Save(folder, pool, teams.Select(team => evening.TryGetValue(team.Id, out (int Fights, int Kills, int Deaths, int Wipes) did)
-                    ? team with
-                    {
-                        Evenings = team.Evenings + 1, Fights = team.Fights + did.Fights, Kills = team.Kills + did.Kills,
-                        Deaths = team.Deaths + did.Deaths, Wipes = team.Wipes + did.Wipes,
-                    }
-                    : team).ToList());
+                Save(folder, pool, Recorded(teams, evening));
             }
         }
+
+        /// <summary>A pool with an evening added to the records of the teams that were out. Nothing is written.</summary>
+        public static List<PvpGuildTeam> Recorded(IEnumerable<PvpGuildTeam> teams, IReadOnlyDictionary<string, PvpEvening> evening) =>
+            teams.Select(team => evening.TryGetValue(team.Id, out PvpEvening did)
+                ? team with
+                {
+                    Evenings = team.Evenings + 1, Fights = team.Fights + did.Fights, Kills = team.Kills + did.Kills,
+                    Deaths = team.Deaths + did.Deaths, Wipes = team.Wipes + did.Wipes,
+                    WipedByPlayer = team.WipedByPlayer + did.WipedByPlayer, WipedPlayer = team.WipedPlayer + did.WipedPlayer,
+                }
+                : team).ToList();
 
         private static void Save(string folder, string pool, List<PvpGuildTeam> teams)
         {

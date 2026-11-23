@@ -3043,8 +3043,9 @@ the scrim server used 15% of one processor core of twelve threads and 6.4 GB, wh
 holds idle. Navigation data is installed for all the old frontier zones and the battlegrounds.
 That is one measurement of one size: what 24 or 36 teams cost is M11.2.
 
-- [ ] **M11.1** (M) A pool of guild teams and a roam of any number of them. *Built 2026-11-22,
-  automated tests only; not yet run on a server.*
+- [x] **M11.1** (M) A pool of guild teams and a roam of any number of them. *Built 2026-11-22
+  and run the same night on the scrim server with bots only (12 and 24 guilds); seen in no
+  client.*
   - A team is a guild: a name, a kind, eight builds and the realm level its members begin at,
     kept beside the server in `pvp-teams.json` by pool (`world` for play; a test names its own).
     Its members' names and realm points are in the roster file under the pool and its id, and
@@ -3066,13 +3067,48 @@ That is one measurement of one size: what 24 or 36 teams cost is M11.2.
     together itself; a bad group does not count.
   - Its members play at the level of their kind and wear the guild's name.
   - Not built yet: an elite team leaving a fight that gets dirty; a group with fewer than eight.
+  - **What the two evenings of bots showed (2026-11-22, Emain Macha).**
+    - *The kinds add as they should.* Draws on a fight a team came on, joins against leaves:
+      twelve guilds, 7 minutes: bad 1/0, clingy 1/0, decent 0/5, strong 0/5. Twenty-four guilds,
+      10 minutes: bad 17/0, clingy 10/1, casual 8v8 8/4, decent 0/15, strong 0/18, elite 0/6.
+    - *Company.* A group that stays near others was within reach of its group 97 to 99% of the
+      time among twelve (but one stood a middle 4 units from it: it now trails 1,800 behind),
+      and 49 to 95% among twenty-four, a middle 4,000 to 5,700 away (the reach is 3,500 now, was
+      4,500). A pack's followers were a middle 600 to 1,500 from their head and within reach 62
+      to 100% of the time; one that has been wiped walks back to its pack alone, across the map.
+    - *How large the fights were*, by seconds of fighting among twenty-four guilds: two teams
+      28%, three 29%, four 30%, five 13%. Among twelve: two 50%, three 8%, four 41%.
+    - *Changed from what they showed.* All twelve teams made in one moment stopped the server
+      for 6.9 s: a guild now comes out when its time has come (a realm's half a minute apart,
+      the realms ten seconds apart), and there was no stall in the second evening. Teams that
+      do not add stood "waiting by a fight" for minutes, three Albion teams before the south
+      end of the road, their only way in: a guild now turns back the way it came, or before
+      its first point walks on past. A bad group was drawn with three Healers and three
+      Shamans: two healers and two of a build at most. Realm chat said the same thing every
+      75 s, then every 18 s: now once for a realm at a place until more groups come there.
+    - *Not yet looked at:* whether a team that walks past a fight is left alone by it; what the
+      teams that never add do all evening (two Midgard teams walked five legs in ten minutes
+      without a fight).
 - [ ] **M11.2** (S) What it costs: 12, 24 and 36 teams on the scrim server, with the processor
   time, the memory and the server's own stall warnings of each. Realm points are written to the
   roster file at every death, which may not hold at that size.
+  *Measured 2026-11-22, bots only, one zone, on the owner's machine (six cores, twelve threads):*
+
+  | Teams | Bots | Of one core | Memory | Stalls the server reported |
+  |---|---|---|---|---|
+  | 6 (the owner's roam) | 48 | 15% | 6.4 GB | none while it ran |
+  | 12 | 96 | 18% | 5.4 GB | one of 6.9 s at the start (every team made at once; fixed) |
+  | 24 | 192 | 23% | 5.7 GB | none |
 - [ ] **M11.3** (M) More maps: Odin's Gate and Hadrian's Wall with points and walked legs as
   Emain Macha has them, and teams that port from one frontier to another.
 - [ ] **M11.4** (M) The evening: a pool larger than who is out, teams that log on and off, a
   population that rises, peaks and thins.
+  *Built 2026-11-22:* a guild comes out when its time has come (M11.1); it logs off when it has
+  been wiped three times, or when its time is up (25 to 50 minutes from its coming out) at its
+  next wipe or on the road with nobody about; another guild of its realm that has not been out
+  that evening, of its kind when there is one, comes out in its place within a minute. A pack
+  whose head logs off goes on behind the first of its others. *Not built:* a population that
+  rises and thins (the number out stays what it was).
 - [ ] **M11.5** (S) What a player hears and can ask. *Built 2026-11-22, automated tests only;
   not yet run on a server.*
   - A group of the player's realm calls out in realm chat what it sees within 5,500 units:
