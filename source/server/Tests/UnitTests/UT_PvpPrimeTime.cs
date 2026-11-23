@@ -404,6 +404,9 @@ namespace DOL.UnitTests
             Assert.That(PvpRoam.TrailsBehind, Is.LessThan(PvpRoam.KeepsWithin(PvpCompany.Near)), "a group that stays near has room to trail in");
             Assert.That(PvpRoam.KeepsWithin(PvpCompany.Zerg), Is.LessThan(PvpRoam.KeepsWithin(PvpCompany.Near)));
             Assert.That(PvpRoam.KeepsWithin(PvpCompany.Zerg), Is.LessThanOrEqualTo(PvpRoam.BesideWithin), "a pack counts as together");
+            // A guild that does not add gives a fight three quarters of a minute to end, then goes.
+            Assert.That(PvpRoam.GivesUpWaiting(20), Is.False);
+            Assert.That(PvpRoam.GivesUpWaiting(60), Is.True);
             Assert.That(PvpRoam.PackWaits(true, 5), Is.True);
             Assert.That(PvpRoam.PackWaits(true, 30), Is.False, "it does not wait for ever");
             Assert.That(PvpRoam.PackWaits(false, 5), Is.False);

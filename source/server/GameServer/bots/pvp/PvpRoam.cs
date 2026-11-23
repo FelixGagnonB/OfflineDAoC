@@ -78,6 +78,11 @@ namespace DOL.GS
         public bool Quiet = true;
         /// <summary>Standing by a fight it has left to its realm-mate.</summary>
         public bool Waiting;
+        /// <summary>Since when it stands by that fight; and that it has given up waiting for it to end.</summary>
+        public long WaitingSince;
+        public bool GaveUpWaiting;
+        /// <summary>On the head of a pack: the team of the pack that the others walk behind now (the head itself, until it is down).</summary>
+        public PvpRoamTeam PackLead;
         /// <summary>It has had its rest since its last fight.</summary>
         public bool Rested;
         /// <summary>The place off its road it is walking to, to rest there; null when it rests where it is or not at all.</summary>
@@ -402,6 +407,16 @@ namespace DOL.GS
             List<(int X, int Y)> choices = map.From(at);
             return choices.Count == 0 ? at : choices.OrderBy(point => Math.Pow(point.X - place.X, 2) + Math.Pow(point.Y - place.Y, 2)).First();
         }
+
+        /// <summary>
+        /// A guild that does not add and walks alone stands by a fight it has come on for this
+        /// long, for it to end and leave it somebody to fight; then it turns back the way it came
+        /// (or, before its first point, walks on past). It turned back at once at first, and in
+        /// an evening of 25 minutes (2026-11-22) a strong team walked 31 legs and fought nobody;
+        /// before that it waited for as long as the fight lasted, and three teams stood for
+        /// minutes before a fight that never ended.
+        /// </summary>
+        public static bool GivesUpWaiting(double secondsStandingByAFight) => secondsStandingByAFight > 45;
 
         /// <summary>A group that stays near others comes no nearer to them than this: it trails, it does not stand in them.</summary>
         public const int TrailsBehind = 1_800;
@@ -1326,6 +1341,17 @@ namespace DOL.GS
                         Place(team, elsewhere[Random.Shared.Next(elsewhere.Count)], teams);
                         Say($"{team.Name} ports to {team.Map.Name}", new { what = "port", team = team.Name, zone = team.Map.Name });
                     }
+                    // A group that stays near others does not cross the zone alone to the one it was with: it picks the nearest.
+                    if (team.Profile?.Company == PvpCompany.Near)
+                    {
+                        PvpRoamTeam nearest = Hosts(teams, team.Realm).Where(host => host != team && host.Map == team.Map && host.Alive > 0)
+                            .OrderBy(host => Math.Pow(host.Centre().X - team.Start.Point.X, 2) + Math.Pow(host.Centre().Y - team.Start.Point.Y, 2)).FirstOrDefault();
+                        if (nearest != null && nearest != team.Company)
+                        {
+                            team.Company = nearest;
+                            Say($"{team.Name} walks with {nearest.Name} now", new { what = "company", team = team.Name, beside = nearest.Name });
+                        }
+                    }
                     StandUp(team, now);
                     Say($"{team.Name} stands up at its start", new { what = "standup", team = team.Name });
                 }
@@ -1357,9 +1383,6 @@ namespace DOL.GS
                     team.Draws[other] = joins;
                     if (drawn == null)
                     {
-                        // A guild on its own that leaves a fight alone does not stand and watch: it turns back the way it came.
-                        if (!joins && TurnsAway(team))
-                            Say($"{team.Name} turns away", new { what = "turn", team = team.Name });
                         if (joins) team.Joined++; else team.LeftAlone++;
                         PvpRoamTeam mate = theirFight.FirstOrDefault(third => third.Realm == team.Realm);
                         Say(mate != null
@@ -1560,13 +1583,26 @@ namespace DOL.GS
             // (A guild that goes from point to point does not wait: it has turned back, or it walks with its company, or, before
             // its first point, it walks on past. In an evening of 24 teams, 2026-11-22, three Albion teams that do not add stood
             // for minutes before the south end of the road, their only way in, where a fight never ended.)
-            bool waits = WaitsOutAFight(team.Draws.Any(draw => !draw.Value && draw.Key.Alive > 0 && Near(team, draw.Key, team.Waiting ? 12_000 : 9_000)),
-                enemies.Count, team.Leader != null || team.Entry != null);
+            // A guild that walks with its company goes where that goes; one on its own waits a while (GivesUpWaiting), then
+            // turns back the way it came or walks on, and does not stand by that fight again.
+            bool leftAFightNear = team.Draws.Any(draw => !draw.Value && draw.Key.Alive > 0 && Near(team, draw.Key, team.Waiting ? 12_000 : 9_000));
+            if (!leftAFightNear)
+                team.GaveUpWaiting = false;
+            bool waits = WaitsOutAFight(leftAFightNear, enemies.Count, team.Leader != null || team.Entry != null && (team.GaveUpWaiting || LeadOf(team, teams) != null));
+            if (waits && team.Waiting && team.Entry != null && GivesUpWaiting((now - team.WaitingSince) / 1000.0))
+            {
+                (team.GaveUpWaiting, waits) = (true, false);
+                bool turned = TurnsAway(team);
+                Say($"{team.Name} {(turned ? "turns away" : "walks on past")}", new { what = "turn", team = team.Name, turned });
+            }
             if (waits != team.Waiting)
             {
                 team.Waiting = waits;
                 if (waits)
+                {
+                    team.WaitingSince = now;
                     Say($"{team.Name} waits where it is", new { what = "wait", team = team.Name });
+                }
             }
             if (team.Leader != null)
                 team.Team.TravelWithLeader(enemies);
@@ -1581,7 +1617,7 @@ namespace DOL.GS
             else if (team.State != "Buffing")
             {
                 // A prime-time evening: it walks with its company while that is about, and otherwise from point to point as it pleases.
-                PvpRoamTeam lead = team.Company is { Reforming: false, State: "Roaming" or "Fighting" } company && company.Alive > 0 ? company : null;
+                PvpRoamTeam lead = LeadOf(team, teams);
                 if (lead?.Team.Route != null)
                     (team.Team.Route, team.Team.Waypoint) = (lead.Team.Route, lead.Team.Waypoint);
                 else if (lead == null && team.Entry != null && enemies.Count == 0 && Wander(team, teams, now))
@@ -1671,6 +1707,29 @@ namespace DOL.GS
             _teams = next;
         }
 
+        /// <summary>On the road: out, alive, and not gone back to its start.</summary>
+        private static bool OnTheRoad(PvpRoamTeam team) => team is { Reforming: false, State: "Roaming" or "Fighting" } && team.Alive > 0;
+
+        /// <summary>
+        /// The team a team walks behind now; null when it walks by itself. A group that stays near
+        /// others: its group, while that is on the road. A pack: whoever of it is in front, which
+        /// is its head until the head is down, then the first of the others that is on the road,
+        /// and that one stays in front until it is down itself (the head, back from its start,
+        /// walks to it like any other). In an evening of 25 minutes (2026-11-22) a pack came
+        /// apart whenever its head was wiped: every follower went its own way, and then each
+        /// crossed the zone alone to a head that had just set off again. Followers were within
+        /// reach of their head 0 to 23% of the time in two packs of three.
+        /// </summary>
+        private static PvpRoamTeam LeadOf(PvpRoamTeam team, List<PvpRoamTeam> teams)
+        {
+            if (team.Profile?.Company != PvpCompany.Zerg)
+                return team.Company != null && OnTheRoad(team.Company) ? team.Company : null;
+            PvpRoamTeam head = team.Company ?? team;
+            if (head.PackLead == null || !OnTheRoad(head.PackLead) || !teams.Contains(head.PackLead) || head.PackLead.Map != team.Map)
+                head.PackLead = teams.Where(mate => mate == head || mate.Company == head).OrderBy(mate => mate == head ? 0 : 1).FirstOrDefault(OnTheRoad);
+            return head.PackLead == team ? null : head.PackLead;
+        }
+
         /// <summary>
         /// A guild that walks on its own turns back to the point it came from, when it has one
         /// (before its first point it has none, and waits as a team of the roam does). In the
@@ -1680,7 +1739,7 @@ namespace DOL.GS
         /// </summary>
         private static bool TurnsAway(PvpRoamTeam team)
         {
-            if (team.Entry == null || team.Company != null || team.CameFrom is not { } back || team.Team.Route is not { Length: 1 } route)
+            if (team.Entry == null || team.CameFrom is not { } back || team.Team.Route is not { Length: 1 } route)
                 return false;
             (team.Team.Route, team.CameFrom, team.Team.Waypoint, team.ArrivedAt) = ([back], route[0], 0, 0);
             return true;
@@ -1701,8 +1760,10 @@ namespace DOL.GS
             }
             if (team.ArrivedAt == 0)
                 team.ArrivedAt = now;
-            if (PackWaits(teams.Any(mate => mate.Company == team && mate.Profile?.Company == PvpCompany.Zerg && mate.Alive > 0 &&
-                                            mate.State == "Roaming" && !Near(team, mate, 3_000)), (now - team.ArrivedAt) / 1000.0))
+            PvpRoamTeam head = team.Company ?? team;
+            if (PackWaits(team.Profile?.Company == PvpCompany.Zerg && teams.Any(mate => mate != team && (mate.Company ?? mate) == head &&
+                    mate.Profile?.Company == PvpCompany.Zerg && mate.Alive > 0 && mate.State == "Roaming" && Near(team, mate, 9_000) && !Near(team, mate, 3_000)),
+                    (now - team.ArrivedAt) / 1000.0))
                 return true;
             // The head of a pack keeps to the road, where the fights are; an elite group to the quiet ground.
             int leaning = team.Profile is { KeepsToQuietGround: true } ? 1 : team.Profile is { Company: PvpCompany.Zerg } ? -1 : 0;
