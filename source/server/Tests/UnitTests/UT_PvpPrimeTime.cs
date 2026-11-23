@@ -139,6 +139,7 @@ namespace DOL.UnitTests
                 Assert.That(team.SeedLevel, Is.InRange(profile.MinRealmLevel, profile.MaxRealmLevel), team.Guild);
                 Assert.That(team.Builds, Has.Count.EqualTo(8), team.Guild);
                 Assert.That(team.ToTemplate().Realm, Is.EqualTo(team.ToRealm()));
+                Assert.That(team.Realm, Is.AnyOf("Albion", "Midgard", "Hibernia"), "as a person would write it in the file");
                 Assert.That(team.Guild.Length, Is.LessThanOrEqualTo(30), team.Guild);
             }
             // More teams for a pool that has some: none of the names that are taken.
@@ -238,6 +239,36 @@ namespace DOL.UnitTests
                 for (int b = a + 1; b < spots.Count; b++)
                     Assert.That(Math.Sqrt(Math.Pow(spots[a].X - spots[b].X, 2) + Math.Pow(spots[a].Y - spots[b].Y, 2)), Is.GreaterThan(350), $"{a} and {b}");
             }
+        }
+
+        [Test]
+        public void WhatARealmCallsOut()
+        {
+            // "which team will we face, how many teams (1 team, a zerg [many teams]), where"
+            Assert.That(PvpRoam.SightingText(2, eRealm.Albion, "south road", false), Is.EqualTo("2fg albs at south road"));
+            Assert.That(PvpRoam.SightingText(1, eRealm.Midgard, "mid road", true), Is.EqualTo("fighting 1fg mids at mid road"));
+            Assert.That(PvpRoam.SightingText(3, eRealm.Hibernia, "north road", false, true), Is.EqualTo("wiped at north road, 3fg hibs"));
+            Assert.That(PvpRoam.SightingText(1, eRealm.Albion, null, false), Is.EqualTo("1fg albs"));
+            // Not a flood.
+            Assert.That(PvpRoam.CallsOut(3, 500), Is.False);
+            Assert.That(PvpRoam.CallsOut(20, 30), Is.False, "the same group about the same realm");
+            Assert.That(PvpRoam.CallsOut(20, 90), Is.True);
+            Assert.That(PvpRoam.NoNewsWithin, Is.LessThan(PvpRoam.SightingWithin));
+
+            // Every point of a map has a name, and a place by a realm's start is "the keep".
+            PvpRoamMap emain = PvpRoam.Emain;
+            Assert.That(emain.Places.Select(place => place.Point), Is.EquivalentTo(emain.Ways.SelectMany(way => new[] { way.A, way.B }).Distinct()));
+            Assert.That(emain.PlaceOf(PvpRoam.South.X + 800, PvpRoam.South.Y - 500), Is.EqualTo("south road"));
+            Assert.That(emain.PlaceOf(PvpRoam.WestMiddle.X, PvpRoam.WestMiddle.Y), Is.EqualTo("west hills"));
+            (int X, int Y) albion = emain.StartOf(eRealm.Albion).Point;
+            Assert.That(emain.PlaceOf(albion.X - 2_000, albion.Y), Is.EqualTo("the alb keep"));
+            Assert.That(PvpRoam.Thidranki.Places, Has.Count.EqualTo(3));
+            Assert.That(new PvpRoamMap("x", "x", 1, []).PlaceOf(1, 1), Is.Null);
+
+            // What a player is told of the other realms: how many groups, and no more.
+            Assert.That(PvpRoam.OutAgainst([(eRealm.Albion, 8), (eRealm.Midgard, 1)]),
+                Is.EqualTo("Out against you: 8 groups of Albion and 1 group of Midgard. Where they are, your realm says when it sees them."));
+            Assert.That(PvpRoam.OutAgainst([]), Is.EqualTo("Nobody else is out."));
         }
 
         [Test]

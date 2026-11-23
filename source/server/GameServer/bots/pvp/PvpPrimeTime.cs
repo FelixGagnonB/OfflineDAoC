@@ -238,7 +238,7 @@ namespace DOL.GS
                 for (int index = 0; index < kinds.Count && index < names.Count; index++)
                 {
                     PvpTeamProfile profile = PvpTeamProfile.Of(kinds[index]);
-                    teams.Add(new PvpGuildTeam(IdOf(realm, names[index]), names[index], realm.ToString(), profile.Kind.ToString(),
+                    teams.Add(new PvpGuildTeam(IdOf(realm, names[index]), names[index], PvpRoam.NameOf(realm), profile.Kind.ToString(),
                         Compose(realm, profile.Lineup, random), random.Next(profile.MinRealmLevel, profile.MaxRealmLevel + 1)));
                 }
             }

@@ -18,10 +18,21 @@ namespace DOL.GS
     /// <summary>A zone a roam is held in: its region and where each realm's teams start and walk.</summary>
     /// <param name="Ways">Which of its points a team can walk between directly; a team of a prime-time evening goes from point to point along them as it pleases.</param>
     /// <param name="Quiet">The points away from the road.</param>
+    /// <param name="Places">What its points are called in realm chat ("south road").</param>
     public sealed record PvpRoamMap(string Id, string Name, ushort Region, IReadOnlyList<PvpRoamStart> Starts,
-        IReadOnlyList<((int X, int Y) A, (int X, int Y) B)> Ways = null, IReadOnlyList<(int X, int Y)> Quiet = null)
+        IReadOnlyList<((int X, int Y) A, (int X, int Y) B)> Ways = null, IReadOnlyList<(int X, int Y)> Quiet = null,
+        IReadOnlyList<((int X, int Y) Point, string Name)> Places = null)
     {
         public PvpRoamStart StartOf(eRealm realm) => Starts.First(start => start.Realm == realm);
+
+        /// <summary>What the nearest named point to a place is called; "near the X keep" within 6,000 of a realm's start; null on a map without names.</summary>
+        public string PlaceOf(double x, double y)
+        {
+            double From((int X, int Y) point) => Math.Sqrt(Math.Pow(point.X - x, 2) + Math.Pow(point.Y - y, 2));
+            if (Starts.Where(start => From(start.Point) < 6_000).OrderBy(start => From(start.Point)).FirstOrDefault() is { } keep)
+                return $"the {PvpRoam.Short(keep.Realm, false)} keep";
+            return Places is { Count: > 0 } ? Places.OrderBy(place => From(place.Point)).First().Name : null;
+        }
 
         /// <summary>The points a team can walk to from one.</summary>
         public List<(int X, int Y)> From((int X, int Y) point) =>
@@ -180,8 +191,10 @@ namespace DOL.GS
 
         public static readonly IReadOnlyList<((int X, int Y) A, (int X, int Y) B)> ThidrankiWays = [(ThidHM, ThidHA), (ThidHA, ThidMA), (ThidMA, ThidHM)];
 
-        public static readonly PvpRoamMap Emain = new("emain", "Emain Macha", EmainRegion, EmainStarts, EmainWays, [WestNorth, WestMiddle, WestSouth]);
-        public static readonly PvpRoamMap Thidranki = new("thid", "Thidranki", 252, ThidrankiStarts, ThidrankiWays);
+        public static readonly PvpRoamMap Emain = new("emain", "Emain Macha", EmainRegion, EmainStarts, EmainWays, [WestNorth, WestMiddle, WestSouth],
+            [(South, "south road"), (Middle, "mid road"), (North, "north road"), (WestNorth, "north-west hills"), (WestMiddle, "west hills"), (WestSouth, "south-west hills")]);
+        public static readonly PvpRoamMap Thidranki = new("thid", "Thidranki", 252, ThidrankiStarts, ThidrankiWays, null,
+            [(ThidHM, "between hib and mid"), (ThidHA, "between hib and alb"), (ThidMA, "between mid and alb")]);
 
         /// <summary>The map a word stands for ("thid", "thidranki", "emain"); null for a word that names none.</summary>
         public static PvpRoamMap MapFor(string word) => (word ?? string.Empty).Trim().ToLowerInvariant() switch
@@ -236,6 +249,36 @@ namespace DOL.GS
             return ((int)(start.X + Math.Cos(angle) * 450 * ring), (int)(start.Y + Math.Sin(angle) * 450 * ring));
         }
 
+        /// <summary>A realm's name. (The enum has two names for Albion and for Hibernia, and writes the other ones.)</summary>
+        public static string NameOf(eRealm realm) => realm switch
+        {
+            eRealm.Albion => "Albion", eRealm.Midgard => "Midgard", eRealm.Hibernia => "Hibernia", _ => realm.ToString(),
+        };
+
+        /// <summary>A realm as it was written in chat: "albs", "mids", "hibs"; or, for a keep, "alb", "mid", "hib".</summary>
+        public static string Short(eRealm realm, bool plural = true) =>
+            (realm switch { eRealm.Albion => "alb", eRealm.Midgard => "mid", eRealm.Hibernia => "hib", _ => "?" }) + (plural ? "s" : string.Empty);
+
+        /// <summary>
+        /// What a group of the player's realm says in realm chat about enemies it sees: "2fg albs
+        /// at south road", "fighting 1fg mids at mid road", "wiped at north road, 3fg mids". The
+        /// owner, 2026-11-22, on the unknown from roaming: "which team will we face, how many
+        /// teams (1 team, a zerg [many teams]), where". A realm only ever knew that from what
+        /// its own groups called out.
+        /// </summary>
+        public static string SightingText(int groups, eRealm realm, string place, bool fightingThem, bool wiped = false)
+        {
+            string who = $"{Math.Max(1, groups)}fg {Short(realm)}", where = place == null ? string.Empty : $" at {place}";
+            return wiped ? $"wiped{where}, {who}" : fightingThem ? $"fighting {who}{where}" : $"{who}{where}";
+        }
+
+        /// <summary>How far a group sees enemies it then calls out, and how near the player must be for it to be no news.</summary>
+        public const int SightingWithin = 5_500, NoNewsWithin = 3_500;
+
+        /// <summary>Realm chat is not a flood: one call in eight seconds, and a group repeats itself about a realm after 75.</summary>
+        public static bool CallsOut(double secondsSinceAnyCall, double secondsSinceItsOwnOfThatRealm) =>
+            secondsSinceAnyCall >= 8 && secondsSinceItsOwnOfThatRealm >= 75;
+
         /// <summary>How near a team keeps to the team it walks with: a pack within 2,000, a group that stays near others within 4,500.</summary>
         public static int KeepsWithin(PvpCompany company) => company == PvpCompany.Zerg ? 2_000 : 4_500;
 
@@ -249,6 +292,16 @@ namespace DOL.GS
         private static volatile PvpRoamMap _map = Emain;
         // The pool the guild teams of a prime-time evening are from; null in the roam as it was.
         private static string _pool;
+        // What was called out in realm chat, and when: by each group about each enemy realm, and the last call of all.
+        private static readonly Dictionary<(PvpRoamTeam, eRealm), long> CalledOut = [];
+        private static long _lastCall;
+        // With no player: the realm whose chat is written to the log and the recording (roam-start Listener=hibernia), to read it by.
+        private static eRealm _listener = eRealm.None;
+
+        /// <summary>True on a prime-time evening (M11).</summary>
+        public static bool Prime => _pool != null;
+
+        public static void ListenTo(eRealm realm) => _listener = realm;
         private static volatile List<PvpRoamTeam> _teams = [];
         // No bot team comes in below this realm level: the average of the player's group, when there is a player.
         private static int _floor = 1;
@@ -402,7 +455,9 @@ namespace DOL.GS
             long now = GameLoop.GameLoopTime;
             PvpRealWeights real = PvpWeights.Current.Real;
             var lines = new List<string>();
-            foreach (PvpRoamTeam team in teams)
+            // On a prime-time evening a player knows what its own realm is doing, and of the others only what is called out.
+            bool own = Prime && viewer != null;
+            foreach (PvpRoamTeam team in teams.Where(team => !own || team.Realm == viewer.Realm))
             {
                 (double x, double y) = team.Centre();
                 int away = viewer == null ? 0 : (int)Math.Sqrt(Math.Pow(x - viewer.X, 2) + Math.Pow(y - viewer.Y, 2));
@@ -412,7 +467,74 @@ namespace DOL.GS
                 lines.Add($"{team.Name}{(team.Leader != null ? " (yours)" : string.Empty)}: {doing}; {team.Alive} alive" +
                           (team.Leader != null || viewer == null ? string.Empty : $", {away:N0} from you"));
             }
+            if (own && lines.Count > 0)
+                lines.Add(OutAgainst(teams.Where(team => team.Realm != viewer.Realm).GroupBy(team => team.Realm).Select(realm => (realm.Key, realm.Count())).ToList()));
             return lines;
+        }
+
+        /// <summary>The last line of what a player is told on a prime-time evening: how many groups the other realms have out, and no more.</summary>
+        public static string OutAgainst(IReadOnlyList<(eRealm Realm, int Groups)> others) =>
+            others.Count == 0 ? "Nobody else is out."
+                : "Out against you: " + string.Join(" and ", others.Select(other => $"{other.Groups} {(other.Groups == 1 ? "group" : "groups")} of {NameOf(other.Realm)}")) +
+                  ". Where they are, your realm says when it sees them.";
+
+        /// <summary>
+        /// <c>/8v8 who</c>: the guilds of the player's realm that are out, each with its rank and
+        /// who is in it, as <c>/who</c> showed a realm its own; and how many groups the other
+        /// realms have out. Empty when no roam runs.
+        /// </summary>
+        public static List<string> WhoLines(GamePlayer viewer)
+        {
+            List<PvpRoamTeam> teams = _teams;
+            var lines = new List<string>();
+            foreach (PvpRoamTeam team in teams.Where(team => viewer == null || team.Realm == viewer.Realm))
+            {
+                string classes = string.Join(", ", team.Team.Bots.GroupBy(bot => PvpMember.ClassOf(bot)).OrderByDescending(group => group.Count())
+                    .Select(group => group.Count() > 1 ? $"{group.Count()} {group.Key}" : group.Key.ToString()));
+                string rank = PvpRealmPoints.RankName((int)Math.Round(team.Team.Bots.Select(bot => bot.RealmLevel).DefaultIfEmpty(1).Average()));
+                lines.Add($"{team.Name}{(team.Leader != null ? " (yours)" : string.Empty)}, rank {rank}: {classes}" +
+                          (team.Company != null ? $"; walks with {team.Company.Name}" : string.Empty));
+            }
+            if (viewer != null && lines.Count > 0)
+                lines.Add(OutAgainst(teams.Where(team => team.Realm != viewer.Realm).GroupBy(team => team.Realm).Select(realm => (realm.Key, realm.Count())).ToList()));
+            return lines;
+        }
+
+        /// <summary>A line of realm chat for the player, from a member of a group of its realm; written to the log and the recording too.</summary>
+        private static void RealmChat(List<PvpRoamTeam> teams, PvpRoamTeam from, string text)
+        {
+            string speaker = from.Team.Bots.FirstOrDefault(bot => bot.IsAlive)?.Name ?? from.Team.Bots.FirstOrDefault()?.Name ?? from.Name;
+            Say($"[{from.Name}] {speaker}: {text}", new { what = "chat", team = from.Name, speaker, text });
+            foreach (PvpRoamTeam mine in teams.Where(team => team.Leader?.Client?.IsPlaying == true && team.Realm == from.Realm))
+                mine.Leader.Out.SendMessage($"[Realm] {speaker} <{from.Name}>: {text}", PacketHandler.eChatType.CT_Alliance, PacketHandler.eChatLoc.CL_ChatWindow);
+        }
+
+        /// <summary>The realm whose chat is made: the player's, or the one listened to when there is no player.</summary>
+        private static eRealm Hears(List<PvpRoamTeam> teams) => teams.FirstOrDefault(team => team.Leader != null)?.Realm ?? _listener;
+
+        /// <summary>One group of the player's realm calls out the enemies it sees, if it has not just done so (<see cref="CallsOut"/>).</summary>
+        private static void CallOut(List<PvpRoamTeam> teams, long now)
+        {
+            eRealm realm = Hears(teams);
+            if (!Prime || realm == eRealm.None || now - _lastCall < 8_000)
+                return;
+            PvpRoamTeam mine = teams.FirstOrDefault(team => team.Leader != null);
+            foreach (PvpRoamTeam friend in teams.Where(team => team != mine && team.Realm == realm && team.Alive > 0 && team.State is "Roaming" or "Fighting"))
+            {
+                foreach (IGrouping<eRealm, PvpRoamTeam> seen in teams.Where(other => other.Realm != realm && other.Alive > 0 && !other.Reforming &&
+                             other.State is "Roaming" or "Fighting" && Near(friend, other, SightingWithin)).GroupBy(other => other.Realm))
+                {
+                    if (!CallsOut((now - _lastCall) / 1000.0, CalledOut.TryGetValue((friend, seen.Key), out long last) ? (now - last) / 1000.0 : double.MaxValue))
+                        continue;
+                    (double x, double y) = seen.First().Centre();
+                    // The player stands there: no news.
+                    if (mine?.Leader is { } player && player.IsWithinRadius(new Point2D((int)x, (int)y), NoNewsWithin))
+                        continue;
+                    (CalledOut[(friend, seen.Key)], _lastCall) = (now, now);
+                    RealmChat(teams, friend, SightingText(seen.Count(), seen.Key, _map.PlaceOf(x, y), seen.Any(friend.Fighting.Contains)));
+                    return;
+                }
+            }
         }
 
         /// <summary>
@@ -613,6 +735,8 @@ namespace DOL.GS
             foreach (PvpRoamTeam team in teams.Where(team => team.Company != null))
                 Say($"{team.Name} walks with {team.Company.Name}", new { what = "company", team = team.Name, beside = team.Company.Name });
             lock (Events) Events.Clear();
+            CalledOut.Clear();
+            _lastCall = 0;
             _timer?.Dispose();
             _timer = new Timer(_ => NpcService.Instance.Post(Tick, 0), null, 1_000, 1_000);
             return Status();
@@ -756,6 +880,7 @@ namespace DOL.GS
                 }
                 foreach (PvpRoamTeam team in teams)
                     Step(team, teams, now, real);
+                CallOut(teams, now);
                 // A monster that was dead when the roam began has come back: once a minute.
                 if ((now - _started) / 1000 % 60 == 59)
                     PvpArena.ClearMonsters(_map.Region, _map.Starts.Select(start => start.Point));
@@ -835,6 +960,13 @@ namespace DOL.GS
                     team.Wipes++;
                     // Its last to fall are paid for before the fight is forgotten.
                     Pay(team, real, now);
+                    // On a prime-time evening the realm hears of it.
+                    if (Prime && team.Leader == null && team.Realm == Hears(teams) && team.Fighting.Count > 0)
+                    {
+                        IGrouping<eRealm, PvpRoamTeam> most = team.Fighting.GroupBy(other => other.Realm).OrderByDescending(realm => realm.Count()).First();
+                        (double x, double y) = team.Centre();
+                        RealmChat(teams, team, SightingText(most.Count(), most.Key, _map.PlaceOf(x, y), false, true));
+                    }
                     team.Fighting.Clear();
                     Say($"{team.Name} is wiped (its {team.Wipes}.)", new { what = "wipe", team = team.Name });
                     Tell(team, team.Leader?.IsAlive == true

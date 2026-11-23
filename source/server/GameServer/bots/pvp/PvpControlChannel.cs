@@ -219,6 +219,8 @@ namespace DOL.GS
                     // Prime=8 Pool=test: a prime-time evening (M11), eight guilds of each realm from that pool (made if it is not there).
                     List<PvpGuildTeam> guilds = null;
                     string pool = Arg("Pool") ?? "scrim";
+                    // Listener=hibernia: that realm's chat is written to the recording, as a player of it would read it.
+                    PvpRoam.ListenTo(Enum.TryParse(Arg("Listener"), true, out eRealm listener) ? listener : eRealm.None);
                     if (int.TryParse(Arg("Prime"), out int prime) && prime > 0)
                         guilds = PvpTeamPool.Tonight(PvpTeamPool.LoadOrCreate(AppContext.BaseDirectory, pool, Math.Max(16, prime * 2), Random.Shared), prime, Random.Shared);
                     return PvpRoam.Start(int.Parse(Arg("Teams") ?? "2"), Arg("Owner") ?? "roam", null, null, PvpRoam.MapFor(Arg("Map")),
