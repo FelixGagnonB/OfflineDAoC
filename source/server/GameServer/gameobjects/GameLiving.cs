@@ -2063,6 +2063,8 @@ namespace DOL.GS
 			// cancel all left effects
 			EffectList.CancelAll();
 			effectListComponent.CancelAll();
+			// (and the songs it was singing: see EffectService.TickPulsingEffect)
+			effectListComponent.CancelPulses();
 
 			// Stop the regeneration timers
 			StopHealthRegeneration();
