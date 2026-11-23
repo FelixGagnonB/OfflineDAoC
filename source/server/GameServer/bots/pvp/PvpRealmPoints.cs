@@ -174,6 +174,10 @@ namespace DOL.GS
         /// </summary>
         public static int LevelFor(long points) => Math.Max(1, AutonomousBotRealmPointRewards.RealmLevelFor(points));
 
+        /// <summary>The realm points a realm level begins at: what a team of a prime-time evening starts with (PvpGuildTeam.SeedLevel).</summary>
+        public static long PointsFor(int realmLevel) =>
+            GamePlayer.REALMPOINTS_FOR_LEVEL[Math.Clamp(realmLevel, 0, GamePlayer.REALMPOINTS_FOR_LEVEL.Length - 1)];
+
         /// <summary>The name under which a player's own earned realm points are kept in the roster, beside the companions' builds.</summary>
         public const string PlayerBuild = "player";
 

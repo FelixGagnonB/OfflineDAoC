@@ -29,8 +29,10 @@ namespace DOL.GS
         /// </summary>
         /// <param name="rosterOwner">In a real session: the roster the group is kept under, for its names and its realm points.</param>
         /// <param name="atLeast">In a real session: no member comes in below this realm level (PvpRealWeights.EnemyKeepsUp).</param>
+        /// <param name="seedPoints">The realm points a member has that the roster does not know yet (a guild team's first evening).</param>
+        /// <param name="guild">The guild shown under each member's name; null for none.</param>
         public static IReadOnlyList<GameBot> SpawnGroup(PvpGroupTemplate template, ushort regionId, int x, int y, int realmLevel = 0,
-            ICollection<GameBot> all = null, string rosterOwner = null, int atLeast = 0)
+            ICollection<GameBot> all = null, string rosterOwner = null, int atLeast = 0, long seedPoints = 0, string guild = null)
         {
             Region region = WorldMgr.GetRegion(regionId) ?? throw new ArgumentException($"No region {regionId}.");
             Zone zone = region.GetZone(x, y) ?? throw new ArgumentException($"No zone at {x},{y} in region {regionId}.");
@@ -51,13 +53,14 @@ namespace DOL.GS
                 int place = PvpRoster.PlaceOf(template.BuildIds, i);
                 PvpRosterEntry kept = roster == null ? null : PvpRoster.Find(roster, template.BuildIds[i], place);
                 GameBot bot = CreateBot(build, template.Realm, i, template.BuildIds.Count, zone, regionId, centre, 140,
-                    roster == null ? realmLevel : Math.Max(atLeast, PvpRealmPoints.LevelFor(kept?.RealmPoints ?? 0)), kept);
+                    roster == null ? realmLevel : Math.Max(atLeast, PvpRealmPoints.LevelFor(kept?.RealmPoints ?? seedPoints)), kept);
+                bot.PvpGuild = guild;
                 if (roster != null)
                 {
-                    (bot.PvpRosterOwner, bot.PvpRosterPlace, bot.PvpPoints) = (rosterOwner, place, kept?.RealmPoints ?? 0);
+                    (bot.PvpRosterOwner, bot.PvpRosterPlace, bot.PvpPoints) = (rosterOwner, place, kept?.RealmPoints ?? seedPoints);
                     if (kept == null)
                     {
-                        roster.Add(new PvpRosterEntry(template.BuildIds[i], place, bot.Name, (int)bot.Gender));
+                        roster.Add(new PvpRosterEntry(template.BuildIds[i], place, bot.Name, (int)bot.Gender, seedPoints));
                         newcomers = true;
                     }
                 }

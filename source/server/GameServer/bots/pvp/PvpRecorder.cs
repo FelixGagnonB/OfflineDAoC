@@ -86,7 +86,9 @@ namespace DOL.GS
         /// A roam: one recording for the whole session and all of its teams, each under its own
         /// name. <paramref name="teams"/>: name, line-up, realm and members (a player among them).
         /// </summary>
-        public static PvpRecording BeginRoam(string label, IReadOnlyList<(string Name, string Group, eRealm Realm, IReadOnlyList<GameLiving> Members)> teams)
+        /// <param name="kinds">On a prime-time evening: each team's kind by its name (PvpTeamKind).</param>
+        public static PvpRecording BeginRoam(string label, IReadOnlyList<(string Name, string Group, eRealm Realm, IReadOnlyList<GameLiving> Members)> teams,
+            IReadOnlyDictionary<string, string> kinds = null)
         {
             Hook();
             Directory.CreateDirectory(RoamFolder);
@@ -103,6 +105,7 @@ namespace DOL.GS
                     name = team.Name, group = team.Group, realm = team.Realm.ToString(),
                     player = team.Members.OfType<GamePlayer>().FirstOrDefault()?.Name,
                     skill = PvpSkills.NameOf(team.Members.OfType<GameBot>().FirstOrDefault()),
+                    kind = kinds != null && kinds.TryGetValue(team.Name, out string kind) ? kind : null,
                 }),
                 bots = teams.SelectMany(team => team.Members.Select(member => Describe(member, team.Name))),
             });

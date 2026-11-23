@@ -2861,11 +2861,14 @@ namespace DOL.GS
             base.StartAttack(target);
         }
 
+        /// <summary>The guild of the 8v8 team it is in (bots/pvp/PvpPrimeTime.cs); null for every other bot.</summary>
+        public string PvpGuild { get; set; }
+
         public override bool AddToWorld()
         {
             // The guild name under the bot: its own guild (gamebot) or its owner's (/spawn companion), set before it
             // appears so no extra update is sent (AutonomousBotGuilds).
-            GuildName = AutonomousBotGuilds.GuildNameFor(this);
+            GuildName = PvpGuild ?? AutonomousBotGuilds.GuildNameFor(this);
             if (!base.AddToWorld())
                 return false;
 

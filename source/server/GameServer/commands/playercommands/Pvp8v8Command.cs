@@ -13,6 +13,7 @@ namespace DOL.GS.Commands
         "/8v8 play <alb|mid|hib> real [lane|basin] [follow]  a real fight: everybody at the rank it has earned, kills earn realm points that are kept, no timer is reset",
         "/8v8 roam [thid] [group]       the roam: two groups of each realm in Emain Macha (thid: in Thidranki), yours with you; real rules, and a wipe or a release puts your group back at its start",
         "/8v8 skill [group|others] [casual|seasoned|sharp]  how sharp your group and the other groups play: reaction time, attention, mistakes; alone it says what is set",
+        "/8v8 prime [thid] [number]     a prime-time evening: that many groups of each realm (4 if you give none, 12 at most), yours one of them, the others guilds of every kind: packs of bad groups, groups that add, groups that do not",
         "/8v8 status                    in a roam: what every team is doing (buffing at its start, roaming, fighting whom, resting, waiting by a fight, wiped), how many of it are alive and how far it is",
         "/8v8 ranks                     the realm ranks of your companions, and of the enemy groups you have fought for real",
         "/8v8 call <push|regroup|hold|engage|extend|assist|control|retreat|rest>  your call to the group: an order stands twelve seconds; assist puts the damage dealers on your target while it lives (45 s at most); control asks for a mez, stun, root or nearsight on your target (20 s); retreat: everybody drops what it does and runs with you (30 s, or until your next call); rest: everybody redoes its buffs and rests where you stand (2 minutes, or until you walk on, call something else or are attacked)",
@@ -189,6 +190,20 @@ namespace DOL.GS.Commands
                         // "/8v8 roam thid hib-2bard": in Thidranki, and with another of the realm's groups than its main one.
                         PvpRoam.StartFor(player, Say, args.Skip(2).Select(PvpBuildCatalog.FindGroup).FirstOrDefault(group => group != null),
                             args.Skip(2).Select(PvpRoam.MapFor).FirstOrDefault(map => map != null));
+                    }
+                    catch (System.Exception exception)
+                    {
+                        Say(exception.Message);
+                    }
+                    return;
+
+                case "prime":
+                    try
+                    {
+                        // "/8v8 prime thid 6": in Thidranki, six groups of each realm.
+                        int groups = args.Skip(2).Select(word => int.TryParse(word, out int number) ? number : 0).FirstOrDefault(number => number > 0);
+                        PvpRoam.StartFor(player, Say, args.Skip(2).Select(PvpBuildCatalog.FindGroup).FirstOrDefault(group => group != null),
+                            args.Skip(2).Select(PvpRoam.MapFor).FirstOrDefault(map => map != null), System.Math.Clamp(groups == 0 ? 4 : groups, 1, 12));
                     }
                     catch (System.Exception exception)
                     {
