@@ -36,8 +36,13 @@ def route(runtime, region, a, b):
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    step = int(sys.argv[sys.argv.index("--step") + 1]) if "--step" in sys.argv else 6000
+    words = sys.argv[1:]
+    step = 6000
+    if "--step" in words:
+        at = words.index("--step")
+        step = int(words[at + 1])
+        del words[at:at + 2]
+    args = words
     runtime, region = args[0], int(args[1])
     min_x, min_y, size = int(args[2]), int(args[3]), int(args[4])
     starts = {}
