@@ -223,9 +223,13 @@ namespace DOL.GS
                     PvpRoam.ListenTo(Enum.TryParse(Arg("Listener"), true, out eRealm listener) ? listener : eRealm.None);
                     if (int.TryParse(Arg("Prime"), out int prime) && prime > 0)
                         guilds = PvpTeamPool.Tonight(PvpTeamPool.LoadOrCreate(AppContext.BaseDirectory, pool, Math.Max(16, prime * 2), Random.Shared), prime, Random.Shared);
+                    // Zones=all: the evening is spread over the frontiers (M11.3); Zones=odin,hadrian: over those and the map it begins in.
+                    List<PvpRoamMap> zones = string.Equals(Arg("Zones"), "all", StringComparison.OrdinalIgnoreCase) ? PvpRoam.Frontiers.ToList()
+                        : (Arg("Zones") ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                            .Select(PvpRoam.MapFor).Where(zone => zone != null).ToList();
                     return PvpRoam.Start(int.Parse(Arg("Teams") ?? "2"), Arg("Owner") ?? "roam", null, null, PvpRoam.MapFor(Arg("Map")),
                         (Arg("Lineups") ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                            .Select(PvpBuildCatalog.FindGroup).Where(group => group != null).ToList(), guilds, pool);
+                            .Select(PvpBuildCatalog.FindGroup).Where(group => group != null).ToList(), guilds, pool, zones.Count > 0 ? zones : null);
 
                 case "roam-status":
                     return PvpRoam.Status();

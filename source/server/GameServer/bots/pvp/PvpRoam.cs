@@ -208,14 +208,62 @@ namespace DOL.GS
         public static readonly PvpRoamMap Thidranki = new("thid", "Thidranki", 252, ThidrankiStarts, ThidrankiWays, null,
             [(ThidHM, "between hib and mid"), (ThidHA, "between hib and alb"), (ThidMA, "between mid and alb")]);
 
+        // ---- Hadrian's Wall (region 1, zone 15; M11.3). Hibernia and Midgard at their portal keeps in the north-west and the
+        // north-east, Albion at Caer Benowyc in the south-east, each some 2,500 units in front of its keep toward the middle of
+        // the zone. Found on the installed navmesh, 2026-11-22 (source/tools/pvp_map_points.py, then each leg by itself): the
+        // north half is cut in two between the portal keeps (no way from 629,500 to 636,500 east between 297,000 and 311,000
+        // north), and the wall is crossed in the west and in the east. So the points make a U: down the west side, along the
+        // south, up the east side. Every leg is within 13% of the straight line (9,900 to 17,700 units). Caer Benowyc opens to
+        // the west: from Albion's start the south-east field is 25,800 on foot for 14,400, so Albion's first point is the road
+        // west of the keep (18,500 on foot for 16,000). The names are mine.
+        public static readonly (int X, int Y) HwNorthWest = (615516, 304220), HwWestGate = (608516, 318220), HwSouthWest = (615516, 332220),
+            HwSouth = (629516, 332220), HwSouthEast = (643516, 332220), HwBenowycRoad = (636516, 339220), HwEastGate = (650516, 318220),
+            HwNorthEast = (643516, 304220);
+
+        public static readonly PvpRoamMap HadriansWall = new("hadrian", "Hadrian's Wall", 1,
+            [
+                new(eRealm.Albion, (651802, 343992), [HwBenowycRoad, HwSouth, HwSouthWest, HwWestGate, HwNorthWest], [HwBenowycRoad, HwSouthEast, HwEastGate, HwNorthEast]),
+                new(eRealm.Midgard, (653567, 294974), [HwNorthEast, HwEastGate, HwSouthEast, HwSouth, HwSouthWest], [HwEastGate, HwSouthEast, HwBenowycRoad, HwSouth]),
+                new(eRealm.Hibernia, (607339, 295574), [HwNorthWest, HwWestGate, HwSouthWest, HwSouth, HwSouthEast], [HwWestGate, HwSouthWest, HwSouth, HwBenowycRoad]),
+            ],
+            [(HwNorthWest, HwWestGate), (HwWestGate, HwSouthWest), (HwSouthWest, HwSouth), (HwSouth, HwSouthEast), (HwSouthEast, HwEastGate),
+             (HwEastGate, HwNorthEast), (HwBenowycRoad, HwSouth), (HwBenowycRoad, HwSouthEast)],
+            [HwSouthWest],
+            [(HwNorthWest, "north-west field"), (HwWestGate, "west gate"), (HwSouthWest, "south-west field"), (HwSouth, "south field"),
+             (HwSouthEast, "south-east field"), (HwBenowycRoad, "benowyc road"), (HwEastGate, "east gate"), (HwNorthEast, "north-east field")]);
+
+        // ---- Odin's Gate (region 100, zone 115; M11.3). Hibernia and Albion at their portal keeps in the north-west and the
+        // south-west, Midgard at Bledmeer Faste in the north-east. Found the same way: the west side is cut in two between the
+        // two portal keeps (nothing crosses from 598,000 to 605,000 north west of 614,000 east), and the middle of the zone
+        // between 614,000 and 628,000 east is not crossed between 598,000 and 612,000 north. So Hibernia goes east along the
+        // north, Albion east along the south, and they meet Midgard in the east half. Every leg is within 13% of the straight
+        // line (14,000 to 24,200 units). The names are mine.
+        public static readonly (int X, int Y) OgNorthWest = (607324, 590940), OgNorthRoad = (628324, 583940), OgNorthEast = (642324, 590940),
+            OgEast = (642324, 604940), OgMiddle = (628324, 604940), OgSouthEast = (642324, 618940), OgSouthRoad = (628324, 625940),
+            OgSouthWest = (607324, 618940);
+
+        public static readonly PvpRoamMap OdinsGate = new("odin", "Odin's Gate", 100,
+            [
+                new(eRealm.Albion, (598175, 629643), [OgSouthWest, OgSouthRoad, OgSouthEast, OgEast, OgNorthEast], [OgSouthWest, OgSouthRoad, OgMiddle, OgNorthRoad]),
+                new(eRealm.Midgard, (646847, 585287), [OgNorthEast, OgEast, OgSouthEast, OgSouthRoad, OgSouthWest], [OgNorthRoad, OgMiddle, OgSouthRoad, OgSouthWest]),
+                new(eRealm.Hibernia, (597987, 583313), [OgNorthWest, OgNorthRoad, OgNorthEast, OgEast, OgSouthEast], [OgNorthRoad, OgMiddle, OgSouthRoad, OgSouthWest]),
+            ],
+            [(OgNorthWest, OgNorthRoad), (OgNorthRoad, OgNorthEast), (OgNorthRoad, OgMiddle), (OgMiddle, OgEast), (OgEast, OgNorthEast), (OgEast, OgSouthEast),
+             (OgSouthEast, OgMiddle), (OgSouthRoad, OgSouthEast), (OgSouthRoad, OgMiddle), (OgSouthWest, OgSouthRoad)],
+            [OgSouthEast],
+            [(OgNorthWest, "north-west field"), (OgNorthRoad, "north road"), (OgNorthEast, "north-east field"), (OgEast, "east field"), (OgMiddle, "middle"),
+             (OgSouthEast, "south-east field"), (OgSouthRoad, "south road"), (OgSouthWest, "south-west field")]);
+
         /// <summary>The frontier zones an evening is spread over (M11.3). Zones whose points have been walked on the installed navmesh.</summary>
-        public static readonly IReadOnlyList<PvpRoamMap> Frontiers = [Emain];
+        public static readonly IReadOnlyList<PvpRoamMap> Frontiers = [Emain, OdinsGate, HadriansWall];
 
         /// <summary>The map a word stands for ("thid", "thidranki", "emain"); null for a word that names none.</summary>
         public static PvpRoamMap MapFor(string word) => (word ?? string.Empty).Trim().ToLowerInvariant() switch
         {
             "thid" or "thidranki" => Thidranki,
             "emain" or "emainmacha" => Emain,
+            "odin" or "odins" or "odin's" or "og" or "odinsgate" => OdinsGate,
+            "hadrian" or "hadrians" or "hadrian's" or "hw" or "hadrianswall" => HadriansWall,
             _ => null,
         };
 
@@ -823,6 +871,9 @@ namespace DOL.GS
                 own = null;
             if (PvpScrim.Running)
                 throw new InvalidOperationException("A fight or a roam is already running. /8v8 stop ends it.");
+            // (The ways of Odin's Gate and Hadrian's Wall do not close into a round: a team of the roam of six walks a round.)
+            if (prime <= 0 && map != Emain && map != Thidranki)
+                throw new InvalidOperationException($"The roam of six is in Emain Macha or Thidranki. /8v8 prime {map.Id} begins a prime-time evening in {map.Name}.");
             if (PvpPlayerReady.EnterReal(player) is { } set)
                 say(set);
             PvpScrim.TravelThen(player, map.Region, StartSpot(map, player.Realm), say, () =>
@@ -850,7 +901,7 @@ namespace DOL.GS
                 {
                     say("The roam could not start: " + exception.Message);
                 }
-            });
+            }, map.Name);
         }
 
         /// <param name="lineups">Groups to use for their realms' teams of bots in place of the main ones (a test of a line-up; null: the main ones).</param>
