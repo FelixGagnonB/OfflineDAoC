@@ -271,6 +271,17 @@ namespace DOL.GS
         }
 
         /// <summary>
+        /// Who comes out when a team has logged off: a team of its realm that has not been out
+        /// this evening, of the same kind when there is one, so that the evening keeps its
+        /// ratio; null when the realm has nobody left.
+        /// </summary>
+        public static PvpGuildTeam NextOut(IReadOnlyCollection<PvpGuildTeam> pool, eRealm realm, PvpTeamKind kind, IReadOnlySet<string> outOrGone, Random random)
+        {
+            List<PvpGuildTeam> free = pool.Where(team => team.ToRealm() == realm && !outOrGone.Contains(team.Id)).OrderBy(_ => random.Next()).ToList();
+            return free.FirstOrDefault(team => team.ToProfile().Kind == kind) ?? free.FirstOrDefault();
+        }
+
+        /// <summary>
         /// The packs of an evening: the teams of a realm that walk in a pack (the bad ones) are
         /// put together by two to <paramref name="most"/>, each pack behind its first team. Returns, for each team that
         /// follows, the team it follows. One such team alone joins the pack before it, or walks alone.

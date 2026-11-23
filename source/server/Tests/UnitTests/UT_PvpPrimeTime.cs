@@ -255,7 +255,7 @@ namespace DOL.UnitTests
             Assert.That(PvpRoam.CallsOut(3, 500, false), Is.False);
             Assert.That(PvpRoam.CallsOut(20, 90, false), Is.False, "said already, and nothing has changed");
             Assert.That(PvpRoam.CallsOut(20, 200, false), Is.True);
-            Assert.That(PvpRoam.CallsOut(20, 30, true), Is.True, "a third group has come");
+            Assert.That(PvpRoam.CallsOut(20, 40, true), Is.True, "a third group has come");
             Assert.That(PvpRoam.CallsOut(20, 10, true), Is.False);
             Assert.That(PvpRoam.NoNewsWithin, Is.LessThan(PvpRoam.SightingWithin));
 
@@ -273,6 +273,41 @@ namespace DOL.UnitTests
             Assert.That(PvpRoam.OutAgainst([(eRealm.Albion, 8), (eRealm.Midgard, 1)]),
                 Is.EqualTo("Out against you: 8 groups of Albion and 1 group of Midgard. Where they are, your realm says when it sees them."));
             Assert.That(PvpRoam.OutAgainst([]), Is.EqualTo("Nobody else is out."));
+        }
+
+        [Test]
+        public void AGuildsEveningEnds()
+        {
+            // Wiped three times: it has had enough.
+            Assert.That(PvpRoam.LogsOff(3, false, true, false), Is.True);
+            Assert.That(PvpRoam.LogsOff(2, false, true, false), Is.False);
+            Assert.That(PvpRoam.LogsOff(5, false, false, false), Is.False, "not while it is up and fighting");
+            // Its time is up: at its next wipe, or on the road with nobody about. Never out of a fight.
+            Assert.That(PvpRoam.LogsOff(0, true, false, true), Is.True);
+            Assert.That(PvpRoam.LogsOff(1, true, true, false), Is.True);
+            Assert.That(PvpRoam.LogsOff(0, true, false, false), Is.False);
+            Assert.That(PvpRoam.LogsOff(0, false, false, true), Is.False);
+            foreach (int roll in new[] { 0, 1, 1499, 1500, 1501, 99_999, int.MaxValue })
+                Assert.That(PvpRoam.EveningSeconds(roll), Is.InRange(25 * 60, 50 * 60), roll.ToString());
+
+            // Another of its realm comes out: of its kind when there is one, never one that is out or has been.
+            List<PvpGuildTeam> pool = PvpTeamPool.Generate(16, new Random(11));
+            List<PvpGuildTeam> midgard = pool.Where(team => team.ToRealm() == eRealm.Midgard).ToList();
+            PvpGuildTeam elite = midgard.Single(team => team.ToProfile().Kind == PvpTeamKind.Elite);
+            List<PvpGuildTeam> bad = midgard.Where(team => team.ToProfile().Kind == PvpTeamKind.Bad).ToList();
+            var taken = new HashSet<string> { bad[0].Id, elite.Id };
+            for (int seed = 0; seed < 30; seed++)
+            {
+                PvpGuildTeam next = PvpTeamPool.NextOut(pool, eRealm.Midgard, PvpTeamKind.Bad, taken, new Random(seed));
+                Assert.That(next.ToRealm(), Is.EqualTo(eRealm.Midgard));
+                Assert.That(next.ToProfile().Kind, Is.EqualTo(PvpTeamKind.Bad));
+                Assert.That(taken, Does.Not.Contain(next.Id));
+                // The realm's one elite team is out: somebody else comes.
+                PvpGuildTeam other = PvpTeamPool.NextOut(pool, eRealm.Midgard, PvpTeamKind.Elite, taken, new Random(seed));
+                Assert.That(other.ToProfile().Kind, Is.Not.EqualTo(PvpTeamKind.Elite));
+                Assert.That(taken, Does.Not.Contain(other.Id));
+            }
+            Assert.That(PvpTeamPool.NextOut(pool, eRealm.Midgard, PvpTeamKind.Bad, midgard.Select(team => team.Id).ToHashSet(), new Random(1)), Is.Null, "nobody is left");
         }
 
         [Test]
