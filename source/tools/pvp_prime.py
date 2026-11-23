@@ -33,6 +33,7 @@ def main():
     realms = {team["name"]: written.get(team["realm"], team["realm"]) for team in head["teams"]}
     company, legs, chat, draws = {}, collections.Counter(), [], collections.defaultdict(lambda: [0, 0])
     fights, wipes, sets_off = collections.Counter(), collections.Counter(), {}
+    ports, logoffs, turns = [], [], collections.Counter()
     positions = collections.defaultdict(dict)  # second -> team -> (x, y, state, alive, fighting)
     last = 0
     for row in rows:
@@ -57,6 +58,17 @@ def main():
                 wipes[ev["team"]] += 1
             elif what == "setoff":
                 sets_off[ev["team"]] = row["t"] // 1000
+            elif what == "port":
+                ports.append((row["t"] // 1000, ev["team"], ev["zone"]))
+            elif what == "logoff":
+                logoffs.append((row["t"] // 1000, ev["team"], ev.get("wipes")))
+            elif what == "join":
+                kinds[ev["team"]] = ev.get("kind") or "-"
+                realms[ev["team"]] = ev.get("realm") or "?"
+                if ev.get("beside"):
+                    company[ev["team"]] = ev["beside"]
+            elif what == "turn":
+                turns[ev["team"]] += 1
     end = next((row for row in reversed(rows) if row.get("k") == "end"), None)
     totals = {team["name"]: team for team in (end or {}).get("teams", [])}
 
@@ -105,6 +117,15 @@ def main():
     print("\nSeconds of fighting by the number of teams in the fight:")
     for size in sorted(sizes):
         print(f"  {size} teams: {sizes[size]:5} s ({sizes[size] / total:.0%})")
+
+    if ports or logoffs:
+        print(f"\n{len(ports)} ports to another frontier, {len(logoffs)} log-offs:")
+        for second, team, zone in ports[:20]:
+            print(f"  {second:5} s  {team} ports to {zone}")
+        for second, team, count in logoffs[:20]:
+            print(f"  {second:5} s  {team} logs off (wipes: {count})")
+    if turns:
+        print(f"\nTurned away from a fight: {sum(turns.values())} times, {len(turns)} teams")
 
     print(f"\nRealm chat ({len(chat)} lines):")
     for second, team, text in chat[:60]:

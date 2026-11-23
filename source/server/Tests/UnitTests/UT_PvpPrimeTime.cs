@@ -347,10 +347,17 @@ namespace DOL.UnitTests
         public void AnEveningOverSeveralZones()
         {
             // "Maps? I would assume more than just emain"
-            // Those that walk alone take the zones in turn, so that each zone has its share of each realm.
-            Assert.That(Enumerable.Range(0, 6).Select(turn => PvpRoam.ZoneInTurn(turn, 3)), Is.EqualTo(new[] { 0, 1, 2, 0, 1, 2 }));
-            Assert.That(PvpRoam.ZoneInTurn(5, 1), Is.Zero);
-            Assert.That(PvpRoam.ZoneInTurn(5, 0), Is.Zero);
+            // A team takes the zone that has the fewest groups of its realm, any of them when several have as few.
+            Assert.That(PvpRoam.ZoneWithFewest([3, 1, 2], 7), Is.EqualTo(1));
+            Assert.That(Enumerable.Range(0, 30).Select(roll => PvpRoam.ZoneWithFewest([2, 0, 0], roll)).Distinct(), Is.EquivalentTo(new[] { 1, 2 }));
+            Assert.That(Enumerable.Range(0, 30).Select(roll => PvpRoam.ZoneWithFewest([0, 0, 0], roll)).Distinct(), Is.EquivalentTo(new[] { 0, 1, 2 }), "a pack is not always in the first zone");
+            Assert.That(PvpRoam.ZoneWithFewest([4], 9), Is.Zero);
+            Assert.That(PvpRoam.ZoneWithFewest([], 9), Is.Zero);
+            // Eight groups of a realm, a pack of three among them: three, three and two.
+            var load = new[] { 0, 0, 0 };
+            foreach (int size in new[] { 3, 1, 1, 1, 1, 1 })
+                load[PvpRoam.ZoneWithFewest(load, size * 31)] += size;
+            Assert.That(load.OrderBy(count => count), Is.EqualTo(new[] { 2, 3, 3 }));
             // A guild that walks alone and has been wiped ports elsewhere one time in three; a pack and a follower stay.
             Assert.That(Enumerable.Range(0, 300).Count(roll => PvpRoam.PortsElsewhere(3, false, false, roll)), Is.EqualTo(100));
             Assert.That(Enumerable.Range(0, 300).Any(roll => PvpRoam.PortsElsewhere(1, false, false, roll)), Is.False, "there is nowhere else");

@@ -428,10 +428,21 @@ namespace DOL.GS
 
         /// <summary>
         /// Which zone a team that walks alone, or the head of a pack, takes on an evening over
-        /// several: they take the zones in turn, so that each zone has its share of each realm.
-        /// A team that walks with another goes where that one goes.
+        /// several: the one that has the fewest groups of its realm so far (a pack counts for all
+        /// its groups), any of them when several have as few. So each zone has its share of each
+        /// realm, and a realm's pack is in one zone one evening and in another the next. A team
+        /// that walks with another goes where that one goes. (Taking the zones in turn put every
+        /// realm's pack in the first: of 24 guilds, twelve were in Emain Macha, 2026-11-22.)
         /// </summary>
-        public static int ZoneInTurn(int turn, int zones) => zones <= 0 ? 0 : Math.Abs(turn) % zones;
+        /// <param name="groupsOfItsRealm">How many groups of its realm each zone has.</param>
+        public static int ZoneWithFewest(IReadOnlyList<int> groupsOfItsRealm, int roll)
+        {
+            if (groupsOfItsRealm.Count == 0)
+                return 0;
+            int fewest = groupsOfItsRealm.Min();
+            List<int> zones = Enumerable.Range(0, groupsOfItsRealm.Count).Where(zone => groupsOfItsRealm[zone] == fewest).ToList();
+            return zones[Math.Abs(roll) % zones.Count];
+        }
 
         /// <summary>
         /// A guild that walks alone and has been wiped ports to another frontier one time in
@@ -1003,10 +1014,18 @@ namespace DOL.GS
                 // The zones of the evening: those that walk alone and the heads of packs take them in turn, beginning
                 // where the evening began; the others go where the team they walk with goes.
                 var placed = teams.Where(team => team.Leader != null).ToList();
-                int turn = 0;
+                // (How many groups of the realm a zone will have: those put there, and those that will follow them there.)
+                int[] load = maps.Select(zone => placed.Count(team => team.Realm == realm.Key && team.Map == zone)).ToArray();
                 foreach (PvpRoamTeam team in realm.Where(team => team.Company == null).Concat(realm.Where(team => team.Company != null)))
                 {
-                    Place(team, team.Company?.Map ?? maps[ZoneInTurn(turn++, maps.Count)], placed);
+                    PvpRoamMap zone = team.Company?.Map;
+                    if (zone == null)
+                    {
+                        int pick = ZoneWithFewest(load, Random.Shared.Next());
+                        zone = maps[pick];
+                        load[pick] += 1 + realm.Count(follower => follower.Company == team);
+                    }
+                    Place(team, zone, placed);
                     placed.Add(team);
                 }
             }
