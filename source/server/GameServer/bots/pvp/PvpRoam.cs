@@ -25,6 +25,9 @@ namespace DOL.GS
     {
         public PvpRoamStart StartOf(eRealm realm) => Starts.First(start => start.Realm == realm);
 
+        /// <summary>The zone as it is named in a line of chat: "Emain", "Odin's", "Hadrian's".</summary>
+        public string Tag => Name.Split(' ')[0];
+
         /// <summary>What the nearest named point to a place is called; "near the X keep" within 6,000 of a realm's start; null on a map without names.</summary>
         public string PlaceOf(double x, double y)
         {
@@ -46,6 +49,8 @@ namespace DOL.GS
         public PvpGroupTemplate Template;
         public eRealm Realm;
         public PvpRoamStart Start;
+        /// <summary>The zone it is in. On a prime-time evening the teams may be spread over several (M11.3).</summary>
+        public PvpRoamMap Map;
         public string Roster;
         /// <summary>On a prime-time evening (M11): the guild it is, and what its kind is like. Null for the realm's main groups of the roam as it was.</summary>
         public PvpGuildTeam Guild;
@@ -203,6 +208,9 @@ namespace DOL.GS
         public static readonly PvpRoamMap Thidranki = new("thid", "Thidranki", 252, ThidrankiStarts, ThidrankiWays, null,
             [(ThidHM, "between hib and mid"), (ThidHA, "between hib and alb"), (ThidMA, "between mid and alb")]);
 
+        /// <summary>The frontier zones an evening is spread over (M11.3). Zones whose points have been walked on the installed navmesh.</summary>
+        public static readonly IReadOnlyList<PvpRoamMap> Frontiers = [Emain];
+
         /// <summary>The map a word stands for ("thid", "thidranki", "emain"); null for a word that names none.</summary>
         public static PvpRoamMap MapFor(string word) => (word ?? string.Empty).Trim().ToLowerInvariant() switch
         {
@@ -278,6 +286,10 @@ namespace DOL.GS
             string who = $"{Math.Max(1, groups)}fg {Short(realm)}", where = place == null ? string.Empty : $" at {place}";
             return wiped ? $"wiped{where}, {who}" : fightingThem ? $"fighting {who}{where}" : $"{who}{where}";
         }
+
+        /// <summary>A place as it is called out on an evening over several zones: "south road (Emain)". With one zone, the place alone.</summary>
+        private static string InZone(PvpRoamMap map, string place) =>
+            _maps.Count <= 1 ? place : place == null ? map.Tag : $"{place} ({map.Tag})";
 
         /// <summary>How far a group sees enemies it then calls out, and how near the player must be for it to be no news.</summary>
         public const int SightingWithin = 5_500, NoNewsWithin = 3_500;
@@ -361,6 +373,37 @@ namespace DOL.GS
             teams.Count(mate => mate.Realm == team.Realm && mate.Alive > 0 && (mate == team || Near(team, mate, BesideWithin)));
 
         private static volatile PvpRoamMap _map = Emain;
+        // Every zone of the evening; the one above is where it began (the player's, when there is a player).
+        private static volatile List<PvpRoamMap> _maps = [Emain];
+        // The player's group is on its way to another zone since this tick (0: it is not): its seven are made anew there.
+        private static long _travelling;
+
+        /// <summary>
+        /// Which zone a team that walks alone, or the head of a pack, takes on an evening over
+        /// several: they take the zones in turn, so that each zone has its share of each realm.
+        /// A team that walks with another goes where that one goes.
+        /// </summary>
+        public static int ZoneInTurn(int turn, int zones) => zones <= 0 ? 0 : Math.Abs(turn) % zones;
+
+        /// <summary>
+        /// A guild that walks alone and has been wiped ports to another frontier one time in
+        /// three, when the evening has more than one zone: "Maps? I would assume more than just
+        /// emain" (the owner, 2026-11-22). A pack and a group that stays near others stay where they are.
+        /// </summary>
+        public static bool PortsElsewhere(int zones, bool walksWithSomebody, bool somebodyWalksWithIt, int roll) =>
+            zones > 1 && !walksWithSomebody && !somebodyWalksWithIt && roll % 3 == 0;
+
+        /// <summary>Puts a team in a zone: at its realm's start there, with the place and the first point of the next team to come.</summary>
+        private static void Place(PvpRoamTeam team, PvpRoamMap map, IEnumerable<PvpRoamTeam> teams)
+        {
+            PvpRoamStart start = map.StartOf(team.Realm);
+            int index = teams.Count(other => other != team && other.Map == map && other.Realm == team.Realm);
+            (team.Map, team.Start, team.Index, team.SpawnAt) = (map, start, index, SpawnPoint(start.Point, index));
+            if (team.Leader != null)
+                return;
+            team.Entry = team.Guild != null && map.Ways != null ? start.RouteOf(index % 2 + 1)[0] : null;
+            (team.Team.Route, team.Team.Waypoint, team.CameFrom, team.ArrivedAt) = (team.Entry is { } entry ? [entry] : start.RouteOf(index % 2 + 1), 0, null, 0);
+        }
         // The pool the guild teams of a prime-time evening are from; null in the roam as it was.
         private static string _pool;
         // What was called out in realm chat, and when: by each group about each enemy realm, and the last call of all.
@@ -488,7 +531,7 @@ namespace DOL.GS
         private static System.Numerics.Vector3? PickHide(PvpRoamTeam team, PvpRealWeights real)
         {
             if (real.RestsOffTheRoadBy is not { Length: > 0 } distances || team.Team.Route is not { Length: > 0 } route ||
-                WorldMgr.GetRegion(_map.Region) is not { } region || team.Team.Bots.FirstOrDefault(bot => bot.IsAlive) is not { } first)
+                WorldMgr.GetRegion(team.Map.Region) is not { } region || team.Team.Bots.FirstOrDefault(bot => bot.IsAlive) is not { } first)
                 return null;
             (double x, double y) = team.Centre();
             (int X, int Y) next = route[team.Team.Waypoint % route.Length];
@@ -538,8 +581,10 @@ namespace DOL.GS
                 string doing = Doing(team.State, team.Waiting, team.Hide != null, team.Team.Squad?.Resting == true, team.DeadSince != 0 && !team.Reforming,
                     team.Fighting.Select(other => other.Name).ToList(), (int)((team.LeavesAt - now) / 1000),
                     (int)(real.WipeStandsUpAfterSeconds - (now - team.StateSince) / 1000));
+                PvpRoamMap viewersZone = teams.FirstOrDefault(mine => mine.Leader == viewer && viewer != null)?.Map;
                 lines.Add($"{team.Name}{(team.Leader != null ? " (yours)" : string.Empty)}: {doing}; {team.Alive} alive" +
-                          (team.Leader != null || viewer == null ? string.Empty : $", {away:N0} from you"));
+                          (team.Leader != null || viewer == null ? string.Empty
+                              : viewersZone != null && team.Map != viewersZone ? $", in {team.Map.Name}" : $", {away:N0} from you"));
             }
             if (own && lines.Count > 0)
                 lines.Add(OutAgainst(teams.Where(team => team.Realm != viewer.Realm && team.State != "Away").GroupBy(team => team.Realm).Select(realm => (realm.Key, realm.Count())).ToList()));
@@ -566,7 +611,7 @@ namespace DOL.GS
                 string classes = string.Join(", ", team.Team.Bots.GroupBy(bot => PvpMember.ClassOf(bot)).OrderByDescending(group => group.Count())
                     .Select(group => group.Count() > 1 ? $"{group.Count()} {group.Key}" : group.Key.ToString()));
                 string rank = PvpRealmPoints.RankName((int)Math.Round(team.Team.Bots.Select(bot => bot.RealmLevel).DefaultIfEmpty(1).Average()));
-                lines.Add($"{team.Name}{(team.Leader != null ? " (yours)" : string.Empty)}, rank {rank}: {classes}" +
+                lines.Add($"{team.Name}{(team.Leader != null ? " (yours)" : string.Empty)}, rank {rank}{(_maps.Count > 1 ? ", " + team.Map.Tag : string.Empty)}: {classes}" +
                           (team.Company != null ? $"; walks with {team.Company.Name}" : string.Empty));
             }
             if (viewer != null && lines.Count > 0)
@@ -626,12 +671,12 @@ namespace DOL.GS
                              other.State is "Roaming" or "Fighting" && Near(friend, other, SightingWithin)).GroupBy(other => other.Realm))
                 {
                     (double x, double y) = seen.First().Centre();
-                    string place = _map.PlaceOf(x, y);
+                    string place = InZone(friend.Map, friend.Map.PlaceOf(x, y));
                     bool known = CalledOut.TryGetValue((seen.Key, place ?? string.Empty), out (long When, int Groups) last);
                     if (!CallsOut((now - _lastCall) / 1000.0, known ? (now - last.When) / 1000.0 : double.MaxValue, known && seen.Count() > last.Groups))
                         continue;
                     // The player stands there: no news.
-                    if (mine?.Leader is { } player && player.IsWithinRadius(new Point2D((int)x, (int)y), NoNewsWithin))
+                    if (mine?.Leader is { } player && mine.Map == friend.Map && player.IsWithinRadius(new Point2D((int)x, (int)y), NoNewsWithin))
                         continue;
                     (CalledOut[(seen.Key, place ?? string.Empty)], _lastCall) = ((now, seen.Count()), now);
                     RealmChat(teams, friend, SightingText(seen.Count(), seen.Key, place, seen.Any(friend.Fighting.Contains)));
@@ -709,7 +754,55 @@ namespace DOL.GS
         /// who left the zone was a player who had left the game: the roam ended.
         /// </summary>
         public static (ushort Region, Point3D Spot)? ReleasePoint(GamePlayer player) =>
-            player != null && _teams.Any(team => team.Leader == player) ? (_map.Region, StartSpot(_map, player.Realm)) : null;
+            player != null && _teams.FirstOrDefault(team => team.Leader == player) is { } mine ? (mine.Map.Region, StartSpot(mine.Map, player.Realm)) : null;
+
+        /// <summary>
+        /// <c>/8v8 go</c>: on a prime-time evening over several zones the player's group ports to
+        /// its realm's start in another, as a group did from its portal keep. Not out of a fight.
+        /// The seven are made anew there, around the player.
+        /// </summary>
+        public static void GoTo(GamePlayer player, PvpRoamMap map, Action<string> say)
+        {
+            PvpRoamTeam mine = _teams.FirstOrDefault(team => team.Leader == player);
+            if (mine == null || !Prime)
+                throw new InvalidOperationException("You are not out on a prime-time evening. /8v8 prime starts one.");
+            if (map == null || !_maps.Contains(map))
+                throw new InvalidOperationException("This evening is on in: " + string.Join(", ", _maps.Select(zone => zone.Name)) + ". /8v8 go emain, odin or hadrian.");
+            if (mine.Map == map)
+                throw new InvalidOperationException($"You are in {map.Name}.");
+            if (!player.IsAlive || player.InCombat || mine.ContactTick != 0 || mine.Fighting.Count > 0)
+                throw new InvalidOperationException("Not out of a fight: when it is over.");
+            _travelling = GameLoop.GameLoopTime;
+            NpcService.Instance.Post(_ =>
+            {
+                PvpArena.Remove(mine.All);
+                mine.All.Clear();
+                mine.Team.Bots = [];
+                PvpRecorder.Regroup(_recording, mine.Name, [player]);
+            }, 0);
+            PvpScrim.TravelThen(player, map.Region, StartSpot(map, player.Realm), say, () => NpcService.Instance.Post(_ =>
+            {
+                try
+                {
+                    if (!_teams.Contains(mine))
+                        return;
+                    long now = GameLoop.GameLoopTime;
+                    Place(mine, map, _teams);
+                    Spawn(mine, now);
+                    PvpRecorder.Regroup(_recording, mine.Name, mine.Team.Members);
+                    Say($"{mine.Name} ports to {map.Name}", new { what = "port", team = mine.Name, zone = map.Name });
+                    say($"You are in {map.Name}, at your realm's start, with your group. A wipe or /release puts you back here.");
+                }
+                catch (Exception exception)
+                {
+                    say("Your group could not follow: " + exception.Message);
+                }
+                finally
+                {
+                    _travelling = 0;
+                }
+            }, 0), map.Name);
+        }
 
         /// <summary>
         /// Whether a team is wiped: nobody alive, or, for the player's, every companion dead and
@@ -722,7 +815,8 @@ namespace DOL.GS
         /// <summary><c>/8v8 roam</c>: the player is taken to the start of its realm and leads the first team of it.</summary>
         /// <param name="own">The player's group when it is not the realm's main one (PvpBuildCatalog.Variants).</param>
         /// <param name="prime">Above 0: a prime-time evening (M11) with this many groups of each realm, the player's one of them, the others guilds of the world.</param>
-        public static void StartFor(GamePlayer player, Action<string> say, PvpGroupTemplate own = null, PvpRoamMap map = null, int prime = 0)
+        /// <param name="oneZone">A prime-time evening in the one zone, not over all the frontiers.</param>
+        public static void StartFor(GamePlayer player, Action<string> say, PvpGroupTemplate own = null, PvpRoamMap map = null, int prime = 0, bool oneZone = false)
         {
             map ??= Emain;
             if (own != null && own.Realm != player.Realm)
@@ -738,10 +832,13 @@ namespace DOL.GS
                     if (prime > 0)
                     {
                         List<PvpGuildTeam> pool = PvpTeamPool.LoadOrCreate(AppContext.BaseDirectory, PvpTeamPool.World, Math.Max(16, prime * 2), Random.Shared);
-                        Start(2, player.InternalID, player, own, map, null, PvpTeamPool.Tonight(pool, prime, Random.Shared, player.Realm), PvpTeamPool.World);
-                        say($"Prime time in {map.Name}: {prime} groups of each realm are out, yours one of them, the others guilds of every kind. " +
+                        // Over the frontiers, unless one zone was asked for; a battleground is always one zone.
+                        List<PvpRoamMap> zones = oneZone || !Frontiers.Contains(map) ? null : Frontiers.ToList();
+                        Start(2, player.InternalID, player, own, map, null, PvpTeamPool.Tonight(pool, prime, Random.Shared, player.Realm), PvpTeamPool.World, zones);
+                        say($"Prime time{(zones is { Count: > 1 } ? " in " + string.Join(", ", zones.Select(zone => zone.Name)) + "; you are in " + map.Name : " in " + map.Name)}: " +
+                            $"{prime} groups of each realm are out, yours one of them, the others guilds of every kind. " +
                             "Some walk in packs, some add, some do neither. Kills earn realm points that are kept, and a wipe puts your group " +
-                            "back here (so does /release). /8v8 status, /8v8 stop.");
+                            "back here (so does /release). /8v8 who, /8v8 status, /8v8 go <zone>, /8v8 rivals, /8v8 stop.");
                         return;
                     }
                     Start(2, player.InternalID, player, own, map);
@@ -759,8 +856,9 @@ namespace DOL.GS
         /// <param name="lineups">Groups to use for their realms' teams of bots in place of the main ones (a test of a line-up; null: the main ones).</param>
         /// <param name="guilds">A prime-time evening (M11): these teams are out, with the player's own if there is a player; <paramref name="teamsPerRealm"/> is not used.</param>
         /// <param name="pool">The pool the guilds are from: their rosters and their records are kept under it.</param>
+        /// <param name="zones">A prime-time evening over several zones (M11.3): <paramref name="map"/>, where it begins, and these others. Null: that one zone.</param>
         public static object Start(int teamsPerRealm, string owner, GamePlayer leader = null, PvpGroupTemplate own = null, PvpRoamMap map = null,
-            IReadOnlyList<PvpGroupTemplate> lineups = null, IReadOnlyList<PvpGuildTeam> guilds = null, string pool = null)
+            IReadOnlyList<PvpGroupTemplate> lineups = null, IReadOnlyList<PvpGuildTeam> guilds = null, string pool = null, IReadOnlyList<PvpRoamMap> zones = null)
         {
             map ??= Emain;
             if (PvpScrim.Running)
@@ -768,9 +866,15 @@ namespace DOL.GS
             PvpArena.Clear();
             PvpWeights.Reload(AppContext.BaseDirectory);
             _map = map;
-            int cleared = PvpArena.ClearMonsters(map.Region, map.Starts.Select(start => start.Point));
-            if (cleared > 0)
-                Log.Info($"8v8 roam: {cleared} monsters taken out of {map.Name}");
+            List<PvpRoamMap> maps = guilds == null || zones == null ? [map] : zones.Prepend(map).Distinct().ToList();
+            _maps = maps;
+            _travelling = 0;
+            foreach (PvpRoamMap zone in maps)
+            {
+                int cleared = PvpArena.ClearMonsters(zone.Region, zone.Starts.Select(start => start.Point));
+                if (cleared > 0)
+                    Log.Info($"8v8 roam: {cleared} monsters taken out of {zone.Name}");
+            }
             var teams = new List<PvpRoamTeam>();
             long now = GameLoop.GameLoopTime;
             PvpRealWeights real = PvpWeights.Current.Real;
@@ -799,7 +903,7 @@ namespace DOL.GS
                     (string name, PvpGroupTemplate lineup, bool led, PvpGuildTeam guild) = entries[index];
                     var team = new PvpRoamTeam
                     {
-                        Name = name, Template = lineup, Realm = start.Realm, Start = start, Guild = guild, Profile = guild?.ToProfile(),
+                        Name = name, Template = lineup, Realm = start.Realm, Start = start, Map = map, Guild = guild, Profile = guild?.ToProfile(),
                         // The player's companions are kept under the player; every other team under its own name; a guild under its pool.
                         Roster = led ? owner : guild != null ? PvpRealmPoints.EnemyRoster(pool ?? PvpTeamPool.World, guild.Id) : PvpRealmPoints.EnemyRoster(owner, name),
                         // A realm's teams of bots set off one after the other; the player's own goes when the player does.
@@ -813,11 +917,12 @@ namespace DOL.GS
                     // On a prime-time evening a team has the rank of its kind and of what it has earned, whatever the player's is.
                     _floor = guilds != null || leader == null || teams.Count == 0 ? 1 : PvpRealmPoints.EnemyLevel(1,
                         teams[0].Team.Bots.Select(bot => bot.RealmLevel).Append(leader.RealmLevel).ToList(), PvpWeights.Current.Real.EnemyKeepsUp);
-                    // A guild comes out when its time has come (the first of a realm at once); its eight are made then.
+                    // A guild comes out when its time has come (the first of a realm with the first tick); its eight are made then,
+                    // in the zone it has been put in by then.
                     int before = teams.Count(other => other.Realm == start.Realm && other.Leader == null);
-                    if (guild != null && ComesOutAfterSeconds(before, map.Starts.ToList().IndexOf(start), real) is > 0 and int after)
+                    if (guild != null)
                     {
-                        (team.State, team.ComesOutAt, team.StateSince) = ("Away", now + 1000L * after, now);
+                        (team.State, team.ComesOutAt, team.StateSince) = ("Away", now + 1000L * ComesOutAfterSeconds(before, map.Starts.ToList().IndexOf(start), real), now);
                         team.Team.Bots = [];
                     }
                     else
@@ -844,12 +949,22 @@ namespace DOL.GS
                     (team.Leader != null || team.Profile is { Company: PvpCompany.Alone, KeepsToQuietGround: false })).ToList();
                 foreach (PvpRoamTeam near in realm.Where(team => team.Profile.Company == PvpCompany.Near && hosts.Count > 0))
                     near.Company = hosts[Random.Shared.Next(hosts.Count)];
+                // The zones of the evening: those that walk alone and the heads of packs take them in turn, beginning
+                // where the evening began; the others go where the team they walk with goes.
+                var placed = teams.Where(team => team.Leader != null).ToList();
+                int turn = 0;
+                foreach (PvpRoamTeam team in realm.Where(team => team.Company == null).Concat(realm.Where(team => team.Company != null)))
+                {
+                    Place(team, team.Company?.Map ?? maps[ZoneInTurn(turn++, maps.Count)], placed);
+                    placed.Add(team);
+                }
             }
             _pool = guilds != null ? pool ?? PvpTeamPool.World : null;
             _teams = teams;
             _started = now;
             // One recording for the session (M9.7 step 4): every team under its own name.
-            _recording = PvpRecorder.BeginRoam((guilds != null ? "prime" : "roam") + (leader != null ? "-play" : string.Empty) + (map == Emain ? string.Empty : "-" + map.Id),
+            _recording = PvpRecorder.BeginRoam((guilds != null ? "prime" : "roam") + (leader != null ? "-play" : string.Empty) +
+                                               (maps.Count > 1 ? "-" + maps.Count + "zones" : map == Emain ? string.Empty : "-" + map.Id),
                 teams.Select(team => (team.Name, team.Template.Id, team.Realm, team.Team.Members)).ToList(),
                 teams.Where(team => team.Profile != null).ToDictionary(team => team.Name, team => team.Profile.Kind.ToString()));
             foreach (PvpRoamTeam team in teams.Where(team => team.Company != null))
@@ -895,7 +1010,7 @@ namespace DOL.GS
             long seed = team.Guild == null ? 0 : PvpRealmPoints.PointsFor(team.Guild.SeedLevel);
             try
             {
-                return PvpArena.SpawnGroup(team.Template, _map.Region, team.SpawnAt.X, team.SpawnAt.Y, 0, team.All, team.Roster, _floor, seed, team.Guild?.Guild).ToList();
+                return PvpArena.SpawnGroup(team.Template, team.Map.Region, team.SpawnAt.X, team.SpawnAt.Y, 0, team.All, team.Roster, _floor, seed, team.Guild?.Guild).ToList();
             }
             catch (InvalidOperationException) when (team.SpawnAt != team.Start.Point)
             {
@@ -903,7 +1018,7 @@ namespace DOL.GS
                 PvpArena.Remove(team.All);
                 team.All.Clear();
                 team.SpawnAt = team.Start.Point;
-                return PvpArena.SpawnGroup(team.Template, _map.Region, team.SpawnAt.X, team.SpawnAt.Y, 0, team.All, team.Roster, _floor, seed, team.Guild?.Guild).ToList();
+                return PvpArena.SpawnGroup(team.Template, team.Map.Region, team.SpawnAt.X, team.SpawnAt.Y, 0, team.All, team.Roster, _floor, seed, team.Guild?.Guild).ToList();
             }
         }
 
@@ -950,7 +1065,7 @@ namespace DOL.GS
         {
             if (team.Leader is { } leader)
             {
-                Point3D spot = StartSpot(_map, team.Realm);
+                Point3D spot = StartSpot(team.Map, team.Realm);
                 if (!leader.IsAlive)
                 {
                     leader.TempProperties.SetProperty(GamePlayer.RESURRECT_REZ_SICK_EFFECTIVENESS, 0.0);
@@ -960,7 +1075,7 @@ namespace DOL.GS
                 (leader.Health, leader.Mana, leader.Endurance) = (leader.MaxHealth, leader.MaxMana, leader.MaxEndurance);
                 // A player who released is there already.
                 if (!leader.IsWithinRadius(spot, 1_500))
-                    leader.MoveTo(_map.Region, spot.X, spot.Y, spot.Z, leader.Heading);
+                    leader.MoveTo(team.Map.Region, spot.X, spot.Y, spot.Z, leader.Heading);
                 Tell(team, "Your group stands up at its start.");
             }
             Spawn(team, now);
@@ -997,20 +1112,29 @@ namespace DOL.GS
                 List<PvpRoamTeam> teams = _teams;
                 long now = GameLoop.GameLoopTime;
                 PvpRealWeights real = PvpWeights.Current.Real;
+                // (On its way to another zone the player is not in the world for a moment: that is not leaving. Two minutes at most.)
+                bool travelling = _travelling != 0 && now - _travelling < 120_000;
                 // The player has left the game: the roam is over.
-                if (teams.Any(team => team.Leader is { } leader && (leader.ObjectState != GameObject.eObjectState.Active || leader.Client?.IsPlaying != true)))
+                if (!travelling && teams.Any(team => team.Leader is { } leader && (leader.ObjectState != GameObject.eObjectState.Active || leader.Client?.IsPlaying != true)))
                 {
                     Stop();
                     return;
                 }
                 foreach (PvpRoamTeam team in teams)
+                {
+                    if (travelling && team.Leader != null)
+                        continue;
                     Step(team, teams, now, real);
+                }
                 CallOut(teams, now);
                 if (Prime)
                     Rotate(teams, now);
                 // A monster that was dead when the roam began has come back: once a minute.
                 if ((now - _started) / 1000 % 60 == 59)
-                    PvpArena.ClearMonsters(_map.Region, _map.Starts.Select(start => start.Point));
+                {
+                    foreach (PvpRoamMap zone in _maps)
+                        PvpArena.ClearMonsters(zone.Region, zone.Starts.Select(start => start.Point));
+                }
                 if (_recording is { } recording)
                 {
                     foreach (PvpRoamTeam team in teams)
@@ -1041,7 +1165,7 @@ namespace DOL.GS
 
         /// <summary>True while a living team of another realm is within this of the team's start point.</summary>
         private static bool EnemyNearStart(PvpRoamTeam team, List<PvpRoamTeam> teams, int within) =>
-            teams.Any(other => other.Realm != team.Realm && other.Team.Members.Any(member => member.IsAlive &&
+            teams.Any(other => other.Realm != team.Realm && other.Map == team.Map && other.Team.Members.Any(member => member.IsAlive &&
                 member.IsWithinRadius(new Point2D(team.Start.Point.X, team.Start.Point.Y), within)));
 
         /// <summary>
@@ -1063,6 +1187,9 @@ namespace DOL.GS
 
         private static bool Near(PvpRoamTeam a, PvpRoamTeam b, int within)
         {
+            // Two zones are two worlds: nobody is near anybody in another.
+            if (a.Map != b.Map)
+                return false;
             (double ax, double ay) = a.Centre();
             (double bx, double by) = b.Centre();
             return Math.Sqrt((ax - bx) * (ax - bx) + (ay - by) * (ay - by)) <= within;
@@ -1112,7 +1239,7 @@ namespace DOL.GS
                     {
                         IGrouping<eRealm, PvpRoamTeam> most = team.Fighting.GroupBy(other => other.Realm).OrderByDescending(realm => realm.Count()).First();
                         (double x, double y) = team.Centre();
-                        RealmChat(teams, team, SightingText(most.Count(), most.Key, _map.PlaceOf(x, y), false, true));
+                        RealmChat(teams, team, SightingText(most.Count(), most.Key, InZone(team.Map, team.Map.PlaceOf(x, y)), false, true));
                     }
                     team.Fighting.Clear();
                     Say($"{team.Name} is wiped (its {team.Wipes}.)", new { what = "wipe", team = team.Name });
@@ -1123,6 +1250,12 @@ namespace DOL.GS
                 else if (PvpRealWeights.StandsUp((now - team.StateSince) / 1000.0, EnemyNearStart(team, teams, real.StartIsClearBeyond), real,
                              team.Leader is { IsAlive: true }))
                 {
+                    if (team.Guild != null && PortsElsewhere(_maps.Count, team.Company != null, teams.Any(other => other.Company == team), Random.Shared.Next(300)))
+                    {
+                        List<PvpRoamMap> elsewhere = _maps.Where(zone => zone != team.Map).ToList();
+                        Place(team, elsewhere[Random.Shared.Next(elsewhere.Count)], teams);
+                        Say($"{team.Name} ports to {team.Map.Name}", new { what = "port", team = team.Name, zone = team.Map.Name });
+                    }
                     StandUp(team, now);
                     Say($"{team.Name} stands up at its start", new { what = "standup", team = team.Name });
                 }
@@ -1435,7 +1568,7 @@ namespace DOL.GS
             PvpRoamTeam heir = followers.FirstOrDefault(team => team.Profile?.Company == PvpCompany.Zerg);
             foreach (PvpRoamTeam follower in followers)
             {
-                List<PvpRoamTeam> hosts = Hosts(next, follower.Realm);
+                List<PvpRoamTeam> hosts = Hosts(next, follower.Realm).Where(host => host.Map == follower.Map).ToList();
                 follower.Company = follower == heir ? null
                     : follower.Profile?.Company == PvpCompany.Zerg ? heir
                     : hosts.Count > 0 ? hosts[Random.Shared.Next(hosts.Count)] : null;
@@ -1449,8 +1582,8 @@ namespace DOL.GS
                 var fresh = new PvpRoamTeam
                 {
                     Name = guild.Guild, Template = guild.ToTemplate(), Realm = leaving.Realm, Start = leaving.Start, Guild = guild, Profile = profile,
-                    Roster = PvpRealmPoints.EnemyRoster(pool, guild.Id), SpawnAt = leaving.SpawnAt, Index = leaving.Index,
-                    Entry = _map.Ways != null ? leaving.Start.RouteOf(leaving.Index % 2 + 1)[0] : null,
+                    Roster = PvpRealmPoints.EnemyRoster(pool, guild.Id), SpawnAt = leaving.SpawnAt, Index = leaving.Index, Map = leaving.Map,
+                    Entry = leaving.Map.Ways != null ? leaving.Start.RouteOf(leaving.Index % 2 + 1)[0] : null,
                     State = "Away", StateSince = now, ComesOutAt = now + 1000L * (20 + Random.Shared.Next(41)),
                 };
                 fresh.LogsOffAt = fresh.ComesOutAt + 1000L * EveningSeconds(Random.Shared.Next());
@@ -1458,9 +1591,9 @@ namespace DOL.GS
                 fresh.Team.Route = fresh.Entry is { } entry ? [entry] : leaving.Start.RouteOf(leaving.Index + 1);
                 // A bad group joins a pack of its realm that has room; a group that stays near others picks its group.
                 if (profile.Company == PvpCompany.Zerg)
-                    fresh.Company = next.FirstOrDefault(team => team.Realm == fresh.Realm && team.Company == null && team.Profile?.Company == PvpCompany.Zerg &&
+                    fresh.Company = next.FirstOrDefault(team => team.Realm == fresh.Realm && team.Map == fresh.Map && team.Company == null && team.Profile?.Company == PvpCompany.Zerg &&
                                                                 next.Count(other => other.Company == team) < 4);
-                else if (profile.Company == PvpCompany.Near && Hosts(next, fresh.Realm) is { Count: > 0 } hosts)
+                else if (profile.Company == PvpCompany.Near && Hosts(next, fresh.Realm).Where(host => host.Map == fresh.Map).ToList() is { Count: > 0 } hosts)
                     fresh.Company = hosts[Random.Shared.Next(hosts.Count)];
                 next.Add(fresh);
                 Say($"{fresh.Name} will come out", new { what = "join", team = fresh.Name, kind = profile.Kind.ToString(), realm = NameOf(fresh.Realm), beside = fresh.Company?.Name });
@@ -1503,11 +1636,13 @@ namespace DOL.GS
                 return true;
             // The head of a pack keeps to the road, where the fights are; an elite group to the quiet ground.
             int leaning = team.Profile is { KeepsToQuietGround: true } ? 1 : team.Profile is { Company: PvpCompany.Zerg } ? -1 : 0;
-            (int X, int Y) next = NextPoint(_map, at, team.CameFrom, leaning, Random.Shared.Next());
+            (int X, int Y) next = NextPoint(team.Map, at, team.CameFrom, leaning, Random.Shared.Next());
             // A guild with a grudge goes toward the player's group.
-            bool looking = ComesLooking(team.WipedByPlayer, team.AddedOnByPlayer) && teams.FirstOrDefault(mine => mine.Leader != null && mine.Alive > 0) is { } hunted;
+            // (In its own zone: it does not port after it.)
+            PvpRoamTeam hunted = teams.FirstOrDefault(mine => mine.Leader != null && mine.Alive > 0 && mine.Map == team.Map);
+            bool looking = hunted != null && ComesLooking(team.WipedByPlayer, team.AddedOnByPlayer);
             if (looking)
-                next = PointToward(_map, at, teams.First(mine => mine.Leader != null && mine.Alive > 0).Centre());
+                next = PointToward(team.Map, at, hunted.Centre());
             Say($"{team.Name} goes on{(looking ? ", looking for the player's group" : string.Empty)}",
                 new { what = "leg", team = team.Name, from = new[] { at.X, at.Y }, to = new[] { next.X, next.Y }, looking });
             (team.CameFrom, team.Team.Route, team.Team.Waypoint, team.ArrivedAt) = (at, [next], 0, 0);
@@ -1566,7 +1701,7 @@ namespace DOL.GS
             return new
             {
                 Running,
-                Map = _map.Name,
+                Map = string.Join(", ", _maps.Select(zone => zone.Name)),
                 Seconds = Running ? (now - _started) / 1000 : 0,
                 Error = _lastError,
                 Recording = _recording?.File,
@@ -1590,7 +1725,7 @@ namespace DOL.GS
                         team.Fights, team.Kills, team.Deaths, team.Wipes, team.Joined, team.LeftAlone, team.Earned,
                         Rank = PvpRealmPoints.RankName((int)Math.Round(team.Team.Bots.Select(bot => bot.RealmLevel).DefaultIfEmpty(1).Average())),
                         Leader = team.Leader?.Name,
-                        Kind = team.Profile?.Kind.ToString(), With = team.Company?.Name, Builds = team.Guild?.Builds,
+                        Kind = team.Profile?.Kind.ToString(), With = team.Company?.Name, Builds = team.Guild?.Builds, Zone = team.Map.Name,
                     };
                 }).ToList(),
                 Events = events,

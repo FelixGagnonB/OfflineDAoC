@@ -344,6 +344,42 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void AnEveningOverSeveralZones()
+        {
+            // "Maps? I would assume more than just emain"
+            // Those that walk alone take the zones in turn, so that each zone has its share of each realm.
+            Assert.That(Enumerable.Range(0, 6).Select(turn => PvpRoam.ZoneInTurn(turn, 3)), Is.EqualTo(new[] { 0, 1, 2, 0, 1, 2 }));
+            Assert.That(PvpRoam.ZoneInTurn(5, 1), Is.Zero);
+            Assert.That(PvpRoam.ZoneInTurn(5, 0), Is.Zero);
+            // A guild that walks alone and has been wiped ports elsewhere one time in three; a pack and a follower stay.
+            Assert.That(Enumerable.Range(0, 300).Count(roll => PvpRoam.PortsElsewhere(3, false, false, roll)), Is.EqualTo(100));
+            Assert.That(Enumerable.Range(0, 300).Any(roll => PvpRoam.PortsElsewhere(1, false, false, roll)), Is.False, "there is nowhere else");
+            Assert.That(Enumerable.Range(0, 300).Any(roll => PvpRoam.PortsElsewhere(3, true, false, roll)), Is.False, "it walks with somebody");
+            Assert.That(Enumerable.Range(0, 300).Any(roll => PvpRoam.PortsElsewhere(3, false, true, roll)), Is.False, "somebody walks with it");
+            // Every frontier has a start for each realm, points with names, ways between them, and a word that names it.
+            Assert.That(PvpRoam.Frontiers, Does.Contain(PvpRoam.Emain));
+            Assert.That(PvpRoam.Frontiers.Select(zone => zone.Region).Distinct().Count(), Is.EqualTo(PvpRoam.Frontiers.Count));
+            Assert.That(PvpRoam.Frontiers.Select(zone => zone.Tag).Distinct().Count(), Is.EqualTo(PvpRoam.Frontiers.Count));
+            foreach (PvpRoamMap zone in PvpRoam.Frontiers)
+            {
+                Assert.That(zone.Starts.Select(start => start.Realm), Is.EquivalentTo(new[] { eRealm.Albion, eRealm.Midgard, eRealm.Hibernia }), zone.Name);
+                List<(int X, int Y)> points = zone.Ways.SelectMany(way => new[] { way.A, way.B }).Distinct().ToList();
+                Assert.That(points, Has.Count.GreaterThanOrEqualTo(4), zone.Name);
+                Assert.That(zone.Places.Select(place => place.Point), Is.EquivalentTo(points), zone.Name);
+                Assert.That(zone.Places.Select(place => place.Name).Distinct().Count(), Is.EqualTo(points.Count), zone.Name);
+                foreach ((int X, int Y) point in points)
+                    Assert.That(zone.From(point), Is.Not.Empty, $"{zone.Name} {point}");
+                foreach (PvpRoamStart start in zone.Starts)
+                {
+                    Assert.That(points, Does.Contain(start.RouteOf(1)[0]), $"{zone.Name} {start.Realm}");
+                    Assert.That(points, Does.Contain(start.RouteOf(2)[0]), $"{zone.Name} {start.Realm}");
+                }
+                Assert.That(PvpRoam.MapFor(zone.Tag.ToLowerInvariant().Replace("'s", string.Empty)), Is.EqualTo(zone), zone.Name);
+            }
+            Assert.That(PvpRoam.Emain.Tag, Is.EqualTo("Emain"));
+        }
+
+        [Test]
         public void TeamsComeOutOneByOne()
         {
             var real = new PvpRealWeights();

@@ -358,7 +358,7 @@ namespace DOL.GS
         }
 
         /// <summary>Takes the player to a start in the world and goes on when the player stands there: moving between regions takes the client a moment.</summary>
-        public static void TravelThen(GamePlayer player, ushort region, Point3D spot, Action<string> say, Action begin)
+        public static void TravelThen(GamePlayer player, ushort region, Point3D spot, Action<string> say, Action begin, string where = "Emain Macha")
         {
             bool There() => player.ObjectState == GameObject.eObjectState.Active && player.CurrentRegionID == region && player.IsWithinRadius(spot, 2_500);
             if (There())
@@ -366,7 +366,7 @@ namespace DOL.GS
                 begin();
                 return;
             }
-            say("Taking you to the start in Emain Macha; it begins when you are there.");
+            say($"Taking you to the start in {where}; it begins when you are there.");
             player.MoveTo(region, spot.X, spot.Y, spot.Z, player.Heading);
             int waited = 0;
             new ECSGameTimer(player, _ =>
