@@ -57,6 +57,8 @@ namespace DOL.GS
         public (int X, int Y)? Entry, CameFrom;
         /// <summary>When it reached the point it was walking to (0: on its way).</summary>
         public long ArrivedAt;
+        /// <summary>On a prime-time evening: when it comes out (its state is "Away" until then).</summary>
+        public long ComesOutAt;
         public readonly PvpTeam Team = new();
         /// <summary>Everything it put in the world: its eight and its buffbot.</summary>
         public readonly List<GameBot> All = [];
@@ -275,9 +277,27 @@ namespace DOL.GS
         /// <summary>How far a group sees enemies it then calls out, and how near the player must be for it to be no news.</summary>
         public const int SightingWithin = 5_500, NoNewsWithin = 3_500;
 
-        /// <summary>Realm chat is not a flood: one call in eight seconds, and a group repeats itself about a realm after 75.</summary>
-        public static bool CallsOut(double secondsSinceAnyCall, double secondsSinceItsOwnOfThatRealm) =>
-            secondsSinceAnyCall >= 8 && secondsSinceItsOwnOfThatRealm >= 75;
+        /// <summary>
+        /// Realm chat is not a flood: one call in eight seconds; and about one realm at one place
+        /// one call, whoever makes it, until the number of groups there has changed (then after
+        /// 20 seconds) or three minutes have gone by. In the first evening of bots (2026-11-22)
+        /// three groups in one fight each said "fighting 2fg mids at north-west hills" every 75
+        /// seconds.
+        /// </summary>
+        public static bool CallsOut(double secondsSinceAnyCall, double secondsSinceTheLastOfThatRealmThere, bool theNumberHasChanged) =>
+            secondsSinceAnyCall >= 8 && secondsSinceTheLastOfThatRealmThere >= (theNumberHasChanged ? 20 : 180);
+
+        /// <summary>
+        /// When a guild comes out on a prime-time evening, in seconds from its start: a realm's
+        /// teams half a minute after one another, and the realms ten seconds apart, so that no
+        /// two come into the world in the same moment. All twelve of the first evening of bots
+        /// (2026-11-22) were made in its first second, and the server stood still for 6.9 seconds.
+        /// </summary>
+        public static int ComesOutAfterSeconds(int botTeamsOfItsRealmBefore, int realmIndex, PvpRealWeights real) =>
+            Math.Max(0, botTeamsOfItsRealmBefore) * real.NextTeamFollowsAfterSeconds + Math.Max(0, realmIndex) * 10;
+
+        /// <summary>A group that stays near others comes no nearer to them than this: it trails, it does not stand in them.</summary>
+        public const int TrailsBehind = 1_800;
 
         /// <summary>How near a team keeps to the team it walks with: a pack within 2,000, a group that stays near others within 4,500.</summary>
         public static int KeepsWithin(PvpCompany company) => company == PvpCompany.Zerg ? 2_000 : 4_500;
@@ -293,7 +313,7 @@ namespace DOL.GS
         // The pool the guild teams of a prime-time evening are from; null in the roam as it was.
         private static string _pool;
         // What was called out in realm chat, and when: by each group about each enemy realm, and the last call of all.
-        private static readonly Dictionary<(PvpRoamTeam, eRealm), long> CalledOut = [];
+        private static readonly Dictionary<(eRealm Realm, string Place), (long When, int Groups)> CalledOut = [];
         private static long _lastCall;
         // With no player: the realm whose chat is written to the log and the recording (roam-start Listener=hibernia), to read it by.
         private static eRealm _listener = eRealm.None;
@@ -439,7 +459,8 @@ namespace DOL.GS
         /// <summary>What a team is doing, in a word or two, for <c>/8v8 status</c>.</summary>
         public static string Doing(string state, bool waiting, bool goingToRest, bool resting, bool seeingToItsDead, IReadOnlyCollection<string> fighting,
             int leavesInSeconds, int standsUpInSeconds) =>
-            state == "Down" ? standsUpInSeconds > 0 ? $"wiped, stands up at its start in {standsUpInSeconds} s" : "wiped, about to stand up at its start"
+            state == "Away" ? "not out yet"
+            : state == "Down" ? standsUpInSeconds > 0 ? $"wiped, stands up at its start in {standsUpInSeconds} s" : "wiped, about to stand up at its start"
             : state == "Buffing" ? $"at its start, buffing (leaves in {Math.Max(0, leavesInSeconds)} s)"
             : fighting.Count > 0 ? "fighting " + string.Join(" and ", fighting)
             : resting ? "resting"
@@ -457,7 +478,7 @@ namespace DOL.GS
             var lines = new List<string>();
             // On a prime-time evening a player knows what its own realm is doing, and of the others only what is called out.
             bool own = Prime && viewer != null;
-            foreach (PvpRoamTeam team in teams.Where(team => !own || team.Realm == viewer.Realm))
+            foreach (PvpRoamTeam team in teams.Where(team => !own || team.Realm == viewer.Realm && team.State != "Away"))
             {
                 (double x, double y) = team.Centre();
                 int away = viewer == null ? 0 : (int)Math.Sqrt(Math.Pow(x - viewer.X, 2) + Math.Pow(y - viewer.Y, 2));
@@ -468,7 +489,7 @@ namespace DOL.GS
                           (team.Leader != null || viewer == null ? string.Empty : $", {away:N0} from you"));
             }
             if (own && lines.Count > 0)
-                lines.Add(OutAgainst(teams.Where(team => team.Realm != viewer.Realm).GroupBy(team => team.Realm).Select(realm => (realm.Key, realm.Count())).ToList()));
+                lines.Add(OutAgainst(teams.Where(team => team.Realm != viewer.Realm && team.State != "Away").GroupBy(team => team.Realm).Select(realm => (realm.Key, realm.Count())).ToList()));
             return lines;
         }
 
@@ -487,7 +508,7 @@ namespace DOL.GS
         {
             List<PvpRoamTeam> teams = _teams;
             var lines = new List<string>();
-            foreach (PvpRoamTeam team in teams.Where(team => viewer == null || team.Realm == viewer.Realm))
+            foreach (PvpRoamTeam team in teams.Where(team => team.State != "Away" && (viewer == null || team.Realm == viewer.Realm)))
             {
                 string classes = string.Join(", ", team.Team.Bots.GroupBy(bot => PvpMember.ClassOf(bot)).OrderByDescending(group => group.Count())
                     .Select(group => group.Count() > 1 ? $"{group.Count()} {group.Key}" : group.Key.ToString()));
@@ -496,7 +517,7 @@ namespace DOL.GS
                           (team.Company != null ? $"; walks with {team.Company.Name}" : string.Empty));
             }
             if (viewer != null && lines.Count > 0)
-                lines.Add(OutAgainst(teams.Where(team => team.Realm != viewer.Realm).GroupBy(team => team.Realm).Select(realm => (realm.Key, realm.Count())).ToList()));
+                lines.Add(OutAgainst(teams.Where(team => team.Realm != viewer.Realm && team.State != "Away").GroupBy(team => team.Realm).Select(realm => (realm.Key, realm.Count())).ToList()));
             return lines;
         }
 
@@ -524,14 +545,16 @@ namespace DOL.GS
                 foreach (IGrouping<eRealm, PvpRoamTeam> seen in teams.Where(other => other.Realm != realm && other.Alive > 0 && !other.Reforming &&
                              other.State is "Roaming" or "Fighting" && Near(friend, other, SightingWithin)).GroupBy(other => other.Realm))
                 {
-                    if (!CallsOut((now - _lastCall) / 1000.0, CalledOut.TryGetValue((friend, seen.Key), out long last) ? (now - last) / 1000.0 : double.MaxValue))
-                        continue;
                     (double x, double y) = seen.First().Centre();
+                    string place = _map.PlaceOf(x, y);
+                    bool known = CalledOut.TryGetValue((seen.Key, place ?? string.Empty), out (long When, int Groups) last);
+                    if (!CallsOut((now - _lastCall) / 1000.0, known ? (now - last.When) / 1000.0 : double.MaxValue, known && last.Groups != seen.Count()))
+                        continue;
                     // The player stands there: no news.
                     if (mine?.Leader is { } player && player.IsWithinRadius(new Point2D((int)x, (int)y), NoNewsWithin))
                         continue;
-                    (CalledOut[(friend, seen.Key)], _lastCall) = (now, now);
-                    RealmChat(teams, friend, SightingText(seen.Count(), seen.Key, _map.PlaceOf(x, y), seen.Any(friend.Fighting.Contains)));
+                    (CalledOut[(seen.Key, place ?? string.Empty)], _lastCall) = ((now, seen.Count()), now);
+                    RealmChat(teams, friend, SightingText(seen.Count(), seen.Key, place, seen.Any(friend.Fighting.Contains)));
                     return;
                 }
             }
@@ -710,7 +733,15 @@ namespace DOL.GS
                     // On a prime-time evening a team has the rank of its kind and of what it has earned, whatever the player's is.
                     _floor = guilds != null || leader == null || teams.Count == 0 ? 1 : PvpRealmPoints.EnemyLevel(1,
                         teams[0].Team.Bots.Select(bot => bot.RealmLevel).Append(leader.RealmLevel).ToList(), PvpWeights.Current.Real.EnemyKeepsUp);
-                    Spawn(team, now);
+                    // A guild comes out when its time has come (the first of a realm at once); its eight are made then.
+                    int before = teams.Count(other => other.Realm == start.Realm && other.Leader == null);
+                    if (guild != null && ComesOutAfterSeconds(before, map.Starts.ToList().IndexOf(start), real) is > 0 and int after)
+                    {
+                        (team.State, team.ComesOutAt, team.StateSince) = ("Away", now + 1000L * after, now);
+                        team.Team.Bots = [];
+                    }
+                    else
+                        Spawn(team, now);
                     teams.Add(team);
                 }
             }
@@ -718,8 +749,15 @@ namespace DOL.GS
             // group that stays near others beside a group of its realm that walks alone (the player's may be it).
             foreach (IGrouping<eRealm, PvpRoamTeam> realm in teams.Where(team => team.Profile != null).GroupBy(team => team.Realm).ToList())
             {
+                // (A pack comes out together, three seconds apart.)
+                var places = new Dictionary<PvpRoamTeam, int>();
                 foreach ((PvpRoamTeam follower, PvpRoamTeam head) in PvpTeamPool.Packs(realm.Where(team => team.Profile.Company == PvpCompany.Zerg).ToList(), Random.Shared))
-                    (follower.Company, follower.LeavesAt) = (head, head.LeavesAt);
+                {
+                    places[head] = places.GetValueOrDefault(head) + 1;
+                    follower.Company = head;
+                    if (follower.State == "Away")
+                        follower.ComesOutAt = (head.State == "Away" ? head.ComesOutAt : now) + 3_000L * places[head];
+                }
                 List<PvpRoamTeam> hosts = teams.Where(team => team.Realm == realm.Key &&
                     (team.Leader != null || team.Profile is { Company: PvpCompany.Alone, KeepsToQuietGround: false })).ToList();
                 foreach (PvpRoamTeam near in realm.Where(team => team.Profile.Company == PvpCompany.Near && hosts.Count > 0))
@@ -943,6 +981,18 @@ namespace DOL.GS
 
         private static void Step(PvpRoamTeam team, List<PvpRoamTeam> teams, long now, PvpRealWeights real)
         {
+            // Not out yet: its eight come into the world when its time has come, and buff.
+            if (team.State == "Away")
+            {
+                team.Quiet = true;
+                if (now < team.ComesOutAt)
+                    return;
+                Spawn(team, now);
+                team.LeavesAt = now + 1000L * real.BuffsAtStartSeconds;
+                PvpRecorder.Regroup(_recording, team.Name, team.Team.Members);
+                Say($"{team.Name} is out", new { what = "out", team = team.Name });
+                return;
+            }
             // Nobody left: it stands up at its start point after a wait, as a new group of the same eight.
             if (team.Reforming || IsWiped(team.Team.Bots.Count(bot => bot.IsAlive), team.Leader != null, team.Leader?.IsAlive == true,
                     team.Leader?.IsWithinRadius(new Point2D(team.Start.Point.X, team.Start.Point.Y), real.StartIsSafeWithin) == true))
@@ -1006,6 +1056,9 @@ namespace DOL.GS
                     team.Draws[other] = joins;
                     if (drawn == null)
                     {
+                        // A guild on its own that leaves a fight alone does not stand and watch: it turns back the way it came.
+                        if (!joins && TurnsAway(team))
+                            Say($"{team.Name} turns away", new { what = "turn", team = team.Name });
                         if (joins) team.Joined++; else team.LeftAlone++;
                         PvpRoamTeam mate = theirFight.FirstOrDefault(third => third.Realm == team.Realm);
                         Say(mate != null
@@ -1197,8 +1250,9 @@ namespace DOL.GS
                 team.DeadSince = 0;
             // The player's seven go where the player goes; a team of bots walks its route, or waits out a fight it has left alone.
             // (Once it waits it goes on waiting while that fight is within 12,000: at 9,000 it would walk and stop by turns.)
+            // (A guild that goes from point to point has turned away from it, or walks with its company: it does not wait.)
             bool waits = WaitsOutAFight(team.Draws.Any(draw => !draw.Value && draw.Key.Alive > 0 && Near(team, draw.Key, team.Waiting ? 12_000 : 9_000)),
-                enemies.Count, team.Leader != null);
+                enemies.Count, team.Leader != null || team.Entry != null && (team.CameFrom != null || team.Company != null));
             if (waits != team.Waiting)
             {
                 team.Waiting = waits;
@@ -1229,6 +1283,9 @@ namespace DOL.GS
                 if (lead != null && enemies.Count == 0 && !Near(team, lead, KeepsWithin(team.Profile.Company)) &&
                     lead.Team.Members.FirstOrDefault(member => member.IsAlive) is { } anchor)
                     team.Team.GatherAt(anchor, 600);
+                // Near enough to the group it stays near: it lets that one go ahead.
+                else if (lead != null && team.Profile.Company == PvpCompany.Near && enemies.Count == 0 && Near(team, lead, TrailsBehind))
+                    team.Team.Halt();
                 // Beside the player's group, which has no road: it stands until that has moved on.
                 else if (lead != null && lead.Team.Route == null && enemies.Count == 0)
                     team.Team.Halt();
@@ -1241,6 +1298,21 @@ namespace DOL.GS
                 team.Team.Squad.StandOff();
                 team.Team.Squad.KeepApart();
             }
+        }
+
+        /// <summary>
+        /// A guild that walks on its own turns back to the point it came from, when it has one
+        /// (before its first point it has none, and waits as a team of the roam does). In the
+        /// first evening of bots (2026-11-22) three of the six teams that do not add stood
+        /// "waiting by a fight" for minutes: "Decent 8v8 teams that would not add" went
+        /// somewhere else.
+        /// </summary>
+        private static bool TurnsAway(PvpRoamTeam team)
+        {
+            if (team.Entry == null || team.Company != null || team.CameFrom is not { } back || team.Team.Route is not { Length: 1 } route)
+                return false;
+            (team.Team.Route, team.CameFrom, team.Team.Waypoint, team.ArrivedAt) = ([back], route[0], 0, 0);
+            return true;
         }
 
         /// <summary>

@@ -167,7 +167,7 @@ namespace DOL.GS
         /// <summary>
         /// Eight builds for a team of a realm. Meta: the realm's main group. NearMeta: that with
         /// one or two of its fighters and casters changed. Loose: two healers, the speed class
-        /// and five of anything. Random: one healer, the speed class six times in ten, and
+        /// and five of anything. Random: one healer or two, the speed class six times in ten, and
         /// anything ("most of these groups would run sub optimal composition").
         /// </summary>
         public static List<string> Compose(eRealm realm, PvpLineup lineup, Random random)
@@ -192,7 +192,7 @@ namespace DOL.GS
                 return main;
             }
             var builds = new List<string>();
-            int most = lineup == PvpLineup.Loose ? 2 : 3;
+            const int most = 2;
             void Add(List<PvpBuild> from)
             {
                 List<PvpBuild> choice = from.Where(build => builds.Count(id => id == build.Id) < most).ToList();
@@ -207,14 +207,17 @@ namespace DOL.GS
             }
             else
             {
+                // One healer, a second four times in ten, the speed class six times in ten.
                 Add(healers);
+                if (random.Next(10) < 4)
+                    Add(healers);
                 if (random.Next(10) < 6)
                     Add(speed);
             }
-            // Anything for the rest, but no third healer by chance in a loose group and no second speed class.
-            List<PvpBuild> rest = lineup == PvpLineup.Loose ? others : others.Concat(healers).ToList();
+            // Anybody for the rest, two of a build at most: no third healer by chance and no second speed class. (The first
+            // bad group of Midgard that was drawn, 2026-11-22, had three Healers and three Shamans.)
             for (int guard = 0; builds.Count < 8 && guard < 100; guard++)
-                Add(rest);
+                Add(others);
             return builds;
         }
 

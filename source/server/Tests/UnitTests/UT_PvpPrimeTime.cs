@@ -98,7 +98,9 @@ namespace DOL.UnitTests
                         List<eCharacterClass> classes = builds.Select(id => PvpBuildCatalog.Find(id).Class).ToList();
                         int healers = classes.Count(c => c is eCharacterClass.Cleric or eCharacterClass.Healer or eCharacterClass.Druid);
                         int speed = classes.Count(c => c is eCharacterClass.Minstrel or eCharacterClass.Skald or eCharacterClass.Bard);
-                        Assert.That(healers, Is.GreaterThanOrEqualTo(1), what);
+                        Assert.That(healers, Is.InRange(1, 2), what);
+                        Assert.That(speed, Is.LessThanOrEqualTo(1), what);
+                        Assert.That(builds.GroupBy(id => id).Max(same => same.Count()), Is.LessThanOrEqualTo(2), what);
                         if (lineup == PvpLineup.NearMeta)
                         {
                             Assert.That(builds.Where((id, index) => id != main[index]).Count(), Is.InRange(1, 2), what);
@@ -249,10 +251,12 @@ namespace DOL.UnitTests
             Assert.That(PvpRoam.SightingText(1, eRealm.Midgard, "mid road", true), Is.EqualTo("fighting 1fg mids at mid road"));
             Assert.That(PvpRoam.SightingText(3, eRealm.Hibernia, "north road", false, true), Is.EqualTo("wiped at north road, 3fg hibs"));
             Assert.That(PvpRoam.SightingText(1, eRealm.Albion, null, false), Is.EqualTo("1fg albs"));
-            // Not a flood.
-            Assert.That(PvpRoam.CallsOut(3, 500), Is.False);
-            Assert.That(PvpRoam.CallsOut(20, 30), Is.False, "the same group about the same realm");
-            Assert.That(PvpRoam.CallsOut(20, 90), Is.True);
+            // Not a flood: about one realm at one place one call, until the number there changes or three minutes go by.
+            Assert.That(PvpRoam.CallsOut(3, 500, false), Is.False);
+            Assert.That(PvpRoam.CallsOut(20, 90, false), Is.False, "said already, and nothing has changed");
+            Assert.That(PvpRoam.CallsOut(20, 200, false), Is.True);
+            Assert.That(PvpRoam.CallsOut(20, 30, true), Is.True, "a third group has come");
+            Assert.That(PvpRoam.CallsOut(20, 10, true), Is.False);
             Assert.That(PvpRoam.NoNewsWithin, Is.LessThan(PvpRoam.SightingWithin));
 
             // Every point of a map has a name, and a place by a realm's start is "the keep".
@@ -272,8 +276,21 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void TeamsComeOutOneByOne()
+        {
+            var real = new PvpRealWeights();
+            // No two in the same moment: a realm's teams half a minute apart, the realms ten seconds apart.
+            List<int> times = Enumerable.Range(0, 3).SelectMany(realm => Enumerable.Range(0, 8).Select(before => PvpRoam.ComesOutAfterSeconds(before, realm, real))).ToList();
+            Assert.That(times.Distinct().Count(), Is.EqualTo(times.Count));
+            Assert.That(PvpRoam.ComesOutAfterSeconds(0, 0, real), Is.Zero, "somebody is out when the evening begins");
+            Assert.That(PvpRoam.ComesOutAfterSeconds(1, 0, real) - PvpRoam.ComesOutAfterSeconds(0, 0, real), Is.EqualTo(real.NextTeamFollowsAfterSeconds));
+            Assert.That(PvpRoam.Doing("Away", false, false, false, false, [], 0, 0), Is.EqualTo("not out yet"));
+        }
+
+        [Test]
         public void APackKeepsTogether()
         {
+            Assert.That(PvpRoam.TrailsBehind, Is.LessThan(PvpRoam.KeepsWithin(PvpCompany.Near)), "a group that stays near has room to trail in");
             Assert.That(PvpRoam.KeepsWithin(PvpCompany.Zerg), Is.LessThan(PvpRoam.KeepsWithin(PvpCompany.Near)));
             Assert.That(PvpRoam.KeepsWithin(PvpCompany.Zerg), Is.LessThanOrEqualTo(PvpRoam.BesideWithin), "a pack counts as together");
             Assert.That(PvpRoam.PackWaits(true, 5), Is.True);
