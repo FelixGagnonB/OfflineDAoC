@@ -16,6 +16,16 @@ namespace DOL.UnitTests
             Assert.That(calls, Has.None.Empty);
             Assert.That(PvpCalls.Order(PvpOrder.Regroup), Does.Contain("healers"));
             Assert.That(PvpCalls.CannotRetreat("Talveh"), Does.Contain("You are down, Talveh"));
+            // What the player's group sees coming, and what adds on its fight.
+            Assert.That(PvpCalls.Sighted(2, "mids", "north-west", 4_380), Is.EqualTo($"INC! 2FG MIDS NORTH-WEST, {4_500:N0}!"));
+            Assert.That(PvpCalls.Sighted(0, "albs", "south", 900), Is.EqualTo($"INC! 1FG ALBS SOUTH, {1_000:N0}!"));
+            Assert.That(PvpCalls.SaysSighting(-1, 0, 1), Is.True, "never said");
+            Assert.That(PvpCalls.SaysSighting(20, 1, 1), Is.False, "the same group still in sight");
+            Assert.That(PvpCalls.SaysSighting(5, 1, 2), Is.False, "another has come, but it has only just spoken");
+            Assert.That(PvpCalls.SaysSighting(10, 1, 2), Is.True, "another has come");
+            Assert.That(PvpCalls.SaysSighting(45, 2, 2), Is.True, "still there after three quarters of a minute");
+            Assert.That(PvpCalls.Add(8, "mids", "north"), Is.EqualTo("ADD! 8 MORE MIDS FROM THE NORTH!"));
+            Assert.That(PvpCalls.Lost(3, 14), Is.EqualTo("THIS ONE IS LOST! 3 OF US LEFT, 14 OF THEM! RETREAT?"));
             // A player's group without the lead says what it counts, and what the player can call.
             Assert.That(PvpCalls.TooMany(13, 8), Is.EqualTo("TOO MANY! 13 ON OUR 8! CALL IT: KITE OR RETREAT!"));
             Assert.That(PvpCalls.Due(100_000, 80_000, PvpCalls.TooManyEveryMilliseconds), Is.False);

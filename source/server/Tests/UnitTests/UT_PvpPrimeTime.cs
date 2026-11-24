@@ -266,6 +266,12 @@ namespace DOL.UnitTests
             Assert.That(PvpRoam.SightingText(1, eRealm.Midgard, "mid road", true), Is.EqualTo("fighting 1fg mids at mid road"));
             Assert.That(PvpRoam.SightingText(3, eRealm.Hibernia, "north road", false, true), Is.EqualTo("wiped at north road, 3fg hibs"));
             Assert.That(PvpRoam.SightingText(1, eRealm.Albion, null, false), Is.EqualTo("1fg albs"));
+            // A spot called by its side of a point takes no "at".
+            Assert.That(PvpRoam.SightingText(1, eRealm.Midgard, "east of north road (Odin's)", false), Is.EqualTo("1fg mids east of north road (Odin's)"));
+            Assert.That(PvpRoam.SightingText(2, eRealm.Albion, "south-west of Crimthain (Breifine)", true), Is.EqualTo("fighting 2fg albs south-west of Crimthain (Breifine)"));
+            Assert.That(PvpRoam.SightingText(3, eRealm.Hibernia, "north of middle", false, true), Is.EqualTo("wiped north of middle, 3fg hibs"));
+            Assert.That(PvpRoam.SightingText(1, eRealm.Albion, "north-west hills", false), Is.EqualTo("1fg albs at north-west hills"), "a point whose name begins with a side");
+            Assert.That(PvpRoam.OnTheRunText(4, eRealm.Midgard, "west of mid road"), Is.EqualTo("4 mids on the run west of mid road"));
             // A team that has said it joins a fight goes to it: to the nearest enemy team it drew "joins" for.
             Assert.That(PvpRoam.FightItJoined([((1_000.0, 0.0), false), ((9_000.0, 0.0), true), ((0.0, 7_000.0), true)], (0.0, 0.0)), Is.EqualTo((0, 7_000)));
             Assert.That(PvpRoam.FightItJoined([((1_000.0, 0.0), false)], (0.0, 0.0)), Is.Null, "it joined nothing: it walks its road");

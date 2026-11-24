@@ -3497,8 +3497,9 @@ The plan the owner agreed to that day ("Let's proceed and test with bots first")
   but the kite stands over it. The seven never break off by themselves. A loud call for a push:
   built with M12.8.
 - [ ] **M12.8** (M) The owner's first evening against the kinds, and what its recording showed.
-  *The evening was played, 2026-11-24; what was built from it has passed the automated tests and
-  one evening of bots, and has been seen in no client.* A prime-time evening in three zones at
+  *The evening was played, 2026-11-24; what was built from it has passed the automated tests,
+  and an evening of bots where bots can show it (where a call is, the join); what is said to a
+  player in group chat no evening of bots can show. Nothing of it has been seen in a client.* A prime-time evening in three zones at
   realm rank 8 (`rank 8`, M12 above), 43 minutes of play, five fights
   (`source/tools/pvp_myfights.py`, new: the fights of the player's group one by one):
 
@@ -3527,10 +3528,18 @@ The plan the owner agreed to that day ("Let's proceed and test with bots first")
     owner's drew "joins" from 7,200 units off, walked on north along the road it had and stood
     9,000 units away until the fight was over. A team marches at the enemies it sees (6,500
     units over open ground) and otherwise along its road, and the draw falls at 9,000. Over the
-    evening 99 of 237 "joins" were followed by no fight with that enemy within 90 seconds (some
-    of those rightly: the enemy was dead first); in an evening of bots before, 24 of 98. Built:
-    while it sees nobody, a team goes to the nearest enemy team it drew "joins" for
-    (`PvpRoam.FightItJoined`, the `toward` of `PvpTeam.March`).
+    evening, of 237 times a team said "joins", 138 were followed within 90 seconds by a fight
+    with the enemy team it had said it for, 81 by a fight with some other enemy team first, ten
+    by the end of that fight, and eight by nothing at all. (A first count, 99 of 237 "not with
+    that enemy", read as a team that did not come, overstated it: most of them fought somebody.)
+    Built: while it sees nobody, a team goes to the nearest enemy team it drew "joins" for
+    (`PvpRoam.FightItJoined`, the `toward` of `PvpTeam.March`). An
+    evening of bots on that build (36 teams, 13 minutes): of 83 "joins" that could be judged,
+    75 were followed by a fight with that enemy team, eight by one with another, none by
+    nothing; that is nine in ten against six to eight in ten in the owner's evening and two
+    evenings of bots before it. 19 teams wiped, three broke off, no tick failed.
+  - Realm chat's words for a spot by its side of a point take no "at": "1fg mids east of north
+    road (Odin's)" (the first evening of bots had "at east of north road").
   - **Nothing was said to the owner in three lost fights.** Without `/8v8 lead on` the group did
     not count what was on it. Built: it counts as a group of bots does, and with too many on it
     for its caller's moment says four times in capitals "TOO MANY! 13 ON OUR 8! CALL IT: KITE OR
@@ -3540,7 +3549,24 @@ The plan the owner agreed to that day ("Let's proceed and test with bots first")
     an order the player called: in fight 4, which it won nine to none, its order changed 14
     times in 96 seconds (push, extend, engage by turns), and a shout for each would have been
     56 lines. That to and fro is the old one of M8 ("wants another cure than time") and was not
-    touched.
+    touched. Counted over the evening (every team, the seconds it had an order to choose): 2.4
+    to 4.4 changes a minute by kind, an order standing five to nine seconds at the middle. The
+    order does follow the fight: two or more members ahead, a group was under push 69 to 88% of
+    the time and under extend 2 to 9%; two or more behind, under extend 24 to 77% and never
+    under push. The changes are those of an even fight, where each interrupt on a healer moves
+    the reading.
+  - **What the group sees coming** (asked of nobody; the gap showed in the same recording). The
+    realm's other groups call out enemies in realm chat and leave out those near the player,
+    and the player's own seven said nothing of what they saw: of the five fights, four had two
+    to four enemy groups in them, and each further group was known to the owner when it was on
+    the group. Built, in group chat, for a roam: out of a fight "INC! 2FG MIDS NORTH-WEST,
+    4,500!" (twice) for the groups of a realm the seven see within 5,500 units, again when more
+    have come or after 45 seconds; in a fight "ADD! 8 MORE MIDS FROM THE NORTH!" (four times)
+    for each further group that comes into the fight or has drawn "joins" on it and is seen,
+    one such call in six seconds (`PvpRoam.TellOfIncoming`, `PvpCalls.Sighted`, `Add`). And a
+    group with a player that has lost by the measure of M12.5 says "THIS ONE IS LOST! 3 OF US
+    LEFT, 14 OF THEM! RETREAT?" in place of "too many", with the lead or without; it does not
+    run by itself. None of the three can be run with bots: they are said to a player.
   - **The owner's calls** (asked 2026-11-24: "I did spam the retreat, probably clicked it 3-4
     times. Does it cause an issue?"). None: a call made again starts its time again and is
     answered once more. The recording has the retreat four times, once each, and the kite

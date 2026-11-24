@@ -37,6 +37,41 @@ namespace DOL.GS
         /// (/8v8 call kite, /8v8 call retreat). Said again no sooner than every 25 seconds.
         /// </summary>
         public static string TooMany(int onIt, int ownSide) => $"TOO MANY! {onIt} ON OUR {ownSide}! CALL IT: KITE OR RETREAT!";
+
+        /// <summary>
+        /// What a group with a player says when it has lost by the measure a group of bots breaks
+        /// off at (PvpKite.BreaksOff): half of it or fewer alive, or none of its healers, and
+        /// half again as many enemies as its side. It does not run by itself: the retreat is the
+        /// player's call. Said again no sooner than every 25 seconds.
+        /// </summary>
+        public static string Lost(int alive, int enemies) => $"THIS ONE IS LOST! {alive} OF US LEFT, {enemies} OF THEM! RETREAT?";
+
+        /// <summary>
+        /// What the player's group says in a roam when it sees enemy groups it is not fighting:
+        /// how many groups, of which realm, on which side of the player and how far (to the
+        /// nearest 500). Until 2026-11-24 it said nothing of what it saw: the realm's other
+        /// groups call out what they see in realm chat and leave out what is near the player
+        /// ("the player stands there: no news"), so of the enemy nearest to it the player was
+        /// told by nobody. Said twice.
+        /// </summary>
+        public static string Sighted(int groups, string realmShort, string side, double away) =>
+            $"INC! {Math.Max(1, groups)}FG {realmShort.ToUpperInvariant()} {side.ToUpperInvariant()}, {Math.Round(away / 500) * 500:N0}!";
+
+        /// <summary>The same realm in sight is said again when more groups of it have come (no sooner than 8 seconds on), or after 45 seconds.</summary>
+        public static bool SaysSighting(double secondsSinceTheLast, int groupsThen, int groupsNow) =>
+            secondsSinceTheLast < 0 || secondsSinceTheLast >= 45 || groupsNow > groupsThen && secondsSinceTheLast >= 8;
+
+        /// <summary>
+        /// What the player's group says when another enemy group comes into its fight, or is seen
+        /// coming for it: how many more, of which realm, from which side. The owner's five
+        /// fights of 2026-11-24 had two, three, two, one and four enemy groups in them, and each
+        /// further group was known to the owner when it was on the group. Said as a call that
+        /// moves the group is (<see cref="LoudTimes"/>); one such call in six seconds, for all
+        /// that have come since the last.
+        /// </summary>
+        public static string Add(int members, string realmShort, string side) =>
+            $"ADD! {Math.Max(1, members)} MORE {realmShort.ToUpperInvariant()} FROM THE {side.ToUpperInvariant()}!";
+        public const int AddEveryMilliseconds = 6_000;
         public const int TooManyEveryMilliseconds = 25_000;
         public const string KiteOver = "STAND AND FIGHT HERE!";
 

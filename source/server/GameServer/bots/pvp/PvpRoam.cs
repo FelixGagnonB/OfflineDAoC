@@ -124,6 +124,10 @@ namespace DOL.GS
         public readonly HashSet<PvpRoamTeam> Fighting = [];
         /// <summary>Its draw for each enemy team its realm's other team is fighting: true, it joins.</summary>
         public readonly Dictionary<PvpRoamTeam, bool> Draws = [];
+        /// <summary>The player's group: when it last said it saw groups of a realm and how many; the enemy teams of its fight it has told the player of; when it last called an add.</summary>
+        public readonly Dictionary<eRealm, (long When, int Groups)> Sighted = [];
+        public readonly HashSet<PvpRoamTeam> AddsCalled = [];
+        public long AddCalledAt;
         public readonly HashSet<GameLiving> Paid = [];
         public int Wipes, Kills, Deaths, Fights, Joined, LeftAlone;
         public long Earned;
@@ -484,7 +488,7 @@ namespace DOL.GS
         /// </summary>
         public static string SightingText(int groups, eRealm realm, string place, bool fightingThem, bool wiped = false)
         {
-            string who = $"{Math.Max(1, groups)}fg {Short(realm)}", where = place == null ? string.Empty : $" at {place}";
+            string who = $"{Math.Max(1, groups)}fg {Short(realm)}", where = At(place);
             return wiped ? $"wiped{where}, {who}" : fightingThem ? $"fighting {who}{where}" : $"{who}{where}";
         }
 
@@ -495,10 +499,15 @@ namespace DOL.GS
         /// whoever is near may cut them off.
         /// </summary>
         public static string RunningText(int groups, eRealm from, string place) =>
-            $"running from {Math.Max(1, groups)}fg {Short(from)}" + (place == null ? string.Empty : $" at {place}");
+            $"running from {Math.Max(1, groups)}fg {Short(from)}" + At(place);
 
         public static string OnTheRunText(int left, eRealm realm, string place) =>
-            $"{Math.Max(1, left)} {Short(realm)} on the run" + (place == null ? string.Empty : $" at {place}");
+            $"{Math.Max(1, left)} {Short(realm)} on the run" + At(place);
+
+        /// <summary>" at south road", or " north of south road" for a spot called by its side of a point (PvpRoamMap.PlaceOf); nothing for no place.</summary>
+        public static string At(string place) =>
+            place == null ? string.Empty
+            : place.Contains(" of ") && new[] { "north", "south", "east", "west" }.Any(place.StartsWith) ? $" {place}" : $" at {place}";
 
         /// <summary>
         /// The side something lies on, from how far east and how far south of you it is (in the
@@ -767,8 +776,9 @@ namespace DOL.GS
         /// 6,500 units over open ground, while the draw falls at 9,000: in the owner's evening
         /// of 2026-11-24 the group that walked with the owner's said it joined its fight from
         /// 7,200 units off, walked on north along the road it had, and stood 9,000 units away
-        /// until the fight was over. Of the 237 times a team said "joins" that evening, 99 were
-        /// followed by no fight with that enemy within a minute and a half.
+        /// until the fight was over. Of the 237 times a team said "joins" that evening, eight
+        /// were followed by no fight at all within a minute and a half, and 81 by a fight with
+        /// some other enemy team first.
         /// </summary>
         public static (int X, int Y)? FightItJoined(IEnumerable<((double X, double Y) At, bool SaidItJoins)> enemyTeams, (double X, double Y) from) =>
             enemyTeams.Where(enemy => enemy.SaidItJoins)
@@ -1754,6 +1764,10 @@ namespace DOL.GS
                 }
             }
 
+            // The player's own group says what it sees coming, and what comes into its fight.
+            if (team.Leader != null)
+                TellOfIncoming(team, others, now);
+
             // An elite team keeps its fights clean: once a second enemy group is in its fight, it leaves (PvpTeamProfile.LeavesDirtyFights).
             if (team.Leader == null && team.Profile?.LeavesDirtyFights == true && team.ContactTick != 0 && !team.Team.Squad.Leaving &&
                 PvpKite.FightIsDirty(team.Fighting.Count(other => other.Alive > 0)) && team.Team.Squad.LeaveNow(enemies))
@@ -2000,6 +2014,69 @@ namespace DOL.GS
                 team.Team.Squad.ClearPets();
                 team.Team.Squad.StandOff();
                 team.Team.Squad.KeepApart();
+            }
+        }
+
+        /// <summary>
+        /// What the player's seven tell the player in group chat of the enemy groups about
+        /// (bots/pvp/PvpCalls.cs): out of a fight, the groups of a realm they see within
+        /// <see cref="SightingWithin"/> ("INC! 2FG MIDS NORTH-WEST, 4,500!"); in a fight, each
+        /// further group that comes into it or is seen coming for it ("ADD! 8 MORE MIDS FROM THE
+        /// NORTH!"). They see as they do when they march: farther ahead than behind, and not
+        /// through a hill. Never throws: a line of chat must not be able to stop an evening.
+        /// </summary>
+        private static void TellOfIncoming(PvpRoamTeam team, List<PvpRoamTeam> others, long now)
+        {
+            try
+            {
+                GamePlayer player = team.Leader;
+                List<GameBot> watchers = team.Team.Bots.Where(bot => bot.IsAlive).ToList();
+                if (player == null || watchers.Count == 0 || team.Team.Squad is not { } squad)
+                    return;
+                PvpWeights sight = PvpWeights.Of(watchers[0]);
+                bool Seen(PvpRoamTeam other) => Near(team, other, SightingWithin + 1_500) && other.Team.Members.Any(member =>
+                    member.IsAlive && watchers.Any(bot => PvpSight.Sees(bot, member, SightingWithin, sight)));
+                (string Side, double Away) From(IEnumerable<PvpRoamTeam> them)
+                {
+                    GameLiving nearest = them.SelectMany(other => other.Team.Members).Where(member => member.IsAlive)
+                        .OrderBy(member => member.GetDistanceTo(player)).First();
+                    return (Compass(nearest.X - player.X, nearest.Y - player.Y), nearest.GetDistanceTo(player));
+                }
+                if (team.ContactTick != 0 && team.Fighting.Count > 0)
+                {
+                    // The groups the fight began with are no news.
+                    if (team.AddsCalled.Count == 0)
+                        team.AddsCalled.UnionWith(team.Fighting);
+                    if (now - team.AddCalledAt < PvpCalls.AddEveryMilliseconds)
+                        return;
+                    List<PvpRoamTeam> adds = others.Where(other => other.Alive > 0 && !team.AddsCalled.Contains(other) &&
+                        (team.Fighting.Contains(other) || other.Draws.TryGetValue(team, out bool joins) && joins && Seen(other))).ToList();
+                    if (adds.Count == 0)
+                        return;
+                    team.AddCalledAt = now;
+                    team.AddsCalled.UnionWith(adds);
+                    IGrouping<eRealm, PvpRoamTeam> most = adds.GroupBy(other => other.Realm).OrderByDescending(realm => realm.Sum(other => other.Alive)).First();
+                    string text = PvpCalls.Add(most.Sum(other => other.Alive), Short(most.Key), From(most).Side);
+                    squad.Tell("add", text, PvpCalls.LoudTimes);
+                    Say($"{team.Name} is told: {text}", new { what = "addcall", team = team.Name, others = adds.Select(other => other.Name).ToList(), text });
+                    return;
+                }
+                team.AddsCalled.Clear();
+                foreach (IGrouping<eRealm, PvpRoamTeam> seen in others.Where(other => other.Alive > 0 && Seen(other)).GroupBy(other => other.Realm))
+                {
+                    bool known = team.Sighted.TryGetValue(seen.Key, out (long When, int Groups) last);
+                    if (!PvpCalls.SaysSighting(known ? (now - last.When) / 1000.0 : -1, last.Groups, seen.Count()))
+                        continue;
+                    team.Sighted[seen.Key] = (now, seen.Count());
+                    (string side, double away) = From(seen);
+                    string text = PvpCalls.Sighted(seen.Count(), Short(seen.Key), side, away);
+                    squad.Tell("inc-" + seen.Key, text, 2);
+                    Say($"{team.Name} is told: {text}", new { what = "inccall", team = team.Name, others = seen.Select(other => other.Name).ToList(), text });
+                }
+            }
+            catch (Exception exception)
+            {
+                Log.Warn("8v8 roam: telling the player's group of incoming failed", exception);
             }
         }
 

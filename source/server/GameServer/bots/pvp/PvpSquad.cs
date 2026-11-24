@@ -239,6 +239,25 @@ namespace DOL.GS
             _kiteWay = default;
         }
 
+        /// <summary>A line in group chat to the players of the group, from one of its bots, for what the roam sees (PvpRoam.TellOfIncoming).</summary>
+        public void Tell(string kind, string text, int times = 1) => Call(_members.FirstOrDefault(member => member.IsAlive), kind, text, 0, times);
+
+        /// <summary>
+        /// A group with a player in it that has lost says so (PvpCalls.Lost) and goes on doing
+        /// what it did: it never breaks off by itself. True when it has lost.
+        /// </summary>
+        private bool TellIfLost(PvpKiteWeights weights, List<GameBot> alive, List<GameLiving> foes)
+        {
+            if (alive.Count == 0 || !_allies.Any(member => member is GamePlayer))
+                return false;
+            int healers = _members.Count(bot => PvpMember.RoleOf(bot) == PvpRole.Heal), healersAlive = alive.Count(bot => PvpMember.RoleOf(bot) == PvpRole.Heal);
+            int up = _allies.Count(member => member.IsAlive);
+            if (!PvpKite.BreaksOff(up, _allies.Count, healersAlive, healers, OwnSide, foes.Count, weights))
+                return false;
+            Call(alive[0], "lost", PvpCalls.Lost(up, foes.Count), PvpCalls.TooManyEveryMilliseconds, PvpCalls.LoudTimes);
+            return true;
+        }
+
         // Since when the player's group has had too many on it without a word said.
         private long _tooManySince, _tooManyCalledAfter;
 
@@ -260,6 +279,9 @@ namespace DOL.GS
             OwnSide = _allies.Count(member => member.IsAlive) + beside.Count;
             OnIt = foes.Count(enemy => !enemy.IsMezzed && !enemy.IsStunned && enemy.TargetObject is GameLiving { IsAlive: true } aimed &&
                                        (_allies.Contains(aimed) || beside.Contains(aimed)));
+            // (Lost altogether is said in place of "too many".)
+            if (TellIfLost(weights, alive, foes))
+                return;
             if (!PvpKite.Outnumbered(OwnSide, OnIt, weights))
             {
                 _tooManySince = 0;
@@ -326,6 +348,7 @@ namespace DOL.GS
             int pressed = foes.Count(enemy => !enemy.IsMezzed && !enemy.IsStunned && body.Any(bot => bot.IsWithinRadius(enemy, weights.PressedWithin)));
             bool outnumbered = PvpKite.Outnumbered(OwnSide, OnIt, weights);
             TooManyOnIt = outnumbered;
+            TellIfLost(weights, alive, foes);
             // It has lost: after its caller's moment it breaks off, and everybody runs.
             int healers = _members.Count(bot => PvpMember.RoleOf(bot) == PvpRole.Heal), healersAlive = alive.Count(bot => PvpMember.RoleOf(bot) == PvpRole.Heal);
             // (A group with a player in it does not break off by itself: the retreat is the player's call.)

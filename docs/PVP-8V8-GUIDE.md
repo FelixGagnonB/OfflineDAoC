@@ -268,7 +268,18 @@ such shout in twenty seconds; an order that comes sooner is said once in ordinar
 before, and so is an order you called yourself. And in a roam, with ten or more aiming at your
 eight for a few seconds, they say "TOO MANY! 13 ON OUR 8! CALL IT: KITE OR RETREAT!" (again no
 sooner than 25 seconds later, and not while a call of yours stands): they stay where you are,
-and what to do is yours to call. **Automated tests only: nobody has seen either in a client.**
+and what to do is yours to call. When half of you or fewer are left, or none of your healers,
+against half again as many, it is "THIS ONE IS LOST! 3 OF US LEFT, 14 OF THEM! RETREAT?" instead
+(with `/8v8 lead on` too): they never run by themselves.
+
+In a roam they also tell you what they see, as a group of players does on its way: out of a
+fight, "INC! 2FG MIDS NORTH-WEST, 4,500!" (twice) for the enemy groups of a realm they see
+within 5,500 units, on which side of you and how far, said again when more have come or after 45
+seconds; in a fight, "ADD! 8 MORE MIDS FROM THE NORTH!" (four times) for each further group that
+comes into your fight or is seen coming for it. They see farther ahead than behind and not
+through a hill, so a group can still come up unseen. **All of this paragraph and the one above:
+automated tests only. No evening of bots can show it (it is said to a player), and nobody has
+seen it in a client.**
 
 `/8v8 lead on` lets your companions' own caller move the group in a roam or a prime-time evening:
 when ten or more aim at your eight and they are on your healers and casters, your seven fall back
