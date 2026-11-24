@@ -318,11 +318,19 @@ public static class AutonomousBotRealmAbilities
         state.NextUse = now + 1_000;
         foreach (TimedRealmAbility ability in state.Actives)
         {
-            if (bot.GetSkillDisabledDuration(ability) > 0 || !Wanted(bot, ability.KeyName)) continue;
+            if (bot.GetSkillDisabledDuration(ability) > 0) continue;
+            // An 8v8 group uses an ability that is for all of it one member at a time: the second of a kind is kept (PvpRealmAbilities.KeptApartSeconds).
+            DOL.GS.PvpSquad squad = bot.IsPvpBot ? (bot.Brain as DOL.AI.Brain.BotBrain)?.PvpSquad : null;
+            int apart = squad == null ? 0 : PvpRealmAbilities.KeptApartSeconds(ability.KeyName, PvpWeights.Of(bot).Abilities);
+            if (apart > 0 && squad.GroupAbilityTaken(ability.KeyName, bot, apart)) continue;
+            if (!Wanted(bot, ability.KeyName)) continue;
+            if (apart > 0 && !squad.ClaimGroupAbility(ability.KeyName, bot, apart)) continue;
             if (bot.IsPvpBot)
                 PvpRealmAbilities.Use(bot, ability);
             else
                 ability.Execute(bot);
+            if (apart > 0 && bot.GetSkillDisabledDuration(ability) <= 1_000)
+                squad.ReleaseGroupAbility(ability.KeyName, bot);
             // A purge that removed nothing only blocks itself for 5 ms; log real uses (long reuse timers).
             // An 8v8 bot beside a player says that it has purged (bots/pvp/PvpCalls.cs).
             if (bot.IsPvpBot && bot.GetSkillDisabledDuration(ability) > 1_000 && ability.KeyName is Purge or PurgeReduced or PvpPurge.GroupPurgeKey)

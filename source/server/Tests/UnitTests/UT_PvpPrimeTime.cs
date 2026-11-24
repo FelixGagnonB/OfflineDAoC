@@ -276,6 +276,19 @@ namespace DOL.UnitTests
             Assert.That(PvpRoam.FightItJoined([((1_000.0, 0.0), false), ((9_000.0, 0.0), true), ((0.0, 7_000.0), true)], (0.0, 0.0)), Is.EqualTo((0, 7_000)));
             Assert.That(PvpRoam.FightItJoined([((1_000.0, 0.0), false)], (0.0, 0.0)), Is.Null, "it joined nothing: it walks its road");
             Assert.That(PvpRoam.FightItJoined([], (0.0, 0.0)), Is.Null);
+            // The words after "/8v8 prime": a word that is not understood starts nothing.
+            Assert.That(DOL.GS.Commands.Pvp8v8CommandHandler.PrimeWords(["emain", "8", "rank", "8", "hib-2bard"], out string[] words, out int rank), Is.Null);
+            Assert.That(words, Is.EqualTo(new[] { "emain", "8", "hib-2bard" }));
+            Assert.That(rank, Is.EqualTo(8));
+            Assert.That(DOL.GS.Commands.Pvp8v8CommandHandler.PrimeWords(["emain", "8", "rank", "hib-2bard"], out _, out _), Does.Contain("needs a number"),
+                "what the owner typed on 2026-11-24: it began an evening at the owner's own rank with the main line-up");
+            Assert.That(DOL.GS.Commands.Pvp8v8CommandHandler.PrimeWords(["emain", "rank"], out _, out _), Does.Contain("needs a number"));
+            Assert.That(DOL.GS.Commands.Pvp8v8CommandHandler.PrimeWords(["emain", "rank", "14"], out _, out _), Does.Contain("needs a number"));
+            Assert.That(DOL.GS.Commands.Pvp8v8CommandHandler.PrimeWords(["emain", "hib-2bards"], out _, out _), Does.Contain("hib-2bards"));
+            Assert.That(DOL.GS.Commands.Pvp8v8CommandHandler.PrimeWords(["thid", "6", "one"], out words, out rank), Is.Null);
+            Assert.That(rank, Is.EqualTo(0));
+            Assert.That(DOL.GS.Commands.Pvp8v8CommandHandler.PrimeWords([], out words, out _), Is.Null);
+            Assert.That(words, Is.Empty);
             // An evening at a picked rank (/8v8 prime emain 8 rank 8): rank 8 is realm level 70, and the player's group earns nothing.
             Assert.That(PvpRoam.TrialLevel(8), Is.EqualTo(70));
             Assert.That(PvpRoam.TrialLevel(1), Is.EqualTo(0), "rank 1 is what a new group has");

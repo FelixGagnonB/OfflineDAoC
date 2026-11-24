@@ -31,6 +31,39 @@ namespace DOL.GS.Commands
         "/8v8 feed <on|off>             (GM) each group's calls in your chat window, for the lane you watch or stand in")]
     public sealed class Pvp8v8CommandHandler : AbstractCommandHandler, ICommandHandler
     {
+        /// <summary>
+        /// Reads the words after "/8v8 prime": a zone, a number of groups, "one" or "all", one of
+        /// the realm's line-ups, and "rank" with its number. Returns what to tell the player when
+        /// a word is not one of those, and nothing is started then. The owner, 2026-11-24, typed
+        /// "/8v8 prime emain 8 rank hib-2bard": the word after "rank" was taken for its number,
+        /// so the evening began at the rank the owner had, with the main line-up, and said
+        /// nothing of either.
+        /// </summary>
+        public static string PrimeWords(string[] words, out string[] rest, out int rank)
+        {
+            const string example = "For example: /8v8 prime emain 8 rank 8 hib-2bard";
+            var kept = new System.Collections.Generic.List<string>();
+            rank = 0;
+            rest = [];
+            for (int index = 0; index < words.Length; index++)
+            {
+                string word = words[index];
+                if (word.Equals("rank", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    if (index + 1 >= words.Length || !int.TryParse(words[index + 1], out rank) || rank is < 1 or > 13)
+                        return $"\"rank\" needs a number from 1 to 13 after it. {example}";
+                    index++;
+                }
+                else if (int.TryParse(word, out _) || PvpRoam.MapFor(word) != null || PvpBuildCatalog.FindGroup(word) != null ||
+                         word.Equals("one", System.StringComparison.OrdinalIgnoreCase) || word.Equals("all", System.StringComparison.OrdinalIgnoreCase))
+                    kept.Add(word);
+                else
+                    return $"\"{word}\" is not a zone, a number of groups, a line-up, \"one\", \"all\" or \"rank\". {example}";
+            }
+            rest = kept.ToArray();
+            return null;
+        }
+
         public void OnCommand(GameClient client, string[] args)
         {
             GamePlayer player = client?.Player;
@@ -219,14 +252,17 @@ namespace DOL.GS.Commands
                     {
                         // "/8v8 prime thid 6": in Thidranki, six groups of each realm.
                         // "/8v8 prime emain 8 rank 8": an evening to try things, your group at realm rank 8 and earning nothing.
-                        int rankAt = System.Array.FindIndex(args, 2, word => word.Equals("rank", System.StringComparison.OrdinalIgnoreCase));
-                        int trialRank = rankAt >= 0 && rankAt + 1 < args.Length && int.TryParse(args[rankAt + 1], out int picked) ? picked : 0;
-                        string[] rest = rankAt < 0 ? args : args.Where((_, index) => index != rankAt && index != rankAt + 1).ToArray();
-                        int groups = rest.Skip(2).Select(word => int.TryParse(word, out int number) ? number : 0).FirstOrDefault(number => number > 0);
-                        PvpRoam.StartFor(player, Say, rest.Skip(2).Select(PvpBuildCatalog.FindGroup).FirstOrDefault(group => group != null),
-                            rest.Skip(2).Select(PvpRoam.MapFor).FirstOrDefault(map => map != null), System.Math.Clamp(groups == 0 ? 8 : groups, 1, 16),
-                            rest.Skip(2).Any(word => word.Equals("one", System.StringComparison.OrdinalIgnoreCase)),
-                            rest.Skip(2).Any(word => word.Equals("all", System.StringComparison.OrdinalIgnoreCase)), trialRank);
+                        // "/8v8 prime emain 8 rank 8 hib-2bard": the same with another of your realm's line-ups.
+                        if (PrimeWords(args.Skip(2).ToArray(), out string[] rest, out int trialRank) is { } notUnderstood)
+                        {
+                            Say(notUnderstood);
+                            return;
+                        }
+                        int groups = rest.Select(word => int.TryParse(word, out int number) ? number : 0).FirstOrDefault(number => number > 0);
+                        PvpRoam.StartFor(player, Say, rest.Select(PvpBuildCatalog.FindGroup).FirstOrDefault(group => group != null),
+                            rest.Select(PvpRoam.MapFor).FirstOrDefault(map => map != null), System.Math.Clamp(groups == 0 ? 8 : groups, 1, 16),
+                            rest.Any(word => word.Equals("one", System.StringComparison.OrdinalIgnoreCase)),
+                            rest.Any(word => word.Equals("all", System.StringComparison.OrdinalIgnoreCase)), trialRank);
                     }
                     catch (System.Exception exception)
                     {

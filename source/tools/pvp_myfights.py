@@ -50,6 +50,9 @@ def main():
                     kinds[team["name"]] = team.get("kind")
                     if me is None and team.get("player"):
                         me = team["name"]
+                # (The player's seven are in the header: they are in the world when the recording begins.)
+                for bot in row.get("bots") or []:
+                    bots[bot["n"]] = (bot["team"], bot["cls"], bot.get("rl", 0))
             elif k == "spawn":
                 for bot in row["bots"]:
                     bots[bot["n"]] = (bot["team"], bot["cls"], bot.get("rl", 0))

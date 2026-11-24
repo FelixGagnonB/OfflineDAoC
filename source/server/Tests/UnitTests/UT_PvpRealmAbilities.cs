@@ -52,6 +52,24 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void AnAbilityForTheWholeGroupIsUsedByOneMemberAtATime()
+        {
+            var weights = new PvpRealmAbilityWeights();
+            // Both Druids of the owner's group purged it 2.4 seconds apart (2026-11-24): the second keeps its own.
+            Assert.That(PvpRealmAbilities.KeptApartSeconds(PvpPurge.GroupPurgeKey, weights), Is.EqualTo(15));
+            Assert.That(PvpRealmAbilities.KeptApartSeconds(PvpRealmAbilities.SpeedOfSound, weights), Is.EqualTo(40));
+            Assert.That(PvpRealmAbilities.KeptApartSeconds(PvpRealmAbilities.Bunker, weights), Is.EqualTo(30));
+            Assert.That(PvpRealmAbilities.KeptApartSeconds(PvpRealmAbilities.Melodies, weights), Is.EqualTo(30));
+            Assert.That(PvpRealmAbilities.KeptApartSeconds(PvpRealmAbilities.Concentration, weights), Is.EqualTo(0), "an ability of one's own");
+            Assert.That(PvpRealmAbilities.KeptApartSeconds(PvpRealmAbilities.AvoidPain, weights), Is.EqualTo(0));
+            Assert.That(PvpRealmAbilities.TakenBySomebodyElse(false, 102_400, 100_000, 15), Is.True, "2.4 seconds after the other Druid");
+            Assert.That(PvpRealmAbilities.TakenBySomebodyElse(false, 116_000, 100_000, 15), Is.False, "the next wave of control");
+            Assert.That(PvpRealmAbilities.TakenBySomebodyElse(true, 102_400, 100_000, 15), Is.False, "its own use is no reason to wait");
+            Assert.That(PvpRealmAbilities.TakenBySomebodyElse(false, 102_400, 0, 15), Is.False, "nobody has used it");
+            Assert.That(PvpRealmAbilities.TakenBySomebodyElse(false, 102_400, 100_000, 0), Is.False, "turns switched off");
+        }
+
+        [Test]
         public void EveryClassOfTheCatalogueHasItsOwnOrder()
         {
             foreach (eCharacterClass characterClass in PvpBuildCatalog.Builds.Select(build => build.Class).Distinct())

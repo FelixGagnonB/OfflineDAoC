@@ -198,6 +198,15 @@ has played it yet.**
 
 - The setup window's **Your group** line picks another line-up of your realm where there is one
   (Hibernia: `hib-main`, or `hib-2bard` with two Bards). Your own class takes its place in it.
+  On a prime-time evening the line-up's name goes in the command, anywhere after `prime`:
+  `/8v8 prime emain 8 rank 8 hib-2bard` (two Druids, two Bards, Hero, two Blademasters,
+  Eldritch). The evening then says "Your group is the line-up hib-2bard."; a word the command
+  does not know, or `rank` without its number, starts nothing and is named to you.
+- **One at a time.** What is for the whole group is used by one member at a time: after one
+  Druid's Group Purge the other keeps its own for fifteen seconds, after one Bard's Speed of
+  Sound the other keeps its own for forty, and the same for Battery of Life, Bunker of Faith,
+  Soldier's Barricade, Brilliant Aura and Ameliorating Melodies (thirty). In every group, yours
+  and the guilds'. **Built 2026-11-24, automated tests only.**
 - Your companions keep their names from one session to the next.
 
 ## Realm abilities

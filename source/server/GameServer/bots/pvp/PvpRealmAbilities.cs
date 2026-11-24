@@ -35,6 +35,21 @@ namespace DOL.GS
         public int HurtBelow { get; set; } = 60;
         public int BadlyHurtBelow { get; set; } = 40;
 
+        /// <summary>
+        /// An ability for the whole group is used by one member at a time: for this long after
+        /// one has used it, no other member of the group uses the same one, and keeps it for
+        /// the next time. The owner, 2026-11-24, after a fight in which both Druids of the group
+        /// had purged it 2.4 seconds apart: "Only 1 bard should use it, and 2nd should keep it
+        /// for another itme. In the same vein, druid should use group purge one at a time".
+        /// Group Purge: fifteen seconds (whoever was freed cannot be put to sleep again for a
+        /// minute). Speed of Sound: forty (it lasts thirty). The others that are for the whole
+        /// group (Battery of Life, Bunker of Faith, Soldier's Barricade, Brilliant Aura,
+        /// Ameliorating Melodies): thirty. 0: no turns are taken.
+        /// </summary>
+        public int GroupPurgeApartSeconds { get; set; } = 15;
+        public int SpeedOfSoundApartSeconds { get; set; } = 40;
+        public int GroupAbilityApartSeconds { get; set; } = 30;
+
         /// <summary>Speed of Sound: on a called retreat with the enemy near, or with this many members rooted or snared in a fight.</summary>
         public bool SpeedOfSoundOnRetreat { get; set; } = true;
         public int SpeedOfSoundAtSlowed { get; set; } = 2;
@@ -195,6 +210,19 @@ namespace DOL.GS
         /// <summary>What a class buys first; a class without an order keeps the one every 8v8 bot had.</summary>
         public static IReadOnlyList<Step> OrderOf(int classId) =>
             Orders.TryGetValue((eCharacterClass)classId, out Step[] order) ? order : AutonomousBotRealmAbilities.PvpFirst;
+
+        /// <summary>How long after one member has used an ability for the whole group the others keep theirs (PvpRealmAbilityWeights.GroupPurgeApartSeconds); 0 for an ability of one's own.</summary>
+        public static int KeptApartSeconds(string key, PvpRealmAbilityWeights weights) => key switch
+        {
+            PvpPurge.GroupPurgeKey => weights.GroupPurgeApartSeconds,
+            SpeedOfSound => weights.SpeedOfSoundApartSeconds,
+            Battery or Bunker or Barricade or Aura or Melodies => weights.GroupAbilityApartSeconds,
+            _ => 0,
+        };
+
+        /// <summary>Whether somebody else of the group has just used that ability, so that this member keeps its own.</summary>
+        public static bool TakenBySomebodyElse(bool usedByThisMember, long now, long lastUsed, int apartSeconds) =>
+            apartSeconds > 0 && !usedByThisMember && lastUsed > 0 && now - lastUsed < apartSeconds * 1_000L;
 
         /// <summary>True for the abilities <see cref="Wanted(PvpAbilityView, string, PvpRealmAbilityWeights)"/> decides.</summary>
         public static bool Decides(string key) => key is SpeedOfSound or Concentration or Battery or Bunker or Barricade or Aura or Melodies or

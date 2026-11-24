@@ -3601,6 +3601,25 @@ The plan the owner agreed to that day ("Let's proceed and test with bots first")
     team that evening (bad 24%, the others 12 to 18%), with no peel by a bot at all.
   - The recording's header gave every guild "Seasoned" (its bots are not made when it is
     written): it now gives the level of its kind.
+  - **One at a time.** The owner, after a second evening the same day (one fight, wiped by three
+    bad groups of Albion): "I called the retreat and I tihnk both bard used SoS at the same
+    time. Only 1 bard should use it, and 2nd should keep it for another itme. In the same vein,
+    druid should use group purge one at a time". The group of that evening had one Bard (see
+    below), and its one Speed of Sound came half a second after the call; its two Druids did
+    use Group Purge 2.4 seconds apart. Built: an ability for the whole group is used by one
+    member at a time (`PvpRealmAbilities.KeptApartSeconds`, a turn kept by the squad): after
+    one has used it no other member uses the same one for 15 seconds (Group Purge), 40 (Speed
+    of Sound, which lasts 30) or 30 (Battery of Life, Bunker of Faith, Soldier's Barricade,
+    Brilliant Aura, Ameliorating Melodies). *Automated tests only; not yet on the scrim server
+    (the owner was playing on it).*
+  - **"/8v8 prime emain 8 rank hib-2bard".** The owner asked for the group of two Bards and got
+    the main one. The server's log has the line as typed: no number after "rank", so the
+    line-up's name was taken for the rank's number, and the evening began with the main
+    line-up at the rank the owner had, with nothing said of either. Built: a word after
+    "/8v8 prime" that is not a zone, a number, a line-up, "one", "all" or "rank" with its
+    number from 1 to 13 starts nothing and is named to the player
+    (`Pvp8v8CommandHandler.PrimeWords`), and an evening with another line-up says "Your group
+    is the line-up hib-2bard." *Automated tests only; not yet on the scrim server.*
 
 **Where M12 stands (2026-11-24).** Built and run with bots on the scrim server: the measure, the
 kite, breaking off, no raising with too many on it. A seventh evening on the last build (13

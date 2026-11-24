@@ -258,6 +258,44 @@ namespace DOL.GS
             return true;
         }
 
+        // Who of the group last used each ability that is for the whole group, and when (PvpRealmAbilities.KeptApartSeconds).
+        private readonly Dictionary<string, (GameBot By, long When)> _groupAbilities = new();
+
+        /// <summary>Whether another member has used that ability within the time the group keeps two of a kind apart.</summary>
+        public bool GroupAbilityTaken(string key, GameBot by, int apartSeconds)
+        {
+            lock (_groupAbilities)
+                return _groupAbilities.TryGetValue(key, out (GameBot By, long When) last) &&
+                       PvpRealmAbilities.TakenBySomebodyElse(last.By == by, GameLoop.GameLoopTime, last.When, apartSeconds);
+        }
+
+        /// <summary>
+        /// A member takes the turn for an ability that is for the whole group; false when
+        /// another has it (two brains may decide in the same moment: one of them gets it).
+        /// </summary>
+        public bool ClaimGroupAbility(string key, GameBot by, int apartSeconds)
+        {
+            lock (_groupAbilities)
+            {
+                long now = GameLoop.GameLoopTime;
+                if (_groupAbilities.TryGetValue(key, out (GameBot By, long When) last) &&
+                    PvpRealmAbilities.TakenBySomebodyElse(last.By == by, now, last.When, apartSeconds))
+                    return false;
+                _groupAbilities[key] = (by, now);
+                return true;
+            }
+        }
+
+        /// <summary>The ability was not used after all (the game refused it): the turn is free again.</summary>
+        public void ReleaseGroupAbility(string key, GameBot by)
+        {
+            lock (_groupAbilities)
+            {
+                if (_groupAbilities.TryGetValue(key, out (GameBot By, long When) last) && last.By == by)
+                    _groupAbilities.Remove(key);
+            }
+        }
+
         // Since when the player's group has had too many on it without a word said.
         private long _tooManySince, _tooManyCalledAfter;
 

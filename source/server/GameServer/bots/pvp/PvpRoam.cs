@@ -1200,6 +1200,8 @@ namespace DOL.GS
                             $"{prime} groups of each realm are out, yours one of them, the others guilds of every kind. " +
                             "Some walk in packs, some add, some do neither. Kills earn realm points that are kept, and a wipe puts your group " +
                             "back here (so does /release). /8v8 who, /8v8 status, /8v8 go <zone>, /8v8 rivals, /8v8 stop.");
+                        if (own != null)
+                            say($"Your group is the line-up {own.Id}.");
                         if (trial > 0)
                             say($"An evening to try things: your seven are at realm rank {PvpRealmPoints.RankName(trial)} and your group earns nothing. " +
                                 "Your next real fight or evening puts you back at what you have earned.");
