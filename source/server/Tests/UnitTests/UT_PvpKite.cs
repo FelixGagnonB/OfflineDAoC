@@ -152,6 +152,11 @@ namespace DOL.UnitTests
             Assert.That(PvpKite.GotAway(Weights.ClearSeconds, Weights), Is.True);
             Assert.That(PvpKite.RunIsOver(Weights.LeavesAtMostSeconds - 1, Weights), Is.False);
             Assert.That(PvpKite.RunIsOver(Weights.LeavesAtMostSeconds, Weights), Is.True);
+            // Away, it is taken off the field to form up at its start; not where a player would see it vanish.
+            Assert.That(PvpKite.FormsUpAgain(true, false), Is.True);
+            Assert.That(PvpKite.FormsUpAgain(true, true), Is.False);
+            Assert.That(PvpKite.FormsUpAgain(false, false), Is.False);
+            Assert.That(Weights.NotGoneWithAPlayerWithin, Is.GreaterThan(WorldMgr.VISIBILITY_DISTANCE), "farther than a player sees a bot");
         }
 
         [Test]

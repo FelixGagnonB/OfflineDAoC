@@ -1697,12 +1697,14 @@ namespace DOL.GS
                 if (others.Any(other => Near(team, other, kite.ClearBeyond)))
                     team.LastFollowedTick = now;
                 bool runIsOver = PvpKite.RunIsOver((now - team.BrokeOffAt) / 1000.0, kite);
-                if (PvpKite.GotAway((now - team.LastFollowedTick) / 1000.0, kite) || runIsOver && !inCombat)
+                // (Not taken off the field where a player would see it go: it runs on until it is out of sight.)
+                bool inSight = teams.Any(other => other.Leader != null && other.Map == team.Map && Near(team, other, kite.NotGoneWithAPlayerWithin));
+                if (PvpKite.FormsUpAgain(PvpKite.GotAway((now - team.LastFollowedTick) / 1000.0, kite) || runIsOver && !inCombat, inSight))
                 {
                     team.Reforming = true;
                     Say($"{team.Name} gets away with {team.Alive} and goes back to its start", new { what = "away", team = team.Name, alive = team.Alive });
                 }
-                else if (runIsOver)
+                else if (runIsOver && inCombat)
                 {
                     team.Team.Squad.StopLeaving();
                     Say($"{team.Name} cannot get away and turns to fight", new { what = "caught", team = team.Name, alive = team.Alive });

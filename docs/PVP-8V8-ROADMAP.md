@@ -3386,7 +3386,9 @@ The plan the owner agreed to that day ("Let's proceed and test with bots first")
     follow as far as it likes.
   - Once no enemy team has been within 2,500 units for three seconds it is away: it goes back
     to its start to form up again, as a team does that cannot raise its dead, and stands up
-    whole after the wait of a wipe. That is no wipe in its record. One still being fought after
+    whole after the wait of a wipe. That is no wipe in its record. It is not taken off the field
+    while a player's group is within 7,500 units (a player sees a bot from 6,000): it runs on
+    until it is out of sight. *That last has never run: it takes a player.* One still being fought after
     45 seconds turns and fights, and does not leave again.
   - Not a bad group; not a group with a player in it (the retreat is the player's call); and
     the last two of a group against three times their number stand and fight, as the owner

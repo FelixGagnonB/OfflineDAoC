@@ -92,6 +92,13 @@ namespace DOL.GS
         public int ClearSeconds { get; set; } = 3;
         /// <summary>After this long on the run it is away if nobody is at it, and turns to fight if somebody still is.</summary>
         public int LeavesAtMostSeconds { get; set; } = 45;
+        /// <summary>
+        /// A group that is away goes back to its start by being taken off the field, as a team
+        /// does that cannot raise its dead. Not while a player's group is within this of it: a
+        /// player sees a bot from 6,000 units (WorldMgr.VISIBILITY_DISTANCE), and would see four of them
+        /// vanish. It runs on.
+        /// </summary>
+        public int NotGoneWithAPlayerWithin { get; set; } = 7_500;
     }
 
     /// <summary>
@@ -226,6 +233,9 @@ namespace DOL.GS
 
         /// <summary>A group on the run has got away: no enemy team has been near it for a moment.</summary>
         public static bool GotAway(double secondsWithNoEnemyTeamNear, PvpKiteWeights weights) => secondsWithNoEnemyTeamNear >= weights.ClearSeconds;
+
+        /// <summary>Whether a group on the run is taken off the field now, to form up again at its start: it is away, and no player is near enough to see it go.</summary>
+        public static bool FormsUpAgain(bool away, bool aPlayerIsInSight) => away && !aPlayerIsInSight;
 
         /// <summary>It has run long enough: away, if nobody is at it; else it turns and fights.</summary>
         public static bool RunIsOver(double secondsOnTheRun, PvpKiteWeights weights) => secondsOnTheRun >= weights.LeavesAtMostSeconds;
