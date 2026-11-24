@@ -140,7 +140,8 @@ has played it yet.**
   like, then the guilds that are out, rank, classes, zone, whom they walk with) and
   `/8v8 status` (what each is doing). Of the others: how many groups are out, and what your
   realm calls out in realm chat when it sees them, such as "2fg albs at south road (Emain)",
-  "fighting 1fg mids at north road (Odin's)", "wiped at Crimthain (Breifine), 3fg mids". The
+  "fighting 1fg mids at north road (Odin's)", "wiped at Crimthain (Breifine), 3fg mids", and when a group breaks off, "running from 2fg albs at
+  south road (Emain)" or "4 mids on the run at south road (Emain)". The
   names of the places are made up: in the zones behind, a point is called by the keep it is
   near or by its side of the zone.
 - **Going elsewhere.** `/8v8 go <zone>` with one of the zones of the evening: your group ports

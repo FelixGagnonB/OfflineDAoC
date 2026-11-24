@@ -3391,6 +3391,9 @@ The plan the owner agreed to that day ("Let's proceed and test with bots first")
   - Not a bad group; not a group with a player in it (the retreat is the player's call); and
     the last two of a group against three times their number stand and fight, as the owner
     asked on 2026-11-20.
+  - On a prime-time evening the player's realm hears of it in realm chat: from its own group
+    that runs ("running from 2fg albs at south road (Emain)"), or from the group an enemy runs
+    from ("4 mids on the run at south road (Emain)").
   - **In 35 fights of a hundred that it loses**, drawn for the fight. With every group leaving
     that could (third evening) sixteen broke off, thirteen got away and four teams were wiped,
     where eighteen to twenty-two had been before: a wipe is what a guild's record, its grudge
@@ -3416,7 +3419,10 @@ The plan the owner agreed to that day ("Let's proceed and test with bots first")
   for a push.
 
 **Where M12 stands (2026-11-24).** Built and run with bots on the scrim server: the measure, the
-kite, breaking off, no raising with too many on it. Seen in a client: nothing. To be looked at
+kite, breaking off, no raising with too many on it. A seventh evening on the last build (13
+kites, five groups broke off and four got away, 21 teams wiped, the realm chat of a break-off
+written as meant) took 29% of one core over twelve minutes and 6.1 GB, against 28% and 5.9 GB
+for 36 teams before any of this. Seen in a client: nothing. To be looked at
 by the owner: whether a group that falls back and one that turns and runs look like players
 doing it; whether one lost fight in three ending in a run is too many or too few; `/8v8 lead on`
 with the owner's own group.

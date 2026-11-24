@@ -474,6 +474,18 @@ namespace DOL.GS
             return wiped ? $"wiped{where}, {who}" : fightingThem ? $"fighting {who}{where}" : $"{who}{where}";
         }
 
+        /// <summary>
+        /// What is said in realm chat when a group breaks off (bots/pvp/PvpKite.cs). By a group of
+        /// the player's realm that runs: "running from 2fg albs at south road". By one that has
+        /// beaten an enemy group which then runs: "4 mids on the run at south road", so that
+        /// whoever is near may cut them off.
+        /// </summary>
+        public static string RunningText(int groups, eRealm from, string place) =>
+            $"running from {Math.Max(1, groups)}fg {Short(from)}" + (place == null ? string.Empty : $" at {place}");
+
+        public static string OnTheRunText(int left, eRealm realm, string place) =>
+            $"{Math.Max(1, left)} {Short(realm)} on the run" + (place == null ? string.Empty : $" at {place}");
+
         /// <summary>A place as it is called out on an evening over several zones: "south road (Emain)". With one zone, the place alone.</summary>
         private static string InZone(PvpRoamMap map, string place) =>
             _maps.Count <= 1 ? place : place == null ? map.Tag : $"{place} ({map.Tag})";
@@ -1667,6 +1679,20 @@ namespace DOL.GS
                 {
                     (team.BrokeOffAt, team.LastFollowedTick) = (now, now);
                     Say($"{team.Name} breaks off with {team.Alive} left", new { what = "breakoff", team = team.Name, alive = team.Alive, foes = others.Count });
+                    // On a prime-time evening the realm hears of it: from the group that runs, or from the group it runs from.
+                    if (Prime && team.Fighting.Count > 0)
+                    {
+                        eRealm hears = Hears(teams);
+                        (double atX, double atY) = team.Centre();
+                        string place = InZone(team.Map, team.Map.PlaceOf(atX, atY));
+                        if (team.Realm == hears)
+                        {
+                            IGrouping<eRealm, PvpRoamTeam> most = team.Fighting.GroupBy(other => other.Realm).OrderByDescending(realm => realm.Count()).First();
+                            RealmChat(teams, team, RunningText(most.Count(), most.Key, place));
+                        }
+                        else if (team.Fighting.FirstOrDefault(other => other.Realm == hears && other.Leader == null && other.Alive > 0) is { } winner)
+                            RealmChat(teams, winner, OnTheRunText(team.Alive, team.Realm, place));
+                    }
                 }
                 if (others.Any(other => Near(team, other, kite.ClearBeyond)))
                     team.LastFollowedTick = now;

@@ -266,6 +266,10 @@ namespace DOL.UnitTests
             Assert.That(PvpRoam.SightingText(1, eRealm.Midgard, "mid road", true), Is.EqualTo("fighting 1fg mids at mid road"));
             Assert.That(PvpRoam.SightingText(3, eRealm.Hibernia, "north road", false, true), Is.EqualTo("wiped at north road, 3fg hibs"));
             Assert.That(PvpRoam.SightingText(1, eRealm.Albion, null, false), Is.EqualTo("1fg albs"));
+            // A group that breaks off (M12.5): its own realm hears that it runs, the other that it is on the run.
+            Assert.That(PvpRoam.RunningText(2, eRealm.Albion, "south road (Emain)"), Is.EqualTo("running from 2fg albs at south road (Emain)"));
+            Assert.That(PvpRoam.OnTheRunText(4, eRealm.Midgard, "mid road"), Is.EqualTo("4 mids on the run at mid road"));
+            Assert.That(PvpRoam.OnTheRunText(3, eRealm.Hibernia, null), Is.EqualTo("3 hibs on the run"));
             // Not a flood: about one realm at one place one call, until the number there changes or three minutes go by.
             Assert.That(PvpRoam.CallsOut(3, 500, false), Is.False);
             Assert.That(PvpRoam.CallsOut(20, 90, false), Is.False, "said already, and nothing has changed");
