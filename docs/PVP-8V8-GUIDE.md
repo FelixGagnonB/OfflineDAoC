@@ -116,6 +116,14 @@ has played it yet.**
   for it to end, then turns back or walks on past. One that does not count heads (the bad
   groups, and the hunters) walks into anything; the others do not start on more groups than
   they have together.
+- **A guild with too many on it falls back as one.** When ten or more aim at its eight and they
+  are on its healers and casters, its caller moves the whole group back 1,800 units at a time,
+  away from the enemy and toward its start where the ground allows: healers and casters run to
+  their spots without casting, the fighters stand between them and the enemy and take whoever
+  follows, nobody is raised, and then it stands and fights before the next leg. A sharp guild
+  is on its way within a second and a half, a casual one after six to twelve; a bad group does
+  not do it at all. Run with bots only; it carries a group thousands of units and has not yet
+  made eight beat sixteen. Your own group still moves back only on your call.
 - **The evening moves.** Guilds come out one by one over the first minutes. A guild logs off
   when it has been wiped three times, or after 25 to 50 minutes, and another of its realm comes
   out. A guild that walks alone and is wiped ports one time in three to another zone of the
@@ -134,6 +142,8 @@ has played it yet.**
   added on (you came into a fight it had with somebody else) comes looking too, and joins the
   next fight of yours it comes on, whatever its kind. `/8v8 rivals` lists the enemy guilds you
   have wiped or been wiped by, over all evenings.
+- **How the groups held together.** `source/tools/pvp_group.py` reads a recording of an evening:
+  each kind's spread, how far its fights carried, and every time a group fell back as one.
 - **Pictures.** `source/tools/pvp_map_draw.py` draws a zone's points and legs on the client's map
   of it, and, from a recording of an evening, where every team went, fought and was wiped.
 

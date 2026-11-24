@@ -223,6 +223,9 @@ namespace DOL.GS
                     PvpRoam.ListenTo(Enum.TryParse(Arg("Listener"), true, out eRealm listener) ? listener : eRealm.None);
                     if (int.TryParse(Arg("Prime"), out int prime) && prime > 0)
                         guilds = PvpTeamPool.Tonight(PvpTeamPool.LoadOrCreate(AppContext.BaseDirectory, pool, Math.Max(16, prime * 2), Random.Shared), prime, Random.Shared);
+                    // Hunters=2: for a test, that many teams of each realm hunt packs this evening (PvpTeamPool.WithHunters).
+                    if (guilds != null && int.TryParse(Arg("Hunters"), out int hunters) && hunters > 0)
+                        guilds = PvpTeamPool.WithHunters(guilds, hunters);
                     // Zones=all: the evening is in every frontier zone; Zones=tonight: in as many as its groups are for, drawn
                     // (PvpRoam.ZonesTonight, M11.8); Zones=odin,hadrian: in those and the map it begins in.
                     List<PvpRoamMap> zones = string.Equals(Arg("Zones"), "all", StringComparison.OrdinalIgnoreCase) ? PvpRoam.Frontiers.ToList()

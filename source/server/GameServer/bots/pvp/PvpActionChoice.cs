@@ -419,6 +419,9 @@ namespace DOL.GS
         /// <summary>How the group reads the fight into an order (bots/pvp/PvpReading.cs).</summary>
         public PvpOrderWeights Order { get; set; } = new();
 
+        /// <summary>How a group gives ground as one (bots/pvp/PvpKite.cs).</summary>
+        public PvpKiteWeights Kite { get; set; } = new();
+
         /// <summary>A real session: realm points earned and kept (bots/pvp/PvpRealmPoints.cs).</summary>
         public PvpRealWeights Real { get; set; } = new();
 

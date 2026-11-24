@@ -3289,6 +3289,84 @@ backup, on the owner's word.
 
 **Exit check:** the owner plays an evening on the play install and names what is missing.
 
+## M12. The group as one
+
+The owner, 2026-11-24, after reading how an elite eight of bots had lost to two bad groups where
+it stood (it counted sixteen enemies, was under Extend for 96 of 210 seconds, moved 850 units
+back in a minute and a half, stayed 150 seconds on a Druid that was healed faster than it was
+hurt, and raised two members who died again): "individually, the bots are OK for now. I guess
+it's time to work on the group reaction, awareness and cohesion." This reopens, for the group
+only, what was parked on 2026-11-22; the tuning of single bots, levels and realm balance (M10.4)
+stays parked.
+
+The plan the owner agreed to that day ("Let's proceed and test with bots first"):
+
+- [x] **M12.1** (S) Measure the group. `source/tools/pvp_group.py` reads a recorded evening and
+  gives, for every fight of every team: how far its farthest member is from its middle, how
+  often a member has no healer of its own within 1,850 units, how far the group ended from where
+  the fight began and how far of that was away from the enemy, how far it went back under
+  Extend, the longest time on a kill target that did not die of it, the changes of order a
+  minute, and what a second of fighting dealt and took.
+  **Before** (the two evenings of 2026-11-23): the farthest member 1,300 units from
+  the middle for every kind of team; the back line alone 1,050; fighters out of their healers'
+  reach 12 to 14% of the time, casters 4%; a group ended a fight 1,400 units *nearer* to where
+  the enemy had stood than it began (the middle value, second evening). An ordinary fight is not badly strung out. What was missing
+  is that nothing moved the group as one.
+- [ ] **M12.2, M12.3** (M) The group's place, and a kite that carries (`PvpKite.cs`).
+  *Built 2026-11-24 and run with bots only; seen in no client.*
+  - **What it knows.** Each second a group counts its side (its own living and those of its
+    realm fighting within 3,000 units) and the free enemies that aim at one of them. With 125 on
+    it to a hundred of its own (ten on eight; an even fight has five or six) and two free
+    enemies within 1,500 of one of its healers or casters, it has more on it than it can stand
+    against.
+  - **What it does.** Its caller takes a moment (a sharp group half a second to a second and a
+    half, a seasoned one two to five, a casual one six to twelve), then moves the group's place
+    back a leg: straight away from the enemies near it, or 30, 60, 90 degrees to the side nearer
+    its start, over ground it can walk in a straight line. Every healer and caster keeps the
+    spot it had around the place (no farther than 600 from it) and goes there without stopping
+    to cast or to heal; the fighters stand in a row between the place and the enemy, and go only
+    for an enemy that is on their healers and casters or within 1,100 of them. The kill target
+    is called among the enemies within 1,500. Nobody is raised. After a leg the group stands and
+    works; it takes the next when it still has too many on it. The order is Extend throughout.
+  - **Who.** The teams of bots of a roam, but not the bad groups (a pack that gave ground would
+    not be the crowd it is). Not the player's group: that moves back on the player's call, as
+    before. The owner on a call its own group makes by itself: "say in group chat but spam it
+    in capital or something, 4-5 times, so I am aware. There are too much message in /group chat
+    for me to notice otherwise". Not built yet.
+  - **Two evenings of bots, 2026-11-24** (36 teams, four zones, 14 minutes each, two teams of
+    each realm made hunters for the test with `roam-start Hunters=2`; no error in the server's
+    log but the known one at its start):
+
+    | | Leg, and the least time between two | Times a group fell back | Carried | A second falling back: dealt, taken | A second standing with too many on it | Enemies dead meanwhile |
+    |---|---|---|---|---|---|---|
+    | First | 700 units, 5.5 s | 30 (9 teams) | 100 to 4,100 | 66, 221 | 90, 217 | 1 |
+    | Second | 1,800 units, 14 s | 26 (11 teams) | 0 to 5,900 | 69, 146 | 40, 169 | 3 |
+
+    **The reaction is there, and it does not win the fight.** A group now starts at one place
+    and ends well back, as the owner had expected of an elite eight against a pack ("start the
+    fight at a loc and finish much futher back"). With short legs it gained nothing by it:
+    everybody runs at the same speed, fourteen of sixteen enemies stayed within 2,500 units of
+    the group all the way, and an enemy fighter on it was still inside the reach of its own
+    healers (1,466 units from the nearest). With long legs a group that fell back took less than
+    one that stood (146 against 169 a second), which is two evenings and may be chance; it killed
+    three enemies in 26 kites, and of the 26, eight ended with the group wiped within half a
+    minute. Eight still lose to sixteen.
+  - **Not done, and what the recordings point at.** The fighters do not hold a rear for the
+    back line to get away behind; nothing is cast on the first to follow (a root, a snare, a
+    mez) at the moment a leg begins; a group that has got clear walks back in when the kite has
+    run out (leaving a fight is M12.5); and the healers and casters of these teams walk 38 to 44% of
+    their time and cast 16 to 23% of it in every kind of fight, falling back or not (first evening).
+- [ ] **M12.4** (S) Reading the situation: a new group arriving in a fight; a kill target that
+  is healed faster than it is hurt (giving a target up sooner was tried on 2026-11-19 and taken
+  back: "the question is whom to call, and when"); no raising in a fight that is being lost.
+- [ ] **M12.5** (M) Breaking off: a group that has lost leaves, with speed, for its start, and
+  is not marched back; the winners follow only so far. (The last two of a group against three
+  times their number stand and fight, as the owner asked on 2026-11-20.)
+- [ ] **M12.6** (S) The kinds differ in how well they do it. So far only in how long the caller
+  takes, and in the bad groups not doing it at all.
+- [ ] **M12.7** (S) The player's group: its own calls for a push, a kite or a retreat, loud in
+  group chat as the owner asked, once the bots' side has been seen.
+
 ## Scorecard
 
 Targets are first guesses and will be reset once the M3 baseline exists.

@@ -52,7 +52,8 @@ namespace DOL.AI.Brain
             if (BotBody?.IsPvpBot != true || now >= PvpMoveUntil || Body.IsIncapacitated)
                 return false;
             // A healer breaks the step off for a member that is badly hurt (PvpPositionWeights.HealerBreaksOffAStepToHeal).
-            if (PvpBreaksOffToHeal())
+            // Not on a leg of its group's kite: the group goes back as one, and it heals from where the leg ends.
+            if (PvpSquad?.Kiting != true && PvpBreaksOffToHeal())
             {
                 PvpMoveUntil = 0;
                 Body.StopMovingOnPath();
@@ -152,8 +153,9 @@ namespace DOL.AI.Brain
         /// </summary>
         private GameLiving PvpCorpseToRaise(Spell resurrection)
         {
+            // (A group that falls back as one leaves its dead where they are.)
             if (BotBody?.IsPvpBot != true || PvpSquad == null || PvpEnemies == null || Body.Group == null || resurrection == null ||
-                Body.IsCasting || Body.IsIncapacitated || Body.IsSilenced)
+                Body.IsCasting || Body.IsIncapacitated || Body.IsSilenced || PvpSquad.Kiting)
                 return null;
             PvpWeights all = PvpWeights.Of(BotBody);
             int range = BotBody.castingComponent.CalculateSpellRange(resurrection);
@@ -197,7 +199,7 @@ namespace DOL.AI.Brain
         private bool PvpWalkToRaise(Spell resurrection)
         {
             if (BotBody?.IsPvpBot != true || PvpEnemies == null || Body.Group == null || resurrection == null ||
-                PvpMember.RoleOf(BotBody) != PvpRole.Heal || Body.IsCasting || Body.IsIncapacitated)
+                PvpMember.RoleOf(BotBody) != PvpRole.Heal || Body.IsCasting || Body.IsIncapacitated || PvpSquad?.Kiting == true)
                 return false;
             PvpWeights all = PvpWeights.Of(BotBody);
             int range = BotBody.castingComponent.CalculateSpellRange(resurrection);

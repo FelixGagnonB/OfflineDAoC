@@ -86,6 +86,184 @@ namespace DOL.GS
         /// <summary>True for an enemy that is on the member of this group that is being trained.</summary>
         public bool IsOnTrained(GameLiving enemy) => _trainers.Contains(enemy);
 
+        /// <summary>
+        /// Set for a team of bots in a roam: the group falls back as one by its own choice when it
+        /// has more on it than it can stand against (bots/pvp/PvpKite.cs). Without it, only a
+        /// player's call moves the group back.
+        /// </summary>
+        public bool KitesOnItsOwn { get; set; }
+        /// <summary>Where the group came into the zone: of two ways back that are as good, it takes the one nearer this.</summary>
+        public (int X, int Y)? Home { get; set; }
+        /// <summary>The living members of other groups of its realm that are near it, set by the roam each second.</summary>
+        public IReadOnlyList<GameLiving> Beside { get; set; } = [];
+        /// <summary>Those of them within this of the middle of the group are on its side of a fight.</summary>
+        public const int BesideWithin = 3_000;
+        /// <summary>Its side as it counted it this second: its own living and those of its realm beside it.</summary>
+        public int OwnSide { get; private set; }
+        /// <summary>The free enemies that aim at one of its side.</summary>
+        public int OnIt { get; private set; }
+        /// <summary>True while the group falls back as one: until <see cref="PvpKiteWeights.StandsSeconds"/> after its last leg.</summary>
+        public bool Kiting => _kiteUntil != 0 && GameLoop.GameLoopTime < _kiteUntil;
+        /// <summary>The legs it has gone back in this kite; 0 when it is not falling back.</summary>
+        public int KiteLegs { get; private set; }
+        // The group's place and the way of its last leg; when the kite runs out, when the last leg was called, since when the
+        // group has been outnumbered and pressed, how long its caller takes to call, and until when it has no ground to go to.
+        private Vector2 _place, _kiteWay, _body;
+        private long _kiteUntil, _lastLeg, _pressedSince, _corneredUntil;
+        private int _kiteCalledAfter;
+        // Where each healer and caster stands from the place, where each fighter stands on this leg, and the leg each last set off on.
+        private readonly Dictionary<GameBot, Vector2> _kiteOffsets = new();
+        private Dictionary<GameBot, Vector3> _screen = new();
+        private readonly Dictionary<GameBot, int> _kiteWalk = new();
+
+        private void EndKite()
+        {
+            if (_kiteUntil == 0)
+                return;
+            _kiteUntil = 0;
+            if (_members.FirstOrDefault(member => member.IsAlive) is { } voice)
+            {
+                PvpRecorder.Decision(voice, new { kind = "KiteEnds", score = KiteLegs }, [], null);
+                PvpObserver.Say(voice, $"{PvpObserver.Realm(voice)} stands again after {KiteLegs} legs back");
+            }
+            KiteLegs = 0;
+            _kiteOffsets.Clear();
+            _screen = new();
+            _kiteWalk.Clear();
+            _kiteWay = default;
+        }
+
+        /// <summary>
+        /// The group's kite for this second (bots/pvp/PvpKite.cs): it counts its side and what is
+        /// on it, moves its place back a leg when that is too much and the enemy is on its
+        /// healers and casters, and sends each of those to its own spot around the place. True
+        /// while it falls back: nobody then takes a step of its own.
+        /// </summary>
+        private bool Kite()
+        {
+            PvpKiteWeights weights = PvpWeights.Of(_members.FirstOrDefault()).Kite;
+            long now = GameLoop.GameLoopTime;
+            List<GameBot> alive = _members.Where(bot => bot.IsAlive).ToList();
+            List<GameLiving> foes = Known.Where(enemy => enemy.IsAlive).ToList();
+            if (!KitesOnItsOwn || !weights.Enabled || !FightStarted || MopsUp || alive.Count == 0 || foes.Count == 0 || MakesLastStand())
+            {
+                EndKite();
+                (OwnSide, OnIt, _pressedSince) = (alive.Count, 0, 0);
+                return false;
+            }
+            static Vector2 At(GameObject thing) => new(thing.X, thing.Y);
+            var nav = PathfindingProvider.Instance;
+            Zone zone = alive[0].CurrentZone;
+            Vector3? Ground(Vector2 point) =>
+                nav.GetFloorBeneath(zone, new Vector3(point.X, point.Y, 20_000), 20_000, nav.DefaultFilters) is { } floor && floor.Z < 19_999 ? floor : null;
+            List<GameBot> soft = alive.Where(bot => !IsFighter(bot)).ToList();
+            List<GameBot> body = soft.Count > 0 ? soft : alive;
+            var middle = new Vector2((float)body.Average(bot => bot.X), (float)body.Average(bot => bot.Y));
+            bool kiting = Kiting;
+            _body = middle;
+            if (!kiting)
+            {
+                EndKite();
+                _place = middle;
+            }
+            // Its side, and what is on it: the free enemies that aim at one of its side.
+            List<GameLiving> beside = Beside.Where(friend => friend.IsAlive && Vector2.Distance(At(friend), middle) <= BesideWithin).ToList();
+            OwnSide = _allies.Count(member => member.IsAlive) + beside.Count;
+            OnIt = foes.Count(enemy => !enemy.IsMezzed && !enemy.IsStunned && enemy.TargetObject is GameLiving { IsAlive: true } aimed &&
+                                       (_allies.Contains(aimed) || beside.Contains(aimed)));
+            int pressed = foes.Count(enemy => !enemy.IsMezzed && !enemy.IsStunned && body.Any(bot => bot.IsWithinRadius(enemy, weights.PressedWithin)));
+            bool outnumbered = PvpKite.Outnumbered(OwnSide, OnIt, weights);
+            if (!outnumbered || pressed < weights.PressedBy)
+                _pressedSince = 0;
+            else if (_pressedSince == 0)
+            {
+                _pressedSince = now;
+                PvpHumanWeights human = PvpNotice.HumanOf(alive[0]);
+                _kiteCalledAfter = Util.Random(Math.Max(0, human.KiteCalledAfterMinMilliseconds),
+                    Math.Max(human.KiteCalledAfterMinMilliseconds, human.KiteCalledAfterMaxMilliseconds));
+            }
+            if (now >= _corneredUntil && PvpKite.TakesLeg(outnumbered, pressed, _pressedSince == 0 ? 0 : now - _pressedSince, _kiteCalledAfter,
+                    kiting, now - _lastLeg, weights))
+            {
+                // Away from the enemies that are near, over ground the group can walk in a straight line.
+                List<GameLiving> near = foes.Where(enemy => Vector2.Distance(At(enemy), middle) <= ViewRange / 2).ToList();
+                if (near.Count == 0)
+                    near = foes;
+                var theirs = new Vector2((float)near.Average(enemy => enemy.X), (float)near.Average(enemy => enemy.Y));
+                // (From its place; from where it really is when it has not got there: the place does not run away from the group.)
+                Vector2 from = kiting && Vector2.Distance(middle, _place) <= weights.ArrivedWithin ? _place : middle;
+                Vector2 home = Home is { } start ? new Vector2(start.X, start.Y) - from : default;
+                Vector3? begin = Ground(from);
+                Vector3? to = null;
+                Vector2 way = default;
+                foreach (Vector2 candidate in PvpKite.Ways(middle - theirs, kiting ? _kiteWay : default, home))
+                {
+                    if (Ground(from + candidate * weights.Leg) is not { } floor ||
+                        begin is { } here && !nav.HasLineOfSight(zone, here, floor, nav.DefaultFilters))
+                        continue;
+                    (to, way) = (floor, candidate);
+                    break;
+                }
+                if (to is not { } next)
+                {
+                    // Nowhere to go: it stands and fights where it is for a while.
+                    _corneredUntil = now + weights.CorneredSeconds * 1_000L;
+                    PvpRecorder.Decision(alive[0], new { kind = "Cornered", score = OnIt, side = OwnSide }, [], null);
+                }
+                else
+                {
+                    if (!kiting)
+                    {
+                        _kiteOffsets.Clear();
+                        foreach (GameBot bot in soft)
+                            _kiteOffsets[bot] = PvpKite.Offset(At(bot), middle, weights.PlaceRadius);
+                        KiteLegs = 0;
+                        PvpObserver.Say(alive[0], $"{PvpObserver.Realm(alive[0])} falls back as one: {OnIt} on its {OwnSide}");
+                    }
+                    (_kiteWay, _place, _lastLeg) = (way, new Vector2(next.X, next.Y), now);
+                    _kiteUntil = now + weights.StandsSeconds * 1_000L;
+                    KiteLegs++;
+                    PvpRecorder.Decision(alive[0], new { kind = kiting ? "KiteLeg" : "KiteCalled", score = OnIt, side = OwnSide, pressed, legs = KiteLegs }, [], null);
+                    // Its fighters in a row between the place and the enemy.
+                    List<GameBot> row = alive.Where(bot => IsFighter(bot) && PvpMember.RoleOf(bot) == PvpRole.Assist).ToList();
+                    var places = new Dictionary<GameBot, Vector3>();
+                    for (int index = 0; index < row.Count; index++)
+                        places[row[index]] = Ground(PvpKite.ScreenPlace(_place, way, index, row.Count, weights)) ?? next;
+                    _screen = places;
+                }
+            }
+            if (!Kiting)
+                return false;
+            foreach (GameBot bot in soft)
+            {
+                if (bot.Brain is not BotBrain brain || bot.IsCasting || bot.IsIncapacitated || bot.castingComponent?.HasPendingSkillRequests == true)
+                    continue;
+                // (One that was raised since the kite began takes a spot from where it stands.)
+                if (!_kiteOffsets.TryGetValue(bot, out Vector2 offset))
+                    _kiteOffsets[bot] = offset = PvpKite.Offset(At(bot), middle, weights.PlaceRadius);
+                Vector2 spot = _place + offset;
+                float away = Vector2.Distance(At(bot), spot);
+                // There, or on its way there on this leg.
+                if (away <= weights.AtItsPlaceWithin || _kiteWalk.GetValueOrDefault(bot) == KiteLegs && bot.IsMoving && now < brain.PvpMoveUntil)
+                    continue;
+                Vector3 ground = Ground(spot) ?? Ground(_place) ?? new Vector3(spot.X, spot.Y, bot.Z);
+                LastStandStep[bot] = now;
+                brain.PvpMoveFrom = now;
+                // The walk is the bot's turn for as long as it takes: it casts from where the leg ends.
+                brain.PvpMoveUntil = now + Math.Clamp((long)(away / Math.Max(100, (int)bot.MaxSpeed) * 1000) + 300, 800, 12_000);
+                StandStepEnds[bot] = brain.PvpMoveUntil;
+                _huntedTick[bot] = now;
+                if (bot.attackComponent.AttackState)
+                    bot.StopAttack();
+                bot.StopFollowing();
+                bot.PathTo(ground, bot.MaxSpeed);
+                if (_kiteWalk.GetValueOrDefault(bot) != KiteLegs)
+                    PvpRecorder.Decision(bot, new { kind = "KiteBack", order = Order.ToString(), score = (int)away, legs = KiteLegs }, [], null);
+                _kiteWalk[bot] = KiteLegs;
+            }
+            return true;
+        }
+
         // Heals being cast right now: healer, patient, spell, when it began and when it is surely over.
         private readonly Dictionary<GameBot, (GameLiving Target, Spell Spell, long Started, long Expires)> _heals = new();
 
@@ -301,6 +479,9 @@ namespace DOL.GS
                 else if (Order == PvpOrder.Hold)
                     _holdOver = true;
             }
+            // A group that falls back as one is under Extend for as long as it does (bots/pvp/PvpKite.cs).
+            if (Kiting)
+                order = PvpOrder.Extend;
             // A player's call stands over the squad's own choice while it lasts.
             order = PvpCalls.InForce(order, _calledOrder, now, _calledUntil);
             if (order != Order)
@@ -746,23 +927,26 @@ namespace DOL.GS
                 long tick = GameLoop.GameLoopTime;
                 if (current == null || current.HealthPercent <= kill.StaleIfHealthAbove)
                     _killProgressTick = tick;
-                var views = alive.Select((enemy, id) => new PvpTargetView(id, PvpMember.ArchetypeOf(enemy),
+                // A group that falls back as one calls its target among the enemies that have followed to its place.
+                List<GameLiving> pool = !Kiting ? alive
+                    : alive.Where(enemy => Vector2.Distance(new Vector2(enemy.X, enemy.Y), _body) <= PvpWeights.Of(team[0]).Kite.KillWithin).ToList();
+                var views = pool.Select((enemy, id) => new PvpTargetView(id, PvpMember.ArchetypeOf(enemy),
                     enemy.HealthPercent, enemy.IsMezzed, (int)Math.Sqrt(Math.Pow(enemy.X - x, 2) + Math.Pow(enemy.Y - y, 2)),
                     theirHealers.Count == 0 ? 0 : (int)Math.Sqrt(Math.Pow(enemy.X - hx, 2) + Math.Pow(enemy.Y - hy, 2)),
                     petsOf.GetValueOrDefault(enemy),
                     enemy == current ? PvpKillTarget.StaleSeconds((tick - _killProgressTick) / 1000.0, enemy.HealthPercent, kill) : 0,
                     _givenUp.TryGetValue(enemy, out long left) && tick - left < kill.AbandonedForSeconds * 1000L)).ToList();
-                int chosen = PvpKillTarget.Choose(views, current != null ? alive.IndexOf(current) : -1, kill);
-                target = chosen >= 0 ? alive[chosen] : null;
+                int chosen = PvpKillTarget.Choose(views, current != null ? pool.IndexOf(current) : -1, kill);
+                target = chosen >= 0 ? pool[chosen] : null;
                 // A player's assist call names the kill target while that target lives and is known. Here, before
                 // the target is handed to the members: set afterwards, the group's call changed and nobody
                 // went for it (the first test of the call, 2026-11-20: 24 seconds as the kill target, no blow).
                 if (_calledTarget != null)
                 {
-                    if (_calledTarget.IsAlive && alive.Contains(_calledTarget) && tick < _calledTargetUntil)
+                    if (_calledTarget.IsAlive && pool.Contains(_calledTarget) && tick < _calledTargetUntil)
                     {
                         target = _calledTarget;
-                        chosen = alive.IndexOf(target);
+                        chosen = pool.IndexOf(target);
                     }
                     else
                         _calledTarget = null;
@@ -784,7 +968,7 @@ namespace DOL.GS
                     PvpRecorder.Call(team[0], target, PvpKillTarget.Score(views[chosen], kill), current,
                         views.OrderByDescending(view => PvpKillTarget.Score(view, kill)).Take(4).Select(view => (object)new
                         {
-                            d = alive[view.Id].Name, score = PvpKillTarget.Score(view, kill), view.HealthPercent, view.Mezzed, view.Distance, view.FromItsHealers,
+                            d = pool[view.Id].Name, score = PvpKillTarget.Score(view, kill), view.HealthPercent, view.Mezzed, view.Distance, view.FromItsHealers,
                         }));
             }
             var guarded = new HashSet<GameLiving>();
@@ -813,7 +997,7 @@ namespace DOL.GS
                 // fight when needed." On the road nobody sprints. In a fight a bot sprints when it is pressed or has
                 // ground to cover (PvpPositionWeights.SprintNeeded), and that costs it endurance on the move, as it
                 // costs a player (SprintCostPerSecond; this runs once a second).
-                bool pressed = Chasing || FallingBack.Contains(bot) || _huntedTick.TryGetValue(bot, out long huntedAt) && GameLoop.GameLoopTime - huntedAt < 2_500;
+                bool pressed = Chasing || Kiting || FallingBack.Contains(bot) || _huntedTick.TryGetValue(bot, out long huntedAt) && GameLoop.GameLoopTime - huntedAt < 2_500;
                 bot.PvpSprinting = bot.IsAlive && FightStarted && legs.SprintInFights &&
                                    legs.SprintNeeded(pressed, WayLeft(bot), bot.PvpSprinting) &&
                                    legs.CanSprint(bot.EndurancePercent, bot.PvpSprinting, IsFighter(bot) && !Chasing && role != PvpRole.Peel ? legs.FighterKeepsEndurancePercent : 0);
@@ -895,6 +1079,22 @@ namespace DOL.GS
                     fallsBack = true;
                     fallBackTo = new Vector3(gatherOn.X, gatherOn.Y, gatherOn.Z);
                 }
+                // The group falls back as one (bots/pvp/PvpKite.cs): a fighter takes an enemy that is on its healers and
+                // casters or near the group's place, and otherwise stands in its row between the place and the enemy.
+                bool inItsRow = false;
+                if (Kiting && bot.IsAlive && IsFighter(bot) && role == PvpRole.Assist && !calledOnto && RegroupsOn == null)
+                {
+                    PvpKiteWeights kite = PvpWeights.Of(bot).Kite;
+                    if (aim != null && !IsPursuer(aim) && !PvpKite.FighterTakes(Vector2.Distance(new Vector2(aim.X, aim.Y), _body), kite))
+                        aim = null;
+                    fallsBack = aim == null;
+                    if (fallsBack && _screen.TryGetValue(bot, out Vector3 stand))
+                    {
+                        fallBackTo = stand;
+                        inItsRow = Vector2.Distance(new Vector2(bot.X, bot.Y), new Vector2(stand.X, stand.Y)) <= kite.AtItsPlaceWithin;
+                    }
+                    fallsBack = fallsBack && fallBackTo != null;
+                }
                 if (fallsBack)
                 {
                     aim = null;
@@ -905,7 +1105,7 @@ namespace DOL.GS
                         brain.ClearAggroList();
                         brain.FSM.SetCurrentState(eFSMStateType.IDLE);
                     }
-                    if (!bot.IsCasting && !bot.IsIncapacitated)
+                    if (!bot.IsCasting && !bot.IsIncapacitated && !inItsRow)
                         bot.PathTo(fallBackTo.Value, bot.MaxSpeed);
                 }
                 else
@@ -1156,7 +1356,7 @@ namespace DOL.GS
             if (RetreatsTo != null)
                 return;
             PvpPetWeights weights = PvpWeights.Of(_members.FirstOrDefault()).Pets;
-            if (!FightStarted || weights.GatherAtPets <= 0 && weights.BlastAtPets <= 0)
+            if (!FightStarted || weights.GatherAtPets <= 0 && weights.BlastAtPets <= 0 || Kiting)
             {
                 EndGather();
                 return;
@@ -1256,7 +1456,7 @@ namespace DOL.GS
                 return;
             PvpSpreadWeights weights = PvpWeights.Of(_members.FirstOrDefault()).Spread;
             List<GameLiving> foes = Known.Where(enemy => enemy.IsAlive).ToList();
-            if (weights.MinSpacing <= 0 || foes.Count == 0 || Order == PvpOrder.Hold || MakesLastStand() || MopsUp)
+            if (weights.MinSpacing <= 0 || foes.Count == 0 || Order == PvpOrder.Hold || MakesLastStand() || MopsUp || Kiting)
                 return;
             List<GameBot> backline = _members.Where(bot => bot.IsAlive &&
                 PvpMember.ArchetypeOf(bot) != PvpBuffArchetype.Melee).ToList();
@@ -1321,6 +1521,9 @@ namespace DOL.GS
         public void StandOff()
         {
             if (RetreatsTo != null)
+                return;
+            // The group falls back as one: nobody takes a step of its own.
+            if (Kite())
                 return;
             PvpWeights all = PvpWeights.Of(_members.FirstOrDefault());
             PvpPositionWeights weights = all.Position;

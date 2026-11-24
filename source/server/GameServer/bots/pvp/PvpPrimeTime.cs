@@ -78,6 +78,13 @@ namespace DOL.GS
 
         public static PvpTeamProfile Of(PvpTeamKind kind) => All.First(profile => profile.Kind == kind);
 
+        /// <summary>
+        /// Whether its eight fall back as one when they have more on them than they can stand
+        /// against (bots/pvp/PvpKite.cs). A bad group does not: it has no caller, and a pack
+        /// that gave ground would no longer be the crowd it is.
+        /// </summary>
+        public bool KitesAsOne => Kind != PvpTeamKind.Bad;
+
         /// <summary>The profile a stored word stands for; a word that names none is a decent team.</summary>
         public static PvpTeamProfile Of(string kind) => Enum.TryParse(kind, true, out PvpTeamKind parsed) ? Of(parsed) : Of(PvpTeamKind.Decent);
     }
@@ -282,6 +289,25 @@ namespace DOL.GS
                 out_.AddRange(picked.Take(count));
             }
             return out_;
+        }
+
+        /// <summary>
+        /// For a test: this evening <paramref name="perRealm"/> teams of each realm hunt packs
+        /// (roam-start Hunters=2). The realm's hunters first, then teams that walk alone with the
+        /// realm's main group or near it, taken for hunters for the evening.
+        /// </summary>
+        public static List<PvpGuildTeam> WithHunters(IReadOnlyList<PvpGuildTeam> tonight, int perRealm)
+        {
+            var asHunters = new HashSet<string>();
+            foreach (eRealm realm in Realms)
+            {
+                List<PvpGuildTeam> ofRealm = tonight.Where(team => team.ToRealm() == realm).ToList();
+                int have = ofRealm.Count(team => team.ToProfile().HuntsPacks);
+                foreach (PvpGuildTeam team in ofRealm.Where(team => team.ToProfile() is { HuntsPacks: false, Company: PvpCompany.Alone })
+                             .OrderByDescending(team => team.SeedLevel).Take(Math.Max(0, perRealm - have)))
+                    asHunters.Add(team.Id);
+            }
+            return tonight.Select(team => asHunters.Contains(team.Id) ? team with { Kind = nameof(PvpTeamKind.Hunter) } : team).ToList();
         }
 
         /// <summary>

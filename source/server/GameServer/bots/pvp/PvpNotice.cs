@@ -72,6 +72,15 @@ namespace DOL.GS
         /// </summary>
         public int HurtNoticedBelowPercent { get; set; } = 90;
 
+        /// <summary>
+        /// The caller: a group that has more on it than it can stand against (bots/pvp/PvpKite.cs)
+        /// falls back as one only once it has been so for a moment drawn between these two. A
+        /// sharp group is on its way within a second and a half; a casual one stands in it for
+        /// six to twelve seconds first.
+        /// </summary>
+        public int KiteCalledAfterMinMilliseconds { get; set; } = 2_000;
+        public int KiteCalledAfterMaxMilliseconds { get; set; } = 5_000;
+
         /// <summary>The settings of a named level (docs/PVP-8V8-ROADMAP.md, M10.2).</summary>
         public static PvpHumanWeights For(PvpSkill skill) => skill switch
         {
@@ -81,12 +90,14 @@ namespace DOL.GS
                 ImmunityEndNoticedAfterMinSeconds = 1, ImmunityEndNoticedAfterMaxSeconds = 6,
                 ReactionMinMilliseconds = 150, ReactionMaxMilliseconds = 450, DistractedPercent = 0, ChoiceNoise = 0,
                 AssistSwitchMinMilliseconds = 100, AssistSwitchMaxMilliseconds = 350, KeepsOldTargetPercent = 0,
+                KiteCalledAfterMinMilliseconds = 500, KiteCalledAfterMaxMilliseconds = 1_500,
             },
             PvpSkill.Casual => new PvpHumanWeights
             {
                 ImmunityEndNoticedAfterMinSeconds = 8, ImmunityEndNoticedAfterMaxSeconds = 35,
                 ReactionMinMilliseconds = 900, ReactionMaxMilliseconds = 2_500, DistractedPercent = 30, ChoiceNoise = 14,
                 AssistSwitchMinMilliseconds = 2_000, AssistSwitchMaxMilliseconds = 4_000, KeepsOldTargetPercent = 25, KeepsOldTargetMilliseconds = 8_000,
+                KiteCalledAfterMinMilliseconds = 6_000, KiteCalledAfterMaxMilliseconds = 12_000,
             },
             _ => new PvpHumanWeights(),
         };

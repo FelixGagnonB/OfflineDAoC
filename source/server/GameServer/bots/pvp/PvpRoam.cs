@@ -1275,6 +1275,18 @@ namespace DOL.GS
             }
         }
 
+        /// <summary>
+        /// A team's squad for its next fight. A team of bots falls back as one by its own choice
+        /// when it has more on it than it can stand against (bots/pvp/PvpKite.cs), toward where
+        /// it came into the zone when the ground lets it; the player's group does what the
+        /// player calls.
+        /// </summary>
+        private static PvpSquad NewSquad(PvpRoamTeam team) => new(team.Team.Bots, team.Leader != null ? [team.Leader] : null)
+        {
+            KitesOnItsOwn = team.Leader == null && team.Profile?.KitesAsOne != false,
+            Home = team.Start.Point,
+        };
+
         private static void Spawn(PvpRoamTeam team, long now)
         {
             PvpArena.Remove(team.All);
@@ -1295,7 +1307,7 @@ namespace DOL.GS
             team.Team.Home = team.Start.Point;
             team.Team.Waypoint = 0;
             team.Team.NewMatch(leader);
-            team.Team.Squad = new PvpSquad(team.Team.Bots, leader != null ? [leader] : null);
+            team.Team.Squad = NewSquad(team);
             foreach (GameBot bot in team.Team.Bots)
             {
                 if (bot.Brain is BotBrain brain)
@@ -1655,7 +1667,7 @@ namespace DOL.GS
                 team.ContactTick = 0;
                 team.State = "Roaming";
                 team.Fighting.Clear();
-                team.Team.Squad = new PvpSquad(team.Team.Bots, team.Leader != null ? [team.Leader] : null);
+                team.Team.Squad = NewSquad(team);
                 team.Team.NewMatch(team.Leader);
             }
 
@@ -1678,6 +1690,10 @@ namespace DOL.GS
 
             if (enemies.Count > 0)
             {
+                // Who of its realm fights beside it: a group counts them on its side when it weighs what is on it.
+                team.Team.Squad.Beside = teams.Where(own => own != team && own.Realm == team.Realm && own.Alive > 0 && !own.Reforming &&
+                        own.Map == team.Map && Near(team, own, PvpSquad.BesideWithin))
+                    .SelectMany(own => own.Team.Members).Where(member => member.IsAlive).ToList();
                 team.Team.Squad.Decide(enemies);
                 team.Team.Engage(enemies);
             }
@@ -1814,7 +1830,8 @@ namespace DOL.GS
                 // Beside the player's group, which has no road: it stands until that has moved on.
                 else if (lead != null && lead.Team.Route == null && enemies.Count == 0)
                     team.Team.Halt();
-                else
+                // (A group that falls back as one is not marched back at the enemy it is falling back from.)
+                else if (!team.Team.Squad.Kiting)
                     team.Team.March(enemies, team.Start.Point, null, null, team.ContactTick);
             }
             if (enemies.Count > 0)
