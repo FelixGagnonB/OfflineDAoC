@@ -41,13 +41,27 @@ namespace DOL.GS
         /// <summary>The zone as it is named in a line of chat: "Emain", "Odin's", "Hadrian's", "Sauvage".</summary>
         public string Tag => Short ?? Name.Split(' ')[0];
 
-        /// <summary>What the nearest named point to a place is called; "near the X keep" within 6,000 of a realm's start; null on a map without names.</summary>
-        public string PlaceOf(double x, double y)
+        /// <summary>A spot farther than this from the nearest named point is called by its side of it: "north-west of middle".</summary>
+        public const int AtAPointWithin = 3_000;
+
+        /// <summary>
+        /// What the nearest named point to a place is called; "the X keep" within 6,000 of a
+        /// realm's start; null on a map without names. Farther than <see cref="AtAPointWithin"/>
+        /// from the point, the side of it comes first ("south-west of Crimthain"), unless
+        /// <paramref name="pointOnly"/>: the points of a back zone lie 15,000 to 18,000 units
+        /// apart, and the owner, 2026-11-24, sent to "Crimthain" after two Midgard groups that
+        /// were 11,000 and 15,000 units from it: "I don't see anyone and no one attacking us in
+        /// Crimthain".
+        /// </summary>
+        public string PlaceOf(double x, double y, bool pointOnly = false)
         {
             double From((int X, int Y) point) => Math.Sqrt(Math.Pow(point.X - x, 2) + Math.Pow(point.Y - y, 2));
             if (Starts.Where(start => start.AtKeep && From(start.Point) < 6_000).OrderBy(start => From(start.Point)).FirstOrDefault() is { } keep)
                 return $"the {PvpRoam.Short(keep.Realm, false)} keep";
-            return Places is { Count: > 0 } ? Places.OrderBy(place => From(place.Point)).First().Name : null;
+            if (Places is not { Count: > 0 })
+                return null;
+            ((int X, int Y) point, string name) = Places.OrderBy(place => From(place.Point)).First();
+            return pointOnly || From(point) <= AtAPointWithin ? name : $"{PvpRoam.Compass(x - point.X, y - point.Y)} of {name}";
         }
 
         /// <summary>The points a team can walk to from one.</summary>
@@ -486,6 +500,28 @@ namespace DOL.GS
         public static string OnTheRunText(int left, eRealm realm, string place) =>
             $"{Math.Max(1, left)} {Short(realm)} on the run" + (place == null ? string.Empty : $" at {place}");
 
+        /// <summary>
+        /// The side something lies on, from how far east and how far south of you it is (in the
+        /// game's world east is more X and south is more Y): "north", "north-east" and so on.
+        /// </summary>
+        public static string Compass(double east, double south)
+        {
+            string[] sides = ["east", "north-east", "north", "north-west", "west", "south-west", "south", "south-east"];
+            return sides[(int)Math.Round(Math.Atan2(-south, east) / (Math.PI / 4) + 8) % 8];
+        }
+
+        /// <summary>
+        /// What the player is told with a line of realm chat about a spot in the zone it is in:
+        /// "8,500 north-west of you", to the nearest 500. Realm chat told nobody that; a player
+        /// of the time had the zone's map in the head, and the owner has not ("can't find
+        /// them", 2026-11-24, having walked 7,800 units the wrong way in half a minute).
+        /// </summary>
+        public static string FromYouText(double east, double south)
+        {
+            double away = Math.Sqrt(east * east + south * south);
+            return away < 750 ? "beside you" : $"{Math.Round(away / 500) * 500:N0} {Compass(east, south)} of you";
+        }
+
         /// <summary>A place as it is called out on an evening over several zones: "south road (Emain)". With one zone, the place alone.</summary>
         private static string InZone(PvpRoamMap map, string place) =>
             _maps.Count <= 1 ? place : place == null ? map.Tag : $"{place} ({map.Tag})";
@@ -724,6 +760,21 @@ namespace DOL.GS
         public static bool AvoidsTwo(bool itHasItsRealmMateBesideIt, bool weHaveOursBesideUs, bool fightingItAlready, bool itAttacksUs) =>
             itHasItsRealmMateBesideIt && !weHaveOursBesideUs && !fightingItAlready && !itAttacksUs;
 
+        /// <summary>
+        /// Where a team goes that has said it joins a fight and does not see it yet: to the
+        /// nearest of the enemy teams it drew "joins" for; nothing when it drew that for none.
+        /// A team marches at the enemies it sees and otherwise on along its road, and it sees
+        /// 6,500 units over open ground, while the draw falls at 9,000: in the owner's evening
+        /// of 2026-11-24 the group that walked with the owner's said it joined its fight from
+        /// 7,200 units off, walked on north along the road it had, and stood 9,000 units away
+        /// until the fight was over. Of the 237 times a team said "joins" that evening, 99 were
+        /// followed by no fight with that enemy within a minute and a half.
+        /// </summary>
+        public static (int X, int Y)? FightItJoined(IEnumerable<((double X, double Y) At, bool SaidItJoins)> enemyTeams, (double X, double Y) from) =>
+            enemyTeams.Where(enemy => enemy.SaidItJoins)
+                .OrderBy(enemy => Math.Pow(enemy.At.X - from.X, 2) + Math.Pow(enemy.At.Y - from.Y, 2))
+                .Select(enemy => ((int X, int Y)?)((int)enemy.At.X, (int)enemy.At.Y)).FirstOrDefault();
+
         /// <summary>How near a realm-mate is "beside" a team.</summary>
         public const int BesideWithin = 3_500;
 
@@ -805,7 +856,8 @@ namespace DOL.GS
                 PvpRoamMap viewersZone = teams.FirstOrDefault(mine => mine.Leader == viewer && viewer != null)?.Map;
                 lines.Add($"{team.Name}{(team.Leader != null ? " (yours)" : string.Empty)}: {doing}; {team.Alive} alive" +
                           (team.Leader != null || viewer == null ? string.Empty
-                              : viewersZone != null && team.Map != viewersZone ? $", in {team.Map.Name}" : $", {away:N0} from you"));
+                              : viewersZone != null && team.Map != viewersZone ? $", in {team.Map.Name}"
+                              : away < 750 ? ", beside you" : $", {away:N0} {Compass(x - viewer.X, y - viewer.Y)} of you"));
             }
             if (own && lines.Count > 0)
                 lines.Add(OutAgainst(teams.Where(team => team.Realm != viewer.Realm && team.State != "Away").GroupBy(team => team.Realm).Select(realm => (realm.Key, realm.Count())).ToList()));
@@ -885,12 +937,16 @@ namespace DOL.GS
             $"they were in on your wipe {wipedYou} {(wipedYou == 1 ? "time" : "times")}{(wipedYouTonight > 0 ? $" ({wipedYouTonight} tonight)" : string.Empty)}";
 
         /// <summary>A line of realm chat for the player, from a member of a group of its realm; written to the log and the recording too.</summary>
-        private static void RealmChat(List<PvpRoamTeam> teams, PvpRoamTeam from, string text)
+        /// <param name="at">The spot the line is about: a player in that zone is told how far and which way it is (<see cref="FromYouText"/>).</param>
+        private static void RealmChat(List<PvpRoamTeam> teams, PvpRoamTeam from, string text, (double X, double Y)? at = null)
         {
             string speaker = from.Team.Bots.FirstOrDefault(bot => bot.IsAlive)?.Name ?? from.Team.Bots.FirstOrDefault()?.Name ?? from.Name;
             Say($"[{from.Name}] {speaker}: {text}", new { what = "chat", team = from.Name, speaker, text });
             foreach (PvpRoamTeam mine in teams.Where(team => team.Leader?.Client?.IsPlaying == true && team.Realm == from.Realm))
-                mine.Leader.Out.SendMessage($"[Realm] {speaker} <{from.Name}>: {text}", PacketHandler.eChatType.CT_Alliance, PacketHandler.eChatLoc.CL_ChatWindow);
+            {
+                string fromYou = at is { } spot && mine.Map == from.Map ? $" [{FromYouText(spot.X - mine.Leader.X, spot.Y - mine.Leader.Y)}]" : string.Empty;
+                mine.Leader.Out.SendMessage($"[Realm] {speaker} <{from.Name}>: {text}{fromYou}", PacketHandler.eChatType.CT_Alliance, PacketHandler.eChatLoc.CL_ChatWindow);
+            }
         }
 
         /// <summary>The realm whose chat is made: the player's, or the one listened to when there is no player.</summary>
@@ -910,14 +966,16 @@ namespace DOL.GS
                 {
                     (double x, double y) = seen.First().Centre();
                     string place = InZone(friend.Map, friend.Map.PlaceOf(x, y));
-                    bool known = CalledOut.TryGetValue((seen.Key, place ?? string.Empty), out (long When, int Groups) last);
+                    // (One call about a realm at a named point, as before: its side of the point is in the words, not in what counts as news.)
+                    string point = InZone(friend.Map, friend.Map.PlaceOf(x, y, true));
+                    bool known = CalledOut.TryGetValue((seen.Key, point ?? string.Empty), out (long When, int Groups) last);
                     if (!CallsOut((now - _lastCall) / 1000.0, known ? (now - last.When) / 1000.0 : double.MaxValue, known && seen.Count() > last.Groups))
                         continue;
                     // The player stands there: no news.
                     if (mine?.Leader is { } player && mine.Map == friend.Map && player.IsWithinRadius(new Point2D((int)x, (int)y), NoNewsWithin))
                         continue;
-                    (CalledOut[(seen.Key, place ?? string.Empty)], _lastCall) = ((now, seen.Count()), now);
-                    RealmChat(teams, friend, SightingText(seen.Count(), seen.Key, place, seen.Any(friend.Fighting.Contains)));
+                    (CalledOut[(seen.Key, point ?? string.Empty)], _lastCall) = ((now, seen.Count()), now);
+                    RealmChat(teams, friend, SightingText(seen.Count(), seen.Key, place, seen.Any(friend.Fighting.Contains)), (x, y));
                     return;
                 }
             }
@@ -1557,7 +1615,7 @@ namespace DOL.GS
                     {
                         IGrouping<eRealm, PvpRoamTeam> most = team.Fighting.GroupBy(other => other.Realm).OrderByDescending(realm => realm.Count()).First();
                         (double x, double y) = team.Centre();
-                        RealmChat(teams, team, SightingText(most.Count(), most.Key, InZone(team.Map, team.Map.PlaceOf(x, y)), false, true));
+                        RealmChat(teams, team, SightingText(most.Count(), most.Key, InZone(team.Map, team.Map.PlaceOf(x, y)), false, true), (x, y));
                     }
                     team.Fighting.Clear();
                     Say($"{team.Name} is wiped (its {team.Wipes}.)", new { what = "wipe", team = team.Name });
@@ -1722,10 +1780,10 @@ namespace DOL.GS
                         if (team.Realm == hears)
                         {
                             IGrouping<eRealm, PvpRoamTeam> most = team.Fighting.GroupBy(other => other.Realm).OrderByDescending(realm => realm.Count()).First();
-                            RealmChat(teams, team, RunningText(most.Count(), most.Key, place));
+                            RealmChat(teams, team, RunningText(most.Count(), most.Key, place), (atX, atY));
                         }
                         else if (team.Fighting.FirstOrDefault(other => other.Realm == hears && other.Leader == null && other.Alive > 0) is { } winner)
-                            RealmChat(teams, winner, OnTheRunText(team.Alive, team.Realm, place));
+                            RealmChat(teams, winner, OnTheRunText(team.Alive, team.Realm, place), (atX, atY));
                     }
                 }
                 if (others.Any(other => Near(team, other, kite.ClearBeyond)))
@@ -1932,8 +1990,10 @@ namespace DOL.GS
                 else if (lead != null && lead.Team.Route == null && enemies.Count == 0)
                     team.Team.Halt();
                 // (A group that falls back as one is not marched back at the enemy it is falling back from.)
+                // (One that has said it joins a fight goes to it while it sees nobody: FightItJoined.)
                 else if (!team.Team.Squad.Kiting)
-                    team.Team.March(enemies, team.Start.Point, null, null, team.ContactTick);
+                    team.Team.March(enemies, team.Start.Point, null, null, team.ContactTick,
+                        FightItJoined(foes.Select(other => (other.Centre(), team.Draws.TryGetValue(other, out bool joins) && joins)), team.Centre()));
             }
             if (enemies.Count > 0)
             {

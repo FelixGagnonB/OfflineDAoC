@@ -104,7 +104,9 @@ namespace DOL.GS
                 {
                     name = team.Name, group = team.Group, realm = team.Realm.ToString(),
                     player = team.Members.OfType<GamePlayer>().FirstOrDefault()?.Name,
-                    skill = PvpSkills.NameOf(team.Members.OfType<GameBot>().FirstOrDefault()),
+                    // (A guild of a prime-time evening has no bots yet when this is written: its level is its kind's.)
+                    skill = kinds != null && kinds.TryGetValue(team.Name, out string itsKind) && !team.Members.OfType<GameBot>().Any()
+                        ? PvpTeamProfile.Of(itsKind).Skill.ToString() : PvpSkills.NameOf(team.Members.OfType<GameBot>().FirstOrDefault()),
                     kind = kinds != null && kinds.TryGetValue(team.Name, out string kind) ? kind : null,
                 }),
                 bots = teams.SelectMany(team => team.Members.Select(member => Describe(member, team.Name))),

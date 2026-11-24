@@ -266,6 +266,10 @@ namespace DOL.UnitTests
             Assert.That(PvpRoam.SightingText(1, eRealm.Midgard, "mid road", true), Is.EqualTo("fighting 1fg mids at mid road"));
             Assert.That(PvpRoam.SightingText(3, eRealm.Hibernia, "north road", false, true), Is.EqualTo("wiped at north road, 3fg hibs"));
             Assert.That(PvpRoam.SightingText(1, eRealm.Albion, null, false), Is.EqualTo("1fg albs"));
+            // A team that has said it joins a fight goes to it: to the nearest enemy team it drew "joins" for.
+            Assert.That(PvpRoam.FightItJoined([((1_000.0, 0.0), false), ((9_000.0, 0.0), true), ((0.0, 7_000.0), true)], (0.0, 0.0)), Is.EqualTo((0, 7_000)));
+            Assert.That(PvpRoam.FightItJoined([((1_000.0, 0.0), false)], (0.0, 0.0)), Is.Null, "it joined nothing: it walks its road");
+            Assert.That(PvpRoam.FightItJoined([], (0.0, 0.0)), Is.Null);
             // An evening at a picked rank (/8v8 prime emain 8 rank 8): rank 8 is realm level 70, and the player's group earns nothing.
             Assert.That(PvpRoam.TrialLevel(8), Is.EqualTo(70));
             Assert.That(PvpRoam.TrialLevel(1), Is.EqualTo(0), "rank 1 is what a new group has");
@@ -291,6 +295,26 @@ namespace DOL.UnitTests
             Assert.That(emain.Places.Select(place => place.Point), Is.EquivalentTo(emain.Ways.SelectMany(way => new[] { way.A, way.B }).Distinct()));
             Assert.That(emain.PlaceOf(PvpRoam.South.X + 800, PvpRoam.South.Y - 500), Is.EqualTo("south road"));
             Assert.That(emain.PlaceOf(PvpRoam.WestMiddle.X, PvpRoam.WestMiddle.Y), Is.EqualTo("west hills"));
+            // Far from its nearest named point, a spot is called by its side of it (north is less Y, east is more X).
+            PvpRoamMap breifine = PvpRoamZones.Breifine;
+            Assert.That(breifine.PlaceOf(431792, 378024), Is.EqualTo("Crimthain"));
+            Assert.That(breifine.PlaceOf(431792 + 2_000, 378024 - 2_000), Is.EqualTo("Crimthain"), "within 3,000 it is at the point");
+            Assert.That(breifine.PlaceOf(431792 + 4_000, 378024 - 4_500), Is.EqualTo("north-east of Crimthain"));
+            Assert.That(breifine.PlaceOf(431792, 378024 - 5_000), Is.EqualTo("north of Crimthain"));
+            Assert.That(breifine.PlaceOf(431792 - 5_000, 378024 + 500), Is.EqualTo("west of Crimthain"));
+            Assert.That(breifine.PlaceOf(431792 - 5_000, 378024 + 500, true), Is.EqualTo("Crimthain"), "the point alone is what counts as news");
+            Assert.That(PvpRoam.Compass(1, 0), Is.EqualTo("east"));
+            Assert.That(PvpRoam.Compass(-1, 0), Is.EqualTo("west"));
+            Assert.That(PvpRoam.Compass(0, 1), Is.EqualTo("south"));
+            Assert.That(PvpRoam.Compass(0, -1), Is.EqualTo("north"));
+            Assert.That(PvpRoam.Compass(-1, -1), Is.EqualTo("north-west"));
+            Assert.That(PvpRoam.Compass(1, 1), Is.EqualTo("south-east"));
+            Assert.That(PvpRoam.Compass(-1, 1), Is.EqualTo("south-west"));
+            Assert.That(PvpRoam.Compass(100, -30), Is.EqualTo("east"), "a little north of east is east");
+            // What the player is told with the line: how far, to the nearest 500, and which way.
+            Assert.That(PvpRoam.FromYouText(-11_000, -11_300), Is.EqualTo("16,000 north-west of you"));
+            Assert.That(PvpRoam.FromYouText(0, 4_200), Is.EqualTo("4,000 south of you"));
+            Assert.That(PvpRoam.FromYouText(300, -200), Is.EqualTo("beside you"));
             (int X, int Y) albion = emain.StartOf(eRealm.Albion).Point;
             Assert.That(emain.PlaceOf(albion.X - 2_000, albion.Y), Is.EqualTo("the alb keep"));
             Assert.That(PvpRoam.Thidranki.Places, Has.Count.EqualTo(3));

@@ -239,6 +239,43 @@ namespace DOL.GS
             _kiteWay = default;
         }
 
+        // Since when the player's group has had too many on it without a word said.
+        private long _tooManySince, _tooManyCalledAfter;
+
+        /// <summary>
+        /// The group of a player who has not given it the lead (/8v8 lead) does not fall back by
+        /// itself, and until 2026-11-24 it did not count either: in the owner's first three
+        /// fights of that evening it had sixteen, twenty-four and sixteen against its eight,
+        /// stood where it was and was wiped in 64 to 130 seconds with nothing said. It counts
+        /// as a group of bots does and, after its caller's moment, says so loud: the call to
+        /// fall back, to run or to stay is the player's.
+        /// </summary>
+        private void WarnOfTooMany(PvpKiteWeights weights, List<GameBot> alive, List<GameLiving> foes, long now)
+        {
+            static Vector2 At(GameObject thing) => new(thing.X, thing.Y);
+            List<GameBot> soft = alive.Where(bot => !IsFighter(bot)).ToList();
+            List<GameBot> body = soft.Count > 0 ? soft : alive;
+            var middle = new Vector2((float)body.Average(bot => bot.X), (float)body.Average(bot => bot.Y));
+            List<GameLiving> beside = Beside.Where(friend => friend.IsAlive && Vector2.Distance(At(friend), middle) <= BesideWithin).ToList();
+            OwnSide = _allies.Count(member => member.IsAlive) + beside.Count;
+            OnIt = foes.Count(enemy => !enemy.IsMezzed && !enemy.IsStunned && enemy.TargetObject is GameLiving { IsAlive: true } aimed &&
+                                       (_allies.Contains(aimed) || beside.Contains(aimed)));
+            if (!PvpKite.Outnumbered(OwnSide, OnIt, weights))
+            {
+                _tooManySince = 0;
+                return;
+            }
+            if (_tooManySince == 0)
+            {
+                _tooManySince = now;
+                PvpHumanWeights slow = PvpNotice.HumanOf(alive[0]);
+                _tooManyCalledAfter = Util.Random(Math.Max(0, slow.KiteCalledAfterMinMilliseconds),
+                    Math.Max(slow.KiteCalledAfterMinMilliseconds, slow.KiteCalledAfterMaxMilliseconds));
+            }
+            else if (now - _tooManySince >= _tooManyCalledAfter)
+                Call(alive[0], "toomany", PvpCalls.TooMany(OnIt, OwnSide), PvpCalls.TooManyEveryMilliseconds, PvpCalls.LoudTimes);
+        }
+
         /// <summary>
         /// The group's kite for this second (bots/pvp/PvpKite.cs): it counts its side and what is
         /// on it, moves its place back a leg when that is too much and the enemy is on its
@@ -257,6 +294,13 @@ namespace DOL.GS
             {
                 EndKite();
                 (OwnSide, OnIt, _pressedSince, _lostSince, TooManyOnIt) = (alive.Count, 0, 0, 0, false);
+                // A player's group that does not fall back by itself counts all the same, and says so when it is too much.
+                // (Not under a call of the player's: that is the player's answer.)
+                if (!KitesOnItsOwn && weights.Enabled && FightStarted && !MopsUp && alive.Count > 0 && foes.Count > 0 && !(_calledOrder != null && now < _calledUntil) &&
+                    _allies.Any(member => member is GamePlayer))
+                    WarnOfTooMany(weights, alive, foes, now);
+                else
+                    _tooManySince = 0;
                 return false;
             }
             static Vector2 At(GameObject thing) => new(thing.X, thing.Y);
@@ -687,8 +731,18 @@ namespace DOL.GS
             // (Falling back as one, it has said so already, and louder.)
             if (Kiting)
                 return;
+            // An order that moves the group is shouted (PvpCalls.LoudOrder), the others said once.
+            if (PvpCalls.ShoutsOrder(Order, _calledOrder == Order && now < _calledUntil, now, _shoutedOrderAt))
+            {
+                _shoutedOrderAt = now;
+                Call(_members.FirstOrDefault(member => member.IsAlive), "order", PvpCalls.LoudOrder(Order), times: PvpCalls.LoudTimes);
+                return;
+            }
             Call(_members.FirstOrDefault(member => member.IsAlive), "order", PvpCalls.Order(Order));
         }
+
+        // When the group last shouted an order.
+        private long _shoutedOrderAt;
 
         private void FindTrained(List<GameLiving> known)
         {

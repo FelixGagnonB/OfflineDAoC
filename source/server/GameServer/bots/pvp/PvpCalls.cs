@@ -30,12 +30,47 @@ namespace DOL.GS
 
         public static string KiteCalled(int onIt, int ownSide) => $"KITE BACK! {onIt} ON OUR {ownSide}! KITE BACK!";
         public const string KiteAgain = "BACK AGAIN! KEEP MOVING!";
+
+        /// <summary>
+        /// What a group says that has too many on it and has not been given the lead: it stays
+        /// where the player is, and tells the player what it counts and what can be called
+        /// (/8v8 call kite, /8v8 call retreat). Said again no sooner than every 25 seconds.
+        /// </summary>
+        public static string TooMany(int onIt, int ownSide) => $"TOO MANY! {onIt} ON OUR {ownSide}! CALL IT: KITE OR RETREAT!";
+        public const int TooManyEveryMilliseconds = 25_000;
         public const string KiteOver = "STAND AND FIGHT HERE!";
 
         /// <summary>An order is said once it has stood this long; "incoming" no sooner than its own time after the last.</summary>
         public const int OrderSettlesMilliseconds = 3_000, IncomingEveryMilliseconds = 8_000;
 
         public static bool OrderIsSettled(long now, long since) => now - since >= OrderSettlesMilliseconds;
+
+        /// <summary>
+        /// The group's own order as it is shouted when it moves the group: push, extend, regroup.
+        /// The owner, 2026-11-24: "If my group decide to call for a reaction (push, extend,
+        /// retreat), then it would be to say in group chat but spam it in capital or something,
+        /// 4-5 times, so I am aware." Null for an order that moves nobody (engage, hold), which is
+        /// said once as before.
+        /// </summary>
+        public static string LoudOrder(PvpOrder order) => order switch
+        {
+            PvpOrder.Push => "PUSH! PUSH! ALL ON THEM!",
+            PvpOrder.Extend => "EXTEND! FALL BACK AND KITE!",
+            PvpOrder.Regroup => "REGROUP! BACK TO THE HEALERS!",
+            _ => null,
+        };
+
+        /// <summary>
+        /// One shouted order in this long: in the owner's fight of 2026-11-24 against one group
+        /// the order went push, extend, engage, push, extend, engage, push in 40 seconds, and
+        /// four lines for each would have been what the shout is there to be seen through. The
+        /// orders between are said once, in ordinary words.
+        /// </summary>
+        public const int LoudOrderEveryMilliseconds = 20_000;
+
+        /// <summary>Whether an order is shouted: it moves the group, it is the group's own and not the player's call, and none was shouted just before.</summary>
+        public static bool ShoutsOrder(PvpOrder order, bool thePlayerCalledIt, long now, long lastShout) =>
+            LoudOrder(order) != null && !thePlayerCalledIt && Due(now, lastShout, LoudOrderEveryMilliseconds);
 
         public static string Order(PvpOrder order) => order switch
         {

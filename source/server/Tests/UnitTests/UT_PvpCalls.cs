@@ -15,6 +15,23 @@ namespace DOL.UnitTests
             Assert.That(calls, Is.Unique);
             Assert.That(calls, Has.None.Empty);
             Assert.That(PvpCalls.Order(PvpOrder.Regroup), Does.Contain("healers"));
+            // A player's group without the lead says what it counts, and what the player can call.
+            Assert.That(PvpCalls.TooMany(13, 8), Is.EqualTo("TOO MANY! 13 ON OUR 8! CALL IT: KITE OR RETREAT!"));
+            Assert.That(PvpCalls.Due(100_000, 80_000, PvpCalls.TooManyEveryMilliseconds), Is.False);
+            Assert.That(PvpCalls.Due(106_000, 80_000, PvpCalls.TooManyEveryMilliseconds), Is.True);
+            // An order that moves the group is shouted, in capitals; engage and hold are not.
+            foreach (PvpOrder moves in new[] { PvpOrder.Push, PvpOrder.Extend, PvpOrder.Regroup })
+            {
+                Assert.That(PvpCalls.LoudOrder(moves), Is.Not.Null, moves.ToString());
+                Assert.That(PvpCalls.LoudOrder(moves), Is.EqualTo(PvpCalls.LoudOrder(moves).ToUpperInvariant()), moves.ToString());
+            }
+            Assert.That(PvpCalls.LoudOrder(PvpOrder.Engage), Is.Null);
+            Assert.That(PvpCalls.LoudOrder(PvpOrder.Hold), Is.Null);
+            Assert.That(PvpCalls.ShoutsOrder(PvpOrder.Push, false, 100_000, 0), Is.True, "the first of a fight");
+            Assert.That(PvpCalls.ShoutsOrder(PvpOrder.Push, true, 100_000, 0), Is.False, "the player called it: the group answers, it does not shout it back");
+            Assert.That(PvpCalls.ShoutsOrder(PvpOrder.Extend, false, 100_000, 90_000), Is.False, "one shout in twenty seconds");
+            Assert.That(PvpCalls.ShoutsOrder(PvpOrder.Extend, false, 110_000, 90_000), Is.True);
+            Assert.That(PvpCalls.ShoutsOrder(PvpOrder.Engage, false, 100_000, 0), Is.False);
         }
 
         [Test]
