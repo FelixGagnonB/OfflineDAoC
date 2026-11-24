@@ -58,8 +58,9 @@ namespace DOL.GS
     /// <param name="KeepsToQuietGround">It leans to the quiet points of a map, away from the road.</param>
     /// <param name="HuntsPacks">
     /// It goes where groups of one realm walk together and starts on them, however many they
-    /// are, and it joins a fight such groups are in. A fight of two single groups it leaves
-    /// alone, as any team that does not add.
+    /// are. It does not add: a pack somebody else is on already is theirs (the owner,
+    /// 2026-11-23: "If my group gets to the zerg 1st, the bot elite team won't add if they get
+    /// there 2nd and 3rd right ?").
     /// </param>
     public sealed record PvpTeamProfile(PvpTeamKind Kind, string Name, int SharePercent, PvpCompany Company, int AddChancePercent, bool CountsHeads,
         int MinRealmLevel, int MaxRealmLevel, PvpSkill Skill, PvpLineup Lineup, bool KeepsToQuietGround, bool HuntsPacks = false)

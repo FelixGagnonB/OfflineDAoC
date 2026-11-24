@@ -526,14 +526,6 @@ namespace DOL.GS
         /// </summary>
         public static bool PaysBack(bool addedOnByThePlayer, bool thePlayersGroupIsInTheFight) => addedOnByThePlayer && thePlayersGroupIsInTheFight;
 
-        /// <summary>
-        /// A team that hunts packs joins a fight it comes on when groups of one enemy realm are
-        /// in it together, two or more side by side: "8v8 elite team that would run to these
-        /// 'zerg' (many teams running together) to kill them" (the owner, 2026-11-23). A fight of
-        /// single groups is not its business.
-        /// </summary>
-        /// <param name="mostEnemyGroupsTogether">Of the enemy teams in that fight, the most groups of one realm that stand together.</param>
-        public static bool HuntsIt(bool itHuntsPacks, int mostEnemyGroupsTogether) => itHuntsPacks && mostEnemyGroupsTogether >= 2;
 
         /// <summary>
         /// The player's group has added on a team: it came into a fight that team was in with
@@ -1565,9 +1557,8 @@ namespace DOL.GS
                     // What it drew for another team of the same fight holds for this one.
                     bool? drawn = team.Draws.Where(draw => theirFight.Contains(draw.Key)).Select(draw => (bool?)draw.Value).FirstOrDefault();
                     // (A guild adds as its kind does: a bad group always, a decent one never.)
+                    // (One that hunts packs does not add either: a pack somebody is on already is theirs.)
                     bool joins = drawn ?? (PaysBack(team.AddedOnByPlayer, other.Leader != null || theirFight.Any(third => third.Leader != null)) ||
-                                           HuntsIt(team.Profile?.HuntsPacks == true, theirFight.Append(other).Where(third => third.Realm != team.Realm)
-                                               .Max(third => Together(third, teams))) ||
                                            Joins(team.Profile?.AddChancePercent ?? real.AddChancePercent, Random.Shared.Next(100)));
                     team.Draws[other] = joins;
                     if (drawn == null)
@@ -1958,9 +1949,9 @@ namespace DOL.GS
             int leaning = team.Profile is { KeepsToQuietGround: true } ? 1 : team.Profile is { Company: PvpCompany.Zerg } or { HuntsPacks: true } ? -1 : 0;
             (int X, int Y) next = NextPoint(team.Map, at, team.CameFrom, leaning, Random.Shared.Next());
             // A team that hunts packs goes toward the nearest groups of an enemy realm that walk together in its zone
-            // (the realm's chat says where they are).
+            // (the realm's chat says where they are), and that nobody is fighting yet.
             PvpRoamTeam prey = team.Profile is { HuntsPacks: true }
-                ? teams.Where(other => other.Realm != team.Realm && other.Map == team.Map && OnTheRoad(other) && Together(other, teams) >= 2)
+                ? teams.Where(other => other.Realm != team.Realm && other.Map == team.Map && OnTheRoad(other) && other.Fighting.Count == 0 && Together(other, teams) >= 2)
                     .OrderBy(other => Math.Pow(other.Centre().X - x, 2) + Math.Pow(other.Centre().Y - y, 2)).FirstOrDefault()
                 : null;
             if (prey != null)

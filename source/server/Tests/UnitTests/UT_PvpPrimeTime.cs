@@ -70,11 +70,8 @@ namespace DOL.UnitTests
             Assert.That(hunter.CountsHeads, Is.False, "eight walk into twenty-four");
             Assert.That((hunter.Company, hunter.AddChancePercent, hunter.Lineup), Is.EqualTo((PvpCompany.Alone, 0, PvpLineup.Meta)));
             Assert.That((hunter.MinRealmLevel, hunter.MaxRealmLevel, hunter.Skill), Is.EqualTo((elite.MinRealmLevel, elite.MaxRealmLevel, elite.Skill)), "an elite team");
-            // It joins a fight that groups of one realm are in together, and no other.
-            Assert.That(PvpRoam.HuntsIt(true, 2), Is.True);
-            Assert.That(PvpRoam.HuntsIt(true, 5), Is.True);
-            Assert.That(PvpRoam.HuntsIt(true, 1), Is.False, "a fight of single groups is not its business");
-            Assert.That(PvpRoam.HuntsIt(false, 5), Is.False);
+            // "If my group gets to the zerg 1st, the bot elite team won't add if they get there 2nd and 3rd right ?"
+            Assert.That(PvpRoam.Joins(hunter.AddChancePercent, 0), Is.False, "it does not add, on a pack no more than on anybody");
             // It is where the crowd is, and not in a clean zone.
             Assert.That(PvpRoam.Leans(PvpTeamKind.Hunter, PvpZoneCrowd.Crowded), Is.GreaterThan(PvpRoam.Leans(PvpTeamKind.Hunter, PvpZoneCrowd.Mixed)));
             Assert.That(PvpRoam.Leans(PvpTeamKind.Hunter, PvpZoneCrowd.Clean), Is.Zero);
