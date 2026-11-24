@@ -128,6 +128,8 @@ namespace DOL.GS
         public readonly Dictionary<eRealm, (long When, int Groups)> Sighted = [];
         public readonly HashSet<PvpRoamTeam> AddsCalled = [];
         public long AddCalledAt;
+        /// <summary>A team of bots in a fight: the enemy teams it has seen coming for it (PvpRoam.SeesItComing).</summary>
+        public readonly HashSet<PvpRoamTeam> ComingSeen = [];
         public readonly HashSet<GameLiving> Paid = [];
         public int Wipes, Kills, Deaths, Fights, Joined, LeftAlone;
         public long Earned;
@@ -759,6 +761,32 @@ namespace DOL.GS
         /// </summary>
         public static bool TooBusyFor(int teamsItIsFighting, bool fightingThatOne, bool thatOneAttacksIt) =>
             teamsItIsFighting > 0 && !fightingThatOne && !thatOneAttacksIt;
+
+        /// <summary>How far off a team in a fight sees an enemy group that comes for it.</summary>
+        public const int AddSeenWithin = 4_500;
+
+        /// <summary>
+        /// A team of bots in a fight sees an enemy group that comes for it before that group is
+        /// on it: the group has decided to join the fight against it (its draw), is within
+        /// <see cref="AddSeenWithin"/> and in sight of one of its members. From then it is one
+        /// of its enemies: its mezzer may take it as it arrives, and an elite team, which keeps
+        /// its fights clean, leaves before it lands and not after. Until 2026-11-24 "a new group
+        /// arriving in a fight is counted the second its members aim at the group; nothing else
+        /// is made of it" (M12.4): it was let walk by until one of its members aimed at the team
+        /// from within 2,000 units, four or five seconds before it was in melee.
+        /// </summary>
+        public static bool SeesItComing(int teamsItIsFighting, bool fightingThatOne, bool thatOneHasDecidedToJoinAgainstIt, bool withinSight) =>
+            teamsItIsFighting > 0 && !fightingThatOne && thatOneHasDecidedToJoinAgainstIt && withinSight;
+
+        /// <summary>Whether somebody of a team sees somebody of another within a distance, as its members see when they march (PvpSight).</summary>
+        private static bool Sees(PvpRoamTeam team, PvpRoamTeam other, int within)
+        {
+            List<GameBot> watchers = team.Team.Bots.Where(bot => bot.IsAlive).ToList();
+            if (watchers.Count == 0 || !Near(team, other, within + 1_500))
+                return false;
+            PvpWeights sight = PvpWeights.Of(watchers[0]);
+            return other.Team.Members.Any(member => member.IsAlive && watchers.Any(bot => PvpSight.Sees(bot, member, within, sight)));
+        }
 
         /// <summary>
         /// A team of bots on its own does not start a fight with a team that has its realm-mate
@@ -1667,6 +1695,7 @@ namespace DOL.GS
             team.Quiet = others.Count == 0 && team.ContactTick == 0;
             bool inCombat = team.Team.Members.Any(member => member.IsAlive && member.InCombat);
             team.Fighting.RemoveWhere(other => other.Alive == 0 || !Near(team, other, 6_000));
+            team.ComingSeen.RemoveWhere(other => other.Alive == 0 || team.Fighting.Count == 0 || !Near(team, other, 9_000));
             foreach (PvpRoamTeam other in others)
             {
                 // This enemy team is already in a fight, with this team's realm-mate or with a team of the
@@ -1729,6 +1758,15 @@ namespace DOL.GS
                         return false;
                 }
                 bool attacks = Attacks(other);
+                // An enemy group that comes for its fight is seen before it lands (SeesItComing), and is an enemy from then.
+                if (team.Leader == null && !attacks && (team.ComingSeen.Contains(other) ||
+                        SeesItComing(team.Fighting.Count, team.Fighting.Contains(other), other.Draws.TryGetValue(team, out bool comesForIt) && comesForIt,
+                            Near(team, other, AddSeenWithin) && Sees(team, other, AddSeenWithin))))
+                {
+                    if (team.ComingSeen.Add(other))
+                        Say($"{team.Name} sees {other.Name} coming for its fight", new { what = "addseen", team = team.Name, other = other.Name });
+                    attacks = true;
+                }
                 if (LeavesAlone(team.Draws.TryGetValue(other, out bool joins) && !joins, other.Draws.TryGetValue(team, out bool theyJoin) && !theyJoin, attacks,
                         team.Leader?.TargetObject is GameLiving aimed && other.Team.Members.Contains(aimed)))
                     return false;
@@ -1765,12 +1803,14 @@ namespace DOL.GS
             }
 
             // The player's own group says what it sees coming, and what comes into its fight.
-            if (team.Leader != null)
+            // (In an evening of bots with a realm listened to, one team of that realm stands in for it: StandsIn.)
+            if (team.Leader != null || StandsIn(team, teams))
                 TellOfIncoming(team, others, now);
 
             // An elite team keeps its fights clean: once a second enemy group is in its fight, it leaves (PvpTeamProfile.LeavesDirtyFights).
             if (team.Leader == null && team.Profile?.LeavesDirtyFights == true && team.ContactTick != 0 && !team.Team.Squad.Leaving &&
-                PvpKite.FightIsDirty(team.Fighting.Count(other => other.Alive > 0)) && team.Team.Squad.LeaveNow(enemies))
+                PvpKite.FightIsDirty(team.Fighting.Count(other => other.Alive > 0) + team.ComingSeen.Count(other => other.Alive > 0 && !team.Fighting.Contains(other))) &&
+                team.Team.Squad.LeaveNow(enemies))
                 Say($"{team.Name} leaves a fight that is no longer clean", new { what = "dirty", team = team.Name, foes = team.Fighting.Count });
 
             Pay(team, real, now);
@@ -2029,10 +2069,11 @@ namespace DOL.GS
         {
             try
             {
-                GamePlayer player = team.Leader;
                 List<GameBot> watchers = team.Team.Bots.Where(bot => bot.IsAlive).ToList();
-                if (player == null || watchers.Count == 0 || team.Team.Squad is not { } squad)
+                if (watchers.Count == 0 || team.Team.Squad is not { } squad)
                     return;
+                // (For the team that stands in for a player's in an evening of bots, its first member is where "you" are.)
+                GameLiving player = (GameLiving)team.Leader ?? watchers[0];
                 PvpWeights sight = PvpWeights.Of(watchers[0]);
                 bool Seen(PvpRoamTeam other) => Near(team, other, SightingWithin + 1_500) && other.Team.Members.Any(member =>
                     member.IsAlive && watchers.Any(bot => PvpSight.Sees(bot, member, SightingWithin, sight)));
@@ -2078,6 +2119,25 @@ namespace DOL.GS
             {
                 Log.Warn("8v8 roam: telling the player's group of incoming failed", exception);
             }
+        }
+
+        // The team of bots that stands in for a player's group in an evening of bots (StandsIn).
+        private static PvpRoamTeam _standIn;
+
+        /// <summary>
+        /// In an evening of bots with a realm listened to (roam-start Listener=hibernia) one
+        /// team of that realm that walks alone stands in for a player's group, so that what a
+        /// player's seven would say of the enemy groups they see (TellOfIncoming) is worked out
+        /// and written to the recording ("inccall", "addcall"); nothing is said to anybody,
+        /// since no player is in it. Without it, only a player's own evening ran that code.
+        /// </summary>
+        private static bool StandsIn(PvpRoamTeam team, List<PvpRoamTeam> teams)
+        {
+            if (_listener == eRealm.None || teams.Any(other => other.Leader != null))
+                return false;
+            if (_standIn == null || !teams.Contains(_standIn))
+                _standIn = teams.FirstOrDefault(other => other.Realm == _listener && other.State != "Away" && other.Profile is { Company: PvpCompany.Alone });
+            return team == _standIn;
         }
 
         /// <summary>The groups of a realm that a group which stays near others may pick: the player's, and the guilds that walk alone on the open ground.</summary>

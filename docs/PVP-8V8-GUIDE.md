@@ -278,8 +278,13 @@ within 5,500 units, on which side of you and how far, said again when more have 
 seconds; in a fight, "ADD! 8 MORE MIDS FROM THE NORTH!" (four times) for each further group that
 comes into your fight or is seen coming for it. They see farther ahead than behind and not
 through a hill, so a group can still come up unseen. **All of this paragraph and the one above:
-automated tests only. No evening of bots can show it (it is said to a player), and nobody has
-seen it in a client.**
+automated tests, and for "INC" and "ADD" one evening of bots in which a team of bots stood in
+for a player's group and the lines were written to the recording. Nobody has seen any of it in a
+client.**
+
+The guilds of bots see an add coming too (since 2026-11-24): a team in a fight has an enemy
+group that comes for it among its enemies from 4,500 units off, and an elite team leaves then,
+before the second group is on it.
 
 `/8v8 lead on` lets your companions' own caller move the group in a roam or a prime-time evening:
 when ten or more aim at your eight and they are on your healers and casters, your seven fall back

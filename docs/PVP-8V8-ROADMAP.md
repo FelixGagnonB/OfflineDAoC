@@ -3402,7 +3402,16 @@ The plan the owner agreed to that day ("Let's proceed and test with bots first")
     buffs (the Cleric and the Cabalist of the eight that lost to sixteen on 2026-11-23 were
     raised and died again).
   - A new group arriving in a fight is counted the second its members aim at the group; nothing
-    else is made of it.
+    else is made of it. *Since 2026-11-24, bots only:* a team of bots in a fight sees an enemy
+    group that comes for it (that group has drawn "joins" on the fight, is within 4,500 units
+    and in sight of one of its members) and has it among its enemies from then, where it let
+    it walk by until one of its members aimed at the team from within 2,000 units
+    (`PvpRoam.SeesItComing`). An elite team, which leaves a fight a second group has come into
+    (M12.6), leaves when it sees that group coming. One evening of bots (36 teams, 13 minutes,
+    two elite teams a realm): 41 groups seen coming, 34 of them in the fight within a minute,
+    eight seconds after they were seen at the middle (from none to 43); two elite teams left
+    on seeing one come, and both got away; one elite team was wiped. What a group makes of
+    the warning beyond that (its mezzer on the group that arrives) was not measured.
   - Not touched: a kill target that is healed faster than it is hurt. Giving a target up sooner
     was tried on 2026-11-19 and taken back ("the question is whom to call, and when").
 - [ ] **M12.5** (M) Breaking off. *Built 2026-11-24 and run with bots only; seen in no client.*
@@ -3533,11 +3542,12 @@ The plan the owner agreed to that day ("Let's proceed and test with bots first")
     by the end of that fight, and eight by nothing at all. (A first count, 99 of 237 "not with
     that enemy", read as a team that did not come, overstated it: most of them fought somebody.)
     Built: while it sees nobody, a team goes to the nearest enemy team it drew "joins" for
-    (`PvpRoam.FightItJoined`, the `toward` of `PvpTeam.March`). An
-    evening of bots on that build (36 teams, 13 minutes): of 83 "joins" that could be judged,
-    75 were followed by a fight with that enemy team, eight by one with another, none by
-    nothing; that is nine in ten against six to eight in ten in the owner's evening and two
-    evenings of bots before it. 19 teams wiped, three broke off, no tick failed.
+    (`PvpRoam.FightItJoined`, the `toward` of `PvpTeam.March`). Two
+    evenings of bots on that build (36 teams, 13 and 9 minutes): of 132 "joins" that could be
+    judged, 107 were followed by a fight with that enemy team, 25 by one with another, and none
+    by nothing, where the owner's evening and two evenings of bots before it had 11 of 388
+    followed by nothing. The share that fought the team it had said it for (90% and 65% in the
+    two) is within what it was before (58 to 80%). No tick failed.
   - Realm chat's words for a spot by its side of a point take no "at": "1fg mids east of north
     road (Odin's)" (the first evening of bots had "at east of north road").
   - **Nothing was said to the owner in three lost fights.** Without `/8v8 lead on` the group did
@@ -3566,7 +3576,12 @@ The plan the owner agreed to that day ("Let's proceed and test with bots first")
     one such call in six seconds (`PvpRoam.TellOfIncoming`, `PvpCalls.Sighted`, `Add`). And a
     group with a player that has lost by the measure of M12.5 says "THIS ONE IS LOST! 3 OF US
     LEFT, 14 OF THEM! RETREAT?" in place of "too many", with the lead or without; it does not
-    run by itself. None of the three can be run with bots: they are said to a player.
+    run by itself. They are said to a player, so no evening of bots shows them as said; for the
+    first two, one team of the realm listened to stands in for a player's group in an evening of
+    bots and what it would be told is written to the recording (`PvpRoam.StandsIn`). In one
+    such evening: "INC! 1FG ALBS SOUTH-EAST, 5,500!", eight seconds later "INC! 2FG ALBS EAST,
+    3,000!", four seconds later, in the fight, "ADD! 8 MORE ALBS FROM THE SOUTH-EAST!", and one
+    more sighting; four lines in 13 minutes for a team that met two packs.
   - **The owner's calls** (asked 2026-11-24: "I did spam the retreat, probably clicked it 3-4
     times. Does it cause an issue?"). None: a call made again starts its time again and is
     answered once more. The recording has the retreat four times, once each, and the kite

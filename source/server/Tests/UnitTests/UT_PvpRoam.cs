@@ -124,6 +124,12 @@ namespace DOL.UnitTests
             Assert.That(PvpRoam.TooBusyFor(1, false, true), Is.False, "\"Only if I decide to add on their fight, they will need to react.\"");
             Assert.That(PvpRoam.TooBusyFor(1, true, false), Is.False, "the one it is fighting");
             Assert.That(PvpRoam.TooBusyFor(0, false, false), Is.False, "a team on its own takes on whom it meets");
+            // A group that comes for its fight is seen before it lands.
+            Assert.That(PvpRoam.SeesItComing(1, false, true, true), Is.True);
+            Assert.That(PvpRoam.SeesItComing(1, false, false, true), Is.False, "a group that walks by, or has left them to it");
+            Assert.That(PvpRoam.SeesItComing(1, false, true, false), Is.False, "too far off, or behind a hill");
+            Assert.That(PvpRoam.SeesItComing(0, false, true, true), Is.False, "it is in no fight: whom it meets it meets");
+            Assert.That(PvpRoam.SeesItComing(1, true, true, true), Is.False, "the one it is fighting already");
         }
 
         [Test]
