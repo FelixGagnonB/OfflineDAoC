@@ -261,14 +261,6 @@ namespace DOL.GS
         // Who of the group last used each ability that is for the whole group, and when (PvpRealmAbilities.KeptApartSeconds).
         private readonly Dictionary<string, (GameBot By, long When)> _groupAbilities = new();
 
-        /// <summary>Whether another member has used that ability within the time the group keeps two of a kind apart.</summary>
-        public bool GroupAbilityTaken(string key, GameBot by, int apartSeconds)
-        {
-            lock (_groupAbilities)
-                return _groupAbilities.TryGetValue(key, out (GameBot By, long When) last) &&
-                       PvpRealmAbilities.TakenBySomebodyElse(last.By == by, GameLoop.GameLoopTime, last.When, apartSeconds);
-        }
-
         /// <summary>
         /// A member takes the turn for an ability that is for the whole group; false when
         /// another has it (two brains may decide in the same moment: one of them gets it).

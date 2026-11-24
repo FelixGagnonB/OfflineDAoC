@@ -3610,8 +3610,14 @@ The plan the owner agreed to that day ("Let's proceed and test with bots first")
     member at a time (`PvpRealmAbilities.KeptApartSeconds`, a turn kept by the squad): after
     one has used it no other member uses the same one for 15 seconds (Group Purge), 40 (Speed
     of Sound, which lasts 30) or 30 (Battery of Life, Bunker of Faith, Soldier's Barricade,
-    Brilliant Aura, Ameliorating Melodies). *Automated tests only; not yet on the scrim server
-    (the owner was playing on it).*
+    Brilliant Aura, Ameliorating Melodies). The turn is taken before the ability is weighed
+    and given back when it is not wanted, so two members weighing it in the same moment do not
+    both choose it. Counted in three evenings before (the owner's two and one of bots): of 102
+    Group Purges, 28 were a second member's within fifteen seconds of the first, many in the
+    same tenth of a second; of 80 Batteries of Life, 23 within thirty. *On the scrim server
+    since the owner logged off, 2026-11-24. One evening of bots on the final build (36 teams, 12 minutes): 8 Group Purges, 6
+    Batteries of Life, 19 Speeds of Sound and 7 of the others, none by a second member within
+    its time; no tick failed. Seen in no client.*
   - **Speed of Sound on the last of a won fight.** The owner, of an 8v8 won with nobody lost
     (the third evening of the day, two Bards, against a casual group four ranks lower):
     "There's a bard that used SoS at the end of the that fight. Is there a reason?" The rule
@@ -3620,14 +3626,19 @@ The plan the owner agreed to that day ("Let's proceed and test with bots first")
     left. In the brawl before it both Bards had used it one second apart with five enemies
     left of forty. Built: not to get in on fewer enemies than the group has members alive
     (`PvpRealmAbilityWeights.SpeedOfSoundNotToCloseOnFewer`); a called retreat, two members
-    held by the legs and a jumped back line use it as before. *Automated tests only; not yet
-    on the scrim server.*
+    held by the legs and a jumped back line use it as before. Counted before: 11, 3 and 14
+    times an evening a group used it on a push against fewer enemies than it had members
+    alive; in the first evening of bots with the rule (36 teams, 13 minutes, 21 uses), none.
+    Its cost showed the same evening: the owner's group, wiped 58 seconds into its next fight
+    against two bad groups, called a retreat with both Bards' Speed of Sound spent on fights
+    it had won.
   - **"ADD" for a group the owner's own had turned on.** In that brawl (five enemy groups that
     were fighting each other, the owner's and a second Hibernian group coming in third) the
     owner's group was told of three adds in fourteen seconds, twelve lines in capitals, for
     groups it had gone for itself. Now only for a group one of whose members aims at the
-    group, or that has drawn "joins" on its fight and is seen coming. *Automated tests only;
-    not yet on the scrim server.* Of the calls that were as meant that evening, from the
+    group, or that has drawn "joins" on its fight and is seen coming. *On the scrim server
+    since the owner logged off; the stand-in of an evening of bots was told four adds in 13
+    minutes, where the evening before the rule had one team told of three in fourteen seconds.* Of the calls that were as meant that evening, from the
     recording: "INC! 1FG ALBS SOUTH-EAST, 5,000!" six seconds before the first fight, an add
     called 25 seconds before two Midgard groups landed, and another 15 seconds before the
     group that finished the owner's.
@@ -3638,7 +3649,18 @@ The plan the owner agreed to that day ("Let's proceed and test with bots first")
     "/8v8 prime" that is not a zone, a number, a line-up, "one", "all" or "rank" with its
     number from 1 to 13 starts nothing and is named to the player
     (`Pvp8v8CommandHandler.PrimeWords`), and an evening with another line-up says "Your group
-    is the line-up hib-2bard." *Automated tests only; not yet on the scrim server.*
+    is the line-up hib-2bard." *Automated tests only; on the scrim server since the owner
+    logged off.* The owner then played the two-Bard group on the build before, with the number
+    in its place.
+  - **The owner's third evening of the day** (two Bards, rank 8, Emain Macha, 31 minutes, five
+    fights): wiped by five groups after four minutes with ten killed (four groups held for
+    three minutes with all eight alive; a fifth, fresh one landed with both Druids at 9% of
+    their power); a brawl of five enemy groups that were fighting each other, come into third
+    with a second Hibernian group beside it, 16 killed and none lost; a clean 8v8 against a
+    casual group four ranks lower, won with none lost; then wiped by two bad groups in 58
+    seconds and by three groups in 108. The owner: "it's really fun !", and of the group's own
+    calls in capitals: "I like the messages when the bot decide it's time to kite and run
+    back, it's nice". Not said: whether "INC" and "ADD" were readable in the moment.
 
 **Where M12 stands (2026-11-24).** Built and run with bots on the scrim server: the measure, the
 kite, breaking off, no raising with too many on it. A seventh evening on the last build (13

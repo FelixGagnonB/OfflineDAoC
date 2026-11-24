@@ -322,9 +322,15 @@ public static class AutonomousBotRealmAbilities
             // An 8v8 group uses an ability that is for all of it one member at a time: the second of a kind is kept (PvpRealmAbilities.KeptApartSeconds).
             DOL.GS.PvpSquad squad = bot.IsPvpBot ? (bot.Brain as DOL.AI.Brain.BotBrain)?.PvpSquad : null;
             int apart = squad == null ? 0 : PvpRealmAbilities.KeptApartSeconds(ability.KeyName, PvpWeights.Of(bot).Abilities);
-            if (apart > 0 && squad.GroupAbilityTaken(ability.KeyName, bot, apart)) continue;
-            if (!Wanted(bot, ability.KeyName)) continue;
+            // (The turn is taken before the ability is weighed, and given back when it is not wanted: two members that
+            // weigh it in the same moment do not both write down that they chose it.)
             if (apart > 0 && !squad.ClaimGroupAbility(ability.KeyName, bot, apart)) continue;
+            if (!Wanted(bot, ability.KeyName))
+            {
+                if (apart > 0)
+                    squad.ReleaseGroupAbility(ability.KeyName, bot);
+                continue;
+            }
             if (bot.IsPvpBot)
                 PvpRealmAbilities.Use(bot, ability);
             else
