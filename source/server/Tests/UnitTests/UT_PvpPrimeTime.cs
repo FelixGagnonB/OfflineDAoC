@@ -20,13 +20,16 @@ namespace DOL.UnitTests
             Assert.That(PvpTeamProfile.All.Sum(profile => profile.SharePercent), Is.EqualTo(100));
             Assert.That(PvpTeamProfile.Of(PvpTeamKind.Elite).SharePercent, Is.EqualTo(5));
             Assert.That(PvpTeamProfile.Of(PvpTeamKind.Strong).SharePercent, Is.EqualTo(15));
-            Assert.That(PvpTeamProfile.Of(PvpTeamKind.Decent).SharePercent, Is.EqualTo(20));
+            // (The hunters, whom the owner named a day later, have their five from the decent.)
+            Assert.That(PvpTeamProfile.Of(PvpTeamKind.Decent).SharePercent + PvpTeamProfile.Of(PvpTeamKind.Hunter).SharePercent, Is.EqualTo(20));
+            Assert.That(PvpTeamProfile.Of(PvpTeamKind.Hunter).SharePercent, Is.EqualTo(5));
             Assert.That(PvpTeamProfile.Of(PvpTeamKind.Clingy).SharePercent + PvpTeamProfile.Of(PvpTeamKind.Adder).SharePercent, Is.EqualTo(30), "the two casual kinds");
             Assert.That(PvpTeamProfile.Of(PvpTeamKind.Bad).SharePercent, Is.EqualTo(30));
 
             Dictionary<PvpTeamKind, int> twenty = PvpTeamPool.Quotas(20);
             Assert.That(twenty[PvpTeamKind.Bad], Is.EqualTo(6));
-            Assert.That(twenty[PvpTeamKind.Decent], Is.EqualTo(4));
+            Assert.That(twenty[PvpTeamKind.Decent], Is.EqualTo(3));
+            Assert.That(twenty[PvpTeamKind.Hunter], Is.EqualTo(1));
             Assert.That(twenty[PvpTeamKind.Strong], Is.EqualTo(3));
             Assert.That(twenty[PvpTeamKind.Elite], Is.EqualTo(1));
             foreach (int count in new[] { 1, 3, 4, 7, 8, 12, 16, 26 })
@@ -60,6 +63,21 @@ namespace DOL.UnitTests
                 Assert.That(PvpTeamProfile.Of(kind).CountsHeads, Is.True, kind.ToString());
             }
             Assert.That(PvpTeamProfile.All.Where(profile => profile.KeepsToQuietGround).Select(profile => profile.Kind), Is.EqualTo(new[] { PvpTeamKind.Elite }));
+            // "There was 8v8 elite team that would run to these 'zerg' (many teams running together) to kill them"
+            PvpTeamProfile hunter = PvpTeamProfile.Of(PvpTeamKind.Hunter);
+            PvpTeamProfile elite = PvpTeamProfile.Of(PvpTeamKind.Elite);
+            Assert.That(PvpTeamProfile.All.Where(profile => profile.HuntsPacks).Select(profile => profile.Kind), Is.EqualTo(new[] { PvpTeamKind.Hunter }));
+            Assert.That(hunter.CountsHeads, Is.False, "eight walk into twenty-four");
+            Assert.That((hunter.Company, hunter.AddChancePercent, hunter.Lineup), Is.EqualTo((PvpCompany.Alone, 0, PvpLineup.Meta)));
+            Assert.That((hunter.MinRealmLevel, hunter.MaxRealmLevel, hunter.Skill), Is.EqualTo((elite.MinRealmLevel, elite.MaxRealmLevel, elite.Skill)), "an elite team");
+            // It joins a fight that groups of one realm are in together, and no other.
+            Assert.That(PvpRoam.HuntsIt(true, 2), Is.True);
+            Assert.That(PvpRoam.HuntsIt(true, 5), Is.True);
+            Assert.That(PvpRoam.HuntsIt(true, 1), Is.False, "a fight of single groups is not its business");
+            Assert.That(PvpRoam.HuntsIt(false, 5), Is.False);
+            // It is where the crowd is, and not in a clean zone.
+            Assert.That(PvpRoam.Leans(PvpTeamKind.Hunter, PvpZoneCrowd.Crowded), Is.GreaterThan(PvpRoam.Leans(PvpTeamKind.Hunter, PvpZoneCrowd.Mixed)));
+            Assert.That(PvpRoam.Leans(PvpTeamKind.Hunter, PvpZoneCrowd.Clean), Is.Zero);
             // The better the kind, the higher it begins and the sharper it plays; never above what a rank can be.
             for (int index = 1; index < PvpTeamProfile.All.Count; index++)
             {
@@ -365,10 +383,20 @@ namespace DOL.UnitTests
             Assert.That(Enumerable.Range(0, 300).Any(roll => PvpRoam.PortsElsewhere(3, false, true, roll)), Is.False, "somebody walks with it");
             // Every frontier has a start for each realm, points with names, ways between them, and a word that names it.
             Assert.That(PvpRoam.Frontiers, Does.Contain(PvpRoam.Emain));
-            Assert.That(PvpRoam.Frontiers.Select(zone => zone.Region).Distinct().Count(), Is.EqualTo(PvpRoam.Frontiers.Count));
+            Assert.That(PvpRoam.Frontiers, Has.Count.EqualTo(12), "four zones of each realm's frontier");
+            Assert.That(PvpRoam.Frontiers.GroupBy(zone => zone.Region).Select(region => region.Count()), Is.EqualTo(new[] { 4, 4, 4 }));
+            Assert.That(PvpRoam.Frontiers.Select(zone => zone.Zone).Distinct().Count(), Is.EqualTo(PvpRoam.Frontiers.Count));
+            Assert.That(PvpRoam.Frontiers.Select(zone => zone.Zone), Has.None.Zero);
             Assert.That(PvpRoam.Frontiers.Select(zone => zone.Tag).Distinct().Count(), Is.EqualTo(PvpRoam.Frontiers.Count));
+            Assert.That(PvpRoam.Frontiers.Select(zone => zone.Id).Distinct().Count(), Is.EqualTo(PvpRoam.Frontiers.Count));
             foreach (PvpRoamMap zone in PvpRoam.Frontiers)
             {
+                Assert.That(PvpRoam.MapFor(zone.Id), Is.EqualTo(zone), zone.Name);
+                Assert.That(PvpRoam.MapFor(zone.Name.Replace(" ", string.Empty).Replace("'", string.Empty)), Is.EqualTo(zone), zone.Name);
+                // The three starts are far from one another: nobody stands up in somebody else's start.
+                foreach (PvpRoamStart one in zone.Starts)
+                    foreach (PvpRoamStart other in zone.Starts.Where(other => other != one))
+                        Assert.That(Math.Sqrt(Math.Pow(one.Point.X - other.Point.X, 2) + Math.Pow(one.Point.Y - other.Point.Y, 2)), Is.GreaterThan(25_000), $"{zone.Name} {one.Realm} {other.Realm}");
                 Assert.That(zone.Starts.Select(start => start.Realm), Is.EquivalentTo(new[] { eRealm.Albion, eRealm.Midgard, eRealm.Hibernia }), zone.Name);
                 List<(int X, int Y)> points = zone.Ways.SelectMany(way => new[] { way.A, way.B }).Distinct().ToList();
                 Assert.That(points, Has.Count.GreaterThanOrEqualTo(4), zone.Name);
@@ -384,6 +412,121 @@ namespace DOL.UnitTests
                 Assert.That(PvpRoam.MapFor(zone.Tag.ToLowerInvariant().Replace("'s", string.Empty)), Is.EqualTo(zone), zone.Name);
             }
             Assert.That(PvpRoam.Emain.Tag, Is.EqualTo("Emain"));
+        }
+
+        [Test]
+        public void TheZonesBehindTheFirstThree()
+        {
+            // "adding more zones and spreading teams (and type of teams) across them all"
+            Assert.That(PvpRoamZones.All, Has.Count.EqualTo(9));
+            Assert.That(PvpRoam.MapFor("sauvage"), Is.SameAs(PvpRoamZones.ForestSauvage));
+            Assert.That(PvpRoam.MapFor("ForestSauvage"), Is.SameAs(PvpRoamZones.ForestSauvage));
+            Assert.That(PvpRoamZones.MountCollory.Tag, Is.EqualTo("Collory"));
+            var home = new Dictionary<ushort, eRealm> { [1] = eRealm.Albion, [100] = eRealm.Midgard, [200] = eRealm.Hibernia };
+            foreach (PvpRoamMap zone in PvpRoamZones.All)
+            {
+                Assert.That(zone.Crowd, Is.EqualTo(PvpZoneCrowd.Clean), zone.Name);
+                // The realm of the zone is in front of one of its keeps; the two others have none there.
+                Assert.That(zone.Starts.Where(start => start.AtKeep).Select(start => start.Realm), Is.EqualTo(new[] { home[zone.Region] }), zone.Name);
+                List<(int X, int Y)> points = zone.Places.Select(place => place.Point).ToList();
+                Assert.That(points, Has.Count.InRange(5, 9), zone.Name);
+                Assert.That(zone.Quiet, Has.Count.EqualTo(1), zone.Name);
+                Assert.That(points, Does.Contain(zone.Quiet[0]), zone.Name);
+                foreach (((int X, int Y) a, (int X, int Y) b) in zone.Ways)
+                    Assert.That(Math.Sqrt(Math.Pow(a.X - b.X, 2) + Math.Pow(a.Y - b.Y, 2)), Is.InRange(10_000, 27_000), $"{zone.Name} {a} {b}");
+                // Every point can be walked to from every other.
+                var reached = new HashSet<(int X, int Y)> { points[0] };
+                for (int round = 0; round < points.Count; round++)
+                    foreach ((int X, int Y) point in reached.ToList())
+                        reached.UnionWith(zone.From(point));
+                Assert.That(reached, Has.Count.EqualTo(points.Count), zone.Name);
+                // Where a realm comes in without a keep is called by the point it is near, not "the keep".
+                PvpRoamStart camp = zone.Starts.First(start => !start.AtKeep);
+                Assert.That(zone.PlaceOf(camp.Point.X, camp.Point.Y), Does.Not.Contain("keep"), zone.Name);
+                PvpRoamStart keep = zone.Starts.First(start => start.AtKeep);
+                Assert.That(zone.PlaceOf(keep.Point.X, keep.Point.Y), Is.EqualTo($"the {PvpRoam.Short(keep.Realm, false)} keep"), zone.Name);
+            }
+            Assert.That(PvpRoam.Emain.Crowd, Is.EqualTo(PvpZoneCrowd.Crowded));
+            Assert.That(PvpRoam.OdinsGate.Crowd, Is.EqualTo(PvpZoneCrowd.Mixed));
+            Assert.That(PvpRoam.HadriansWall.Crowd, Is.EqualTo(PvpZoneCrowd.Mixed));
+        }
+
+        [Test]
+        public void EachKindOfTeamHasItsKindOfZone()
+        {
+            // "Elite 8v8 teams that would be only 8v8 in specific area to avoid not clean fights"
+            Assert.That(PvpRoam.Leans(PvpTeamKind.Elite, PvpZoneCrowd.Crowded), Is.Zero);
+            Assert.That(PvpRoam.Leans(PvpTeamKind.Bad, PvpZoneCrowd.Clean), Is.Zero);
+            Assert.That(PvpRoam.Leans(PvpTeamKind.Clingy, PvpZoneCrowd.Clean), Is.Zero);
+            Assert.That(PvpRoam.Leans(PvpTeamKind.Adder, PvpZoneCrowd.Clean), Is.GreaterThan(0), "now and then one comes where it is not wanted");
+            foreach (PvpTeamKind kind in Enum.GetValues<PvpTeamKind>())
+                Assert.That(Enum.GetValues<PvpZoneCrowd>().Sum(crowd => PvpRoam.Leans(kind, crowd)), Is.GreaterThan(0), kind.ToString());
+            PvpZoneCrowd[] zones = [PvpZoneCrowd.Crowded, PvpZoneCrowd.Mixed, PvpZoneCrowd.Clean];
+            int[] nobody = [0, 0, 0];
+            List<int> Picks(PvpTeamKind kind, PvpZoneCrowd[] among, int[] load) => Enumerable.Range(0, 1000).Select(roll => PvpRoam.ZoneFor(kind, among, load, roll * 7919)).ToList();
+            Assert.That(Picks(PvpTeamKind.Elite, zones, nobody), Has.None.EqualTo(0), "an elite team is not in the crowd");
+            Assert.That(Picks(PvpTeamKind.Elite, zones, nobody).Count(pick => pick == 2), Is.GreaterThan(800));
+            Assert.That(Picks(PvpTeamKind.Bad, zones, nobody), Has.None.EqualTo(2), "a pack is not in a clean zone");
+            Assert.That(Picks(PvpTeamKind.Bad, zones, nobody).Count(pick => pick == 0), Is.GreaterThan(650));
+            Assert.That(Picks(PvpTeamKind.Decent, zones, nobody).Distinct(), Is.EquivalentTo(new[] { 0, 1, 2 }), "a decent team is everywhere");
+            // Of the zones its kind leans to, rather the one that has few of its realm, and one that has none first.
+            Assert.That(Picks(PvpTeamKind.Decent, [PvpZoneCrowd.Mixed, PvpZoneCrowd.Mixed], [4, 0]).Count(pick => pick == 1), Is.GreaterThan(900));
+            Assert.That(Picks(PvpTeamKind.Decent, [PvpZoneCrowd.Mixed, PvpZoneCrowd.Mixed], [3, 1]).Count(pick => pick == 1), Is.InRange(580, 760));
+            // Where its kind leans to none of the zones there are, it takes the one with the fewest.
+            Assert.That(Picks(PvpTeamKind.Bad, [PvpZoneCrowd.Clean, PvpZoneCrowd.Clean], [3, 1]), Has.All.EqualTo(1));
+            Assert.That(Picks(PvpTeamKind.Elite, [PvpZoneCrowd.Crowded], [5]), Has.All.EqualTo(0));
+            // The choosiest take their zones first.
+            Assert.That(new[] { PvpTeamKind.Decent, PvpTeamKind.Bad, PvpTeamKind.Elite, PvpTeamKind.Adder }.OrderBy(PvpRoam.Choosiness).Take(2),
+                Is.EqualTo(new[] { PvpTeamKind.Elite, PvpTeamKind.Bad }));
+            // The draw among weights.
+            Assert.That(PvpRoam.Weighted([0, 0], 5), Is.EqualTo(-1));
+            Assert.That(PvpRoam.Weighted([], 5), Is.EqualTo(-1));
+            Assert.That(Enumerable.Range(0, 8).Select(roll => PvpRoam.Weighted([1, 0, 3], roll)), Is.EqualTo(new[] { 0, 2, 2, 2, 0, 2, 2, 2 }));
+            Assert.That(PvpRoam.Weighted([1, 0, 3], -6), Is.EqualTo(2), "a roll below zero");
+        }
+
+        [Test]
+        public void TheZonesOfAnEvening()
+        {
+            // One zone for every three groups of a realm: some nine teams a zone.
+            Assert.That(new[] { 1, 2, 4, 5, 8, 12, 16 }.Select(groups => PvpRoam.ZonesFor(groups, 12)), Is.EqualTo(new[] { 1, 1, 1, 2, 3, 4, 5 }));
+            Assert.That(PvpRoam.ZonesFor(16, 3), Is.EqualTo(3), "no more than there are");
+            Assert.That(PvpRoam.ZonesFor(8, 0), Is.EqualTo(1));
+            var seen = new HashSet<PvpRoamMap>();
+            for (int seed = 0; seed < 300; seed++)
+            {
+                List<PvpRoamMap> zones = PvpRoam.ZonesTonight(PvpRoam.Emain, 8, PvpRoam.Frontiers, new Random(seed));
+                Assert.That(zones, Has.Count.EqualTo(3));
+                Assert.That(zones[0], Is.SameAs(PvpRoam.Emain), "where it begins");
+                Assert.That(zones.Distinct().Count(), Is.EqualTo(3));
+                seen.UnionWith(zones);
+            }
+            Assert.That(seen, Has.Count.EqualTo(12), "every zone has its evenings");
+            // It begins where the player is, and the crowd is somewhere all the same.
+            for (int seed = 0; seed < 50; seed++)
+            {
+                List<PvpRoamMap> zones = PvpRoam.ZonesTonight(PvpRoamZones.Breifine, 8, PvpRoam.Frontiers, new Random(seed));
+                Assert.That(zones.Take(2), Is.EqualTo(new[] { PvpRoamZones.Breifine, PvpRoam.Emain }));
+                Assert.That(zones, Has.Count.EqualTo(3));
+            }
+            Assert.That(PvpRoam.ZonesTonight(PvpRoamZones.Breifine, 4, PvpRoam.Frontiers, new Random(1)), Is.EqualTo(new[] { PvpRoamZones.Breifine }), "few groups: the one zone");
+            // A zone the realms ported to comes up more often than one behind it.
+            int ported = 0, behind = 0;
+            for (int seed = 0; seed < 600; seed++)
+            {
+                List<PvpRoamMap> zones = PvpRoam.ZonesTonight(PvpRoam.Emain, 8, PvpRoam.Frontiers, new Random(seed));
+                ported += zones.Count(zone => zone == PvpRoam.OdinsGate);
+                behind += zones.Count(zone => zone == PvpRoamZones.Uppland);
+            }
+            Assert.That(ported, Is.GreaterThan(behind * 2));
+            Assert.That(behind, Is.GreaterThan(0));
+            // What the player is told of them.
+            Assert.That(PvpRoam.ZonesLine([PvpRoam.Emain, PvpRoam.OdinsGate, PvpRoamZones.Breifine], PvpRoam.Emain),
+                Is.EqualTo("Tonight: Emain Macha (the crowd; you are here), Odin's Gate, Breifine (clean). /8v8 go odin, breifine."));
+            Assert.That(PvpRoam.ZonesLine([PvpRoam.Emain, PvpRoamZones.Pennine], PvpRoamZones.Pennine),
+                Is.EqualTo("Tonight: Emain Macha (the crowd), Pennine Mountains (clean; you are here). /8v8 go emain."));
+            // More groups than there are zones for: all twelve.
+            Assert.That(PvpRoam.ZonesTonight(PvpRoam.Emain, 40, PvpRoam.Frontiers, new Random(3)), Is.EquivalentTo(PvpRoam.Frontiers));
         }
 
         [Test]

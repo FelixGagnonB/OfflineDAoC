@@ -13,8 +13,8 @@ namespace DOL.GS.Commands
         "/8v8 play <alb|mid|hib> real [lane|basin] [follow]  a real fight: everybody at the rank it has earned, kills earn realm points that are kept, no timer is reset",
         "/8v8 roam [thid] [group]       the roam: two groups of each realm in Emain Macha (thid: in Thidranki), yours with you; real rules, and a wipe or a release puts your group back at its start",
         "/8v8 skill [group|others] [casual|seasoned|sharp]  how sharp your group and the other groups play: reaction time, attention, mistakes; alone it says what is set",
-        "/8v8 prime [zone] [number] [one]   a prime-time evening over the frontiers: that many groups of each realm (8 if you give none, 12 at most), yours one of them, the others guilds of every kind: packs of bad groups, groups that add, groups that do not. zone: where you begin (emain, odin, hadrian; thid for Thidranki alone). one: in that zone only",
-        "/8v8 go <zone>                 on a prime-time evening: your group ports to your realm's start in another frontier (emain, odin, hadrian); not out of a fight",
+        "/8v8 prime [zone] [number] [one|all]   a prime-time evening in some of the frontier zones: that many groups of each realm (8 if you give none, 16 at most), yours one of them, the others guilds of every kind: packs of bad groups, groups that add, groups that do not. One zone for every three groups of a realm: the one you begin in, the crowded one (Emain Macha) and others that change from evening to evening. zone: where you begin (emain, odin, hadrian, breifine, cruachan, collory, pennine, sauvage, snowdonia, jamtland, uppland, yggdra; thid for Thidranki alone). one: in that zone only; all: in all twelve",
+        "/8v8 go <zone>                 on a prime-time evening: your group ports to your realm's start in another zone of the evening (/8v8 who names them); not out of a fight",
         "/8v8 who                       on a prime-time evening: the guilds of your realm that are out, their rank and who is in them, and how many groups the other realms have out",
         "/8v8 rivals                    the enemy guilds you have wiped or been wiped by on prime-time evenings, and how often",
         "/8v8 status                    in a roam: what every team is doing (buffing at its start, roaming, fighting whom, resting, waiting by a fight, wiped), how many of it are alive and how far it is",
@@ -206,8 +206,9 @@ namespace DOL.GS.Commands
                         // "/8v8 prime thid 6": in Thidranki, six groups of each realm.
                         int groups = args.Skip(2).Select(word => int.TryParse(word, out int number) ? number : 0).FirstOrDefault(number => number > 0);
                         PvpRoam.StartFor(player, Say, args.Skip(2).Select(PvpBuildCatalog.FindGroup).FirstOrDefault(group => group != null),
-                            args.Skip(2).Select(PvpRoam.MapFor).FirstOrDefault(map => map != null), System.Math.Clamp(groups == 0 ? 8 : groups, 1, 12),
-                            args.Skip(2).Any(word => word.Equals("one", System.StringComparison.OrdinalIgnoreCase)));
+                            args.Skip(2).Select(PvpRoam.MapFor).FirstOrDefault(map => map != null), System.Math.Clamp(groups == 0 ? 8 : groups, 1, 16),
+                            args.Skip(2).Any(word => word.Equals("one", System.StringComparison.OrdinalIgnoreCase)),
+                            args.Skip(2).Any(word => word.Equals("all", System.StringComparison.OrdinalIgnoreCase)));
                     }
                     catch (System.Exception exception)
                     {

@@ -5,7 +5,8 @@
 Prints, per team: its kind, whom it walks with, how far from that team it was (the middle
 value and the share of the time within its keeping distance), its fights, adds, kills, deaths
 and wipes; then the draws by kind (how often each kind joined a fight it came on), the fights
-by how many teams were in them, the legs walked, and what was said in realm chat.
+by how many teams were in them, the same by zone with the kinds of team that were in each, the
+legs walked, and what was said in realm chat.
 """
 import collections
 import json
@@ -34,13 +35,17 @@ def main():
     company, legs, chat, draws = {}, collections.Counter(), [], collections.defaultdict(lambda: [0, 0])
     fights, wipes, sets_off = collections.Counter(), collections.Counter(), {}
     ports, logoffs, turns = [], [], collections.Counter()
-    positions = collections.defaultdict(dict)  # second -> team -> (x, y, state, alive, fighting)
+    positions = collections.defaultdict(dict)  # second -> team -> (x, y, state, alive, fighting, zone)
     last = 0
+    where, on_road, begun = {}, collections.Counter(), collections.Counter()   # team -> zone now; (zone, team) -> seconds; zone -> fights begun
     for row in rows:
         kind = row.get("k")
         if kind == "team":
-            positions[row["t"] // 1000][row["name"]] = (row["x"], row["y"], row["state"], row["alive"], tuple(row.get("fighting") or ()))
+            positions[row["t"] // 1000][row["name"]] = (row["x"], row["y"], row["state"], row["alive"], tuple(row.get("fighting") or ()), row.get("zone"))
             last = max(last, row["t"] // 1000)
+            where[row["name"]] = row.get("zone")
+            if row["state"] in ("Roaming", "Fighting") and row["alive"] > 0:
+                on_road[(row.get("zone"), row["name"])] += 1
         elif kind == "ev" and isinstance(row.get("ev"), dict):
             ev = row["ev"]
             what = ev.get("what")
@@ -54,6 +59,7 @@ def main():
                 draws[kinds.get(ev["team"], "-")][0 if ev["joins"] else 1] += 1
             elif what == "fight":
                 fights[ev["team"]] += 1
+                begun[where.get(ev["team"])] += 1
             elif what == "wipe":
                 wipes[ev["team"]] += 1
             elif what == "setoff":
@@ -98,7 +104,7 @@ def main():
         print(f"  {kind:7} {joins:3} / {leaves:3}")
 
     # Fights by how many teams were in them: connected groups of teams fighting each other, second by second.
-    sizes = collections.Counter()
+    sizes, zone_sizes = collections.Counter(), collections.defaultdict(collections.Counter)
     for second, teams in positions.items():
         seen = set()
         for name, state in teams.items():
@@ -107,16 +113,33 @@ def main():
             group, queue = {name}, [name]
             while queue:
                 current = queue.pop()
-                for other in teams.get(current, (0, 0, "", 0, ()))[4]:
+                for other in teams.get(current, (0, 0, "", 0, (), None))[4]:
                     if other not in group:
                         group.add(other)
                         queue.append(other)
             seen |= group
             sizes[len(group)] += 1
+            zone_sizes[state[5]][min(len(group), 5)] += 1
     total = sum(sizes.values())
     print("\nSeconds of fighting by the number of teams in the fight:")
     for size in sorted(sizes):
         print(f"  {size} teams: {sizes[size]:5} s ({sizes[size] / total:.0%})")
+
+    # By zone: a team is of the zone it was on the road in the longest.
+    home = {}
+    for (zone, name), seconds in on_road.items():
+        if zone is not None and seconds > home.get(name, (None, 0))[1]:
+            home[name] = (zone, seconds)
+    if len({zone for zone, _ in home.values()}) > 1:
+        print("\nBy zone (the teams that were there the longest; fights begun; seconds of fighting by teams in the fight):")
+        for zone in sorted({zone for zone, _ in home.values()}):
+            there = [name for name, (its, _) in home.items() if its == zone]
+            by_kind = collections.Counter(kinds.get(name, "-") for name in there)
+            by_realm = collections.Counter(realms.get(name, "?")[:3] for name in there)
+            fought = sum(zone_sizes[zone].values())
+            split = ", ".join(f"{size}{'+' if size == 5 else ''}: {count / fought:.0%}" for size, count in sorted(zone_sizes[zone].items())) if fought else "no fighting"
+            print(f"  {zone:10} {len(there):2} teams ({', '.join(f'{kind} {count}' for kind, count in sorted(by_kind.items()))}; "
+                  f"{', '.join(f'{realm} {count}' for realm, count in sorted(by_realm.items()))}); {begun[zone]:3} fights; {split}")
 
     if ports or logoffs:
         print(f"\n{len(ports)} ports to another frontier, {len(logoffs)} log-offs:")

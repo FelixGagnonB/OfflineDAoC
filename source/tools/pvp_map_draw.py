@@ -1,15 +1,16 @@
 """Draws where the teams of a roam or a prime-time evening walk, on the game client's own map of the zone.
 
-    python pvp_map_draw.py <client app folder> <zone> <out.png> [recording.jsonl]
+    python pvp_request.py <game runtime> roam-maps --out maps.json        (the maps, from the running server)
+    python pvp_map_draw.py <client app folder> maps.json <zone> <out.png> [recording.jsonl]
 
-zone: emain, odin or hadrian. Without a recording: the points the teams walk between, the legs
-between them and where each realm starts. With one (logs/roams/*.jsonl beside the server): the
-way each team's middle went through that zone, in its realm's colour, a ring where a fight began
-and a cross where a team was wiped.
+zone: a map's id (emain, odin, hadrian, breifine, ...). Without a recording: the points the teams
+walk between, the legs between them and where each realm starts. With one (logs/roams/*.jsonl
+beside the server): the way each team's middle went through that zone, in its realm's colour, a
+ring where a fight began and a cross where a team was wiped.
 
-The points are those of PvpRoam.cs (Emain, OdinsGate, HadriansWall): keep the two alike. A leg is
-drawn as a straight line; a team walks it on the navigation mesh, which is what a recording shows.
-The picture is made from the client's map (ui/maps/zNNN.dds), so it is not for the repository.
+A leg is drawn as a straight line; a team walks it on the navigation mesh, which is what a
+recording shows. The picture is made from the client's map (ui/maps/zNNN.dds), so it is not for
+the repository.
 """
 import json
 import sys
@@ -22,44 +23,8 @@ SIZE = 1280
 STRIP = 150
 REALM = {"Albion": (255, 80, 70), "Midgard": (90, 160, 255), "Hibernia": (150, 255, 90)}
 WRITTEN = {"_FirstPlayerRealm": "Albion", "_LastPlayerRealm": "Hibernia"}
-
-EMAIN = dict(North=(449336, 299008), South=(445970, 334336), Middle=(447500, 316500),
-             WestNorth=(438000, 305000), WestMiddle=(438000, 316000), WestSouth=(438000, 328000))
-HW = dict(NorthWest=(615516, 304220), WestGate=(608516, 318220), SouthWest=(615516, 332220), South=(629516, 332220),
-          SouthEast=(643516, 332220), BenowycRoad=(636516, 339220), EastGate=(650516, 318220), NorthEast=(643516, 304220))
-OG = dict(NorthWest=(607324, 590940), NorthRoad=(628324, 583940), NorthEast=(642324, 590940), East=(642324, 604940),
-          Middle=(628324, 604940), SouthEast=(642324, 618940), SouthRoad=(628324, 625940), SouthWest=(607324, 618940))
-
-ZONES = {
-    "emain": dict(
-        name="Emain Macha", map="z214.dds", offset=(51 * 8192, 35 * 8192), points=EMAIN,
-        names=dict(North="north road", South="south road", Middle="mid road", WestNorth="north-west hills",
-                   WestMiddle="west hills", WestSouth="south-west hills"),
-        ways=[("South", "Middle"), ("Middle", "North"), ("North", "WestNorth"), ("WestNorth", "WestMiddle"),
-              ("WestMiddle", "WestSouth"), ("WestSouth", "South"), ("Middle", "WestMiddle")],
-        quiet=["WestNorth", "WestMiddle", "WestSouth"],
-        starts=[("Albion", (473395, 342169), ["South"]), ("Midgard", (472166, 297011), ["North"]),
-                ("Hibernia", (427772, 320193), ["WestSouth", "WestNorth"])]),
-    "hadrian": dict(
-        name="Hadrian's Wall", map="z015.dds", offset=(73 * 8192, 35 * 8192), points=HW,
-        names=dict(NorthWest="north-west field", WestGate="west gate", SouthWest="south-west field", South="south field",
-                   SouthEast="south-east field", BenowycRoad="benowyc road", EastGate="east gate", NorthEast="north-east field"),
-        ways=[("NorthWest", "WestGate"), ("WestGate", "SouthWest"), ("SouthWest", "South"), ("South", "SouthEast"),
-              ("SouthEast", "EastGate"), ("EastGate", "NorthEast"), ("BenowycRoad", "South"), ("BenowycRoad", "SouthEast")],
-        quiet=["SouthWest"],
-        starts=[("Albion", (651802, 343992), ["BenowycRoad"]), ("Midgard", (653567, 294974), ["NorthEast", "EastGate"]),
-                ("Hibernia", (607339, 295574), ["NorthWest", "WestGate"])]),
-    "odin": dict(
-        name="Odin's Gate", map="z115.dds", offset=(72 * 8192, 70 * 8192), points=OG,
-        names=dict(NorthWest="north-west field", NorthRoad="north road", NorthEast="north-east field", East="east field",
-                   Middle="middle", SouthEast="south-east field", SouthRoad="south road", SouthWest="south-west field"),
-        ways=[("NorthWest", "NorthRoad"), ("NorthRoad", "NorthEast"), ("NorthRoad", "Middle"), ("Middle", "East"),
-              ("East", "NorthEast"), ("East", "SouthEast"), ("SouthEast", "Middle"), ("SouthRoad", "SouthEast"),
-              ("SouthRoad", "Middle"), ("SouthWest", "SouthRoad")],
-        quiet=["SouthEast"],
-        starts=[("Albion", (598175, 629643), ["SouthWest"]), ("Midgard", (646847, 585287), ["NorthEast", "NorthRoad"]),
-                ("Hibernia", (597987, 583313), ["NorthWest", "NorthRoad"])]),
-}
+CROWD = {"Crowded": "The crowd is here: packs, and groups that add.", "Mixed": "Every kind of team comes here.",
+         "Clean": "A clean zone: no packs, few groups that add."}
 
 
 def font(size, bold=False):
@@ -86,7 +51,7 @@ def label(draw, at, text, face, fill=(255, 255, 255), anchor="la"):
 
 
 def read(path, inside):
-    """The teams' realms, each team's samples in the zone (second, x, y, state), where fights began and where teams were wiped."""
+    """The teams' realms, each team's samples in the zone (second, x, y), where fights began and where teams were wiped."""
     realms, tracks, last, fights, wipes, seconds = {}, {}, {}, [], [], 0
     with open(path, encoding="utf-8") as handle:
         for line in handle:
@@ -112,11 +77,16 @@ def read(path, inside):
 
 
 def main():
-    if len(sys.argv) < 4 or sys.argv[2] not in ZONES:
+    if len(sys.argv) < 5:
         sys.exit(__doc__)
-    zone = ZONES[sys.argv[2]]
-    recording = sys.argv[4] if len(sys.argv) > 4 else None
-    ox, oy = zone["offset"]
+    with open(sys.argv[2], encoding="utf-8") as handle:
+        maps = json.load(handle)
+    maps = maps.get("Data", maps) if isinstance(maps, dict) else maps
+    zone = next((entry for entry in maps if entry["Id"] == sys.argv[3]), None)
+    if zone is None or not zone.get("Offset"):
+        sys.exit(f"No map '{sys.argv[3]}' with a zone in {sys.argv[2]}: " + ", ".join(entry["Id"] for entry in maps if entry.get("Offset")))
+    recording = sys.argv[5] if len(sys.argv) > 5 else None
+    ox, oy = zone["Offset"]
 
     def px(point):
         return ((point[0] - ox) * SIZE / ZONE, (point[1] - oy) * SIZE / ZONE)
@@ -124,16 +94,15 @@ def main():
     def inside(x, y):
         return ox <= x < ox + ZONE and oy <= y < oy + ZONE
 
-    source = Image.open(Path(sys.argv[1]) / "ui" / "maps" / zone["map"]).convert("RGB").resize((SIZE, SIZE), Image.BICUBIC)
+    source = Image.open(Path(sys.argv[1]) / "ui" / "maps" / f"z{zone['Zone']:03d}.dds").convert("RGB").resize((SIZE, SIZE), Image.BICUBIC)
     # Darker when tracks go over it, so that the three colours stand out.
     source = Image.eval(source, lambda value: int(value * (0.6 if recording else 0.85)))
     canvas = Image.new("RGBA", (SIZE, SIZE + STRIP), (18, 18, 20, 255))
     canvas.paste(source, (0, 0))
     over = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(over)
-    points = {key: px(value) for key, value in zone["points"].items()}
+    points = [px((point["X"], point["Y"])) for point in zone["Points"]]
     small, normal, big = font(19), font(22, True), font(30, True)
-    lines = []
 
     if recording:
         realms, tracks, fights, wipes, seconds = read(recording, inside)
@@ -146,7 +115,7 @@ def main():
         canvas = Image.alpha_composite(canvas, over)
         over = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(over)
-        for a, b in zone["ways"]:
+        for a, b in zone["Ways"]:
             dashed(draw, points[a], points[b], (255, 220, 60, 150), 2)
         for _, x, y in fights:
             cx, cy = px((x, y))
@@ -158,36 +127,37 @@ def main():
             draw.line([cx - 8, cy + 8, cx + 8, cy - 8], fill=(0, 0, 0, 255), width=7)
             draw.line([cx - 8, cy - 8, cx + 8, cy + 8], fill=colour, width=3)
             draw.line([cx - 8, cy + 8, cx + 8, cy - 8], fill=colour, width=3)
-        for key, at in points.items():
+        for point, at in zip(zone["Points"], points):
             draw.ellipse([at[0] - 6, at[1] - 6, at[0] + 6, at[1] + 6], fill=(255, 220, 60, 255), outline=(0, 0, 0, 255))
-            label(draw, (at[0] + 10, at[1] + 6), zone["names"][key], small, (255, 235, 150))
+            label(draw, (at[0] + 10, at[1] + 6), point["Name"], small, (255, 235, 150))
         per = {realm: sum(1 for team in tracks if realms.get(team) == realm) for realm in REALM}
-        lines = [f"{zone['name']}: where {len(tracks)} teams went in {seconds / 60:.0f} minutes ({Path(recording).name})",
+        lines = [f"{zone['Name']}: where {len(tracks)} teams went in {seconds / 60:.0f} minutes ({Path(recording).name})",
                  "A line: the way a team's middle went, in its realm's colour "
                  f"(Albion {per['Albion']}, Midgard {per['Midgard']}, Hibernia {per['Hibernia']}).",
                  f"A white ring: a fight began there ({len(fights)}). A cross: a team was wiped there ({len(wipes)}). "
                  "Yellow: the points and the legs between them."]
     else:
-        for realm, start, firsts in zone["starts"]:
-            for first in firsts:
-                dashed(draw, px(start), points[first], REALM[realm] + (230,), 4)
-        for a, b in zone["ways"]:
+        for start in zone["Starts"]:
+            for first in start["First"]:
+                dashed(draw, px((start["X"], start["Y"])), points[first], REALM[start["Realm"]] + (230,), 4)
+        for a, b in zone["Ways"]:
             draw.line([points[a], points[b]], fill=(0, 0, 0, 200), width=9)
             draw.line([points[a], points[b]], fill=(255, 220, 60, 255), width=5)
-        for key, at in points.items():
-            quiet = key in zone["quiet"]
+        for point, at in zip(zone["Points"], points):
+            quiet = point["Quiet"]
             draw.ellipse([at[0] - 11, at[1] - 11, at[0] + 11, at[1] + 11], fill=(90, 230, 255, 255) if quiet else (255, 220, 60, 255),
                          outline=(0, 0, 0, 255), width=3)
-            label(draw, (at[0] + 16, at[1] + 4), zone["names"][key], normal, (170, 240, 255) if quiet else (255, 235, 150))
-        for realm, start, _ in zone["starts"]:
-            at = px(start)
-            draw.rectangle([at[0] - 11, at[1] - 11, at[0] + 11, at[1] + 11], fill=REALM[realm] + (255,), outline=(0, 0, 0, 255), width=3)
+            label(draw, (at[0] + 16, at[1] + 4), point["Name"], normal, (170, 240, 255) if quiet else (255, 235, 150))
+        for start in zone["Starts"]:
+            at = px((start["X"], start["Y"]))
+            draw.rectangle([at[0] - 11, at[1] - 11, at[0] + 11, at[1] + 11], fill=REALM[start["Realm"]] + (255,), outline=(0, 0, 0, 255), width=3)
             right = at[0] > SIZE * 0.7
-            label(draw, (at[0] + (-16 if right else 16), at[1] - 34), f"{realm} starts", normal, REALM[realm], "ra" if right else "la")
-        lines = [f"{zone['name']}: the points the teams walk between",
+            label(draw, (at[0] + (-16 if right else 16), at[1] - 34 if at[1] > 60 else at[1] + 14),
+                  f"{start['Realm']} {'starts' if start.get('AtKeep', True) else 'comes in'}", normal, REALM[start["Realm"]], "ra" if right else "la")
+        lines = [f"{zone['Name']}: the points the teams walk between",
                  "Square: where a realm's teams come out and stand up again. Dashed: their way to their first point.",
                  "Yellow: a leg (drawn straight; walked on the ground). At each point a team picks any leg but the one it came by.",
-                 "Blue point: the quiet ground, which an elite team leans to."]
+                 "Blue point: the quiet ground, which an elite team leans to. " + CROWD.get(zone.get("Crowd"), "")]
 
     bar = 10000 * SIZE / ZONE
     draw.line([(SIZE - 40 - bar, SIZE - 30), (SIZE - 40, SIZE - 30)], fill=(255, 255, 255, 255), width=4)
@@ -195,8 +165,8 @@ def main():
     for index, text in enumerate(lines):
         draw.text((18, SIZE + 12 + (0 if index == 0 else 12 + index * 28)), text, font=big if index == 0 else small,
                   fill=(255, 255, 255, 255) if index == 0 else (200, 200, 205, 255))
-    Image.alpha_composite(canvas, over).convert("RGB").save(sys.argv[3])
-    print("wrote", sys.argv[3])
+    Image.alpha_composite(canvas, over).convert("RGB").save(sys.argv[4])
+    print("wrote", sys.argv[4])
 
 
 if __name__ == "__main__":

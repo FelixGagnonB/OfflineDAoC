@@ -10,29 +10,42 @@ namespace DOL.GS
 {
     /// <summary>Where a realm's teams start in a roam, and the points they walk between.</summary>
     /// <param name="SecondRoute">The way of the realm's second team, when it is not the first team's.</param>
-    public sealed record PvpRoamStart(eRealm Realm, (int X, int Y) Point, (int X, int Y)[] Route, (int X, int Y)[] SecondRoute = null)
+    /// <param name="AtKeep">It is in front of a keep of the realm ("the alb keep" in realm chat). False: a place where the realm comes into a zone it has no keep in.</param>
+    public sealed record PvpRoamStart(eRealm Realm, (int X, int Y) Point, (int X, int Y)[] Route, (int X, int Y)[] SecondRoute = null, bool AtKeep = true)
     {
         public (int X, int Y)[] RouteOf(int teamNumber) => teamNumber >= 2 && SecondRoute != null ? SecondRoute : Route;
     }
+
+    /// <summary>
+    /// What a zone is like on a prime-time evening (M11.8): where the packs and the groups that
+    /// add are, where both kinds meet, and where the teams go that want a fight of two. The
+    /// owner, 2026-11-22: "Elite 8v8 teams that would be only 8v8 in specific area to avoid not
+    /// clean fights"; 2026-11-23: "adding more zones and spreading teams (and type of teams)
+    /// across them all".
+    /// </summary>
+    public enum PvpZoneCrowd { Crowded, Mixed, Clean }
 
     /// <summary>A zone a roam is held in: its region and where each realm's teams start and walk.</summary>
     /// <param name="Ways">Which of its points a team can walk between directly; a team of a prime-time evening goes from point to point along them as it pleases.</param>
     /// <param name="Quiet">The points away from the road.</param>
     /// <param name="Places">What its points are called in realm chat ("south road").</param>
+    /// <param name="Crowd">What it is like on a prime-time evening: which kinds of team lean to it.</param>
+    /// <param name="Short">What it is called in a line of chat, when that is not the first word of its name ("Sauvage").</param>
+    /// <param name="Zone">The game's number of the zone; 0 when it is not told.</param>
     public sealed record PvpRoamMap(string Id, string Name, ushort Region, IReadOnlyList<PvpRoamStart> Starts,
         IReadOnlyList<((int X, int Y) A, (int X, int Y) B)> Ways = null, IReadOnlyList<(int X, int Y)> Quiet = null,
-        IReadOnlyList<((int X, int Y) Point, string Name)> Places = null)
+        IReadOnlyList<((int X, int Y) Point, string Name)> Places = null, PvpZoneCrowd Crowd = PvpZoneCrowd.Mixed, string Short = null, ushort Zone = 0)
     {
         public PvpRoamStart StartOf(eRealm realm) => Starts.First(start => start.Realm == realm);
 
-        /// <summary>The zone as it is named in a line of chat: "Emain", "Odin's", "Hadrian's".</summary>
-        public string Tag => Name.Split(' ')[0];
+        /// <summary>The zone as it is named in a line of chat: "Emain", "Odin's", "Hadrian's", "Sauvage".</summary>
+        public string Tag => Short ?? Name.Split(' ')[0];
 
         /// <summary>What the nearest named point to a place is called; "near the X keep" within 6,000 of a realm's start; null on a map without names.</summary>
         public string PlaceOf(double x, double y)
         {
             double From((int X, int Y) point) => Math.Sqrt(Math.Pow(point.X - x, 2) + Math.Pow(point.Y - y, 2));
-            if (Starts.Where(start => From(start.Point) < 6_000).OrderBy(start => From(start.Point)).FirstOrDefault() is { } keep)
+            if (Starts.Where(start => start.AtKeep && From(start.Point) < 6_000).OrderBy(start => From(start.Point)).FirstOrDefault() is { } keep)
                 return $"the {PvpRoam.Short(keep.Realm, false)} keep";
             return Places is { Count: > 0 } ? Places.OrderBy(place => From(place.Point)).First().Name : null;
         }
@@ -209,7 +222,8 @@ namespace DOL.GS
         public static readonly IReadOnlyList<((int X, int Y) A, (int X, int Y) B)> ThidrankiWays = [(ThidHM, ThidHA), (ThidHA, ThidMA), (ThidMA, ThidHM)];
 
         public static readonly PvpRoamMap Emain = new("emain", "Emain Macha", EmainRegion, EmainStarts, EmainWays, [WestNorth, WestMiddle, WestSouth],
-            [(South, "south road"), (Middle, "mid road"), (North, "north road"), (WestNorth, "north-west hills"), (WestMiddle, "west hills"), (WestSouth, "south-west hills")]);
+            [(South, "south road"), (Middle, "mid road"), (North, "north road"), (WestNorth, "north-west hills"), (WestMiddle, "west hills"), (WestSouth, "south-west hills")],
+            PvpZoneCrowd.Crowded, null, 214);
         public static readonly PvpRoamMap Thidranki = new("thid", "Thidranki", 252, ThidrankiStarts, ThidrankiWays, null,
             [(ThidHM, "between hib and mid"), (ThidHA, "between hib and alb"), (ThidMA, "between mid and alb")]);
 
@@ -235,7 +249,8 @@ namespace DOL.GS
              (HwEastGate, HwNorthEast), (HwBenowycRoad, HwSouth), (HwBenowycRoad, HwSouthEast)],
             [HwSouthWest],
             [(HwNorthWest, "north-west field"), (HwWestGate, "west gate"), (HwSouthWest, "south-west field"), (HwSouth, "south field"),
-             (HwSouthEast, "south-east field"), (HwBenowycRoad, "benowyc road"), (HwEastGate, "east gate"), (HwNorthEast, "north-east field")]);
+             (HwSouthEast, "south-east field"), (HwBenowycRoad, "benowyc road"), (HwEastGate, "east gate"), (HwNorthEast, "north-east field")],
+            PvpZoneCrowd.Mixed, null, 15);
 
         // ---- Odin's Gate (region 100, zone 115; M11.3). Hibernia and Albion at their portal keeps in the north-west and the
         // south-west, Midgard at Bledmeer Faste in the north-east. Found the same way: the west side is cut in two between the
@@ -257,20 +272,137 @@ namespace DOL.GS
              (OgSouthEast, OgMiddle), (OgSouthRoad, OgSouthEast), (OgSouthRoad, OgMiddle), (OgSouthWest, OgSouthRoad)],
             [OgSouthEast],
             [(OgNorthWest, "north-west field"), (OgNorthRoad, "north road"), (OgNorthEast, "north-east field"), (OgEast, "east field"), (OgMiddle, "middle"),
-             (OgSouthEast, "south-east field"), (OgSouthRoad, "south road"), (OgSouthWest, "south-west field")]);
+             (OgSouthEast, "south-east field"), (OgSouthRoad, "south road"), (OgSouthWest, "south-west field")],
+            PvpZoneCrowd.Mixed, null, 115);
 
-        /// <summary>The frontier zones an evening is spread over (M11.3). Zones whose points have been walked on the installed navmesh.</summary>
-        public static readonly IReadOnlyList<PvpRoamMap> Frontiers = [Emain, OdinsGate, HadriansWall];
+        /// <summary>
+        /// The frontier zones an evening can be in (M11.3, M11.8): the three a realm ported to, and
+        /// the nine behind them (<see cref="PvpRoamZones"/>). Zones whose points have been walked on
+        /// the installed navmesh. An evening is in some of them (<see cref="ZonesTonight"/>).
+        /// </summary>
+        public static readonly IReadOnlyList<PvpRoamMap> Frontiers = [Emain, OdinsGate, HadriansWall, .. PvpRoamZones.All];
 
-        /// <summary>The map a word stands for ("thid", "thidranki", "emain"); null for a word that names none.</summary>
-        public static PvpRoamMap MapFor(string word) => (word ?? string.Empty).Trim().ToLowerInvariant() switch
+        /// <summary>The map a word stands for ("thid", "thidranki", "emain", "breifine"); null for a word that names none.</summary>
+        public static PvpRoamMap MapFor(string word)
         {
-            "thid" or "thidranki" => Thidranki,
-            "emain" or "emainmacha" => Emain,
-            "odin" or "odins" or "odin's" or "og" or "odinsgate" => OdinsGate,
-            "hadrian" or "hadrians" or "hadrian's" or "hw" or "hadrianswall" => HadriansWall,
-            _ => null,
+            string key = (word ?? string.Empty).Trim().ToLowerInvariant();
+            return key switch
+            {
+                "thid" or "thidranki" => Thidranki,
+                "emain" or "emainmacha" => Emain,
+                "odin" or "odins" or "odin's" or "og" or "odinsgate" => OdinsGate,
+                "hadrian" or "hadrians" or "hadrian's" or "hw" or "hadrianswall" => HadriansWall,
+                _ => PvpRoamZones.All.FirstOrDefault(zone => zone.Id == key || zone.Tag.ToLowerInvariant() == key ||
+                                                             zone.Name.ToLowerInvariant().Replace(" ", string.Empty) == key),
+            };
+        }
+
+        /// <summary>The place of a draw among weights: the first when the roll falls in its share, and so on; -1 when no weight is above 0.</summary>
+        public static int Weighted(IReadOnlyList<int> weights, int roll)
+        {
+            int sum = weights.Sum(weight => Math.Max(0, weight));
+            if (sum <= 0)
+                return -1;
+            int pick = Math.Abs(roll % sum);
+            for (int index = 0; index < weights.Count; index++)
+            {
+                if (pick < Math.Max(0, weights[index]))
+                    return index;
+                pick -= Math.Max(0, weights[index]);
+            }
+            return weights.Count - 1;
+        }
+
+        /// <summary>
+        /// How much a kind of team leans to a kind of zone (M11.8), 0 for "it does not go there".
+        /// The packs and the groups that stay near others are where the crowd is and never in a
+        /// clean zone; a group that adds goes where the realm points are, and now and then where
+        /// it is not wanted; the teams that do not add are everywhere, the better the cleaner; an
+        /// elite team is not in the crowd at all, unless it is there to kill it (the hunters).
+        /// The numbers are a first guess, to be played.
+        /// </summary>
+        public static int Leans(PvpTeamKind kind, PvpZoneCrowd crowd) => (kind, crowd) switch
+        {
+            (PvpTeamKind.Bad, PvpZoneCrowd.Crowded) => 6, (PvpTeamKind.Bad, PvpZoneCrowd.Mixed) => 2, (PvpTeamKind.Bad, _) => 0,
+            (PvpTeamKind.Clingy, PvpZoneCrowd.Crowded) => 4, (PvpTeamKind.Clingy, PvpZoneCrowd.Mixed) => 3, (PvpTeamKind.Clingy, _) => 0,
+            (PvpTeamKind.Adder, PvpZoneCrowd.Crowded) => 4, (PvpTeamKind.Adder, PvpZoneCrowd.Mixed) => 4, (PvpTeamKind.Adder, _) => 1,
+            (PvpTeamKind.Decent, PvpZoneCrowd.Crowded) => 2, (PvpTeamKind.Decent, PvpZoneCrowd.Mixed) => 4, (PvpTeamKind.Decent, _) => 3,
+            (PvpTeamKind.Strong, PvpZoneCrowd.Crowded) => 1, (PvpTeamKind.Strong, PvpZoneCrowd.Mixed) => 3, (PvpTeamKind.Strong, _) => 5,
+            (PvpTeamKind.Elite, PvpZoneCrowd.Crowded) => 0, (PvpTeamKind.Elite, PvpZoneCrowd.Mixed) => 1, (PvpTeamKind.Elite, _) => 6,
+            // (The hunters are where their prey is.)
+            (PvpTeamKind.Hunter, PvpZoneCrowd.Crowded) => 6, (PvpTeamKind.Hunter, PvpZoneCrowd.Mixed) => 2, (PvpTeamKind.Hunter, _) => 0,
+            _ => 1,
         };
+
+        /// <summary>
+        /// Which zone of the evening a team that walks alone, or the head of a pack, takes: one
+        /// its kind leans to (<see cref="Leans"/>), and of those rather one that has few groups of
+        /// its realm, a zone that has none three times as readily: so a zone is not left to two
+        /// realms. When its kind leans to none of the zones, the one with the fewest.
+        /// </summary>
+        /// <param name="groupsOfItsRealm">How many groups of its realm each zone has (a pack counts for all its groups).</param>
+        public static int ZoneFor(PvpTeamKind kind, IReadOnlyList<PvpZoneCrowd> zones, IReadOnlyList<int> groupsOfItsRealm, int roll)
+        {
+            int pick = Weighted(zones.Select((crowd, zone) => Leans(kind, crowd) * 120 / (1 + groupsOfItsRealm[zone]) * (groupsOfItsRealm[zone] == 0 ? 3 : 1)).ToList(), roll);
+            return pick >= 0 ? pick : ZoneWithFewest(groupsOfItsRealm, roll);
+        }
+
+        /// <summary>The order the teams of a realm take their zones in: the choosiest first, while every zone is still open to it.</summary>
+        public static int Choosiness(PvpTeamKind kind) => kind switch
+        {
+            PvpTeamKind.Elite or PvpTeamKind.Hunter => 0, PvpTeamKind.Bad => 1, PvpTeamKind.Strong => 2, PvpTeamKind.Clingy => 3, PvpTeamKind.Adder => 4, _ => 5,
+        };
+
+        /// <summary>
+        /// How many zones an evening is in: one for every three groups of a realm, which is some
+        /// nine teams a zone (eight groups of a realm: three zones, as in the evenings of
+        /// 2026-11-22, where 24 teams in three zones had a fight every other minute and 36 in one
+        /// zone had one fight of eleven).
+        /// </summary>
+        public static int ZonesFor(int groupsPerRealm, int zonesThereAre) => Math.Clamp((groupsPerRealm + 1) / 3, 1, Math.Max(1, zonesThereAre));
+
+        /// <summary>
+        /// The zones of an evening (M11.8): where it begins, the crowded one (the crowd is always
+        /// somewhere), and others drawn, a zone the realms ported to four times as readily as one
+        /// behind it. So an evening of eight groups a realm that begins in Emain Macha is there,
+        /// and in two more that are not the same every evening: which, the realm's chat and
+        /// <c>/8v8 who</c> tell.
+        /// </summary>
+        public static List<PvpRoamMap> ZonesTonight(PvpRoamMap begins, int groupsPerRealm, IReadOnlyList<PvpRoamMap> all, Random random)
+        {
+            var zones = new List<PvpRoamMap> { begins };
+            int count = ZonesFor(groupsPerRealm, all.Count);
+            if (count > 1 && begins.Crowd != PvpZoneCrowd.Crowded && all.FirstOrDefault(zone => zone.Crowd == PvpZoneCrowd.Crowded) is { } crowded)
+                zones.Add(crowded);
+            while (zones.Count < count)
+            {
+                List<PvpRoamMap> left = all.Where(zone => !zones.Contains(zone)).ToList();
+                int pick = Weighted(left.Select(zone => zone.Crowd switch { PvpZoneCrowd.Crowded => 6, PvpZoneCrowd.Mixed => 4, _ => 1 }).ToList(), random.Next());
+                if (pick < 0)
+                    break;
+                zones.Add(left[pick]);
+            }
+            return zones;
+        }
+
+        /// <summary>Every map, as the tools read them (<c>roam-maps</c> on the control channel; source/tools/pvp_map_draw.py draws them).</summary>
+        public static object Maps() => Frontiers.Append(Thidranki).Select(map =>
+        {
+            List<(int X, int Y)> points = (map.Places ?? []).Select(place => place.Point).ToList();
+            Zone zone = map.Zone == 0 ? null : WorldMgr.GetZone(map.Zone);
+            return new
+            {
+                map.Id, map.Name, map.Tag, map.Region, map.Zone, Crowd = map.Crowd.ToString(),
+                Offset = zone == null ? null : new[] { zone.XOffset, zone.YOffset },
+                Points = (map.Places ?? []).Select(place => new { X = place.Point.X, Y = place.Point.Y, place.Name, Quiet = map.Quiet?.Contains(place.Point) == true }).ToList(),
+                Ways = (map.Ways ?? []).Select(way => new[] { points.IndexOf(way.A), points.IndexOf(way.B) }).ToList(),
+                Starts = map.Starts.Select(start => new
+                {
+                    Realm = NameOf(start.Realm), X = start.Point.X, Y = start.Point.Y, start.AtKeep,
+                    First = new[] { start.RouteOf(1)[0], start.RouteOf(2)[0] }.Distinct().Select(point => points.IndexOf(point)).ToList(),
+                }).ToList(),
+            };
+        }).ToList();
 
         /// <summary>
         /// Where a team of a prime-time evening goes from a point it has reached: to one of the
@@ -393,6 +525,15 @@ namespace DOL.GS
         /// the next fight of the player's group it comes on, whatever its kind does otherwise.
         /// </summary>
         public static bool PaysBack(bool addedOnByThePlayer, bool thePlayersGroupIsInTheFight) => addedOnByThePlayer && thePlayersGroupIsInTheFight;
+
+        /// <summary>
+        /// A team that hunts packs joins a fight it comes on when groups of one enemy realm are
+        /// in it together, two or more side by side: "8v8 elite team that would run to these
+        /// 'zerg' (many teams running together) to kill them" (the owner, 2026-11-23). A fight of
+        /// single groups is not its business.
+        /// </summary>
+        /// <param name="mostEnemyGroupsTogether">Of the enemy teams in that fight, the most groups of one realm that stand together.</param>
+        public static bool HuntsIt(bool itHuntsPacks, int mostEnemyGroupsTogether) => itHuntsPacks && mostEnemyGroupsTogether >= 2;
 
         /// <summary>
         /// The player's group has added on a team: it came into a fight that team was in with
@@ -672,6 +813,20 @@ namespace DOL.GS
                   ". Where they are, your realm says when it sees them.";
 
         /// <summary>
+        /// The first line of <c>/8v8 who</c> on an evening in several zones: which they are, what
+        /// each is like (<see cref="PvpZoneCrowd"/>), and the words that take the player's group there.
+        /// </summary>
+        public static string ZonesLine(IReadOnlyList<PvpRoamMap> zones, PvpRoamMap yours)
+        {
+            string Like(PvpRoamMap zone) => string.Join("; ", new[]
+            {
+                zone.Crowd == PvpZoneCrowd.Crowded ? "the crowd" : zone.Crowd == PvpZoneCrowd.Clean ? "clean" : null, zone == yours ? "you are here" : null,
+            }.Where(word => word != null));
+            return "Tonight: " + string.Join(", ", zones.Select(zone => zone.Name + (Like(zone).Length > 0 ? $" ({Like(zone)})" : string.Empty))) +
+                   ". /8v8 go " + string.Join(", ", zones.Where(zone => zone != yours).Select(zone => zone.Id)) + ".";
+        }
+
+        /// <summary>
         /// <c>/8v8 who</c>: the guilds of the player's realm that are out, each with its rank and
         /// who is in it, as <c>/who</c> showed a realm its own; and how many groups the other
         /// realms have out. Empty when no roam runs.
@@ -690,6 +845,9 @@ namespace DOL.GS
             }
             if (viewer != null && lines.Count > 0)
                 lines.Add(OutAgainst(teams.Where(team => team.Realm != viewer.Realm && team.State != "Away").GroupBy(team => team.Realm).Select(realm => (realm.Key, realm.Count())).ToList()));
+            List<PvpRoamMap> zones = _maps;
+            if (zones.Count > 1 && lines.Count > 0)
+                lines.Insert(0, ZonesLine(zones, viewer == null ? null : teams.FirstOrDefault(team => team.Leader == viewer)?.Map));
             return lines;
         }
 
@@ -841,7 +999,8 @@ namespace DOL.GS
             if (mine == null || !Prime)
                 throw new InvalidOperationException("You are not out on a prime-time evening. /8v8 prime starts one.");
             if (map == null || !_maps.Contains(map))
-                throw new InvalidOperationException("This evening is on in: " + string.Join(", ", _maps.Select(zone => zone.Name)) + ". /8v8 go emain, odin or hadrian.");
+                throw new InvalidOperationException("This evening is on in: " + string.Join(", ", _maps.Select(zone => zone.Name)) + ". /8v8 go " +
+                                                    string.Join(", ", _maps.Where(zone => zone != mine.Map).Select(zone => zone.Id)) + ".");
             if (mine.Map == map)
                 throw new InvalidOperationException($"You are in {map.Name}.");
             if (!player.IsAlive || player.InCombat || mine.ContactTick != 0 || mine.Fighting.Count > 0)
@@ -889,8 +1048,10 @@ namespace DOL.GS
         /// <summary><c>/8v8 roam</c>: the player is taken to the start of its realm and leads the first team of it.</summary>
         /// <param name="own">The player's group when it is not the realm's main one (PvpBuildCatalog.Variants).</param>
         /// <param name="prime">Above 0: a prime-time evening (M11) with this many groups of each realm, the player's one of them, the others guilds of the world.</param>
-        /// <param name="oneZone">A prime-time evening in the one zone, not over all the frontiers.</param>
-        public static void StartFor(GamePlayer player, Action<string> say, PvpGroupTemplate own = null, PvpRoamMap map = null, int prime = 0, bool oneZone = false)
+        /// <param name="oneZone">A prime-time evening in the one zone, not over several frontiers.</param>
+        /// <param name="everyZone">A prime-time evening in every frontier zone there is, however few the groups.</param>
+        public static void StartFor(GamePlayer player, Action<string> say, PvpGroupTemplate own = null, PvpRoamMap map = null, int prime = 0, bool oneZone = false,
+            bool everyZone = false)
         {
             map ??= Emain;
             if (own != null && own.Realm != player.Realm)
@@ -909,13 +1070,15 @@ namespace DOL.GS
                     if (prime > 0)
                     {
                         List<PvpGuildTeam> pool = PvpTeamPool.LoadOrCreate(AppContext.BaseDirectory, PvpTeamPool.World, Math.Max(16, prime * 2), Random.Shared);
-                        // Over the frontiers, unless one zone was asked for; a battleground is always one zone.
-                        List<PvpRoamMap> zones = oneZone || !Frontiers.Contains(map) ? null : Frontiers.ToList();
+                        // Over some of the frontiers (ZonesTonight), unless one zone or all of them were asked for; a battleground is always one zone.
+                        List<PvpRoamMap> zones = oneZone || !Frontiers.Contains(map) ? null : everyZone ? Frontiers.ToList() : ZonesTonight(map, prime, Frontiers, Random.Shared);
                         Start(2, player.InternalID, player, own, map, null, PvpTeamPool.Tonight(pool, prime, Random.Shared, player.Realm), PvpTeamPool.World, zones);
                         say($"Prime time{(zones is { Count: > 1 } ? " in " + string.Join(", ", zones.Select(zone => zone.Name)) + "; you are in " + map.Name : " in " + map.Name)}: " +
                             $"{prime} groups of each realm are out, yours one of them, the others guilds of every kind. " +
                             "Some walk in packs, some add, some do neither. Kills earn realm points that are kept, and a wipe puts your group " +
                             "back here (so does /release). /8v8 who, /8v8 status, /8v8 go <zone>, /8v8 rivals, /8v8 stop.");
+                        if (_maps.Count > 1)
+                            say(ZonesLine(_maps, map));
                         return;
                     }
                     Start(2, player.InternalID, player, own, map);
@@ -1022,25 +1185,38 @@ namespace DOL.GS
                     if (follower.State == "Away")
                         follower.ComesOutAt = (head.State == "Away" ? head.ComesOutAt : now) + 3_000L * places[head];
                 }
-                List<PvpRoamTeam> hosts = teams.Where(team => team.Realm == realm.Key &&
-                    (team.Leader != null || team.Profile is { Company: PvpCompany.Alone, KeepsToQuietGround: false })).ToList();
-                foreach (PvpRoamTeam near in realm.Where(team => team.Profile.Company == PvpCompany.Near && hosts.Count > 0))
-                    near.Company = hosts[Random.Shared.Next(hosts.Count)];
-                // The zones of the evening: those that walk alone and the heads of packs take them in turn, beginning
-                // where the evening began; the others go where the team they walk with goes.
+                // The zones of the evening (M11.8). Those that walk alone and the heads of packs take a zone each, the
+                // choosiest first: one their kind leans to, and of those rather one with few groups of their realm (ZoneFor).
+                // Then each group that stays near others picks a group of its realm to walk with, rather one where the crowd
+                // is and none in a clean zone while there is another. The others go where the team they walk with goes.
                 var placed = teams.Where(team => team.Leader != null).ToList();
+                List<PvpZoneCrowd> crowds = maps.Select(zone => zone.Crowd).ToList();
                 // (How many groups of the realm a zone will have: those put there, and those that will follow them there.)
                 int[] load = maps.Select(zone => placed.Count(team => team.Realm == realm.Key && team.Map == zone)).ToArray();
-                foreach (PvpRoamTeam team in realm.Where(team => team.Company == null).Concat(realm.Where(team => team.Company != null)))
+                void Takes(PvpRoamTeam team)
                 {
-                    PvpRoamMap zone = team.Company?.Map;
-                    if (zone == null)
-                    {
-                        int pick = ZoneWithFewest(load, Random.Shared.Next());
-                        zone = maps[pick];
-                        load[pick] += 1 + realm.Count(follower => follower.Company == team);
-                    }
-                    Place(team, zone, placed);
+                    int pick = ZoneFor(team.Profile.Kind, crowds, load, Random.Shared.Next());
+                    load[pick] += 1 + realm.Count(follower => follower.Company == team);
+                    Place(team, maps[pick], placed);
+                    placed.Add(team);
+                }
+                foreach (PvpRoamTeam team in realm.Where(team => team.Company == null && team.Profile.Company != PvpCompany.Near).OrderBy(team => Choosiness(team.Profile.Kind)))
+                    Takes(team);
+                List<PvpRoamTeam> hosts = teams.Where(team => team.Realm == realm.Key &&
+                    (team.Leader != null || team.Profile is { Company: PvpCompany.Alone, KeepsToQuietGround: false, HuntsPacks: false })).ToList();
+                foreach (PvpRoamTeam near in realm.Where(team => team.Profile.Company == PvpCompany.Near))
+                {
+                    int host = Weighted(hosts.Select(team => Leans(PvpTeamKind.Clingy, team.Map.Crowd)).ToList(), Random.Shared.Next());
+                    if (host < 0 && hosts.Count > 0)
+                        host = Random.Shared.Next(hosts.Count);
+                    if (host < 0)
+                        Takes(near);
+                    else
+                        near.Company = hosts[host];
+                }
+                foreach (PvpRoamTeam team in realm.Where(team => team.Company != null))
+                {
+                    Place(team, team.Company.Map, placed);
                     placed.Add(team);
                 }
             }
@@ -1209,6 +1385,15 @@ namespace DOL.GS
                 {
                     if (travelling && team.Leader != null)
                         continue;
+                    // The player has walked into another zone of the evening (the zones of a frontier lie side by side; the
+                    // bots do not cross, their ground ends at the border): its group is of that zone now.
+                    if (team.Leader is { CurrentZone: { } under } && team.Map.Zone != 0 && under.ID != team.Map.Zone && team.Fighting.Count == 0 &&
+                        _maps.FirstOrDefault(zone => zone.Zone == under.ID && zone.Region == team.Map.Region) is { } entered)
+                    {
+                        Place(team, entered, teams);
+                        Say($"{team.Name} walks into {entered.Name}", new { what = "port", team = team.Name, zone = entered.Name });
+                        Tell(team, $"You are in {entered.Name}. A wipe or /release puts you at your realm's start here.");
+                    }
                     Step(team, teams, now, real);
                 }
                 CallOut(teams, now);
@@ -1230,7 +1415,7 @@ namespace DOL.GS
                         recording.Line(new
                         {
                             k = "team", t = recording.Now, name = team.Name, state = team.State, x = (int)x, y = (int)y, alive = team.Alive,
-                            wp = team.Team.Waypoint, fighting = team.Fighting.Select(other => other.Name).ToList(),
+                            wp = team.Team.Waypoint, fighting = team.Fighting.Select(other => other.Name).ToList(), zone = team.Map.Id,
                         });
                     }
                     recording.Snapshot(name => teams.FirstOrDefault(team => team.Name == name)?.Quiet != false);
@@ -1335,10 +1520,12 @@ namespace DOL.GS
                 else if (PvpRealWeights.StandsUp((now - team.StateSince) / 1000.0, EnemyNearStart(team, teams, real.StartIsClearBeyond), real,
                              team.Leader is { IsAlive: true }))
                 {
-                    if (team.Guild != null && PortsElsewhere(_maps.Count, team.Company != null, teams.Any(other => other.Company == team), Random.Shared.Next(300)))
+                    // (Elsewhere: a zone its kind goes to.)
+                    List<PvpRoamMap> elsewhere = team.Profile == null ? [] : _maps.Where(zone => zone != team.Map && Leans(team.Profile.Kind, zone.Crowd) > 0).ToList();
+                    if (team.Guild != null && PortsElsewhere(elsewhere.Count + 1, team.Company != null, teams.Any(other => other.Company == team), Random.Shared.Next(300)))
                     {
-                        List<PvpRoamMap> elsewhere = _maps.Where(zone => zone != team.Map).ToList();
-                        Place(team, elsewhere[Random.Shared.Next(elsewhere.Count)], teams);
+                        Place(team, elsewhere[ZoneFor(team.Profile.Kind, elsewhere.Select(zone => zone.Crowd).ToList(), elsewhere.Select(zone =>
+                            teams.Count(other => other != team && other.Realm == team.Realm && other.Map == zone && other.State != "Away")).ToList(), Random.Shared.Next())], teams);
                         Say($"{team.Name} ports to {team.Map.Name}", new { what = "port", team = team.Name, zone = team.Map.Name });
                     }
                     // A group that stays near others does not cross the zone alone to the one it was with: it picks the nearest.
@@ -1379,6 +1566,8 @@ namespace DOL.GS
                     bool? drawn = team.Draws.Where(draw => theirFight.Contains(draw.Key)).Select(draw => (bool?)draw.Value).FirstOrDefault();
                     // (A guild adds as its kind does: a bad group always, a decent one never.)
                     bool joins = drawn ?? (PaysBack(team.AddedOnByPlayer, other.Leader != null || theirFight.Any(third => third.Leader != null)) ||
+                                           HuntsIt(team.Profile?.HuntsPacks == true, theirFight.Append(other).Where(third => third.Realm != team.Realm)
+                                               .Max(third => Together(third, teams))) ||
                                            Joins(team.Profile?.AddChancePercent ?? real.AddChancePercent, Random.Shared.Next(100)));
                     team.Draws[other] = joins;
                     if (drawn == null)
@@ -1647,7 +1836,7 @@ namespace DOL.GS
 
         /// <summary>The groups of a realm that a group which stays near others may pick: the player's, and the guilds that walk alone on the open ground.</summary>
         private static List<PvpRoamTeam> Hosts(IEnumerable<PvpRoamTeam> teams, eRealm realm) =>
-            teams.Where(team => team.Realm == realm && (team.Leader != null || team.Profile is { Company: PvpCompany.Alone, KeepsToQuietGround: false })).ToList();
+            teams.Where(team => team.Realm == realm && (team.Leader != null || team.Profile is { Company: PvpCompany.Alone, KeepsToQuietGround: false, HuntsPacks: false })).ToList();
 
         /// <summary>One guild whose evening is over logs off (<see cref="LogsOff"/>), and another of its realm comes out in its place within a minute.</summary>
         private static void Rotate(List<PvpRoamTeam> teams, long now)
@@ -1765,17 +1954,25 @@ namespace DOL.GS
                     mate.Profile?.Company == PvpCompany.Zerg && mate.Alive > 0 && mate.State == "Roaming" && Near(team, mate, 9_000) && !Near(team, mate, 3_000)),
                     (now - team.ArrivedAt) / 1000.0))
                 return true;
-            // The head of a pack keeps to the road, where the fights are; an elite group to the quiet ground.
-            int leaning = team.Profile is { KeepsToQuietGround: true } ? 1 : team.Profile is { Company: PvpCompany.Zerg } ? -1 : 0;
+            // The head of a pack keeps to the road, where the fights are, and so do those who hunt it; an elite group to the quiet ground.
+            int leaning = team.Profile is { KeepsToQuietGround: true } ? 1 : team.Profile is { Company: PvpCompany.Zerg } or { HuntsPacks: true } ? -1 : 0;
             (int X, int Y) next = NextPoint(team.Map, at, team.CameFrom, leaning, Random.Shared.Next());
+            // A team that hunts packs goes toward the nearest groups of an enemy realm that walk together in its zone
+            // (the realm's chat says where they are).
+            PvpRoamTeam prey = team.Profile is { HuntsPacks: true }
+                ? teams.Where(other => other.Realm != team.Realm && other.Map == team.Map && OnTheRoad(other) && Together(other, teams) >= 2)
+                    .OrderBy(other => Math.Pow(other.Centre().X - x, 2) + Math.Pow(other.Centre().Y - y, 2)).FirstOrDefault()
+                : null;
+            if (prey != null)
+                next = PointToward(team.Map, at, prey.Centre());
             // A guild with a grudge goes toward the player's group.
             // (In its own zone: it does not port after it.)
             PvpRoamTeam hunted = teams.FirstOrDefault(mine => mine.Leader != null && mine.Alive > 0 && mine.Map == team.Map);
             bool looking = hunted != null && ComesLooking(team.WipedByPlayer, team.AddedOnByPlayer);
             if (looking)
                 next = PointToward(team.Map, at, hunted.Centre());
-            Say($"{team.Name} goes on{(looking ? ", looking for the player's group" : string.Empty)}",
-                new { what = "leg", team = team.Name, from = new[] { at.X, at.Y }, to = new[] { next.X, next.Y }, looking });
+            Say($"{team.Name} goes on{(looking ? ", looking for the player's group" : prey != null ? $", after {prey.Name} and those with it" : string.Empty)}",
+                new { what = "leg", team = team.Name, from = new[] { at.X, at.Y }, to = new[] { next.X, next.Y }, looking, prey = prey?.Name });
             (team.CameFrom, team.Team.Route, team.Team.Waypoint, team.ArrivedAt) = (at, [next], 0, 0);
             return false;
         }
