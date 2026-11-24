@@ -189,6 +189,9 @@ namespace DOL.GS
 
         public static string Retreating(string caller) => $"Retreating with {caller}.";
 
+        /// <summary>What the group answers to a retreat called by a member who is dead.</summary>
+        public static string CannotRetreat(string caller) => $"You are down, {caller}: nobody to run with. We fight on.";
+
         /// <summary>
         /// Where a caster's pet is sent: the enemy its owner interrupts, else the group's kill target.
         /// Not onto a target the player called with <c>/8v8 call assist</c>: the owner, 2026-11-22,

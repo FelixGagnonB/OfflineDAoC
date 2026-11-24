@@ -10,7 +10,8 @@ A fight is the time the group had somebody to fight, with gaps of under 15 secon
 full: who was against it (kind of team, level of play, realm rank), who of its realm came by and
 whether it joined, the damage and the healing, who died when and by whom, what the group was
 ordered and whether it fell back, what the enemy groups did (fell back, turned on somebody, broke
-off, left a fight no longer clean), whom they called, and how long each side was held by control.
+off, left a fight no longer clean), whom they called, what the player called (/8v8 call), and how
+long each side was held by control.
 """
 import collections
 import json
@@ -58,10 +59,13 @@ def main():
                 rows.append(row)
             elif k in ("team", "ev", "hit", "heal", "death", "squad", "call", "snap"):
                 rows.append(row)
+            elif k == "dec" and str((row.get("pick") or {}).get("kind", "")).startswith("Player"):
+                rows.append(row)
     if me is None or me not in teams:
         print("No team of a player in this recording; name one with --team.")
         return 1
-    realm_of = lambda name: (teams.get(name) or {}).get("realm")
+    # (The server's enum writes its other names for Albion and Hibernia.)
+    realm_of = lambda name: {"_FirstPlayerRealm": "Albion", "_LastPlayerRealm": "Hibernia"}.get((teams.get(name) or {}).get("realm"), (teams.get(name) or {}).get("realm"))
     cls = lambda name: bots.get(name, (None, "?", 0))[1]
 
     def describe(name):
@@ -157,6 +161,19 @@ def main():
                     kite["legs"] = max(kite["legs"], row.get("legs", 0))
                     kite["turned"] += 1 if row.get("prey") else 0
         print("  orders: " + ", ".join(orders))
+        # What the player called (/8v8 call), and whether the caller was alive.
+        called = []
+        down = {row["n"]: row["t"] for row in deaths if row["team"] == me}
+        for row in inside:
+            if row["k"] == "dec" and row["team"] == me:
+                pick = row["pick"]
+                word = {"PlayerCall": pick.get("order"), "PlayerRetreat": "retreat", "PlayerRest": "rest", "PlayerAssist": f"assist {pick.get('d')}",
+                        "PlayerControl": f"control {pick.get('d')}"}.get(pick["kind"], pick["kind"])
+                caller = pick.get("by") or (pick.get("d") if pick["kind"] in ("PlayerCall", "PlayerRetreat", "PlayerRest") else None)
+                dead = caller in down and down[caller] <= row["t"]
+                called.append(f"{row['t'] / 1000:,.1f} s {word}" + (" (the caller was dead)" if dead else ""))
+        if called:
+            print("  the player called: " + ", ".join(called))
         if kite["s"]:
             print(f"  it fell back as one: {kite['legs']} legs, {kite['turned']} of its seconds turned on somebody who had followed")
         # What each enemy group did.

@@ -947,6 +947,14 @@ namespace DOL.GS
 
         public void CallRetreat(GameLiving caller)
         {
+            // A retreat is run with the caller, and a dead caller runs nowhere: the group says so and fights on. In the
+            // owner's evening of 2026-11-24 it answered "Retreating with Talveh." to a call made seventeen seconds
+            // after the caller had died, and went on fighting for the 35 seconds it took to die.
+            if (!caller.IsAlive)
+            {
+                Call(_members.FirstOrDefault(member => member.IsAlive), "answer", PvpCalls.CannotRetreat(caller.Name));
+                return;
+            }
             _restUntil = 0;
             _caller = caller;
             _retreatUntil = GameLoop.GameLoopTime + PvpCalls.PlayerRetreatSeconds * 1_000L;

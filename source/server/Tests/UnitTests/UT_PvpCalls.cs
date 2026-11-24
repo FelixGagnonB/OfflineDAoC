@@ -15,6 +15,7 @@ namespace DOL.UnitTests
             Assert.That(calls, Is.Unique);
             Assert.That(calls, Has.None.Empty);
             Assert.That(PvpCalls.Order(PvpOrder.Regroup), Does.Contain("healers"));
+            Assert.That(PvpCalls.CannotRetreat("Talveh"), Does.Contain("You are down, Talveh"));
             // A player's group without the lead says what it counts, and what the player can call.
             Assert.That(PvpCalls.TooMany(13, 8), Is.EqualTo("TOO MANY! 13 ON OUR 8! CALL IT: KITE OR RETREAT!"));
             Assert.That(PvpCalls.Due(100_000, 80_000, PvpCalls.TooManyEveryMilliseconds), Is.False);

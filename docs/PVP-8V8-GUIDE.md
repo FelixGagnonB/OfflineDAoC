@@ -61,7 +61,7 @@ starts of the setup window.
   3,500 units of its own start point, unless that group attacks it.
 - **What the others are doing.** `/8v8 status` lists every group of the roam: at its start buffing (and when it
   leaves), roaming, fighting whom, resting, waiting by a fight, or wiped (and when it stands up), with how
-  many of it are alive and how far it is from you.
+  many of it are alive and how far and which way it is from you ("16,900 north-west of you").
 - **Resting.** After a fight a group of bots with a member under 60% walks off its road to a place out of
   the way, rests there for up to forty seconds, and comes back. It gets up if an enemy comes within 5,000
   units.
@@ -166,7 +166,12 @@ has played it yet.**
   "fighting 1fg mids at north road (Odin's)", "wiped at Crimthain (Breifine), 3fg mids", and when a group breaks off, "running from 2fg albs at
   south road (Emain)" or "4 mids on the run at south road (Emain)". The
   names of the places are made up: in the zones behind, a point is called by the keep it is
-  near or by its side of the zone.
+  near or by its side of the zone. The points of those zones lie 15,000 to 18,000 units apart,
+  so since 2026-11-24 a spot more than 3,000 units from its point is called by its side of it
+  ("2fg mids south-west of Crimthain (Breifine)"), and a line about the zone you are in ends
+  with how far and which way the spot is from you, to the nearest 500: "[16,000 north-west of
+  you]". North is the top of the map. The groups move: a line is where they were when it was
+  said. **Automated tests and a bots' evening only.**
 - **Going elsewhere.** `/8v8 go <zone>` with one of the zones of the evening: your group ports
   to your realm's start there. Not out of a fight. Walking from one zone into the next one of
   the evening also makes your group of that zone; the bots do not cross a zone's border on foot.
@@ -177,6 +182,11 @@ has played it yet.**
 - **How the groups held together.** `source/tools/pvp_group.py` reads a recording of an evening:
   each kind's spread, how far its fights carried, every time a group fell back as one, and every
   time one broke off and whether it got away.
+- **Your fights, one by one.** `source/tools/pvp_myfights.py <recording> [last | 3 | all]`: a
+  line for each fight of your group in a recorded evening, and in full: who was against you
+  (kind of team, level of play, rank), who of your realm came by and whether it joined, damage
+  and healing, who died when and by whom, your group's orders, what you called, what each enemy
+  group did (fell back, turned on somebody, broke off) and whom it called.
 - **One fight, close up.** `source/tools/pvp_fight_draw.py <recording> "<team>" <from s> <to s> <out.png>`
   draws a team's fight on a grid of 1,000 units: its middle with the time along it, its members
   every five seconds, the teams near it, where its place went back a leg, where it broke off and
@@ -252,6 +262,14 @@ Your companions say in group chat what the group is doing: the assist target, an
 regroup, hold, extend), "3 on you!", a member out of power, a mez that put two or more of the enemy
 to sleep, a Purge used. `/8v8 calls off` silences them.
 
+Since 2026-11-24 an order of their own that moves the group is said four times in capitals:
+"PUSH! PUSH! ALL ON THEM!", "EXTEND! FALL BACK AND KITE!", "REGROUP! BACK TO THE HEALERS!". One
+such shout in twenty seconds; an order that comes sooner is said once in ordinary words, as
+before, and so is an order you called yourself. And in a roam, with ten or more aiming at your
+eight for a few seconds, they say "TOO MANY! 13 ON OUR 8! CALL IT: KITE OR RETREAT!" (again no
+sooner than 25 seconds later, and not while a call of yours stands): they stay where you are,
+and what to do is yours to call. **Automated tests only: nobody has seen either in a client.**
+
 `/8v8 lead on` lets your companions' own caller move the group in a roam or a prime-time evening:
 when ten or more aim at your eight and they are on your healers and casters, your seven fall back
 1,800 units as one, as the guilds of bots do, and say so four times in capitals in group chat
@@ -259,9 +277,15 @@ when ten or more aim at your eight and they are on your healers and casters, you
 "STAND AND FIGHT HERE!" when they stop. It is off unless you turn it on, because a group that
 moves by itself leaves you behind if you miss the call; a call of your own for anything else
 (push, regroup, hold, engage, retreat) stands over it. They never break off by themselves: the
-retreat is yours to call. **Built 2026-11-24, automated tests only: nobody has played with it.**
+retreat is yours to call. **Built 2026-11-24. The owner had it on in two fights that evening: in
+the second the seven fell back four legs in fifty seconds, seven against sixteen, and were wiped;
+how it looked has not been said.**
 
-You can call too (make macros of these):
+You can call too (make macros of these). Calling the same thing several times does no harm:
+each call starts its time again (an order stands 12 seconds, an assist 45, a control 20, a
+retreat 30) and is answered once more. Any other call ends a retreat, and a call for a rest
+ends an order. A retreat is run with you, so one you call when you are dead cannot be
+followed: your group answers "You are down: nobody to run with. We fight on."
 
 | Command | What the group does |
 |---|---|

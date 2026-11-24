@@ -3486,15 +3486,80 @@ The plan the owner agreed to that day ("Let's proceed and test with bots first")
     second group had come into.
   - Every number in the styles is a first guess. Not built: a bad group's healers that do not
     follow their group; anything of a kind's play that only a player would notice.
-- [ ] **M12.7** (S) The player's group. *Built 2026-11-24, automated tests only: nobody has
-  played with it, and it is off unless the player turns it on.* `/8v8 lead on`: in a roam the
+- [ ] **M12.7** (S) The player's group. *Built 2026-11-24; off unless the player turns it on.
+  The owner had it on in two fights of the evening of M12.8 and has not said how it looked.*
+  `/8v8 lead on`: in a roam the
   seven fall back as one by themselves, as the teams of bots do, and say so in group chat four
   times in capitals ("KITE BACK! 12 ON OUR 8! KITE BACK!"; two times "BACK AGAIN! KEEP MOVING!"
   for a further leg and "STAND AND FIGHT HERE!" at the end), as the owner asked: "say in group
   chat but spam it in capital or something, 4-5 times, so I am aware". Offered a line in the
   middle of the screen as well: "nah leave it in group chat". A call by the player for anything
-  but the kite stands over it. The seven never break off by themselves. Not built: a loud call
-  for a push.
+  but the kite stands over it. The seven never break off by themselves. A loud call for a push:
+  built with M12.8.
+- [ ] **M12.8** (M) The owner's first evening against the kinds, and what its recording showed.
+  *The evening was played, 2026-11-24; what was built from it has passed the automated tests and
+  one evening of bots, and has been seen in no client.* A prime-time evening in three zones at
+  realm rank 8 (`rank 8`, M12 above), 43 minutes of play, five fights
+  (`source/tools/pvp_myfights.py`, new: the fights of the player's group one by one):
+
+  | Fight | Against | Result |
+  |---|---|---|
+  | 1 | two Albion groups, casual that stay near others (16 on 8) | wiped in 130 s, three killed |
+  | 2 | those two and a strong one (24 on 8) | wiped in 77 s, none killed; the owner dead after 18 s |
+  | 3 | two Midgard bad groups (16 on 8) | wiped in 96 s, three killed |
+  | 4 | one Albion group, casual, rank 2L3 | won, nine killed and none lost |
+  | 5 | three Midgard groups, two of them strong, and one Albion group in the same place | wiped after three and a half minutes, eight killed |
+
+  One clean 8v8 in five, won outright; the other four were against two groups or more. Nobody
+  broke off from the owner's group: the one group it beat went from four alive to none in
+  sixteen seconds, and a casual caller takes six to twelve to call it.
+  - **Where a call is.** The owner, walking to realm chat's "Crimthain (Breifine)": "I don't see
+    anyone and no one attacking us in Crimthain", and half an hour later, sent south-west:
+    "can't find them". The two Midgard groups were 11,000 and 15,000 units from that point, the
+    nearest named one (the points of a back zone lie 15,000 to 18,000 apart), and in the second
+    case the groups had moved while the owner walked 7,800 units the other way. Built: a spot
+    more than 3,000 units from its point is called by its side of it ("south-west of
+    Crimthain"), what counts as news is still the point; a line about the zone the player is in
+    ends with how far and which way the spot is from the player, to the nearest 500 ("[16,000
+    north-west of you]"); `/8v8 status` gives the way to each group of the realm with the
+    distance (`PvpRoamMap.PlaceOf`, `PvpRoam.Compass`, `FromYouText`).
+  - **A team that says it joins did not always come.** In fight 4 the group that walked with the
+    owner's drew "joins" from 7,200 units off, walked on north along the road it had and stood
+    9,000 units away until the fight was over. A team marches at the enemies it sees (6,500
+    units over open ground) and otherwise along its road, and the draw falls at 9,000. Over the
+    evening 99 of 237 "joins" were followed by no fight with that enemy within 90 seconds (some
+    of those rightly: the enemy was dead first); in an evening of bots before, 24 of 98. Built:
+    while it sees nobody, a team goes to the nearest enemy team it drew "joins" for
+    (`PvpRoam.FightItJoined`, the `toward` of `PvpTeam.March`).
+  - **Nothing was said to the owner in three lost fights.** Without `/8v8 lead on` the group did
+    not count what was on it. Built: it counts as a group of bots does, and with too many on it
+    for its caller's moment says four times in capitals "TOO MANY! 13 ON OUR 8! CALL IT: KITE OR
+    RETREAT!", again no sooner than 25 seconds later and not while a call of the player's
+    stands. It moves nowhere by itself. And the group's own push, extend and regroup are said
+    four times in capitals (`PvpCalls.LoudOrder`), one such shout in twenty seconds and not for
+    an order the player called: in fight 4, which it won nine to none, its order changed 14
+    times in 96 seconds (push, extend, engage by turns), and a shout for each would have been
+    56 lines. That to and fro is the old one of M8 ("wants another cure than time") and was not
+    touched.
+  - **The owner's calls** (asked 2026-11-24: "I did spam the retreat, probably clicked it 3-4
+    times. Does it cause an issue?"). None: a call made again starts its time again and is
+    answered once more. The recording has the retreat four times, once each, and the kite
+    (`/8v8 call extend`) four times within one second in fight 5 and twice within one second
+    two other times. Two things it did show: any other
+    call ends a retreat (in fight 3 a called engage ended one after 16 seconds), which is as
+    meant and now in the guide; and in fight 2 the retreat was called seventeen seconds after
+    the owner had died, was answered "Retreating with Talveh." and did nothing, since a retreat
+    is run with the caller. Built: to a dead caller the group answers "You are down: nobody to
+    run with. We fight on." Not built: survivors that break off on that call as a beaten group
+    of bots does (the player's group would then not be wiped, and its dead player would wait).
+  - **Seen and left for the owner to decide.** The realm's elite and hunter teams came on the
+    owner's group in fight 5 five times and left it to its fight with three Midgard groups, as
+    asked on 2026-11-23 ("the bot elite team won't add if they get there 2nd and 3rd right ?").
+    Only the Hero guards and peels in the owner's line-up, and the Hero is the owner: its
+    healers and casters had an enemy fighter on them 26% of the time, more than any kind of bot
+    team that evening (bad 24%, the others 12 to 18%), with no peel by a bot at all.
+  - The recording's header gave every guild "Seasoned" (its bots are not made when it is
+    written): it now gives the level of its kind.
 
 **Where M12 stands (2026-11-24).** Built and run with bots on the scrim server: the measure, the
 kite, breaking off, no raising with too many on it. A seventh evening on the last build (13
@@ -3502,8 +3567,9 @@ kites, five groups broke off and four got away, 21 teams wiped, the realm chat o
 written as meant) took 29% of one core over twelve minutes and 6.1 GB, against 28% and 5.9 GB
 for 36 teams before any of this. For the owner's first playtest of it ("Fighting a zerg at RR1 is
 impossible"): `/8v8 prime ... rank 8`, an evening with the player's group at a picked rank and
-earning nothing (automated test only). Seen in a client: nothing. To be looked at
-by the owner: whether a group that falls back and one that turns and runs look like players
+earning nothing. The owner played that evening the same day (M12.8): five fights, the kinds
+met, `/8v8 lead on` used; nothing said yet of how a group that falls back or runs looked. To be
+looked at by the owner: whether a group that falls back and one that turns and runs look like players
 doing it; whether one lost fight in three ending in a run is too many or too few; `/8v8 lead on`
 with the owner's own group.
 
