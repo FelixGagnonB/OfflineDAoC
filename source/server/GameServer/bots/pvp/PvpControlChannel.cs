@@ -226,6 +226,9 @@ namespace DOL.GS
                     // Hunters=2: for a test, that many teams of each realm hunt packs this evening (PvpTeamPool.WithHunters).
                     if (guilds != null && int.TryParse(Arg("Hunters"), out int hunters) && hunters > 0)
                         guilds = PvpTeamPool.WithHunters(guilds, hunters);
+                    // Elites=2: the same for the elite teams.
+                    if (guilds != null && int.TryParse(Arg("Elites"), out int elites) && elites > 0)
+                        guilds = PvpTeamPool.With(guilds, PvpTeamKind.Elite, elites);
                     // Zones=all: the evening is in every frontier zone; Zones=tonight: in as many as its groups are for, drawn
                     // (PvpRoam.ZonesTonight, M11.8); Zones=odin,hadrian: in those and the map it begins in.
                     List<PvpRoamMap> zones = string.Equals(Arg("Zones"), "all", StringComparison.OrdinalIgnoreCase) ? PvpRoam.Frontiers.ToList()

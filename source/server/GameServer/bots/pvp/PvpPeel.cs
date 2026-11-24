@@ -29,6 +29,8 @@ namespace DOL.GS
     /// </summary>
     public sealed class PvpPeelWeights
     {
+        /// <summary>False: nobody guards or peels. The group's shield fighter is one more fighter on the kill (the bad group, bots/pvp/PvpStyles.cs).</summary>
+        public bool Enabled { get; set; } = true;
         public int WardIsHealer { get; set; } = 40;
         public int WardIsCaster { get; set; } = 20;
         /// <summary>For each enemy in melee on that groupmate.</summary>

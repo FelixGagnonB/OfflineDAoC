@@ -67,13 +67,14 @@ namespace DOL.GS
     {
         public static readonly IReadOnlyList<PvpTeamProfile> All =
         [
-            new(PvpTeamKind.Bad, "bad", 30, PvpCompany.Zerg, 100, false, 1, 29, PvpSkill.Casual, PvpLineup.Random, false),
+            new(PvpTeamKind.Bad, "bad", 30, PvpCompany.Zerg, 100, false, 1, 29, PvpSkill.Bad, PvpLineup.Random, false),
             new(PvpTeamKind.Clingy, "casual, stays near others", 15, PvpCompany.Near, 90, true, 10, 39, PvpSkill.Casual, PvpLineup.Loose, false),
-            new(PvpTeamKind.Adder, "casual 8v8, adds", 15, PvpCompany.Alone, 80, true, 20, 49, PvpSkill.Seasoned, PvpLineup.NearMeta, false),
+            // (Casual since 2026-11-24: at the level of a decent team it differed from one only in adding, which the owner found "a bit funky".)
+            new(PvpTeamKind.Adder, "casual 8v8, adds", 15, PvpCompany.Alone, 80, true, 20, 49, PvpSkill.Casual, PvpLineup.NearMeta, false),
             new(PvpTeamKind.Decent, "decent 8v8", 15, PvpCompany.Alone, 0, true, 30, 59, PvpSkill.Seasoned, PvpLineup.Meta, false),
             new(PvpTeamKind.Strong, "strong 8v8", 15, PvpCompany.Alone, 0, true, 50, 79, PvpSkill.Sharp, PvpLineup.Meta, false),
-            new(PvpTeamKind.Elite, "elite 8v8", 5, PvpCompany.Alone, 0, true, 70, 95, PvpSkill.Sharp, PvpLineup.Meta, true),
-            new(PvpTeamKind.Hunter, "elite, hunts the zerg", 5, PvpCompany.Alone, 0, false, 70, 95, PvpSkill.Sharp, PvpLineup.Meta, false, true),
+            new(PvpTeamKind.Elite, "elite 8v8", 5, PvpCompany.Alone, 0, true, 70, 95, PvpSkill.Elite, PvpLineup.Meta, true),
+            new(PvpTeamKind.Hunter, "elite, hunts the zerg", 5, PvpCompany.Alone, 0, false, 70, 95, PvpSkill.Elite, PvpLineup.Meta, false, true),
         ];
 
         public static PvpTeamProfile Of(PvpTeamKind kind) => All.First(profile => profile.Kind == kind);
@@ -84,6 +85,13 @@ namespace DOL.GS
         /// that gave ground would no longer be the crowd it is.
         /// </summary>
         public bool KitesAsOne => Kind != PvpTeamKind.Bad;
+
+        /// <summary>
+        /// It leaves a fight a second enemy group has come into, whatever its chances: the elite
+        /// teams, which "would be only 8v8 in specific area to avoid not clean fights" (the
+        /// owner, 2026-11-22). Not the hunters, who go looking for the crowd.
+        /// </summary>
+        public bool LeavesDirtyFights => Kind == PvpTeamKind.Elite;
 
         /// <summary>The profile a stored word stands for; a word that names none is a decent team.</summary>
         public static PvpTeamProfile Of(string kind) => Enum.TryParse(kind, true, out PvpTeamKind parsed) ? Of(parsed) : Of(PvpTeamKind.Decent);
@@ -296,18 +304,27 @@ namespace DOL.GS
         /// (roam-start Hunters=2). The realm's hunters first, then teams that walk alone with the
         /// realm's main group or near it, taken for hunters for the evening.
         /// </summary>
-        public static List<PvpGuildTeam> WithHunters(IReadOnlyList<PvpGuildTeam> tonight, int perRealm)
+        public static List<PvpGuildTeam> WithHunters(IReadOnlyList<PvpGuildTeam> tonight, int perRealm) => With(tonight, PvpTeamKind.Hunter, perRealm);
+
+        /// <summary>
+        /// For a test: this evening <paramref name="perRealm"/> teams of each realm are of that
+        /// kind (roam-start Hunters=2, Elites=2): the realm's own first, then teams that walk
+        /// alone, the highest in rank first, taken for it for the evening.
+        /// </summary>
+        public static List<PvpGuildTeam> With(IReadOnlyList<PvpGuildTeam> tonight, PvpTeamKind kind, int perRealm)
         {
-            var asHunters = new HashSet<string>();
+            var taken = new HashSet<string>();
             foreach (eRealm realm in Realms)
             {
                 List<PvpGuildTeam> ofRealm = tonight.Where(team => team.ToRealm() == realm).ToList();
-                int have = ofRealm.Count(team => team.ToProfile().HuntsPacks);
-                foreach (PvpGuildTeam team in ofRealm.Where(team => team.ToProfile() is { HuntsPacks: false, Company: PvpCompany.Alone })
-                             .OrderByDescending(team => team.SeedLevel).Take(Math.Max(0, perRealm - have)))
-                    asHunters.Add(team.Id);
+                int have = ofRealm.Count(team => team.ToProfile().Kind == kind);
+                // (An elite team or a hunter only when there is nobody else: asking for both does not take the one for the other.)
+                foreach (PvpGuildTeam team in ofRealm.Where(team => team.ToProfile() is { Company: PvpCompany.Alone } profile && profile.Kind != kind)
+                             .OrderBy(team => team.ToProfile().Kind is PvpTeamKind.Elite or PvpTeamKind.Hunter ? 1 : 0)
+                             .ThenByDescending(team => team.SeedLevel).Take(Math.Max(0, perRealm - have)))
+                    taken.Add(team.Id);
             }
-            return tonight.Select(team => asHunters.Contains(team.Id) ? team with { Kind = nameof(PvpTeamKind.Hunter) } : team).ToList();
+            return tonight.Select(team => taken.Contains(team.Id) ? team with { Kind = kind.ToString() } : team).ToList();
         }
 
         /// <summary>

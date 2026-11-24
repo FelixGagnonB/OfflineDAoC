@@ -51,8 +51,38 @@ namespace DOL.GS
         /// <summary>The fighters stand this far on the enemy's side of the group's place, this far from each other.</summary>
         public int Screen { get; set; } = 300;
         public int ScreenSpacing { get; set; } = 250;
+        /// <summary>
+        /// The turn. The owner, 2026-11-24, told that an elite eight had fallen back from two bad
+        /// groups and still lost: "The group should pull back, fighter included, and then handle
+        /// whichever enemies is closer. My understanding is that the expert team fighter would be
+        /// ready to take on the ones over extending before thier healer would be in range."
+        /// Counted over the three evenings before (1,109 seconds of groups falling back): four
+        /// enemy fighters were at the group's healers and casters at the middle, and for three
+        /// seconds in ten such a fighter was more than 2,000 units from the nearest healer of its
+        /// own; a fifth of the group's damage went to those, two fifths to enemies that had not
+        /// come up at all, its own fighters were on nobody for a third of the time, and it took
+        /// its next leg by the clock.
+        ///
+        /// An enemy that has followed the group and has no healer of its realm awake within this
+        /// is out of reach of a heal: the group turns on it.
+        /// </summary>
+        public int HealReach { get; set; } = 2_000;
+        /// <summary>A leg is walked once the middle of the healers and casters is within <see cref="ArrivedWithin"/> of the place, or after this long: then the group stands.</summary>
+        public int WalkAtMostMilliseconds { get; set; } = 9_000;
+        /// <summary>While it has somebody to turn on, the group does not take its next leg and its kite does not run out.</summary>
+        public int StaysForPreyMilliseconds { get; set; } = 4_000;
+        /// <summary>
+        /// Standing after a leg, the group goes back again only when the pack itself has come up:
+        /// when the free enemies within this of its healers and casters are too many for its side
+        /// (<see cref="OutnumberedPercent"/>). Until then it fights those who came first. In the
+        /// first evening with the turn (2026-11-24) the next leg was still taken when the enemies
+        /// that aimed at the group, wherever they stood, were too many: 14 seconds after the
+        /// last, about five of them standing, with two enemies killed in 23 kites and the
+        /// group's fighters on nobody for 44% of the time.
+        /// </summary>
+        public int PackWithin { get; set; } = 2_000;
         /// <summary>A fighter goes for an enemy only within this of the middle of its healers and casters, wherever they have got to: for whoever followed.</summary>
-        public int FightersReach { get; set; } = 1_100;
+        public int FightersReach { get; set; } = 1_500;
         /// <summary>And the group's kill target is called among the enemies within this of them.</summary>
         public int KillWithin { get; set; } = 1_500;
         /// <summary>With no open ground behind it the group stands for this long before it looks again.</summary>
@@ -101,6 +131,10 @@ namespace DOL.GS
         public int NotGoneWithAPlayerWithin { get; set; } = 7_500;
     }
 
+    /// <summary>An enemy that has followed a group which falls back, as the group sees it when it turns.</summary>
+    /// <param name="FromItsHealer">How far it is from the nearest healer of its realm that is awake; very far when there is none.</param>
+    public readonly record struct PvpFollower(int FromItsHealer, int HealthPercent, int FromTheBackLine, bool Asleep);
+
     /// <summary>
     /// The kite (docs/PVP-8V8-PLAYBOOK.md, section 3: "a retreat is one group moving one way, not
     /// eight paths"). The group has a place, which its caller moves back a leg at a time while
@@ -120,9 +154,10 @@ namespace DOL.GS
         /// group has been outnumbered and pressed for as long as its caller takes to call it
         /// (PvpHumanWeights.KiteCalledAfterMinMilliseconds); the next ones as long as it still is.
         /// </summary>
+        /// <param name="hasSomebodyToTurnOn">An enemy has followed it out of its healers' reach (<see cref="Prey"/>): it stays and kills that one first.</param>
         public static bool TakesLeg(bool outnumbered, int pressedBy, long millisecondsOutnumberedAndPressed, int calledAfterMilliseconds,
-            bool kiting, long millisecondsSinceItsLastLeg, PvpKiteWeights weights) =>
-            weights.Enabled && outnumbered && pressedBy >= weights.PressedBy &&
+            bool kiting, long millisecondsSinceItsLastLeg, PvpKiteWeights weights, bool hasSomebodyToTurnOn = false) =>
+            weights.Enabled && outnumbered && pressedBy >= weights.PressedBy && !(kiting && hasSomebodyToTurnOn) &&
             (kiting || millisecondsOutnumberedAndPressed >= calledAfterMilliseconds) &&
             millisecondsSinceItsLastLeg >= weights.LegEveryMilliseconds;
 
@@ -161,6 +196,31 @@ namespace DOL.GS
             }
             return ways;
         }
+
+        /// <summary>
+        /// Whom a group that has fallen back turns on: of the enemies that have followed it, one
+        /// that is awake and out of the reach of its own healers; the one it is on already while
+        /// that still holds, else the most hurt, else the nearest. -1 when all who followed can be
+        /// healed: then the group calls its target as it always does.
+        /// </summary>
+        public static int Prey(IReadOnlyList<PvpFollower> followers, int current, PvpKiteWeights weights)
+        {
+            bool Open(PvpFollower follower) => !follower.Asleep && follower.FromItsHealer > weights.HealReach;
+            if (current >= 0 && current < followers.Count && Open(followers[current]))
+                return current;
+            int best = -1;
+            for (int id = 0; id < followers.Count; id++)
+            {
+                if (Open(followers[id]) && (best < 0 || followers[id].HealthPercent < followers[best].HealthPercent ||
+                                            followers[id].HealthPercent == followers[best].HealthPercent && followers[id].FromTheBackLine < followers[best].FromTheBackLine))
+                    best = id;
+            }
+            return best;
+        }
+
+        /// <summary>Whether a leg is walked and the group stands: its healers and casters have arrived, or have had the time to.</summary>
+        public static bool Stands(float middleFromThePlace, long millisecondsSinceTheLeg, PvpKiteWeights weights) =>
+            middleFromThePlace <= weights.ArrivedWithin || millisecondsSinceTheLeg >= weights.WalkAtMostMilliseconds;
 
         /// <summary>Where a healer or caster stands from the group's place: where it stood from the middle of them, no farther than the radius.</summary>
         public static Vector2 Offset(Vector2 member, Vector2 middle, int radius)
@@ -227,6 +287,9 @@ namespace DOL.GS
             }
             return push.Length() < 0.5f ? Vector2.Zero : Vector2.Normalize(push) * 1_000;
         }
+
+        /// <summary>A fight is no longer clean for a team that keeps its fights clean: a second enemy group is in it.</summary>
+        public static bool FightIsDirty(int enemyGroupsItFights) => enemyGroupsItFights >= 2;
 
         /// <summary>A team of bots still follows a group that has broken off: it has not got this far from where it broke off.</summary>
         public static bool Followed(double fromWhereItBrokeOff, PvpKiteWeights weights) => fromWhereItBrokeOff <= weights.FollowedFor;

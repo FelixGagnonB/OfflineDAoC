@@ -266,6 +266,14 @@ namespace DOL.UnitTests
             Assert.That(PvpRoam.SightingText(1, eRealm.Midgard, "mid road", true), Is.EqualTo("fighting 1fg mids at mid road"));
             Assert.That(PvpRoam.SightingText(3, eRealm.Hibernia, "north road", false, true), Is.EqualTo("wiped at north road, 3fg hibs"));
             Assert.That(PvpRoam.SightingText(1, eRealm.Albion, null, false), Is.EqualTo("1fg albs"));
+            // An evening at a picked rank (/8v8 prime emain 8 rank 8): rank 8 is realm level 70, and the player's group earns nothing.
+            Assert.That(PvpRoam.TrialLevel(8), Is.EqualTo(70));
+            Assert.That(PvpRoam.TrialLevel(1), Is.EqualTo(0), "rank 1 is what a new group has");
+            Assert.That(PvpRoam.TrialLevel(0), Is.EqualTo(0));
+            Assert.That(PvpRoam.TrialLevel(14), Is.EqualTo(0));
+            Assert.That(PvpRoam.Earns(true, 70), Is.False);
+            Assert.That(PvpRoam.Earns(false, 70), Is.True, "the guilds earn as always");
+            Assert.That(PvpRoam.Earns(true, 0), Is.True);
             // A group that breaks off (M12.5): its own realm hears that it runs, the other that it is on the run.
             Assert.That(PvpRoam.RunningText(2, eRealm.Albion, "south road (Emain)"), Is.EqualTo("running from 2fg albs at south road (Emain)"));
             Assert.That(PvpRoam.OnTheRunText(4, eRealm.Midgard, "mid road"), Is.EqualTo("4 mids on the run at mid road"));

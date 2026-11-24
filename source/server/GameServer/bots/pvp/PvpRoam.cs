@@ -1056,8 +1056,23 @@ namespace DOL.GS
         /// <param name="prime">Above 0: a prime-time evening (M11) with this many groups of each realm, the player's one of them, the others guilds of the world.</param>
         /// <param name="oneZone">A prime-time evening in the one zone, not over several frontiers.</param>
         /// <param name="everyZone">A prime-time evening in every frontier zone there is, however few the groups.</param>
+        /// <summary>
+        /// The realm level the player's group has for this evening when the player picked one
+        /// (/8v8 prime emain 8 rank 8); 0: what it has earned, as always. The owner, 2026-11-24,
+        /// asked to try the groups that fall back and the kinds of team: "I might be needing to
+        /// change my Realm Rank. Fighting a zerg at RR1 is impossible". On such an evening the
+        /// player's group earns nothing: its ranks are as they were when it is over.
+        /// </summary>
+        private static int _trialLevel;
+
+        /// <summary>The realm level a rank picked for an evening stands for (rank 8 is level 70); 0 for no rank or one that is not a rank.</summary>
+        public static int TrialLevel(int rank) => rank is >= 1 and <= 13 ? (rank - 1) * 10 : 0;
+
+        /// <summary>Whether a kill is written to a team's realm points: not for the player's group on an evening at a picked rank.</summary>
+        public static bool Earns(bool ledByAPlayer, int trialLevel) => !(ledByAPlayer && trialLevel > 0);
+
         public static void StartFor(GamePlayer player, Action<string> say, PvpGroupTemplate own = null, PvpRoamMap map = null, int prime = 0, bool oneZone = false,
-            bool everyZone = false)
+            bool everyZone = false, int trialRank = 0)
         {
             map ??= Emain;
             if (own != null && own.Realm != player.Realm)
@@ -1069,10 +1084,16 @@ namespace DOL.GS
                 throw new InvalidOperationException($"The roam of six is in Emain Macha or Thidranki. /8v8 prime {map.Id} begins a prime-time evening in {map.Name}.");
             if (PvpPlayerReady.EnterReal(player) is { } set)
                 say(set);
+            // A rank picked for this evening (prime time only): the player is raised to it, as for a practice fight.
+            int trial = prime > 0 ? TrialLevel(trialRank) : 0;
+            if (trial > 0)
+                say(PvpPlayerReady.RaiseRealmRank(player, trial) ??
+                    $"You are at realm rank {PvpRealmPoints.RankName(player.RealmLevel)} already.");
             PvpScrim.TravelThen(player, map.Region, StartSpot(map, player.Realm), say, () =>
             {
                 try
                 {
+                    _trialLevel = trial;
                     if (prime > 0)
                     {
                         List<PvpGuildTeam> pool = PvpTeamPool.LoadOrCreate(AppContext.BaseDirectory, PvpTeamPool.World, Math.Max(16, prime * 2), Random.Shared);
@@ -1083,6 +1104,9 @@ namespace DOL.GS
                             $"{prime} groups of each realm are out, yours one of them, the others guilds of every kind. " +
                             "Some walk in packs, some add, some do neither. Kills earn realm points that are kept, and a wipe puts your group " +
                             "back here (so does /release). /8v8 who, /8v8 status, /8v8 go <zone>, /8v8 rivals, /8v8 stop.");
+                        if (trial > 0)
+                            say($"An evening to try things: your seven are at realm rank {PvpRealmPoints.RankName(trial)} and your group earns nothing. " +
+                                "Your next real fight or evening puts you back at what you have earned.");
                         if (_maps.Count > 1)
                             say(ZonesLine(_maps, map));
                         return;
@@ -1109,6 +1133,9 @@ namespace DOL.GS
             map ??= Emain;
             if (PvpScrim.Running)
                 throw new InvalidOperationException("A scrim or a session is running. Stop it first.");
+            // (A rank picked for an evening holds for the player's own evening, set just before this by StartFor.)
+            if (leader == null || guilds == null)
+                _trialLevel = 0;
             PvpArena.Clear();
             PvpWeights.Reload(AppContext.BaseDirectory);
             _map = map;
@@ -1309,13 +1336,15 @@ namespace DOL.GS
             GamePlayer leader = team.Leader;
             // The player's seven are put around the player, who stands at the start; a team of bots around its start.
             team.Team.Bots = leader != null
-                ? PvpArena.SpawnCompanions(leader, 0, team.All, team.Template, true).ToList()
+                ? PvpArena.SpawnCompanions(leader, _trialLevel, team.All, team.Template, _trialLevel == 0).ToList()
                 : SpawnBots(team);
             // A guild plays at the level of its kind (PvpSkills), not at the one chosen for "the others".
             if (team.Profile is { } profile)
             {
+                // And in the style of its kind (PvpStyles): whom it calls, where it stands, how it heals, controls, peels and interrupts.
+                PvpWeights style = PvpStyles.For(profile.Kind, PvpWeights.Current);
                 foreach (GameBot bot in team.Team.Bots)
-                    bot.PvpHuman = PvpSkills.WeightsFor(profile.Skill);
+                    (bot.PvpHuman, bot.PvpWeightsSet) = (PvpSkills.WeightsFor(profile.Skill), style);
             }
             if (team.Entry is { } entry)
                 (team.Team.Route, team.CameFrom, team.ArrivedAt) = ([entry], null, 0);
@@ -1666,6 +1695,11 @@ namespace DOL.GS
                         new { what = "fight", team = team.Name, other = other.Name, alive = team.Alive, theirs = other.Alive });
                 }
             }
+
+            // An elite team keeps its fights clean: once a second enemy group is in its fight, it leaves (PvpTeamProfile.LeavesDirtyFights).
+            if (team.Leader == null && team.Profile?.LeavesDirtyFights == true && team.ContactTick != 0 && !team.Team.Squad.Leaving &&
+                PvpKite.FightIsDirty(team.Fighting.Count(other => other.Alive > 0)) && team.Team.Squad.LeaveNow(enemies))
+                Say($"{team.Name} leaves a fight that is no longer clean", new { what = "dirty", team = team.Name, foes = team.Fighting.Count });
 
             Pay(team, real, now);
 
@@ -2070,6 +2104,12 @@ namespace DOL.GS
                 long share = PvpRealmPoints.Share(PvpRealmPoints.ValueOf(dead.Level, PvpRealmPoints.RealmLevelOf(dead)), near.Count, real.RealmPointRate);
                 foreach (IGrouping<PvpRoamTeam, (PvpRoamTeam Team, GameLiving Member)> byTeam in near.GroupBy(entry => entry.Team))
                 {
+                    // (On an evening at a picked rank the player's group earns nothing: the kill is counted and not paid.)
+                    if (!Earns(byTeam.Key.Leader != null, _trialLevel))
+                    {
+                        byTeam.Key.Kills++;
+                        continue;
+                    }
                     byTeam.Key.Kills++;
                     byTeam.Key.Earned += share * byTeam.Count();
                     var earned = new Dictionary<(string, int), long>();

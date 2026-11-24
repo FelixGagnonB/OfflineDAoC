@@ -78,6 +78,10 @@ has played it yet.**
 - `/8v8 prime [zone] [number] [one|all]`. *zone* is where you begin: `emain` if you give none;
   `thid` is Thidranki alone. *number* is the groups of each realm: 8 if you give none, 16 at
   most. `one` keeps the evening in that one zone; `all` puts it in all twelve.
+- **To try things:** add `rank` and a realm rank, `/8v8 prime emain 8 rank 8`. Your seven come at
+  that rank with its realm abilities, you are raised to it with the points to spend at `/train`,
+  and your group earns nothing that evening. Your next real fight or evening puts you back at
+  what you have earned (realm abilities bought above it are handed back). *Automated test only.*
 - **The zones.** Twelve, four in each realm's frontier:
 
   | Frontier | The zone the others ported to | The zones behind it |
@@ -110,7 +114,25 @@ has played it yet.**
   | Elite 8v8 | 5% | alone, leaning to the quiet ground | never | the main group | 8 to 10 | the clean zones; never the crowd |
   | Elite, hunts the zerg | 5% | alone, toward the nearest enemy groups that walk together and that nobody is fighting yet | never: a pack somebody is on already is theirs | the main group | 8 to 10 | the crowd; sometimes a mixed zone; never a clean one |
 
-  A guild's rank does not follow yours: an elite team outranks a new character by a lot.
+  A guild's rank does not follow yours: an elite team outranks a new character by a lot. Rank
+  here is realm rank: a bad group's members begin between rank 1 and rank 3, an elite team's
+  between 8 and 10, and what a guild earns over its evenings comes on top.
+- **How each kind plays.** Since 2026-11-24 a kind also fights in its own way (run with bots
+  only; every number behind it is a first guess):
+
+  | Kind | Level of play | Whom it attacks | Where it stands | Heals | Control | Guard, peel, interrupt |
+  |---|---|---|---|---|---|---|
+  | Bad | bad | no assist: each fighter the nearest enemy; wakes sleepers | healers and casters in the melee, in one clump; nobody is called back | late; raises in the fight | its mezzer mostly does damage | none |
+  | Casual, stays near others | casual | the nearest, whatever its class; slow to switch | one clump, too near; fighters chase far | a little late | mezzes, then breaks it | guards, does not peel; interrupts the nearest |
+  | Casual 8v8, adds | casual | the most hurt | as decent, fighters go too far for a kill | as decent | as decent | peels once a healer is hit; interrupts healers only |
+  | Decent | seasoned | healers and casters, and whoever is out of position | spread out at the edge of range | below 80% | mez, root on whoever is on its healers | all three |
+  | Strong | sharp | as decent, all on a new call for four seconds | regroups sooner | the one being attacked first | the enemy's mezzer first | meets a fighter before it arrives |
+  | Elite | elite | as strong, out of position sooner | as strong | raises nobody with somebody hurt | as strong | as strong |
+  | Elite, hunts the zerg | elite | who is near, not the healer at the back of a pack | as strong; falls back, then turns | as elite | as strong | as strong |
+
+  The five levels: bad answers in 1.5 to 4 seconds and is looking elsewhere almost half the
+  time; casual in 0.9 to 2.5; seasoned in 0.4 to 1.2; sharp in 0.15 to 0.45; elite in 0.1 to
+  0.3. An elite team leaves a fight a second enemy group has come into.
 - **Where they go.** Nobody walks a fixed round. At each point a guild picks where to go next,
   not back the way it came. One that does not add stands by a fight it comes on for 45 seconds
   for it to end, then turns back or walks on past. One that does not count heads (the bad
@@ -120,7 +142,8 @@ has played it yet.**
   are on its healers and casters, its caller moves the whole group back 1,800 units at a time,
   away from the enemy and toward its start where the ground allows: healers and casters run to
   their spots without casting, the fighters stand between them and the enemy and take whoever
-  follows, nobody is raised, and then it stands and fights before the next leg. A sharp guild
+  follows, nobody is raised. The leg walked, it stands and turns on whoever followed out of the
+  reach of its own healers, and it goes back again only when the pack itself has come up. A sharp guild
   is on its way within a second and a half, a casual one after six to twelve; a bad group does
   not do it at all. Run with bots only; it carries a group thousands of units and has not yet
   made eight beat sixteen. With too many on it a guild raises nobody. Your own group still moves

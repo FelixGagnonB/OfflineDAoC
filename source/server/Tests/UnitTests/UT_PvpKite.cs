@@ -94,7 +94,7 @@ namespace DOL.UnitTests
             Assert.That(row[2].Y - row[1].Y, Is.EqualTo(Weights.ScreenSpacing).Within(0.01f));
 
             // A fighter takes whoever has followed to the place, and nobody farther off.
-            Assert.That(PvpKite.FighterTakes(600, Weights), Is.True);
+            Assert.That(PvpKite.FighterTakes(1_100, Weights), Is.True);
             Assert.That(PvpKite.FighterTakes(Weights.FightersReach + 1, Weights), Is.False);
         }
 
@@ -157,6 +157,36 @@ namespace DOL.UnitTests
             Assert.That(PvpKite.FormsUpAgain(true, true), Is.False);
             Assert.That(PvpKite.FormsUpAgain(false, false), Is.False);
             Assert.That(Weights.NotGoneWithAPlayerWithin, Is.GreaterThan(WorldMgr.VISIBILITY_DISTANCE), "farther than a player sees a bot");
+        }
+
+        [Test]
+        public void HavingFallenBackItTurnsOnWhoeverFollowedTooFar()
+        {
+            // "The group should pull back, fighter included, and then handle whichever enemies is closer. My understanding is
+            // that the expert team fighter would be ready to take on the ones over extending before thier healer would be in range."
+            var followers = new List<PvpFollower>
+            {
+                new(1_400, 60, 300, false),          // its healer has kept up
+                new(2_600, 100, 500, false),         // out of reach
+                new(3_100, 80, 900, false),          // out of reach, and hurt
+                new(int.MaxValue, 20, 200, true),    // nobody to heal it, but asleep: hitting it would wake it
+            };
+            Assert.That(PvpKite.Prey(followers, -1, Weights), Is.EqualTo(2), "the most hurt of those no heal can reach");
+            Assert.That(PvpKite.Prey(followers, 1, Weights), Is.EqualTo(1), "it stays on the one it has while that one is still out of reach");
+            Assert.That(PvpKite.Prey(followers, 0, Weights), Is.EqualTo(2), "not on one whose healer has come up");
+            Assert.That(PvpKite.Prey([new(1_400, 60, 300, false), new(1_900, 10, 100, false)], -1, Weights), Is.EqualTo(-1), "all of them can be healed");
+            Assert.That(PvpKite.Prey([new(2_500, 50, 900, false), new(2_500, 50, 400, false)], -1, Weights), Is.EqualTo(1), "as hurt as each other: the nearer");
+            Assert.That(PvpKite.Prey([], -1, Weights), Is.EqualTo(-1));
+
+            // On the walk nobody fights; arrived, or after the time a leg takes, the group stands.
+            Assert.That(PvpKite.Stands(1_500, 2_000, Weights), Is.False);
+            Assert.That(PvpKite.Stands(Weights.ArrivedWithin, 2_000, Weights), Is.True);
+            Assert.That(PvpKite.Stands(1_500, Weights.WalkAtMostMilliseconds, Weights), Is.True);
+            // With somebody to turn on it does not take its next leg.
+            Assert.That(PvpKite.TakesLeg(true, 3, 0, 3_000, true, Weights.LegEveryMilliseconds, Weights, hasSomebodyToTurnOn: true), Is.False);
+            Assert.That(PvpKite.TakesLeg(true, 3, 0, 3_000, true, Weights.LegEveryMilliseconds, Weights, hasSomebodyToTurnOn: false), Is.True);
+            // Its fighters reach as far as its kill target is called.
+            Assert.That(Weights.FightersReach, Is.EqualTo(Weights.KillWithin));
         }
 
         [Test]

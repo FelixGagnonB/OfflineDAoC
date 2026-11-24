@@ -122,6 +122,10 @@ namespace DOL.GS
         private readonly Dictionary<GameBot, Vector2> _kiteOffsets = new();
         private Dictionary<GameBot, Vector3> _screen = new();
         private readonly Dictionary<GameBot, int> _kiteWalk = new();
+        /// <summary>Falling back: the enemy that has followed out of its healers' reach, which the group turns on (PvpKite.Prey); null when there is none.</summary>
+        public GameLiving Prey { get; private set; }
+        /// <summary>Falling back: the leg is walked and the group stands and fights whoever followed. False on the walk, when everybody pulls back, its fighters too.</summary>
+        public bool KiteStands { get; private set; }
 
         /// <summary>True for a group that counts what is on it and has too much (PvpKite.Outnumbered): it raises nobody.</summary>
         public bool TooManyOnIt { get; private set; }
@@ -137,6 +141,30 @@ namespace DOL.GS
         private int _leaveCalledAfter;
         private Vector2 _leaveWay, _leaveAway;
         private bool _turnedToFight;
+
+        /// <summary>
+        /// The group leaves a fight it has not lost: its kind keeps its fights clean, and a second
+        /// enemy group has come into this one (PvpTeamProfile.LeavesDirtyFights). It runs as a
+        /// group that has broken off does. False when it cannot: no fight, nobody alive, no
+        /// ground to run to, or it has turned to fight already.
+        /// </summary>
+        public bool LeaveNow(IReadOnlyList<GameLiving> enemies)
+        {
+            List<GameBot> alive = _members.Where(bot => bot.IsAlive).ToList();
+            if (Leaving || _turnedToFight || !FightStarted || alive.Count == 0)
+                return false;
+            long now = GameLoop.GameLoopTime;
+            EndKite();
+            var all = new Vector2((float)alive.Average(bot => bot.X), (float)alive.Average(bot => bot.Y));
+            List<GameLiving> foes = enemies.Where(enemy => enemy.IsAlive).ToList();
+            _leaveAway = PvpKite.AwayFrom(all, foes.Select(enemy => new Vector2(enemy.X, enemy.Y)).ToList());
+            (_leaveSince, LeftFrom, _leavePickedAt) = (now, all, 0);
+            LeavesTo = null;
+            PvpRecorder.Decision(alive[0], new { kind = "LeavesDirtyFight", score = alive.Count, enemies = foes.Count }, [], null);
+            PvpObserver.Say(alive[0], $"{PvpObserver.Realm(alive[0])} leaves a fight that is no longer clean");
+            Leave(now);
+            return Leaving;
+        }
 
         /// <summary>It could not get away: it turns and fights, and does not break off again.</summary>
         public void StopLeaving()
@@ -204,6 +232,7 @@ namespace DOL.GS
                 Call(voice, "kite-over", PvpCalls.KiteOver, 0, 2);
             }
             KiteLegs = 0;
+            (Prey, KiteStands) = (null, false);
             _kiteOffsets.Clear();
             _screen = new();
             _kiteWalk.Clear();
@@ -289,9 +318,37 @@ namespace DOL.GS
                 _kiteCalledAfter = Util.Random(Math.Max(0, human.KiteCalledAfterMinMilliseconds),
                     Math.Max(human.KiteCalledAfterMinMilliseconds, human.KiteCalledAfterMaxMilliseconds));
             }
-            if (now >= _corneredUntil && PvpKite.TakesLeg(outnumbered, pressed, _pressedSince == 0 ? 0 : now - _pressedSince, _kiteCalledAfter,
-                    kiting, now - _lastLeg, weights))
+            // The leg walked, it stands; and it turns on whoever has followed it out of the reach of a healer of its own.
+            KiteStands = kiting && PvpKite.Stands(Vector2.Distance(middle, _place), now - _lastLeg, weights);
+            GameLiving prey = null;
+            if (KiteStands)
             {
+                List<GameLiving> theirHealers = foes.Where(enemy => PvpMember.ArchetypeOf(enemy) == PvpBuffArchetype.Healer && !enemy.IsMezzed && !enemy.IsStunned).ToList();
+                List<GameLiving> followers = foes.Where(enemy => Vector2.Distance(At(enemy), middle) <= weights.KillWithin).ToList();
+                List<PvpFollower> views = followers.Select(enemy => new PvpFollower(
+                    theirHealers.Where(healer => healer != enemy && healer.Realm == enemy.Realm).Select(healer => (int)healer.GetDistanceTo(enemy)).DefaultIfEmpty(int.MaxValue).Min(),
+                    enemy.HealthPercent, (int)Vector2.Distance(At(enemy), middle), enemy.IsMezzed)).ToList();
+                int turnOn = PvpKite.Prey(views, Prey != null ? followers.IndexOf(Prey) : -1, weights);
+                if (turnOn >= 0)
+                {
+                    prey = followers[turnOn];
+                    if (prey != Prey)
+                        PvpRecorder.Decision(alive[0], new { kind = "TurnOn", d = prey.Name, score = views[turnOn].HealthPercent,
+                            fromItsHealer = views[turnOn].FromItsHealer == int.MaxValue ? -1 : views[turnOn].FromItsHealer, followers = followers.Count }, [], null);
+                    // It stays for the kill: the kite does not run out under it.
+                    _kiteUntil = Math.Max(_kiteUntil, now + weights.StaysForPreyMilliseconds);
+                }
+            }
+            Prey = prey;
+            // Fallen back already, it goes again only when the pack itself is on it: those who came first it fights where it stands.
+            int come = foes.Count(enemy => !enemy.IsMezzed && !enemy.IsStunned && Vector2.Distance(At(enemy), middle) <= weights.PackWithin);
+            bool overrun = PvpKite.Outnumbered(OwnSide, come, weights);
+            if (KiteStands && come > 0)
+                _kiteUntil = Math.Max(_kiteUntil, now + weights.StaysForPreyMilliseconds);
+            if (now >= _corneredUntil && PvpKite.TakesLeg(kiting ? overrun : outnumbered, pressed, _pressedSince == 0 ? 0 : now - _pressedSince, _kiteCalledAfter,
+                    kiting, now - _lastLeg, weights, Prey != null))
+            {
+                (Prey, KiteStands) = (null, false);
                 // Away from the enemies that are near, over ground the group can walk in a straight line.
                 List<GameLiving> near = foes.Where(enemy => Vector2.Distance(At(enemy), middle) <= ViewRange / 2).ToList();
                 if (near.Count == 0)
@@ -1082,6 +1139,12 @@ namespace DOL.GS
                     else
                         _calledTarget = null;
                 }
+                // A group that has fallen back turns on whoever followed it out of its healers' reach (bots/pvp/PvpKite.cs).
+                if (Kiting && Prey is { IsAlive: true } followed && pool.Contains(followed))
+                {
+                    target = followed;
+                    chosen = pool.IndexOf(followed);
+                }
                 if (target != current)
                 {
                     if (current is { IsAlive: true })
@@ -1121,6 +1184,9 @@ namespace DOL.GS
                 // the kill only once the target is nearly dead, while a spell caster keeps its
                 // target and gets the duty as a leaning in its scored choice.
                 PvpRole role = PvpMember.RoleOf(bot);
+                // (A group that does not peel: its shield fighter is one more fighter.)
+                if (role == PvpRole.Peel && !PvpWeights.Of(bot).Peel.Enabled)
+                    role = PvpRole.Assist;
                 brain.PvpSquad = this;
                 // From the run-in on: the owner, 2026-11-19, "we were using speed + sprint all the time until initial contact", and after it.
                 PvpPositionWeights legs = PvpWeights.Of(bot).Position;
@@ -1150,7 +1216,8 @@ namespace DOL.GS
                 brain.PvpEnemies = enemies;
                 // What this member takes for the kill target: the group's call once it has heard it, and the
                 // one it had until then (assist discipline, PvpHumanWeights.AssistSwitchMinMilliseconds).
-                GameLiving mine = Hears(bot, target);
+                // (A group with no assist: the call is made and nobody takes it. PvpKillWeights.Assists.)
+                GameLiving mine = PvpWeights.Of(bot).Kill.Assists ? Hears(bot, target) : null;
                 PvpNotice.HurtSince(bot, PvpNotice.HumanOf(bot).HurtNoticedBelowPercent);
                 brain.PvpKillTarget = mine;
                 duty.TryGetValue(bot, out GameLiving onDuty);
@@ -1216,8 +1283,16 @@ namespace DOL.GS
                 if (Kiting && bot.IsAlive && IsFighter(bot) && role == PvpRole.Assist && !calledOnto && RegroupsOn == null)
                 {
                     PvpKiteWeights kite = PvpWeights.Of(bot).Kite;
-                    if (aim != null && !IsPursuer(aim) && !PvpKite.FighterTakes(Vector2.Distance(new Vector2(aim.X, aim.Y), _body), kite))
+                    bool Reached(GameLiving enemy) => PvpKite.FighterTakes(Vector2.Distance(new Vector2(enemy.X, enemy.Y), _body), kite);
+                    if (!KiteStands)
+                        // The leg: "The group should pull back, fighter included".
                         aim = null;
+                    else if (Prey is { IsAlive: true } open && Reached(open))
+                        // "...ready to take on the ones over extending before thier healer would be in range."
+                        aim = open;
+                    else if (aim == null || !IsPursuer(aim) && !Reached(aim))
+                        // "...and then handle whichever enemies is closer."
+                        aim = alive.Where(enemy => !enemy.IsMezzed && Reached(enemy)).OrderBy(enemy => bot.GetDistanceTo(enemy)).FirstOrDefault();
                     fallsBack = aim == null;
                     if (fallsBack && _screen.TryGetValue(bot, out Vector3 stand))
                     {

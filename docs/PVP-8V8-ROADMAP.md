@@ -3368,6 +3368,35 @@ The plan the owner agreed to that day ("Let's proceed and test with bots first")
     kind of fight, falling back or not (first evening), and a whole group deals 70 to 95 damage
     a second. That is what a single bot does with its turn, which the owner parked on
     2026-11-22: a kite cannot pay while it stays so.
+  - **The turn.** The owner, 2026-11-24, told that an elite eight had fallen back from two bad
+    groups and still lost: "I am not sure to undertand how the kiting expert failed vs 2 bad
+    groups. The group should pull back, fighter included, and then handle whichever enemies is
+    closer. My understanding is that the expert team fighter would be ready to take on the ones
+    over extending before thier healer would be in range." Counted over the three evenings
+    before (1,109 seconds of groups falling back): the pack did string out (four enemy fighters
+    at the group's back line at the middle, and three seconds in ten such a fighter was more
+    than 2,000 units from the nearest healer of its own), and the group made nothing of it. A
+    fifth of its damage went to those fighters and two fifths to enemies that had not come up
+    at all; its own fighters were on nobody a third of the time; 52,000 damage went onto those
+    who had followed and 36,000 was healed back on them; and the next leg was taken by the
+    clock. Built the same day:
+    - On a leg everybody pulls back, the fighters too. The leg walked (the middle of the healers
+      and casters within 450 of the place, or nine seconds), the group stands.
+    - Standing, it turns on an enemy that has followed and has no healer of its realm awake
+      within 2,000 units: the one it is on already, else the most hurt, else the nearest
+      (`PvpKite.Prey`). That one is the kill target, for fighters and casters. With nobody out
+      of reach it calls its target as always among those within 1,500, and a fighter with no
+      target takes the nearest enemy within 1,500 of its back line.
+    - It does not take its next leg while it has somebody to turn on, nor until the pack itself
+      has come up: until the free enemies within 2,000 of its back line are too many for its
+      side. (A first try left that to the enemies that aimed at it wherever they stood: it went
+      on 14 seconds after the last leg, five of them standing, with two enemies killed in 23
+      kites and its fighters on nobody 44% of the time.)
+    - **One evening of bots on that build** (36 teams, 15 minutes, with the kinds' styles of
+      M12.6 new in the same evening, so the two cannot be told apart): 13 kites, 17 enemies
+      dead meanwhile where there had been one to nine in 13 to 30; a second falling back dealt
+      86 and took 192, against 49 and 217 standing with too many on it; healers and casters cast
+      25% of the time against 16 to 17, and walked 35% against 46 to 49.
 - [ ] **M12.4** (S) Reading the situation. *Part built 2026-11-24, bots only.*
   - A group with too many on it raises nobody: the raised come back hurt and without their
     buffs (the Cleric and the Cabalist of the eight that lost to sixteen on 2026-11-23 were
@@ -3408,8 +3437,55 @@ The plan the owner agreed to that day ("Let's proceed and test with bots first")
     the ground took for no way at all: in the fourth evening groups ran their first 2,500 units
     and then stood until they were dead (eight got away of seventeen). In the fifth, nine of
     the nine that had finished their run got away, 3,300 to 5,300 units, in 13 to 41 seconds.
-- [ ] **M12.6** (S) The kinds differ in how well they do it. So far only in how long the caller
-  takes, and in the bad groups doing none of it.
+- [ ] **M12.6** (M) The kinds play differently. *Built 2026-11-24 and run with bots only; seen
+  in no client.* The owner, shown that a kind differed from another in company, adding, rank,
+  line-up and speed of reaction and in nothing of how it fought: "all kinds should behave
+  differently regarding Targeting, positioning, healing, crowd control, peeling and
+  interrupting instead of sharing the same value"; of the levels of play, "Should we also have
+  teh same for bad and elite?"; of the casual group that adds, that it "looks a bit funky"; and
+  of the habits proposed for each kind, "These suggestions looks fine to me. We can start with
+  it."
+  - **Five levels of play** (`PvpSkill`): bad, casual, seasoned, sharp, elite. Bad answers in
+    1.5 to 4 seconds, is looking elsewhere 45% of the time and comes to a new kill target 3 to 7
+    seconds late; elite in 0.1 to 0.3 seconds, never distracted. The bad groups play at bad, the
+    two casual kinds at casual (the one that adds was at seasoned, the same as a decent team),
+    the decent at seasoned, the strong at sharp, the elite and the hunters at elite.
+  - **A style for each kind** (`PvpStyles.cs`): a copy of the weights with that kind's habits
+    written over it, given to its bots when they are made. The decent team has none and plays by
+    the weights as they are, as every team did before.
+    - *Bad:* no assist (the call is made and nobody takes it: each fighter goes for the nearest
+      enemy, a caster for whom it likes, sleepers are woken); healers and casters in the melee
+      and in one clump; no order but "engage"; heals late and raises in the fight; its mezzer
+      mostly does damage; no guard, no peel, no interrupt duty.
+    - *Casual, stays near others:* calls the nearest enemy whatever its class and is slow to
+      switch; one clump, nearer than it should be; its fighters chase far; heals a little late;
+      breaks its own mez; guards and does not peel; breaks off in 60 lost fights of a hundred.
+    - *Casual 8v8, adds:* calls the most hurt enemy; its fighters go too far for a kill; peels
+      only once a healer is hit and interrupts healers only; breaks off in 50.
+    - *Strong:* everybody on a new call for four seconds; regroups sooner; the member the enemy
+      is on is healed earlier; the enemy's mezzer is controlled and interrupted first; a
+      fighter on its way to the healers is met before it arrives.
+    - *Elite:* as strong; calls whoever stands out of position sooner; raises nobody with
+      somebody hurt; and **leaves a fight a second enemy group has come into**
+      (`PvpTeamProfile.LeavesDirtyFights`), running as a group that has broken off does.
+    - *Elite, hunts the zerg:* as elite without that last; its targets are the near ones and
+      not the healer at the back of a pack, and it goes for nobody farther than 2,000 units.
+  - Two switches were new code: `PvpKillWeights.Assists` and `PvpPeelWeights.Enabled`.
+  - **Measured** (`source/tools/pvp_kinds.py`, what each kind did in the seconds its teams were
+    fighting). Two evenings before, every kind alike: 44 to 59% of its damage on the enemy its
+    group had called, a healer called 42 to 57% of the time, the back line 1,020 to 1,100 units
+    wide, a heal chosen with the patient at 57 to 65%, 10 to 15 times a minute somebody given
+    an enemy to interrupt. One evening after (36 teams, 15 minutes): a bad group had 18% of its
+    damage on the called enemy, an enemy fighter on its healers and casters 24% of the time, a
+    back line 710 units wide, a heal chosen at 50%, and no peel and no interrupt duty at all;
+    the casual group near others called a fighter 70% of the time, with 78% on its call and
+    three duties a minute; the one that adds had half a decent team's peels and a third of its
+    duties; a decent team was as before (58%, 970 wide, 12 peels and 12 duties a minute). A
+    second evening, cut at eight and a half minutes for the owner's playtest and with elite
+    teams put in (`roam-start Elites=2`), showed the same, and one elite team left a fight a
+    second group had come into.
+  - Every number in the styles is a first guess. Not built: a bad group's healers that do not
+    follow their group; anything of a kind's play that only a player would notice.
 - [ ] **M12.7** (S) The player's group. *Built 2026-11-24, automated tests only: nobody has
   played with it, and it is off unless the player turns it on.* `/8v8 lead on`: in a roam the
   seven fall back as one by themselves, as the teams of bots do, and say so in group chat four
@@ -3424,7 +3500,9 @@ The plan the owner agreed to that day ("Let's proceed and test with bots first")
 kite, breaking off, no raising with too many on it. A seventh evening on the last build (13
 kites, five groups broke off and four got away, 21 teams wiped, the realm chat of a break-off
 written as meant) took 29% of one core over twelve minutes and 6.1 GB, against 28% and 5.9 GB
-for 36 teams before any of this. Seen in a client: nothing. To be looked at
+for 36 teams before any of this. For the owner's first playtest of it ("Fighting a zerg at RR1 is
+impossible"): `/8v8 prime ... rank 8`, an evening with the player's group at a picked rank and
+earning nothing (automated test only). Seen in a client: nothing. To be looked at
 by the owner: whether a group that falls back and one that turns and runs look like players
 doing it; whether one lost fight in three ending in a run is too many or too few; `/8v8 lead on`
 with the owner's own group.

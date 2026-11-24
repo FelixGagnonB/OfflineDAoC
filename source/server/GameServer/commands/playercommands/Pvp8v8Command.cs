@@ -14,6 +14,7 @@ namespace DOL.GS.Commands
         "/8v8 roam [thid] [group]       the roam: two groups of each realm in Emain Macha (thid: in Thidranki), yours with you; real rules, and a wipe or a release puts your group back at its start",
         "/8v8 skill [group|others] [casual|seasoned|sharp]  how sharp your group and the other groups play: reaction time, attention, mistakes; alone it says what is set",
         "/8v8 prime [zone] [number] [one|all]   a prime-time evening in some of the frontier zones: that many groups of each realm (8 if you give none, 16 at most), yours one of them, the others guilds of every kind: packs of bad groups, groups that add, groups that do not. One zone for every three groups of a realm: the one you begin in, the crowded one (Emain Macha) and others that change from evening to evening. zone: where you begin (emain, odin, hadrian, breifine, cruachan, collory, pennine, sauvage, snowdonia, jamtland, uppland, yggdra; thid for Thidranki alone). one: in that zone only; all: in all twelve",
+        "/8v8 prime ... rank <1-13>     the same evening to try things: your group at that realm rank for the evening, and it earns nothing (your next real fight puts you back at what you have earned)",
         "/8v8 go <zone>                 on a prime-time evening: your group ports to your realm's start in another zone of the evening (/8v8 who names them); not out of a fight",
         "/8v8 who                       on a prime-time evening: the guilds of your realm that are out, their rank and who is in them, and how many groups the other realms have out",
         "/8v8 rivals                    the enemy guilds you have wiped or been wiped by on prime-time evenings, and how often",
@@ -217,11 +218,15 @@ namespace DOL.GS.Commands
                     try
                     {
                         // "/8v8 prime thid 6": in Thidranki, six groups of each realm.
-                        int groups = args.Skip(2).Select(word => int.TryParse(word, out int number) ? number : 0).FirstOrDefault(number => number > 0);
-                        PvpRoam.StartFor(player, Say, args.Skip(2).Select(PvpBuildCatalog.FindGroup).FirstOrDefault(group => group != null),
-                            args.Skip(2).Select(PvpRoam.MapFor).FirstOrDefault(map => map != null), System.Math.Clamp(groups == 0 ? 8 : groups, 1, 16),
-                            args.Skip(2).Any(word => word.Equals("one", System.StringComparison.OrdinalIgnoreCase)),
-                            args.Skip(2).Any(word => word.Equals("all", System.StringComparison.OrdinalIgnoreCase)));
+                        // "/8v8 prime emain 8 rank 8": an evening to try things, your group at realm rank 8 and earning nothing.
+                        int rankAt = System.Array.FindIndex(args, 2, word => word.Equals("rank", System.StringComparison.OrdinalIgnoreCase));
+                        int trialRank = rankAt >= 0 && rankAt + 1 < args.Length && int.TryParse(args[rankAt + 1], out int picked) ? picked : 0;
+                        string[] rest = rankAt < 0 ? args : args.Where((_, index) => index != rankAt && index != rankAt + 1).ToArray();
+                        int groups = rest.Skip(2).Select(word => int.TryParse(word, out int number) ? number : 0).FirstOrDefault(number => number > 0);
+                        PvpRoam.StartFor(player, Say, rest.Skip(2).Select(PvpBuildCatalog.FindGroup).FirstOrDefault(group => group != null),
+                            rest.Skip(2).Select(PvpRoam.MapFor).FirstOrDefault(map => map != null), System.Math.Clamp(groups == 0 ? 8 : groups, 1, 16),
+                            rest.Skip(2).Any(word => word.Equals("one", System.StringComparison.OrdinalIgnoreCase)),
+                            rest.Skip(2).Any(word => word.Equals("all", System.StringComparison.OrdinalIgnoreCase)), trialRank);
                     }
                     catch (System.Exception exception)
                     {

@@ -451,6 +451,7 @@ namespace DOL.GS
                         order = squad.Order.ToString(), own = Shares(squad.Own), theirs = Shares(squad.Theirs), incoming = squad.Incoming,
                         // The kite (bots/pvp/PvpKite.cs): its side, the enemies that aim at it, and the legs it has gone back.
                         side = squad.OwnSide, on = squad.OnIt, kite = squad.Kiting, legs = squad.KiteLegs, leaving = squad.Leaving,
+                        stands = squad.KiteStands, prey = squad.Prey?.Name,
                     });
             }
             Drain();

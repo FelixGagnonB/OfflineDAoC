@@ -84,6 +84,24 @@ namespace DOL.GS
         /// <summary>The settings of a named level (docs/PVP-8V8-ROADMAP.md, M10.2).</summary>
         public static PvpHumanWeights For(PvpSkill skill) => skill switch
         {
+            // The two ends (M12.6). The owner, 2026-11-24, shown the three levels: "Should we also have the same for bad and
+            // elite?" A bad group answers in seconds, is looking elsewhere almost half the time and often does the lesser thing.
+            PvpSkill.Bad => new PvpHumanWeights
+            {
+                ImmunityEndNoticedAfterMinSeconds = 15, ImmunityEndNoticedAfterMaxSeconds = 50,
+                ReactionMinMilliseconds = 1_500, ReactionMaxMilliseconds = 4_000, DistractedPercent = 45, ChoiceNoise = 22,
+                AssistSwitchMinMilliseconds = 3_000, AssistSwitchMaxMilliseconds = 7_000, KeepsOldTargetPercent = 40, KeepsOldTargetMilliseconds = 10_000,
+                HurtNoticedBelowPercent = 75,
+                KiteCalledAfterMinMilliseconds = 10_000, KiteCalledAfterMaxMilliseconds = 20_000,
+            },
+            // An elite team is a little quicker again than a sharp one: near to what the bots were before they were given limits.
+            PvpSkill.Elite => new PvpHumanWeights
+            {
+                ImmunityEndNoticedAfterMinSeconds = 1, ImmunityEndNoticedAfterMaxSeconds = 4,
+                ReactionMinMilliseconds = 100, ReactionMaxMilliseconds = 300, DistractedPercent = 0, ChoiceNoise = 0,
+                AssistSwitchMinMilliseconds = 100, AssistSwitchMaxMilliseconds = 250, KeepsOldTargetPercent = 0,
+                KiteCalledAfterMinMilliseconds = 300, KiteCalledAfterMaxMilliseconds = 1_000,
+            },
             // As near to what the bots were as a level may be: they still do not see an immunity end to the tick.
             PvpSkill.Sharp => new PvpHumanWeights
             {
@@ -106,9 +124,13 @@ namespace DOL.GS
     /// <summary>How sharp a group of bots plays (M10.2). Seasoned is what the weights say; the two others are fixed.</summary>
     public enum PvpSkill
     {
+        /// <summary>Below casual: the bad groups of a prime-time evening (M12.6).</summary>
+        Bad,
         Casual,
         Seasoned,
         Sharp,
+        /// <summary>Above sharp: the elite teams of a prime-time evening (M12.6).</summary>
+        Elite,
     }
 
     /// <summary>
@@ -128,6 +150,8 @@ namespace DOL.GS
 
         public static PvpSkill? Parse(string word) => (word ?? string.Empty).Trim().ToLowerInvariant() switch
         {
+            "bad" => PvpSkill.Bad,
+            "elite" => PvpSkill.Elite,
             "casual" or "easy" => PvpSkill.Casual,
             "seasoned" or "normal" => PvpSkill.Seasoned,
             "sharp" or "hard" => PvpSkill.Sharp,
@@ -140,7 +164,9 @@ namespace DOL.GS
         /// </summary>
         public static string NameOf(GameBot bot) =>
             bot?.PvpHuman is not { } human ? nameof(PvpSkill.Seasoned)
+            : human.ReactionMaxMilliseconds <= PvpHumanWeights.For(PvpSkill.Elite).ReactionMaxMilliseconds ? nameof(PvpSkill.Elite)
             : human.ReactionMaxMilliseconds <= PvpHumanWeights.For(PvpSkill.Sharp).ReactionMaxMilliseconds ? nameof(PvpSkill.Sharp)
+            : human.ReactionMinMilliseconds >= PvpHumanWeights.For(PvpSkill.Bad).ReactionMinMilliseconds ? nameof(PvpSkill.Bad)
             : human.ReactionMinMilliseconds >= PvpHumanWeights.For(PvpSkill.Casual).ReactionMinMilliseconds ? nameof(PvpSkill.Casual)
             : nameof(PvpSkill.Seasoned);
 
@@ -149,6 +175,8 @@ namespace DOL.GS
 
         public static string Describe(PvpSkill skill) => skill switch
         {
+            PvpSkill.Bad => "Bad: answers in one and a half to four seconds, distracted almost half the time, very often takes a lesser choice; its members come to a new kill target three to seven seconds late, four in ten much later",
+            PvpSkill.Elite => "Elite: answers in a tenth to a third of a second, never distracted, always takes its best choice; the whole group is on a new kill target at once",
             PvpSkill.Sharp => "Sharp: answers in a quarter to half a second, never distracted, always takes its best choice; the whole group is on a new kill target at once and its healers see a health bar move at once",
             PvpSkill.Casual => "Casual: answers in one to two and a half seconds, distracted three times in ten, often takes a lesser choice; its members come to a new kill target two to four seconds late, one in four much later, and its healers are slow to see who is hurt",
             _ => "Seasoned: answers in half a second to a second, distracted now and then, mostly takes its best choice; on a new kill target within a second, its healers a moment behind",

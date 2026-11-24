@@ -19,6 +19,14 @@ namespace DOL.GS
     /// </summary>
     public sealed class PvpKillWeights
     {
+        /// <summary>
+        /// False: the group has no assist. Its call is made and nobody takes it: each fighter
+        /// goes for the nearest enemy it sees, and a caster for whom it likes. That is the bad
+        /// group of a prime-time evening (bots/pvp/PvpStyles.cs), and what the recorded fights
+        /// of the old brain were: each fighter on seven to nine targets in two and a half
+        /// minutes, and nobody died.
+        /// </summary>
+        public bool Assists { get; set; } = true;
         public int OnHealer { get; set; } = 200;
         public int OnCaster { get; set; } = 150;
         public int OnFighter { get; set; } = 50;
