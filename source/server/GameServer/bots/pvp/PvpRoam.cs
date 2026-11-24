@@ -104,6 +104,8 @@ namespace DOL.GS
         /// <summary>Out of a fight with dead members since this tick (0: none); and gone back to its start to form up again.</summary>
         public long DeadSince;
         public bool Reforming;
+        /// <summary>When it broke off from a fight it had lost (0: it has not), and when an enemy team was last near it on its run.</summary>
+        public long BrokeOffAt, LastFollowedTick;
         /// <summary>The enemy teams it is in a fight with now.</summary>
         public readonly HashSet<PvpRoamTeam> Fighting = [];
         /// <summary>Its draw for each enemy team its realm's other team is fighting: true, it joins.</summary>
@@ -1284,6 +1286,7 @@ namespace DOL.GS
         private static PvpSquad NewSquad(PvpRoamTeam team) => new(team.Team.Bots, team.Leader != null ? [team.Leader] : null)
         {
             KitesOnItsOwn = team.Leader == null && team.Profile?.KitesAsOne != false,
+            LeadsOnThePlayersWord = team.Leader != null,
             Home = team.Start.Point,
         };
 
@@ -1318,7 +1321,7 @@ namespace DOL.GS
             team.Draws.Clear();
             team.Waiting = false;
             (team.Hide, team.Rested) = (null, false);
-            (team.DeadSince, team.Reforming) = (0, false);
+            (team.DeadSince, team.Reforming, team.BrokeOffAt) = (0, false, 0);
             (team.State, team.StateSince, team.ContactTick, team.LastEnemyNearTick) = (leader != null ? "Roaming" : "Buffing", now, 0, now);
         }
 
@@ -1609,6 +1612,13 @@ namespace DOL.GS
             }
             List<PvpRoamTeam> foes = others.Where(other =>
             {
+                // A team that has broken off is let go: a team of bots follows it only so far from where it broke off.
+                if (team.Leader == null && other.Team.Squad is { Leaving: true } gone)
+                {
+                    (double x, double y) = other.Centre();
+                    if (!PvpKite.Followed(Math.Sqrt(Math.Pow(x - gone.LeftFrom.X, 2) + Math.Pow(y - gone.LeftFrom.Y, 2)), PvpWeights.Of(team.Team.Bots.FirstOrDefault()).Kite))
+                        return false;
+                }
                 bool attacks = Attacks(other);
                 if (LeavesAlone(team.Draws.TryGetValue(other, out bool joins) && !joins, other.Draws.TryGetValue(team, out bool theyJoin) && !theyJoin, attacks,
                         team.Leader?.TargetObject is GameLiving aimed && other.Team.Members.Contains(aimed)))
@@ -1646,6 +1656,35 @@ namespace DOL.GS
             }
 
             Pay(team, real, now);
+
+            // A team of bots that has lost breaks off (bots/pvp/PvpKite.cs): it runs. Once no enemy team is near it any more it
+            // goes back to its start to form up again, as a team does that cannot raise its dead; one that is still being
+            // fought when its run is over turns and fights.
+            if (team.Leader == null && team.Team.Squad.Leaving)
+            {
+                PvpKiteWeights kite = PvpWeights.Of(team.Team.Bots.FirstOrDefault()).Kite;
+                if (team.BrokeOffAt == 0)
+                {
+                    (team.BrokeOffAt, team.LastFollowedTick) = (now, now);
+                    Say($"{team.Name} breaks off with {team.Alive} left", new { what = "breakoff", team = team.Name, alive = team.Alive, foes = others.Count });
+                }
+                if (others.Any(other => Near(team, other, kite.ClearBeyond)))
+                    team.LastFollowedTick = now;
+                bool runIsOver = PvpKite.RunIsOver((now - team.BrokeOffAt) / 1000.0, kite);
+                if (PvpKite.GotAway((now - team.LastFollowedTick) / 1000.0, kite) || runIsOver && !inCombat)
+                {
+                    team.Reforming = true;
+                    Say($"{team.Name} gets away with {team.Alive} and goes back to its start", new { what = "away", team = team.Name, alive = team.Alive });
+                }
+                else if (runIsOver)
+                {
+                    team.Team.Squad.StopLeaving();
+                    Say($"{team.Name} cannot get away and turns to fight", new { what = "caught", team = team.Name, alive = team.Alive });
+                }
+                else
+                    team.Team.Squad.Decide(enemies);
+                return;
+            }
 
             if (enemies.Count > 0)
                 team.LastEnemyNearTick = now;

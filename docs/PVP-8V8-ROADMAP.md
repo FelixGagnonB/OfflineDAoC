@@ -3332,40 +3332,94 @@ The plan the owner agreed to that day ("Let's proceed and test with bots first")
     not be the crowd it is). Not the player's group: that moves back on the player's call, as
     before. The owner on a call its own group makes by itself: "say in group chat but spam it
     in capital or something, 4-5 times, so I am aware. There are too much message in /group chat
-    for me to notice otherwise". Not built yet.
-  - **Two evenings of bots, 2026-11-24** (36 teams, four zones, 14 minutes each, two teams of
+    for me to notice otherwise". Built since as M12.7, off unless the player turns it on.
+  - At the start of a leg a healer or caster that has no enemy fighter on it works for three
+    seconds from where it stands, on whoever is on its groupmates, and then follows.
+  - **Six evenings of bots, 2026-11-24** (36 teams, four zones, 14 minutes each; two teams of
     each realm made hunters for the test with `roam-start Hunters=2`; no error in the server's
     log but the known one at its start):
 
-    | | Leg, and the least time between two | Times a group fell back | Carried | A second falling back: dealt, taken | A second standing with too many on it | Enemies dead meanwhile |
+    | | What was new | Times a group fell back | A second falling back: dealt, taken | A second standing with too many on it | Broke off: got away | Teams wiped |
     |---|---|---|---|---|---|---|
-    | First | 700 units, 5.5 s | 30 (9 teams) | 100 to 4,100 | 66, 221 | 90, 217 | 1 |
-    | Second | 1,800 units, 14 s | 26 (11 teams) | 0 to 5,900 | 69, 146 | 40, 169 | 3 |
+    | 1 | legs of 700 units, 5.5 s apart | 30 | 66, 221 | 90, 217 | | 22 |
+    | 2 | legs of 1,800 units, 14 s apart | 26 | 69, 146 | 40, 169 | | 18 |
+    | 3 | breaking off, cover at the start of a leg, no raising | 13 | 59, 276 | 25, 202 | 16: 13 | 4 |
+    | 4 | a group on the run keeps its way (with a fault: see M12.5) | 14 | 87, 261 | 18, 175 | 17: 8 | 15 |
+    | 5 | that fault mended; it runs to the side with the fewest enemies | 14 | 68, 230 | 20, 150 | 11: 9 | 11 |
+    | 6 | it breaks off in 35 fights of a hundred that it loses | 24 | 89, 272 | 89, 329 | 4: 2 | 15 |
 
     **The reaction is there, and it does not win the fight.** A group now starts at one place
     and ends well back, as the owner had expected of an elite eight against a pack ("start the
-    fight at a loc and finish much futher back"). With short legs it gained nothing by it:
-    everybody runs at the same speed, fourteen of sixteen enemies stayed within 2,500 units of
-    the group all the way, and an enemy fighter on it was still inside the reach of its own
-    healers (1,466 units from the nearest). With long legs a group that fell back took less than
-    one that stood (146 against 169 a second), which is two evenings and may be chance; it killed
-    three enemies in 26 kites, and of the 26, eight ended with the group wiped within half a
-    minute. Eight still lose to sixteen.
-  - **Not done, and what the recordings point at.** The fighters do not hold a rear for the
-    back line to get away behind; nothing is cast on the first to follow (a root, a snare, a
-    mez) at the moment a leg begins; a group that has got clear walks back in when the kite has
-    run out (leaving a fight is M12.5); and the healers and casters of these teams walk 38 to 44% of
-    their time and cast 16 to 23% of it in every kind of fight, falling back or not (first evening).
-- [ ] **M12.4** (S) Reading the situation: a new group arriving in a fight; a kill target that
-  is healed faster than it is hurt (giving a target up sooner was tried on 2026-11-19 and taken
-  back: "the question is whom to call, and when"); no raising in a fight that is being lost.
-- [ ] **M12.5** (M) Breaking off: a group that has lost leaves, with speed, for its start, and
-  is not marched back; the winners follow only so far. (The last two of a group against three
-  times their number stand and fight, as the owner asked on 2026-11-20.)
+    fight at a loc and finish much futher back"): a kite carried a group up to 6,800 units. It
+    gained nothing by it that these evenings show. In four evenings of six a group that fell
+    back took more a second than one that stood with as many on it, and a group falls back at
+    its worst moments, so the two are not the same fights; what can be said is that falling back
+    did not make the damage less. With the short legs of the first evening fourteen of sixteen
+    enemies stayed within 2,500 units of the group all the way, and an enemy fighter on it was
+    still inside the reach of its own healers (1,466 units from the nearest): everybody runs at
+    the same speed. A group that falls back kills next to nobody (one to nine enemies an
+    evening, in 13 to 30 kites). Eight still lose to sixteen. In the fifth evening two hunter
+    teams of Midgard went at the same pack of three Hibernian bad groups one after the other:
+    each fell back three legs, broke off and got away, 7,000 units from where it had started,
+    with three and with five alive, and neither had killed anybody.
+  - **Not done, and what the recordings point at.** Nothing is cast on the first to follow (a
+    root, a snare, a mez) as a matter of the group; the fighters do not hold a rear; the healers
+    and casters of these teams walk 38 to 44% of their time and cast 16 to 23% of it in every
+    kind of fight, falling back or not (first evening), and a whole group deals 70 to 95 damage
+    a second. That is what a single bot does with its turn, which the owner parked on
+    2026-11-22: a kite cannot pay while it stays so.
+- [ ] **M12.4** (S) Reading the situation. *Part built 2026-11-24, bots only.*
+  - A group with too many on it raises nobody: the raised come back hurt and without their
+    buffs (the Cleric and the Cabalist of the eight that lost to sixteen on 2026-11-23 were
+    raised and died again).
+  - A new group arriving in a fight is counted the second its members aim at the group; nothing
+    else is made of it.
+  - Not touched: a kill target that is healed faster than it is hurt. Giving a target up sooner
+    was tried on 2026-11-19 and taken back ("the question is whom to call, and when").
+- [ ] **M12.5** (M) Breaking off. *Built 2026-11-24 and run with bots only; seen in no client.*
+  - A group has lost when half of its eight or fewer are alive, or none of its healers, and the
+    enemies it knows are half again as many as its side. After its caller's moment the ones
+    left stop fighting and run, at a sprint and with the speed song: to the side with the
+    fewest enemies (each enemy pushes it away, a near one harder), toward its start when no
+    side is better, and then straight on, 2,500 units at a time over ground it can walk.
+  - A team of bots follows it 3,000 units from where it broke off and no farther. A player may
+    follow as far as it likes.
+  - Once no enemy team has been within 2,500 units for three seconds it is away: it goes back
+    to its start to form up again, as a team does that cannot raise its dead, and stands up
+    whole after the wait of a wipe. That is no wipe in its record. One still being fought after
+    45 seconds turns and fights, and does not leave again.
+  - Not a bad group; not a group with a player in it (the retreat is the player's call); and
+    the last two of a group against three times their number stand and fight, as the owner
+    asked on 2026-11-20.
+  - **In 35 fights of a hundred that it loses**, drawn for the fight. With every group leaving
+    that could (third evening) sixteen broke off, thirteen got away and four teams were wiped,
+    where eighteen to twenty-two had been before: a wipe is what a guild's record, its grudge
+    and its logging off are counted in, and the owner had been told "you would sometimes see a
+    beaten group turn and run". The 35 is a guess.
+  - Two faults found by drawing the fights (`source/tools/pvp_fight_draw.py`) and mended the
+    same day. A group on the run took its way anew every four seconds from where the enemy
+    stood, and with the enemy all round it ran west, north and south by turns (950 units in 45
+    seconds); it keeps its way now. Kept, the way was one unit long, which the code that picks
+    the ground took for no way at all: in the fourth evening groups ran their first 2,500 units
+    and then stood until they were dead (eight got away of seventeen). In the fifth, nine of
+    the nine that had finished their run got away, 3,300 to 5,300 units, in 13 to 41 seconds.
 - [ ] **M12.6** (S) The kinds differ in how well they do it. So far only in how long the caller
-  takes, and in the bad groups not doing it at all.
-- [ ] **M12.7** (S) The player's group: its own calls for a push, a kite or a retreat, loud in
-  group chat as the owner asked, once the bots' side has been seen.
+  takes, and in the bad groups doing none of it.
+- [ ] **M12.7** (S) The player's group. *Built 2026-11-24, automated tests only: nobody has
+  played with it, and it is off unless the player turns it on.* `/8v8 lead on`: in a roam the
+  seven fall back as one by themselves, as the teams of bots do, and say so in group chat four
+  times in capitals ("KITE BACK! 12 ON OUR 8! KITE BACK!"; two times "BACK AGAIN! KEEP MOVING!"
+  for a further leg and "STAND AND FIGHT HERE!" at the end), as the owner asked: "say in group
+  chat but spam it in capital or something, 4-5 times, so I am aware". Offered a line in the
+  middle of the screen as well: "nah leave it in group chat". A call by the player for anything
+  but the kite stands over it. The seven never break off by themselves. Not built: a loud call
+  for a push.
+
+**Where M12 stands (2026-11-24).** Built and run with bots on the scrim server: the measure, the
+kite, breaking off, no raising with too many on it. Seen in a client: nothing. To be looked at
+by the owner: whether a group that falls back and one that turns and runs look like players
+doing it; whether one lost fight in three ending in a run is too many or too few; `/8v8 lead on`
+with the owner's own group.
 
 ## Scorecard
 

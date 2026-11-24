@@ -21,7 +21,8 @@ For every fight a team of bots was in (twenty seconds or longer), from the recor
 Then the same by kind of team, for fights against as many groups as its own and for fights
 against more, and every time a group fell back as one: when, how many aimed at it against
 its side, the legs it took, how far its middle went, who died on either side meanwhile and
-whether it was wiped within half a minute; and what the teams that can fall back dealt and
+whether it was wiped within half a minute; every time a group that had lost broke off, and
+whether it got away; and what the teams that can fall back dealt and
 took a second while they did, while they stood with too many on them, and otherwise. With a
 team's name: that team's fights, ten seconds at a time.
 """
@@ -38,7 +39,7 @@ HEALERS = {"Cleric", "Druid", "Healer", "Friar"}
 def load(path):
     head, classes = None, {}
     teams, snaps, squads, deaths, raises = (collections.defaultdict(list) for _ in range(5))
-    kites, hits = [], []
+    kites, hits, runs = [], [], []
     with open(path, encoding="utf-8") as handle:
         for line in handle:
             kind = line[6:10]
@@ -76,7 +77,9 @@ def load(path):
                 ev = row.get("ev")
                 if isinstance(ev, dict) and ev.get("what") == "join" and head is not None:
                     head["teams"].append({"name": ev["team"], "kind": ev.get("kind"), "realm": ev.get("realm")})
-    return head, classes, teams, snaps, squads, deaths, raises, kites, hits
+                elif isinstance(ev, dict) and ev.get("what") in ("breakoff", "away", "caught", "wipe"):
+                    runs.append((row["t"], ev["team"], ev["what"], ev.get("alive", 0)))
+    return head, classes, teams, snaps, squads, deaths, raises, kites, hits, runs
 
 
 def by_second(rows):
@@ -191,7 +194,7 @@ def measure(name, first, last, foes, classes, where, squads, deaths, raises, det
 
 
 def main():
-    head, classes, teams, snaps, squads, deaths, raises, kites, hits = load(sys.argv[1])
+    head, classes, teams, snaps, squads, deaths, raises, kites, hits, runs = load(sys.argv[1])
     only = sys.argv[2] if len(sys.argv) > 2 else None
     kinds = {team["name"]: team.get("kind") or "-" for team in head["teams"]}
     where = {name: by_second(rows) for name, rows in snaps.items()}
@@ -242,7 +245,32 @@ def main():
     table("Against one group at the most at a time", [got for got in results if got["most"] <= 1])
     table("Against two groups or more at a time", [got for got in results if got["most"] >= 2])
     kite_list(kites, kinds, teams, where, deaths)
+    run_list(runs, kinds, where)
     pressure(squads, hits, teams)
+
+
+def run_list(runs, kinds, where):
+    """Every time a group that had lost broke off, and how it ended."""
+    begun = [(t, team, alive) for t, team, what, alive in runs if what == "breakoff"]
+    print(f"\nBroke off: {len(begun)} times.")
+    if not begun:
+        return
+    print(f"  {'team':28} {'kind':7} {'at':>5} {'left':>4} {'ran s':>5} {'ran':>6} {'ended'}")
+    ends = collections.Counter()
+    for t, team, alive in begun:
+        end = min(((when, what, left) for when, who, what, left in runs if who == team and what != "breakoff" and when >= t), default=None)
+        how = {"away": "got away", "caught": "turned to fight", "wipe": "caught and wiped"}.get(end[1], "?") if end else "still running"
+        ends[how] += 1
+        own = where.get(team, {})
+        a = middle((own.get(t // 1000) or {}).values())
+        b = None
+        for second in range((end[0] if end else t) // 1000, t // 1000 - 1, -1):
+            b = middle((own.get(second) or {}).values())
+            if b:
+                break
+        print(f"  {team[:28]:28} {kinds.get(team, '-')[:7]:7} {t // 1000:5} {alive:4} {((end[0] - t) // 1000 if end else 0):5} "
+              f"{(math.dist(a, b) if a and b else 0):6.0f} {how}{f' with {end[2]}' if end and end[1] == 'away' else ''}")
+    print("  " + ", ".join(f"{how}: {count}" for how, count in ends.most_common()))
 
 
 def pressure(squads, hits, teams):

@@ -21,6 +21,7 @@ namespace DOL.GS.Commands
         "/8v8 ranks                     the realm ranks of your companions, and of the enemy groups you have fought for real",
         "/8v8 call <push|regroup|hold|engage|extend|assist|control|retreat|rest>  your call to the group: an order stands twelve seconds; assist puts the damage dealers on your target while it lives (45 s at most); control asks for a mez, stun, root or nearsight on your target (20 s); retreat: everybody drops what it does and runs with you (30 s, or until your next call); rest: everybody redoes its buffs and rests where you stand (2 minutes, or until you walk on, call something else or are attacked)",
         "/8v8 calls <on|off>            your companions' calls in group chat (assist, incoming, orders, out of power, a mez that landed, a Purge used)",
+        "/8v8 lead <on|off>             in a roam: your companions fall back as one by themselves when the group has too many on it, and call it loud (off unless you turn it on)",
         "/8v8 corpse <player|body|fall|ghost|off>  how a dead 8v8 bot is shown: lying as a dead player does, to click (player); a body under its name that only the group window targets (body); the body and a ghost standing over it (fall); the ghost only (ghost); standing as if alive (off)",
         "/8v8 stop                      ends the fight and removes every 8v8 bot",
         "/8v8 clear                     removes every 8v8 bot",
@@ -144,6 +145,18 @@ namespace DOL.GS.Commands
                     else
                         player.TempProperties.RemoveProperty(PvpCalls.OffProperty);
                     Say(off ? "Your companions' calls are off." : "Your companions call in group chat: assist, incoming, orders, out of power.");
+                    return;
+                }
+
+                case "lead":
+                {
+                    bool on = args.Length > 2 && args[2].ToLowerInvariant() == "on";
+                    if (on)
+                        player.TempProperties.SetProperty(PvpCalls.LeadsProperty, true);
+                    else
+                        player.TempProperties.RemoveProperty(PvpCalls.LeadsProperty);
+                    Say(on ? "In a roam your companions now fall back as one by themselves when the group has too many on it. They call it in capitals, four times: KITE BACK. /8v8 lead off to stop it."
+                           : "Your companions move back only on your call (/8v8 call extend, /8v8 call retreat).");
                     return;
                 }
 

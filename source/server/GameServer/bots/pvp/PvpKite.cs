@@ -57,6 +57,41 @@ namespace DOL.GS
         public int KillWithin { get; set; } = 1_500;
         /// <summary>With no open ground behind it the group stands for this long before it looks again.</summary>
         public int CorneredSeconds { get; set; } = 10;
+        /// <summary>
+        /// At the start of a leg a healer or caster with no enemy fighter on it within
+        /// <see cref="CoverNotWithin"/> works from where it stands for this long before it follows:
+        /// on whoever is on its groupmates. 0: everybody sets off at once.
+        /// </summary>
+        public int CoversMilliseconds { get; set; } = 3_000;
+        public int CoverNotWithin { get; set; } = 600;
+
+        /// <summary>
+        /// Breaking off. A group has lost when this share of its members or fewer are alive, or
+        /// none of its healers is, and the enemies it knows are this many to a hundred of its
+        /// side. It then leaves: everybody runs, nobody fights. 0 turns it off. (Its last two
+        /// against three times their number stand and fight: PvpPositionWeights.LastStand.)
+        /// </summary>
+        public int BreaksOffAtAlivePercent { get; set; } = 50;
+        public int BreaksOffAgainstPercent { get; set; } = 150;
+        /// <summary>
+        /// In this many fights of a hundred that it loses; in the others it fights to its last.
+        /// Drawn once for a fight. The first evening every group broke off that could (2026-11-24,
+        /// 36 teams, 14 minutes): sixteen did, thirteen got away, and four teams were wiped where
+        /// eighteen to twenty-two had been in the evenings before. A wipe is what a guild's
+        /// record, its grudge and its logging off are counted in, and what the owner was told:
+        /// "you would sometimes see a beaten group turn and run".
+        /// </summary>
+        public int BreaksOffChancePercent { get; set; } = 35;
+        /// <summary>It runs for a point this far off, picked anew this often.</summary>
+        public int LeaveLeg { get; set; } = 2_500;
+        public int LeaveLegEveryMilliseconds { get; set; } = 4_000;
+        /// <summary>A team of bots follows a group that has broken off no farther than this from where it broke off.</summary>
+        public int FollowedFor { get; set; } = 3_000;
+        /// <summary>It has got away once no enemy team has been within this of it for <see cref="ClearSeconds"/>.</summary>
+        public int ClearBeyond { get; set; } = 2_500;
+        public int ClearSeconds { get; set; } = 3;
+        /// <summary>After this long on the run it is away if nobody is at it, and turns to fight if somebody still is.</summary>
+        public int LeavesAtMostSeconds { get; set; } = 45;
     }
 
     /// <summary>
@@ -134,6 +169,66 @@ namespace DOL.GS
             var across = new Vector2(-way.Y, way.X);
             return place - way * weights.Screen + across * ((index - (count - 1) / 2f) * weights.ScreenSpacing);
         }
+
+        /// <summary>
+        /// True for a group that has lost and leaves (<see cref="PvpKiteWeights.BreaksOffAtAlivePercent"/>).
+        /// The owner, 2026-11-24, asked what breaking off meant; told that the bots never do it
+        /// (the last four of an elite eight had fought sixteen for a hundred seconds until all
+        /// were dead), agreed to it with the rest of the plan.
+        /// </summary>
+        /// <param name="ownSide">Its living members and those of its realm fighting beside it.</param>
+        /// <param name="enemiesAlive">The living enemies it knows.</param>
+        /// <param name="draw">The fight's number from 0 to 99 (<see cref="PvpKiteWeights.BreaksOffChancePercent"/>).</param>
+        public static bool BreaksOff(int alive, int members, int healersAlive, int healers, int ownSide, int enemiesAlive, PvpKiteWeights weights, int draw = 0) =>
+            weights.Enabled && weights.BreaksOffAtAlivePercent > 0 && alive > 0 && draw < weights.BreaksOffChancePercent &&
+            (alive * 100 <= members * weights.BreaksOffAtAlivePercent || healers > 0 && healersAlive == 0 && alive < members) &&
+            enemiesAlive * 100 >= Math.Max(1, ownSide) * weights.BreaksOffAgainstPercent;
+
+        /// <summary>
+        /// The way a group that has broken off runs. Once it runs it keeps its way: the first
+        /// evening it could leave (2026-11-24) one group ran west, north and south by turns for 45
+        /// seconds and got 950 units, because its way was taken anew every four seconds from where
+        /// the enemy stood, and the enemy stood all round it. It sets off to the side with the
+        /// fewest enemies (<see cref="AwayFrom"/>), or toward its start when no side is better
+        /// than another. (Kept, its way has the length of a way and not of one unit: in the
+        /// second evening a group ran its first 2,500 units and then stood where it was until it
+        /// was dead, because <see cref="Ways"/> takes anything shorter than one unit for no way.)
+        /// </summary>
+        /// <param name="before">The way it is running; zero when it sets off.</param>
+        public static Vector2 RunsAway(Vector2 fromTheEnemy, Vector2 before, Vector2 towardHome) =>
+            before.LengthSquared() > 0.01f ? Vector2.Normalize(before) * 1_000
+            : fromTheEnemy.LengthSquared() >= 1 ? fromTheEnemy
+            : towardHome;
+
+        /// <summary>
+        /// The side with the fewest enemies, as a way a thousand units long: each enemy pushes the
+        /// group straight away from itself, a near one harder than a far one (by the square of its
+        /// distance). Away from the middle of them is no way when they stand all round: the
+        /// middle of them is then where the group is, and in the second evening a group that took
+        /// its start for the way instead ran south through two enemy groups. Zero when the pushes
+        /// cancel out or there is no enemy.
+        /// </summary>
+        public static Vector2 AwayFrom(Vector2 self, IReadOnlyList<Vector2> enemies)
+        {
+            Vector2 push = Vector2.Zero;
+            foreach (Vector2 enemy in enemies)
+            {
+                Vector2 from = self - enemy;
+                float distance = Math.Max(100, from.Length());
+                if (from.LengthSquared() >= 1)
+                    push += Vector2.Normalize(from) * (1_000_000f / (distance * distance));
+            }
+            return push.Length() < 0.5f ? Vector2.Zero : Vector2.Normalize(push) * 1_000;
+        }
+
+        /// <summary>A team of bots still follows a group that has broken off: it has not got this far from where it broke off.</summary>
+        public static bool Followed(double fromWhereItBrokeOff, PvpKiteWeights weights) => fromWhereItBrokeOff <= weights.FollowedFor;
+
+        /// <summary>A group on the run has got away: no enemy team has been near it for a moment.</summary>
+        public static bool GotAway(double secondsWithNoEnemyTeamNear, PvpKiteWeights weights) => secondsWithNoEnemyTeamNear >= weights.ClearSeconds;
+
+        /// <summary>It has run long enough: away, if nobody is at it; else it turns and fights.</summary>
+        public static bool RunIsOver(double secondsOnTheRun, PvpKiteWeights weights) => secondsOnTheRun >= weights.LeavesAtMostSeconds;
 
         /// <summary>A fighter of a group that falls back goes for this enemy: it is near enough to the group's healers and casters.</summary>
         public static bool FighterTakes(float enemyFromItsBackLine, PvpKiteWeights weights) => enemyFromItsBackLine <= weights.FightersReach;

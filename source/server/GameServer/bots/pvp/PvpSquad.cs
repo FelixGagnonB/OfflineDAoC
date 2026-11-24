@@ -91,7 +91,14 @@ namespace DOL.GS
         /// has more on it than it can stand against (bots/pvp/PvpKite.cs). Without it, only a
         /// player's call moves the group back.
         /// </summary>
-        public bool KitesOnItsOwn { get; set; }
+        public bool KitesOnItsOwn
+        {
+            get => _kitesOnItsOwn || LeadsOnThePlayersWord && _allies.OfType<GamePlayer>().Any(player => player.TempProperties.GetProperty<bool>(PvpCalls.LeadsProperty));
+            set => _kitesOnItsOwn = value;
+        }
+        private bool _kitesOnItsOwn;
+        /// <summary>Set for the player's group in a roam: it falls back by itself too once the player has said so (/8v8 lead on).</summary>
+        public bool LeadsOnThePlayersWord { get; set; }
         /// <summary>Where the group came into the zone: of two ways back that are as good, it takes the one nearer this.</summary>
         public (int X, int Y)? Home { get; set; }
         /// <summary>The living members of other groups of its realm that are near it, set by the roam each second.</summary>
@@ -116,6 +123,75 @@ namespace DOL.GS
         private Dictionary<GameBot, Vector3> _screen = new();
         private readonly Dictionary<GameBot, int> _kiteWalk = new();
 
+        /// <summary>True for a group that counts what is on it and has too much (PvpKite.Outnumbered): it raises nobody.</summary>
+        public bool TooManyOnIt { get; private set; }
+        /// <summary>True once the group has lost and broken off (PvpKite.BreaksOff): everybody runs for <see cref="LeavesTo"/>, nobody fights.</summary>
+        public bool Leaving => _leaveSince != 0;
+        /// <summary>Where a group that has broken off is running to now; null otherwise.</summary>
+        public Vector3? LeavesTo { get; private set; }
+        /// <summary>Where it was when it broke off: a team of bots follows it only so far from there.</summary>
+        public Vector2 LeftFrom { get; private set; }
+        // When it broke off, since when it has lost, how long its caller takes to say so, when its point was last picked,
+        // the way it runs, where the enemy was last seen, and that it has turned to fight and does not leave again.
+        private long _leaveSince, _lostSince, _leavePickedAt;
+        private int _leaveCalledAfter;
+        private Vector2 _leaveWay, _leaveAway;
+        private bool _turnedToFight;
+
+        /// <summary>It could not get away: it turns and fights, and does not break off again.</summary>
+        public void StopLeaving()
+        {
+            (_leaveSince, _lostSince, _turnedToFight) = (0, 0, true);
+            LeavesTo = null;
+            _leaveWay = default;
+        }
+
+        /// <summary>
+        /// A second of a group on the run: who can sprints, and every few seconds a new point to
+        /// run for, away from where the enemy was last seen and toward its start where the ground
+        /// lets it. With no ground to run to it turns and fights.
+        /// </summary>
+        private void Leave(long now)
+        {
+            PvpWeights all = PvpWeights.Of(_members.FirstOrDefault());
+            List<GameBot> alive = _members.Where(bot => bot.IsAlive).ToList();
+            if (alive.Count == 0)
+                return;
+            PvpPositionWeights legs = all.Position;
+            foreach (GameBot bot in alive)
+            {
+                bot.PvpSprinting = legs.SprintInFights && legs.CanSprint(bot.EndurancePercent, bot.PvpSprinting);
+                if (bot.PvpSprinting && bot.IsMoving && legs.SprintCostPerSecond > 0)
+                    bot.Endurance = Math.Max(0, bot.Endurance - PvpPositionWeights.SprintCostWith(legs.SprintCostPerSecond,
+                        bot.GetAbility<DOL.GS.RealmAbilities.AtlasOF_LongWindAbility>() is { } longWind ? longWind.GetAmountForLevel(longWind.Level) : 0));
+            }
+            if (LeavesTo != null && now - _leavePickedAt < all.Kite.LeaveLegEveryMilliseconds)
+                return;
+            var nav = PathfindingProvider.Instance;
+            Zone zone = alive[0].CurrentZone;
+            Vector3? Ground(Vector2 point) =>
+                nav.GetFloorBeneath(zone, new Vector3(point.X, point.Y, 20_000), 20_000, nav.DefaultFilters) is { } floor && floor.Z < 19_999 ? floor : null;
+            var middle = new Vector2((float)alive.Average(bot => bot.X), (float)alive.Average(bot => bot.Y));
+            Vector2 home = Home is { } start ? new Vector2(start.X, start.Y) - middle : default;
+            Vector3? begin = Ground(middle);
+            foreach (Vector2 candidate in PvpKite.Ways(PvpKite.RunsAway(_leaveAway, _leaveWay, home), default, home))
+            {
+                if (Ground(middle + candidate * all.Kite.LeaveLeg) is not { } floor ||
+                    begin is { } here && !nav.HasLineOfSight(zone, here, floor, nav.DefaultFilters))
+                    continue;
+                (LeavesTo, _leaveWay, _leavePickedAt) = (floor, candidate, now);
+                return;
+            }
+            // (It keeps the point it has while it has one; with none, it has nowhere to go.)
+            if (LeavesTo == null)
+            {
+                PvpRecorder.Decision(alive[0], new { kind = "Cornered", score = alive.Count }, [], null);
+                StopLeaving();
+            }
+            else
+                _leavePickedAt = now;
+        }
+
         private void EndKite()
         {
             if (_kiteUntil == 0)
@@ -125,6 +201,7 @@ namespace DOL.GS
             {
                 PvpRecorder.Decision(voice, new { kind = "KiteEnds", score = KiteLegs }, [], null);
                 PvpObserver.Say(voice, $"{PvpObserver.Realm(voice)} stands again after {KiteLegs} legs back");
+                Call(voice, "kite-over", PvpCalls.KiteOver, 0, 2);
             }
             KiteLegs = 0;
             _kiteOffsets.Clear();
@@ -145,10 +222,12 @@ namespace DOL.GS
             long now = GameLoop.GameLoopTime;
             List<GameBot> alive = _members.Where(bot => bot.IsAlive).ToList();
             List<GameLiving> foes = Known.Where(enemy => enemy.IsAlive).ToList();
-            if (!KitesOnItsOwn || !weights.Enabled || !FightStarted || MopsUp || alive.Count == 0 || foes.Count == 0 || MakesLastStand())
+            // (A player's call for anything but the kite itself stands over the group's own: it does not fall back under a called push.)
+            bool calledOtherwise = _calledOrder is { } called && called != PvpOrder.Extend && now < _calledUntil;
+            if (!KitesOnItsOwn || !weights.Enabled || !FightStarted || MopsUp || alive.Count == 0 || foes.Count == 0 || calledOtherwise || MakesLastStand())
             {
                 EndKite();
-                (OwnSide, OnIt, _pressedSince) = (alive.Count, 0, 0);
+                (OwnSide, OnIt, _pressedSince, _lostSince, TooManyOnIt) = (alive.Count, 0, 0, 0, false);
                 return false;
             }
             static Vector2 At(GameObject thing) => new(thing.X, thing.Y);
@@ -173,6 +252,34 @@ namespace DOL.GS
                                        (_allies.Contains(aimed) || beside.Contains(aimed)));
             int pressed = foes.Count(enemy => !enemy.IsMezzed && !enemy.IsStunned && body.Any(bot => bot.IsWithinRadius(enemy, weights.PressedWithin)));
             bool outnumbered = PvpKite.Outnumbered(OwnSide, OnIt, weights);
+            TooManyOnIt = outnumbered;
+            // It has lost: after its caller's moment it breaks off, and everybody runs.
+            int healers = _members.Count(bot => PvpMember.RoleOf(bot) == PvpRole.Heal), healersAlive = alive.Count(bot => PvpMember.RoleOf(bot) == PvpRole.Heal);
+            // (A group with a player in it does not break off by itself: the retreat is the player's call.)
+            if (_turnedToFight || _allies.Any(member => member is GamePlayer) ||
+                !PvpKite.BreaksOff(alive.Count, _members.Count, healersAlive, healers, OwnSide, foes.Count, weights, _draw))
+                _lostSince = 0;
+            else if (_lostSince == 0)
+            {
+                _lostSince = now;
+                PvpHumanWeights slow = PvpNotice.HumanOf(alive[0]);
+                _leaveCalledAfter = Util.Random(Math.Max(0, slow.KiteCalledAfterMinMilliseconds),
+                    Math.Max(slow.KiteCalledAfterMinMilliseconds, slow.KiteCalledAfterMaxMilliseconds));
+            }
+            else if (now - _lostSince >= _leaveCalledAfter)
+            {
+                EndKite();
+                var all = new Vector2((float)alive.Average(bot => bot.X), (float)alive.Average(bot => bot.Y));
+                // The side with the fewest enemies: where it sets off to, and then keeps to.
+                _leaveAway = PvpKite.AwayFrom(all, foes.Select(enemy => At(enemy)).ToList());
+                (_leaveSince, LeftFrom, _leavePickedAt) = (now, all, 0);
+                LeavesTo = null;
+                PvpRecorder.Decision(alive[0], new { kind = "BreakOff", score = alive.Count, on = OnIt, side = OwnSide, enemies = foes.Count, healers = healersAlive }, [], null);
+                PvpObserver.Say(alive[0], $"{PvpObserver.Realm(alive[0])} breaks off: {alive.Count} left against {foes.Count}");
+                Leave(now);
+                if (Leaving)
+                    return true;
+            }
             if (!outnumbered || pressed < weights.PressedBy)
                 _pressedSince = 0;
             else if (_pressedSince == 0)
@@ -220,6 +327,11 @@ namespace DOL.GS
                         KiteLegs = 0;
                         PvpObserver.Say(alive[0], $"{PvpObserver.Realm(alive[0])} falls back as one: {OnIt} on its {OwnSide}");
                     }
+                    // To a player of the group: loud, so that it is not lost among the other calls.
+                    if (kiting)
+                        Call(alive[0], "kite", PvpCalls.KiteAgain, 0, 2);
+                    else
+                        Call(alive[0], "kite", PvpCalls.KiteCalled(OnIt, OwnSide), 0, PvpCalls.LoudTimes);
                     (_kiteWay, _place, _lastLeg) = (way, new Vector2(next.X, next.Y), now);
                     _kiteUntil = now + weights.StandsSeconds * 1_000L;
                     KiteLegs++;
@@ -245,6 +357,12 @@ namespace DOL.GS
                 float away = Vector2.Distance(At(bot), spot);
                 // There, or on its way there on this leg.
                 if (away <= weights.AtItsPlaceWithin || _kiteWalk.GetValueOrDefault(bot) == KiteLegs && bot.IsMoving && now < brain.PvpMoveUntil)
+                    continue;
+                // Not set off on this leg yet, and no enemy fighter on it: for a moment it works from where it stands, on whoever
+                // is on its groupmates, and then follows.
+                if (_kiteWalk.GetValueOrDefault(bot) != KiteLegs && now - _lastLeg < weights.CoversMilliseconds &&
+                    !foes.Any(enemy => IsFighter(enemy) && !enemy.IsMezzed && !enemy.IsStunned && enemy.TargetObject == bot &&
+                                       enemy.IsWithinRadius(bot, weights.CoverNotWithin)))
                     continue;
                 Vector3 ground = Ground(spot) ?? Ground(_place) ?? new Vector3(spot.X, spot.Y, bot.Z);
                 LastStandStep[bot] = now;
@@ -509,6 +627,9 @@ namespace DOL.GS
             if (!(FightStarted || Order == PvpOrder.Hold) || _saidOrder == Order || !PvpCalls.OrderIsSettled(now, _orderSince))
                 return;
             _saidOrder = Order;
+            // (Falling back as one, it has said so already, and louder.)
+            if (Kiting)
+                return;
             Call(_members.FirstOrDefault(member => member.IsAlive), "order", PvpCalls.Order(Order));
         }
 
@@ -823,7 +944,8 @@ namespace DOL.GS
         /// its bots. Nothing is said in a group of bots only. Never throws: a chat line must not
         /// be able to stop a fight.
         /// </summary>
-        private void Call(GameLiving speaker, string kind, string text, int every = 0)
+        /// <param name="times">How many times it is said: more than once for a call that moves the group (PvpCalls.LoudTimes).</param>
+        private void Call(GameLiving speaker, string kind, string text, int every = 0, int times = 1)
         {
             try
             {
@@ -838,7 +960,9 @@ namespace DOL.GS
                 }
                 foreach (GamePlayer player in _allies.OfType<GamePlayer>())
                 {
-                    if (player.Client?.IsPlaying == true && !player.TempProperties.GetProperty<bool>(PvpCalls.OffProperty))
+                    if (player.Client?.IsPlaying != true || player.TempProperties.GetProperty<bool>(PvpCalls.OffProperty))
+                        continue;
+                    for (int said = 0; said < Math.Max(1, times); said++)
                         player.Out.SendMessage($"[Party] {speaker.Name}: \"{text}\"", PacketHandler.eChatType.CT_Group, PacketHandler.eChatLoc.CL_ChatWindow);
                 }
             }
@@ -854,6 +978,13 @@ namespace DOL.GS
             if (RetreatsTo != null)
             {
                 LoseSight();
+                return;
+            }
+            // Nor does one that has broken off (bots/pvp/PvpKite.cs): it runs.
+            if (Leaving)
+            {
+                LoseSight();
+                Leave(GameLoop.GameLoopTime);
                 return;
             }
             List<GameLiving> known = Look(enemies);
@@ -1353,7 +1484,7 @@ namespace DOL.GS
         /// </summary>
         public void ClearPets()
         {
-            if (RetreatsTo != null)
+            if (RetreatsTo != null || Leaving)
                 return;
             PvpPetWeights weights = PvpWeights.Of(_members.FirstOrDefault()).Pets;
             if (!FightStarted || weights.GatherAtPets <= 0 && weights.BlastAtPets <= 0 || Kiting)
@@ -1452,7 +1583,7 @@ namespace DOL.GS
         /// </summary>
         public void KeepApart()
         {
-            if (RetreatsTo != null)
+            if (RetreatsTo != null || Leaving)
                 return;
             PvpSpreadWeights weights = PvpWeights.Of(_members.FirstOrDefault()).Spread;
             List<GameLiving> foes = Known.Where(enemy => enemy.IsAlive).ToList();
@@ -1520,7 +1651,7 @@ namespace DOL.GS
 
         public void StandOff()
         {
-            if (RetreatsTo != null)
+            if (RetreatsTo != null || Leaving)
                 return;
             // The group falls back as one: nobody takes a step of its own.
             if (Kite())

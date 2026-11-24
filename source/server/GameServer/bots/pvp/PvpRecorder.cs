@@ -450,7 +450,7 @@ namespace DOL.GS
                         // The order in force and the readings it came from: the group's own, and the enemy's as it sees it.
                         order = squad.Order.ToString(), own = Shares(squad.Own), theirs = Shares(squad.Theirs), incoming = squad.Incoming,
                         // The kite (bots/pvp/PvpKite.cs): its side, the enemies that aim at it, and the legs it has gone back.
-                        side = squad.OwnSide, on = squad.OnIt, kite = squad.Kiting, legs = squad.KiteLegs,
+                        side = squad.OwnSide, on = squad.OnIt, kite = squad.Kiting, legs = squad.KiteLegs, leaving = squad.Leaving,
                     });
             }
             Drain();

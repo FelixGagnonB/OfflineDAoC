@@ -117,8 +117,11 @@ namespace DOL.AI.Brain
         /// </summary>
         private bool TryPvpRetreat()
         {
-            if (BotBody?.IsPvpBot != true || !Body.IsAlive || PvpSquad?.RetreatsTo is not { } leader)
+            if (BotBody?.IsPvpBot != true || !Body.IsAlive)
                 return false;
+            // A group of bots that has broken off (PvpSquad.Leaving) runs the same way, for a point and not behind a player.
+            if (PvpSquad?.RetreatsTo is not { } leader)
+                return PvpSquad?.LeavesTo is { } away && PvpLeaves(away);
             // A song may be played on the run; anything else is let go.
             if (Body.IsCasting && Body.castingComponent?.SpellHandler?.Spell is not { InstrumentRequirement: not 0, IsHarmful: false })
                 Body.StopCurrentSpellcast();
@@ -147,15 +150,38 @@ namespace DOL.AI.Brain
             return true;
         }
 
+        private bool PvpLeaves(Vector3 to)
+        {
+            if (Body.IsCasting && Body.castingComponent?.SpellHandler?.Spell is not { InstrumentRequirement: not 0, IsHarmful: false })
+                Body.StopCurrentSpellcast();
+            if (Body.attackComponent.AttackState)
+                Body.StopAttack();
+            if (HasAggro)
+                ClearAggroList();
+            PvpAssignedTarget = null;
+            if (Body.TargetObject != null)
+                Body.TargetObject = null;
+            if (Body.IsIncapacitated)
+                return true;
+            if (Body.FollowTarget != null)
+                Body.StopFollowing();
+            if (!Body.IsWithinRadius(new Point3D((int)to.X, (int)to.Y, (int)to.Z), 200) && (!Body.IsMoving || GameLoop.GameLoopTime % 2_000 < 1_000))
+                Body.PathTo(to, Body.MaxSpeed);
+            TryMaintainClassicSongTwist();
+            return true;
+        }
+
         /// <summary>
         /// The dead groupmate an 8v8 bot raises now, from where it stands, or null
         /// (<see cref="PvpHealWeights.Raises"/>): a healer first, then the nearest.
         /// </summary>
         private GameLiving PvpCorpseToRaise(Spell resurrection)
         {
-            // (A group that falls back as one leaves its dead where they are.)
+            // (A group that falls back as one leaves its dead where they are, and so does one with too many on it:
+            // the raised come back hurt and without their buffs, and the Cleric and the Cabalist of the eight that
+            // lost to sixteen on 2026-11-23 were raised and died again.)
             if (BotBody?.IsPvpBot != true || PvpSquad == null || PvpEnemies == null || Body.Group == null || resurrection == null ||
-                Body.IsCasting || Body.IsIncapacitated || Body.IsSilenced || PvpSquad.Kiting)
+                Body.IsCasting || Body.IsIncapacitated || Body.IsSilenced || PvpSquad.Kiting || PvpSquad.TooManyOnIt)
                 return null;
             PvpWeights all = PvpWeights.Of(BotBody);
             int range = BotBody.castingComponent.CalculateSpellRange(resurrection);
@@ -199,7 +225,7 @@ namespace DOL.AI.Brain
         private bool PvpWalkToRaise(Spell resurrection)
         {
             if (BotBody?.IsPvpBot != true || PvpEnemies == null || Body.Group == null || resurrection == null ||
-                PvpMember.RoleOf(BotBody) != PvpRole.Heal || Body.IsCasting || Body.IsIncapacitated || PvpSquad?.Kiting == true)
+                PvpMember.RoleOf(BotBody) != PvpRole.Heal || Body.IsCasting || Body.IsIncapacitated || PvpSquad?.Kiting == true || PvpSquad?.TooManyOnIt == true)
                 return false;
             PvpWeights all = PvpWeights.Of(BotBody);
             int range = BotBody.castingComponent.CalculateSpellRange(resurrection);

@@ -130,8 +130,8 @@ namespace DOL.GS
         /// <summary>A bot that is not fighting takes up the nearest living enemy it can see.</summary>
         public void Engage(IReadOnlyList<GameLiving> enemies)
         {
-            // Called to retreat, nobody takes anybody on.
-            if (Squad?.RetreatsTo != null)
+            // Called to retreat, nobody takes anybody on; nor in a group that has broken off.
+            if (Squad?.RetreatsTo != null || Squad?.Leaving == true)
                 return;
             var nav = PathfindingProvider.Instance;
             // While a group holds, its fighters go for nobody (bots/pvp/PvpReading.cs).

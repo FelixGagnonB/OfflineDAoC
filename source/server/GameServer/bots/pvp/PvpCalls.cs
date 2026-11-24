@@ -12,6 +12,26 @@ namespace DOL.GS
         /// <summary>Set on a player who turned the calls off (/8v8 calls off).</summary>
         public const string OffProperty = "PVP_8V8_CALLS_OFF";
 
+        /// <summary>
+        /// Set on a player who lets the group's own caller move it (/8v8 lead on): in a roam the
+        /// seven then fall back as one by themselves when the group has too many on it
+        /// (bots/pvp/PvpKite.cs), and say so loud. Off unless the player turns it on: a group that
+        /// moves by itself leaves a player behind who has not seen the call.
+        /// </summary>
+        public const string LeadsProperty = "PVP_8V8_GROUP_LEADS";
+
+        /// <summary>
+        /// A call that moves the group is said this many times, in capitals. The owner,
+        /// 2026-11-24: "If my group decide to call for a reaction (push, extend, retreat), then
+        /// it would be to say in group chat but spam it in capital or something, 4-5 times, so I
+        /// am aware. There are too much message in /group chat for me to notice otherwise".
+        /// </summary>
+        public const int LoudTimes = 4;
+
+        public static string KiteCalled(int onIt, int ownSide) => $"KITE BACK! {onIt} ON OUR {ownSide}! KITE BACK!";
+        public const string KiteAgain = "BACK AGAIN! KEEP MOVING!";
+        public const string KiteOver = "STAND AND FIGHT HERE!";
+
         /// <summary>An order is said once it has stood this long; "incoming" no sooner than its own time after the last.</summary>
         public const int OrderSettlesMilliseconds = 3_000, IncomingEveryMilliseconds = 8_000;
 

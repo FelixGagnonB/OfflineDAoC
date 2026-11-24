@@ -123,7 +123,15 @@ has played it yet.**
   follows, nobody is raised, and then it stands and fights before the next leg. A sharp guild
   is on its way within a second and a half, a casual one after six to twelve; a bad group does
   not do it at all. Run with bots only; it carries a group thousands of units and has not yet
-  made eight beat sixteen. Your own group still moves back only on your call.
+  made eight beat sixteen. With too many on it a guild raises nobody. Your own group still moves
+  back only on your call, unless you turn `/8v8 lead on` (see "Talking to your group").
+- **A guild that has lost breaks off.** With half of its eight dead, or both its healers, and the
+  enemy half again as many as its side, the ones left stop fighting and run: away from the enemy,
+  or toward their start when the enemy is all round them. A team of bots follows them 3,000
+  units and no farther; you may follow as far as you like. Once no enemy team has been near them
+  for a few seconds they are gone, and the guild stands up whole at its start half a minute
+  later, as after a wipe; it does not count as one. A bad group does not break off, and the last
+  two of any group against three times their number stand and fight. Run with bots only.
 - **The evening moves.** Guilds come out one by one over the first minutes. A guild logs off
   when it has been wiped three times, or after 25 to 50 minutes, and another of its realm comes
   out. A guild that walks alone and is wiped ports one time in three to another zone of the
@@ -143,7 +151,12 @@ has played it yet.**
   next fight of yours it comes on, whatever its kind. `/8v8 rivals` lists the enemy guilds you
   have wiped or been wiped by, over all evenings.
 - **How the groups held together.** `source/tools/pvp_group.py` reads a recording of an evening:
-  each kind's spread, how far its fights carried, and every time a group fell back as one.
+  each kind's spread, how far its fights carried, every time a group fell back as one, and every
+  time one broke off and whether it got away.
+- **One fight, close up.** `source/tools/pvp_fight_draw.py <recording> "<team>" <from s> <to s> <out.png>`
+  draws a team's fight on a grid of 1,000 units: its middle with the time along it, its members
+  every five seconds, the teams near it, where its place went back a leg, where it broke off and
+  who died where.
 - **Pictures.** `source/tools/pvp_map_draw.py` draws a zone's points and legs on the client's map
   of it, and, from a recording of an evening, where every team went, fought and was wiped.
 
@@ -214,6 +227,15 @@ look for the players of the group only, so they did nothing for seven bots.
 Your companions say in group chat what the group is doing: the assist target, an order (push,
 regroup, hold, extend), "3 on you!", a member out of power, a mez that put two or more of the enemy
 to sleep, a Purge used. `/8v8 calls off` silences them.
+
+`/8v8 lead on` lets your companions' own caller move the group in a roam or a prime-time evening:
+when ten or more aim at your eight and they are on your healers and casters, your seven fall back
+1,800 units as one, as the guilds of bots do, and say so four times in capitals in group chat
+("KITE BACK! 12 ON OUR 8! KITE BACK!"), then "BACK AGAIN! KEEP MOVING!" for each further leg and
+"STAND AND FIGHT HERE!" when they stop. It is off unless you turn it on, because a group that
+moves by itself leaves you behind if you miss the call; a call of your own for anything else
+(push, regroup, hold, engage, retreat) stands over it. They never break off by themselves: the
+retreat is yours to call. **Built 2026-11-24, automated tests only: nobody has played with it.**
 
 You can call too (make macros of these):
 

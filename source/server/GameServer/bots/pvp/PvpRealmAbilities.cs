@@ -267,7 +267,7 @@ namespace DOL.GS
                                         member.effectListComponent.ContainsEffectForEffectType(eEffect.Snare)),
                 enemies.Count(enemy => Awake(enemy) && PvpMember.ArchetypeOf(enemy) == PvpBuffArchetype.Caster &&
                                        enemy.TargetObject is GameLiving aim && members.Contains(aim)),
-                (bot.Brain as AI.Brain.BotBrain)?.PvpSquad?.RetreatsTo != null,
+                (bot.Brain as AI.Brain.BotBrain)?.PvpSquad is { } runs && (runs.RetreatsTo != null || runs.Leaving),
                 PvpMember.ArchetypeOf(bot),
                 (bot.Brain as AI.Brain.BotBrain)?.PvpSquad?.Order ?? PvpOrder.Engage,
                 Middle(members.Where(PvpMember.IsFighter).Select(fighter => enemies.Where(enemy => enemy.IsAlive)

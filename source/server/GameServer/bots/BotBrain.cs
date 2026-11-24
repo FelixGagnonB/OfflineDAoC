@@ -2211,7 +2211,7 @@ namespace DOL.AI.Brain
             bool pvpBardPlays = bot.IsPvpBot && (eCharacterClass)bot.CharacterClass.ID == eCharacterClass.Bard;
             // An 8v8 group in a chase (PvpSquad.Chasing): the speed song is the one that matters, for the
             // Bard as for the Skald and the Minstrel, until the group is in contact again.
-            bool chasing = bot.IsPvpBot && (PvpSquad?.Chasing == true || PvpSquad?.RetreatsTo != null);
+            bool chasing = bot.IsPvpBot && (PvpSquad?.Chasing == true || PvpSquad?.RetreatsTo != null || PvpSquad?.Leaving == true);
             if (immediateCombat && !chasing && !minstrelAtRange && !pvpBardPlays)
             {
                 StopTwistedSong();
