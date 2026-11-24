@@ -24,9 +24,12 @@ namespace DOL.GS
     /// <param name="Order">What the group is doing (push, extend, regroup).</param>
     /// <param name="FightersFromEnemy">How far the group's fighters are from the nearest enemy, the middle one of them; 0 without fighters.</param>
     /// <param name="SoftMembersHitInMelee">Healers and casters of the group with an enemy fighter on them.</param>
+    /// <param name="MembersAlive">The living members of the group; 0 when it is not told.</param>
+    /// <param name="EnemiesAlive">The living enemies the group reckons with.</param>
     public readonly record struct PvpAbilityView(bool InFight, int Health, bool HitInMelee, bool Interrupted, int Hurt, int BadlyHurt,
         int LowestOther, int MissingHealthOfOthers, int MembersHitInMelee, int MembersSlowed, int EnemyCastersOnUs, bool Retreating,
-        PvpBuffArchetype Archetype, PvpOrder Order = PvpOrder.Engage, int FightersFromEnemy = 0, int SoftMembersHitInMelee = 0);
+        PvpBuffArchetype Archetype, PvpOrder Order = PvpOrder.Engage, int FightersFromEnemy = 0, int SoftMembersHitInMelee = 0,
+        int MembersAlive = 0, int EnemiesAlive = 0);
 
     /// <summary>Part of <see cref="PvpWeights"/>: when an active realm ability is worth its fifteen or thirty minutes.</summary>
     public sealed class PvpRealmAbilityWeights
@@ -63,6 +66,15 @@ namespace DOL.GS
         /// legs, and the owner had "not seen Speed of Sound" from anybody. 0: not for that.
         /// </summary>
         public int SpeedOfSoundToCloseBeyond { get; set; } = 1_200;
+        /// <summary>
+        /// Not to get in on fewer enemies than the group has members alive: the last of a fight
+        /// that is won are walked down. The owner, 2026-11-24, of a fight against one group won
+        /// with nobody lost: "There's a bard that used SoS at the end of the that fight. Is there
+        /// a reason?" The reason was this rule: the group pushed, its kill target had just died
+        /// and its fighters stood 1,200 units from the next of the three enemies left; the
+        /// fight before, both Bards had used it one second apart on the last five of forty.
+        /// </summary>
+        public bool SpeedOfSoundNotToCloseOnFewer { get; set; } = true;
         public int SpeedOfSoundAtSoftMembersJumped { get; set; } = 2;
 
         /// <summary>Mastery of Concentration, a healer: interrupted, with a member below this.</summary>
@@ -242,7 +254,8 @@ namespace DOL.GS
                 SpeedOfSound => weights.SpeedOfSoundOnRetreat && view.Retreating ||
                                 weights.SpeedOfSoundAtSlowed > 0 && view.MembersSlowed >= weights.SpeedOfSoundAtSlowed ||
                                 weights.SpeedOfSoundToCloseBeyond > 0 && view.Order == PvpOrder.Push &&
-                                view.FightersFromEnemy > weights.SpeedOfSoundToCloseBeyond ||
+                                view.FightersFromEnemy > weights.SpeedOfSoundToCloseBeyond &&
+                                !(weights.SpeedOfSoundNotToCloseOnFewer && view.MembersAlive > 0 && view.EnemiesAlive < view.MembersAlive) ||
                                 weights.SpeedOfSoundAtSoftMembersJumped > 0 && view.Order is PvpOrder.Extend or PvpOrder.Regroup &&
                                 view.SoftMembersHitInMelee >= weights.SpeedOfSoundAtSoftMembersJumped,
                 Concentration => view.Interrupted && (view.Archetype == PvpBuffArchetype.Healer
@@ -300,7 +313,9 @@ namespace DOL.GS
                 (bot.Brain as AI.Brain.BotBrain)?.PvpSquad?.Order ?? PvpOrder.Engage,
                 Middle(members.Where(PvpMember.IsFighter).Select(fighter => enemies.Where(enemy => enemy.IsAlive)
                     .Select(enemy => (int)fighter.GetDistanceTo(enemy)).DefaultIfEmpty(0).Min()).ToList()),
-                members.Count(member => !PvpMember.IsFighter(member) && FighterOn(enemies, member)));
+                members.Count(member => !PvpMember.IsFighter(member) && FighterOn(enemies, member)),
+                bot.Group?.GetMembersInTheGroup().Count(member => member.IsAlive) ?? 1,
+                enemies.Count(enemy => enemy.IsAlive));
         }
 
         private static int Middle(List<int> values)

@@ -2092,8 +2092,12 @@ namespace DOL.GS
                         team.AddsCalled.UnionWith(team.Fighting);
                     if (now - team.AddCalledAt < PvpCalls.AddEveryMilliseconds)
                         return;
+                    // (A group that comes for it, not one the player's group has turned on: in the owner's brawl of 2026-11-24
+                    // three groups it had gone for itself were called as adds, twelve lines in fourteen seconds.)
+                    bool AimsAtIt(PvpRoamTeam other) => other.Team.Members.Any(member => member.IsAlive && member.TargetObject is GameLiving aimed &&
+                        team.Team.Members.Contains(aimed));
                     List<PvpRoamTeam> adds = others.Where(other => other.Alive > 0 && !team.AddsCalled.Contains(other) &&
-                        (team.Fighting.Contains(other) || other.Draws.TryGetValue(team, out bool joins) && joins && Seen(other))).ToList();
+                        (team.Fighting.Contains(other) && AimsAtIt(other) || other.Draws.TryGetValue(team, out bool joins) && joins && Seen(other))).ToList();
                     if (adds.Count == 0)
                         return;
                     team.AddCalledAt = now;

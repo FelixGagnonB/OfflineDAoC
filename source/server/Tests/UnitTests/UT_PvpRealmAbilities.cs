@@ -14,9 +14,9 @@ namespace DOL.UnitTests
         private static PvpAbilityView View(bool inFight = true, int health = 100, bool hitInMelee = false, bool interrupted = false, int hurt = 0,
             int badlyHurt = 0, int lowestOther = 100, int missing = 0, int membersHitInMelee = 0, int slowed = 0, int enemyCasters = 0,
             bool retreating = false, PvpBuffArchetype archetype = PvpBuffArchetype.Healer, PvpOrder order = PvpOrder.Engage, int fightersFromEnemy = 0,
-            int softHit = 0) =>
+            int softHit = 0, int membersAlive = 0, int enemiesAlive = 0) =>
             new(inFight, health, hitInMelee, interrupted, hurt, badlyHurt, lowestOther, missing, membersHitInMelee, slowed, enemyCasters, retreating, archetype,
-                order, fightersFromEnemy, softHit);
+                order, fightersFromEnemy, softHit, membersAlive, enemiesAlive);
 
         private static bool Wanted(string key, PvpAbilityView view) => PvpRealmAbilities.Wanted(view, key, Weights);
 
@@ -170,6 +170,11 @@ namespace DOL.UnitTests
         {
             Assert.That(Wanted(PvpRealmAbilities.SpeedOfSound, View(order: PvpOrder.Push, fightersFromEnemy: 1_800)), Is.True, "they kite: the group runs in");
             Assert.That(Wanted(PvpRealmAbilities.SpeedOfSound, View(order: PvpOrder.Push, fightersFromEnemy: 600)), Is.False, "its fighters are on them already");
+            // Not to get in on fewer than it is itself: the last three of a fight that is won (the owner's, 2026-11-24) are walked down.
+            Assert.That(Wanted(PvpRealmAbilities.SpeedOfSound, View(order: PvpOrder.Push, fightersFromEnemy: 1_800, membersAlive: 8, enemiesAlive: 3)), Is.False);
+            Assert.That(Wanted(PvpRealmAbilities.SpeedOfSound, View(order: PvpOrder.Push, fightersFromEnemy: 1_800, membersAlive: 8, enemiesAlive: 8)), Is.True);
+            Assert.That(Wanted(PvpRealmAbilities.SpeedOfSound, View(order: PvpOrder.Push, fightersFromEnemy: 1_800, membersAlive: 5, enemiesAlive: 8)), Is.True);
+            Assert.That(Wanted(PvpRealmAbilities.SpeedOfSound, View(retreating: true, membersAlive: 8, enemiesAlive: 3)), Is.True, "a called retreat is a called retreat");
             Assert.That(Wanted(PvpRealmAbilities.SpeedOfSound, View(order: PvpOrder.Engage, fightersFromEnemy: 1_800)), Is.False, "nobody called the push");
             Assert.That(Wanted(PvpRealmAbilities.SpeedOfSound, View(order: PvpOrder.Extend, softHit: 2)), Is.True, "jumped: the group repositions");
             Assert.That(Wanted(PvpRealmAbilities.SpeedOfSound, View(order: PvpOrder.Regroup, softHit: 2)), Is.True);

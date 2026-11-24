@@ -3612,6 +3612,25 @@ The plan the owner agreed to that day ("Let's proceed and test with bots first")
     of Sound, which lasts 30) or 30 (Battery of Life, Bunker of Faith, Soldier's Barricade,
     Brilliant Aura, Ameliorating Melodies). *Automated tests only; not yet on the scrim server
     (the owner was playing on it).*
+  - **Speed of Sound on the last of a won fight.** The owner, of an 8v8 won with nobody lost
+    (the third evening of the day, two Bards, against a casual group four ranks lower):
+    "There's a bard that used SoS at the end of the that fight. Is there a reason?" The rule
+    of 2026-11-22, "to get in": the group pushed, its kill target had died half a second
+    before, and its fighters stood 1,180 to 1,200 units from the next of the three enemies
+    left. In the brawl before it both Bards had used it one second apart with five enemies
+    left of forty. Built: not to get in on fewer enemies than the group has members alive
+    (`PvpRealmAbilityWeights.SpeedOfSoundNotToCloseOnFewer`); a called retreat, two members
+    held by the legs and a jumped back line use it as before. *Automated tests only; not yet
+    on the scrim server.*
+  - **"ADD" for a group the owner's own had turned on.** In that brawl (five enemy groups that
+    were fighting each other, the owner's and a second Hibernian group coming in third) the
+    owner's group was told of three adds in fourteen seconds, twelve lines in capitals, for
+    groups it had gone for itself. Now only for a group one of whose members aims at the
+    group, or that has drawn "joins" on its fight and is seen coming. *Automated tests only;
+    not yet on the scrim server.* Of the calls that were as meant that evening, from the
+    recording: "INC! 1FG ALBS SOUTH-EAST, 5,000!" six seconds before the first fight, an add
+    called 25 seconds before two Midgard groups landed, and another 15 seconds before the
+    group that finished the owner's.
   - **"/8v8 prime emain 8 rank hib-2bard".** The owner asked for the group of two Bards and got
     the main one. The server's log has the line as typed: no number after "rank", so the
     line-up's name was taken for the rank's number, and the evening began with the main

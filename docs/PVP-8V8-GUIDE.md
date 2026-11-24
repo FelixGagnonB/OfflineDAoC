@@ -285,7 +285,8 @@ In a roam they also tell you what they see, as a group of players does on its wa
 fight, "INC! 2FG MIDS NORTH-WEST, 4,500!" (twice) for the enemy groups of a realm they see
 within 5,500 units, on which side of you and how far, said again when more have come or after 45
 seconds; in a fight, "ADD! 8 MORE MIDS FROM THE NORTH!" (four times) for each further group that
-comes into your fight or is seen coming for it. They see farther ahead than behind and not
+comes into your fight (one that aims at you, not one you went for yourself) or is seen coming
+for it. They see farther ahead than behind and not
 through a hill, so a group can still come up unseen. **All of this paragraph and the one above:
 automated tests, and for "INC" and "ADD" one evening of bots in which a team of bots stood in
 for a player's group and the lines were written to the recording. Nobody has seen any of it in a
