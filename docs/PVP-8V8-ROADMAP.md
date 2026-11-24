@@ -3189,6 +3189,84 @@ That is one measurement of one size: what 24 or 36 teams cost is M11.2.
   only then.
 - [ ] **M11.7** (M) The play install: 8v8 only (the gamebot population off, the frontier's
   monsters), delivery, and a backup of what is replaced. Only on the owner's word.
+- [ ] **M11.8** (M) More zones, and each kind of team in its kind of zone. The owner,
+  2026-11-23, after looking at where the teams of the first night had walked (drawn on the
+  client's maps: "it looks close to route we were running"): "Maybe we should look at adding
+  more zones and spreading teams (and type of teams) across them all."
+  *Built 2026-11-23 and run with bots only; seen in no client.*
+  - **Twelve zones**, four in each realm's frontier: the three the others ported to, and the
+    nine behind them (Breifine, Cruachan Gorge, Mount Collory; Jamtland Mountains, Uppland,
+    Yggdra Forest; Pennine Mountains, Forest Sauvage, Snowdonia), in `PvpRoamZones.cs`. A bot
+    does not walk from one zone into the next: a way asked across a border is not found on the
+    installed navmesh, so each zone is a map of its own, as the first three are.
+  - Each of the nine was laid out by `source/tools/pvp_map_pick.py` on the installed navmesh
+    and looked at on the client's map: seven to nine points 15,000 or 18,000 apart, none within
+    9,000 of a keep, a leg where the way on foot is within 13% of the straight line (9 to 15
+    legs a zone, 15,700 to 25,200 units). The realm of the zone starts in front of one of its
+    keeps. The two others had no keep and no porter there: each comes in at a place of its own
+    off the legs (the three starts 41,000 to 52,000 apart). That is invented.
+  - **A zone is crowded, mixed or clean** (`PvpZoneCrowd`): Emain Macha; Odin's Gate and
+    Hadrian's Wall; the nine. **Each kind leans to its kind of zone** (`PvpRoam.Leans`): packs
+    and groups that stay near others never in a clean zone, an elite team never in the crowd,
+    a decent team everywhere. Of the zones its kind goes to, a team rather takes one with few
+    groups of its realm. The numbers are a first guess.
+  - **An evening is in some of the twelve** (`ZonesTonight`): one zone for every three groups
+    of a realm (three with eight groups, four with twelve, five with sixteen, which is the most
+    now): where it begins, Emain Macha, and others drawn anew each evening, Odin's Gate and
+    Hadrian's Wall four times as readily as a zone behind them. `/8v8 prime ... all` is all
+    twelve. `/8v8 who` begins with the zones of the evening and what each is like.
+  - A player who walks from one zone of the evening into the next is of that zone from then
+    on. *Not run at all: it takes a player.*
+  - **Two evenings of bots, 2026-11-23** (no error in the server's log but the known one at
+    its start; the slowest tick 115 ms):
+
+    | | Teams, zones | Of one core | Zone | Teams there | Fights begun | Fighting time with two teams only |
+    |---|---|---|---|---|---|---|
+    | 14 minutes | 24 in 3 | 23.5% | Emain Macha (crowded) | 11: 4 bad, 3 near others, 3 decent, 1 adds | 42 | 23% |
+    | | | | Odin's Gate (mixed) | 7: 2 bad, 2 near others, 1 adds, 1 decent, 1 hunter | 24 | 16% |
+    | | | | Snowdonia (clean) | 6: 3 strong, 1 elite, 1 decent, 1 adds | 8 | 88% |
+    | 17 minutes | 36 in 4 | 27.7% | Emain Macha (crowded) | 15: 8 bad, 4 near others, 2 add, 1 hunter | 125 | 3% (65% with five or more) |
+    | | | | Odin's Gate (mixed) | 9: 4 bad, 2 near others, 1 decent, 1 elite, 1 hunter | 33 | 26% |
+    | | | | Yggdra Forest (clean) | 7: 4 strong, 3 decent | 10 | 100% |
+    | | | | Snowdonia (clean) | 5: 3 add, 2 decent | 8 | 100% |
+
+    The spread is what was meant: the crowd in Emain Macha, fights of two in the clean zones.
+    A clean zone had a fight begun every 100 to 130 seconds for all its teams together,
+    which is few; whether that is too quiet to play in is for a player to say. In the second
+    evening three of Snowdonia's five were groups that add: that kind leans to a clean zone
+    little (1, against 4 for the crowd and 4 for a mixed zone), but a zone that has nobody of
+    a team's realm yet draws it three times as much, and that made up for it.
+- [ ] **M11.9** (S) The teams that hunt the zerg. The owner, 2026-11-23: "There was 8v8 elite
+  team that would run to these 'zerg' (many teams running together) to kill them. A really
+  famous guild is Free RPS. They had videos from doing it, even killing a 140 persons zerg."
+  *Built 2026-11-23 and run with bots only; seen in no client.*
+  - A seventh kind (`PvpTeamKind.Hunter`, 5% of the guilds, taken from the decent, which are
+    15% now): an elite team as to rank, eight and play, that is where the crowd is, walks
+    toward the nearest groups of an enemy realm that walk together and that nobody is fighting
+    yet, and starts on them whatever their number. With no such groups about it walks the road
+    and fights the single groups it meets.
+  - It does not add. Written first to join a fight a pack was in; the owner the same evening:
+    "If my group gets to the zerg 1st, the bot elite team won't add if they get there 2nd and
+    3rd right ?" A pack somebody is on already is theirs.
+  - **What happened, in the two evenings above** (three fights of two hunter teams; too few to
+    say what usually happens):
+
+    | Against | Lasted | Its own alive | Theirs | Farthest from where it began |
+    |---|---|---|---|---|
+    | Two Midgard groups together, then two Hibernian bad groups that added | 159 s | 8 to 1, wiped | one group 8 to 4, the others whole | 3,500 |
+    | Three Hibernian bad groups together | 205 s | 8 to 1, wiped | all whole; it had no kill | 2,200 |
+    | One Albion bad group that was away from its pack | 162 s | 8 to 8 | 8 to 1 | 3,700 |
+
+    Eight beat eight without a loss (eleven kills, with those who were raised), lost to two
+    groups and the two that added with four kills, and lost to three groups with none. In the
+    fight it lost to three groups its caller had the group on Extend (the kite)
+    for 96 of 210 seconds, and the group was never more than 2,200 units from where the fight
+    began: the call is made, and it does not carry the group away. The owner had said before
+    the runs: "They will most probably start the fight at a loc and finish much futher back."
+    They did not. Whether to make the kite carry (and what else an eight needs against a pack)
+    is tuning and skill, which the owner parked on 2026-11-22: not started.
+  - After it stopped adding (second evening): six fights come on by a hunter team, six left
+    alone.
 
 **Found on the way (owner, 2026-11-22):** "I was the only one remaining alive from my group and
 I still had endurance up and running." In the recording of that roam the group's Bard died three
@@ -3196,7 +3274,7 @@ times, and each time its song stayed up until the group stood up again, the last
 minutes. Dying ended every effect on a living except the pulse of a song itself, and the pulse
 went on casting for its dead caster. Fixed in the shared code (a death ends the pulses; a pulse
 whose caster is dead in the world ends at its next tick), for players, bots and monsters alike.
-*Automated test only; not yet installed.*
+*Automated test only. On the scrim server since 2026-11-22; not seen in a fight by anybody.*
 
 **Where M11 stands after its first night (2026-11-22 to 23).** Built and run with bots on the
 scrim server: M11.1 to M11.6. Seen in a client: nothing. Needs a player to be seen at all: the
@@ -3204,7 +3282,8 @@ grudges and `/8v8 rivals` (M11.6), `/8v8 go`, `/8v8 who`, realm chat as a player
 guild names under the bots, and whether a team coming out or standing up is felt as a hitch (one
 stall of 1.2 s was logged in four evenings after teams stopped being made all at once). Not
 built: an elite team leaving a fight that gets dirty; a group of fewer than eight; a population
-that rises and thins; prime time in the setup window. The play install has the release build of
+that rises and thins; prime time in the setup window. Added on 2026-11-23, built and run with
+bots only: nine more zones and the kinds of zone (M11.8), the teams that hunt the zerg (M11.9). The play install has the release build of
 2026-10-18, with no 8v8 in it at all: M11.7 is an install of the current build over it, with a
 backup, on the owner's word.
 

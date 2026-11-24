@@ -18,7 +18,7 @@ unfinished are in [PVP-8V8-ROADMAP.md](PVP-8V8-ROADMAP.md).
 | **Practice** (Lane or Basin) | One fight against one enemy group, for trying things. | 2 | Everybody at the rank you pick. Your timers are reset. Nothing is earned. |
 | **Real** (Lane or Basin) | The same one fight, for keeps. | 2 | Everybody at the rank it has earned, from rank 1. Kills earn realm points that are kept. No timer is reset. |
 | **Roam** (Emain Macha or Thidranki) | A session that goes on from fight to fight until you stop it. | 6: two of each realm, yours one of them | Always the Real rules. |
-| **Prime time** (the three frontiers) | An evening: guilds of every kind out in Emain Macha, Odin's Gate and Hadrian's Wall. | 24 by default: eight of each realm, yours one of them | Always the Real rules. Each guild has the rank of its kind and of what it has earned. |
+| **Prime time** (the frontiers) | An evening: guilds of every kind out in three of the twelve frontier zones (more zones with more groups). | 24 by default: eight of each realm, yours one of them | Always the Real rules. Each guild has the rank of its kind and of what it has earned. |
 
 Picking **Real** does not start the roam: Real and Practice are the rules of a single fight. The
 six groups are the **Roam** and **Thidranki** starts. Prime time is typed (`/8v8 prime`); it is
@@ -72,44 +72,70 @@ starts of the setup window.
 
 ### Prime time
 
-`/8v8 prime` starts an evening over the three old frontiers. **It has only been run with bots: no
-player has played it yet.**
+`/8v8 prime` starts an evening in the old frontiers. **It has only been run with bots: no player
+has played it yet.**
 
-- `/8v8 prime [zone] [number] [one]`. *zone* is where you begin: `emain` (if you give none),
-  `odin` or `hadrian`; `thid` is Thidranki alone. *number* is the groups of each realm: 8 if you
-  give none, 12 at most. `one` keeps the evening in that one zone.
+- `/8v8 prime [zone] [number] [one|all]`. *zone* is where you begin: `emain` if you give none;
+  `thid` is Thidranki alone. *number* is the groups of each realm: 8 if you give none, 16 at
+  most. `one` keeps the evening in that one zone; `all` puts it in all twelve.
+- **The zones.** Twelve, four in each realm's frontier:
+
+  | Frontier | The zone the others ported to | The zones behind it |
+  |---|---|---|
+  | Hibernia | `emain` (Emain Macha) | `breifine`, `cruachan` (Cruachan Gorge), `collory` (Mount Collory) |
+  | Midgard | `odin` (Odin's Gate) | `jamtland` (Jamtland Mountains), `uppland`, `yggdra` (Yggdra Forest) |
+  | Albion | `hadrian` (Hadrian's Wall) | `pennine` (Pennine Mountains), `sauvage` (Forest Sauvage), `snowdonia` |
+
+  An evening is not in all of them: it has one zone for every three groups of a realm, so three
+  with eight groups, four with twelve, five with sixteen. They are the zone you begin in, Emain
+  Macha, and others drawn anew each evening, Odin's Gate and Hadrian's Wall four times as
+  readily as a zone behind them. `/8v8 who` begins with the zones of the evening.
+- **What a zone is like.** Emain Macha is where **the crowd** is. Odin's Gate and Hadrian's Wall
+  are **mixed**. The nine behind them are **clean**: no pack and no group that stays near others
+  goes there, a group that adds seldom. In a zone behind, the realm whose frontier it is starts
+  in front of one of its keeps; the two others had no keep and no porter there, so each comes in
+  at a place of its own at the edge. A keep's guards leave the bots alone. They do not leave you
+  alone when the keep is not your realm's, and the points keep 9,000 away from every keep.
 - **Who is out.** Guilds, each with a name its members wear, a kind, its own eight and a rank.
   They are kept from evening to evening (`pvp-teams.json` beside the server), with their records.
   The names are invented; you can put guilds you remember in the file.
 
-  | Kind | Share | Walks | Adds on a fight | Its eight | Rank it began at |
-  |---|---|---|---|---|---|
-  | Bad | 30% | in a pack of two to five | always, and without counting the enemy | one or two healers, speed six times in ten, anybody | 1 to 3 |
-  | Casual, stays near others | 15% | 1,800 to 3,500 behind a group of its realm (maybe yours) | nine times in ten | two healers, speed, anybody | 2 to 4 |
-  | Casual 8v8 | 15% | alone | eight times in ten | the main group with one or two changed | 3 to 5 |
-  | Decent 8v8 | 20% | alone | never | the main group | 4 to 6 |
-  | Strong 8v8 | 15% | alone | never | the main group | 6 to 8 |
-  | Elite 8v8 | 5% | alone, leaning to the quiet ground | never | the main group | 8 to 10 |
+  | Kind | Share | Walks | Adds on a fight | Its eight | Rank it began at | Where it is |
+  |---|---|---|---|---|---|---|
+  | Bad | 30% | in a pack of two to five | always, and without counting the enemy | one or two healers, speed six times in ten, anybody | 1 to 3 | the crowd; sometimes a mixed zone; never a clean one |
+  | Casual, stays near others | 15% | 1,800 to 3,500 behind a group of its realm (maybe yours) | nine times in ten | two healers, speed, anybody | 2 to 4 | where its group is; it picks none in a clean zone |
+  | Casual 8v8 | 15% | alone | eight times in ten | the main group with one or two changed | 3 to 5 | the crowd and the mixed zones; a clean one now and then |
+  | Decent 8v8 | 15% | alone | never | the main group | 4 to 6 | everywhere |
+  | Strong 8v8 | 15% | alone | never | the main group | 6 to 8 | the clean zones first, then the mixed |
+  | Elite 8v8 | 5% | alone, leaning to the quiet ground | never | the main group | 8 to 10 | the clean zones; never the crowd |
+  | Elite, hunts the zerg | 5% | alone, toward the nearest enemy groups that walk together and that nobody is fighting yet | never: a pack somebody is on already is theirs | the main group | 8 to 10 | the crowd; sometimes a mixed zone; never a clean one |
 
   A guild's rank does not follow yours: an elite team outranks a new character by a lot.
 - **Where they go.** Nobody walks a fixed round. At each point a guild picks where to go next,
-  not back the way it came. One that does not add turns back from a fight it comes on, or walks
-  on past it. One that does not count heads walks into anything; the others do not start on more
-  groups than they have together.
+  not back the way it came. One that does not add stands by a fight it comes on for 45 seconds
+  for it to end, then turns back or walks on past. One that does not count heads (the bad
+  groups, and the hunters) walks into anything; the others do not start on more groups than
+  they have together.
 - **The evening moves.** Guilds come out one by one over the first minutes. A guild logs off
   when it has been wiped three times, or after 25 to 50 minutes, and another of its realm comes
-  out. A guild that walks alone and is wiped ports to another frontier one time in three.
-- **What you know.** Of your own realm: `/8v8 who` (the guilds that are out, rank, classes,
-  zone, whom they walk with) and `/8v8 status` (what each is doing). Of the others: how many
-  groups are out, and what your realm calls out in realm chat when it sees them, such as
-  "2fg albs at south road (Emain)", "fighting 1fg mids at north road (Odin's)", "wiped at east
-  gate (Hadrian's), 3fg mids". The names of the places are made up for now.
-- **Going elsewhere.** `/8v8 go odin`, `/8v8 go hadrian`, `/8v8 go emain`: your group ports to
-  your realm's start there. Not out of a fight.
+  out. A guild that walks alone and is wiped ports one time in three to another zone of the
+  evening that its kind goes to.
+- **What you know.** Of your own realm: `/8v8 who` (the zones of the evening and what each is
+  like, then the guilds that are out, rank, classes, zone, whom they walk with) and
+  `/8v8 status` (what each is doing). Of the others: how many groups are out, and what your
+  realm calls out in realm chat when it sees them, such as "2fg albs at south road (Emain)",
+  "fighting 1fg mids at north road (Odin's)", "wiped at Crimthain (Breifine), 3fg mids". The
+  names of the places are made up: in the zones behind, a point is called by the keep it is
+  near or by its side of the zone.
+- **Going elsewhere.** `/8v8 go <zone>` with one of the zones of the evening: your group ports
+  to your realm's start there. Not out of a fight. Walking from one zone into the next one of
+  the evening also makes your group of that zone; the bots do not cross a zone's border on foot.
 - **Grudges.** A guild your group has wiped twice in an evening comes looking for you. One you
   added on (you came into a fight it had with somebody else) comes looking too, and joins the
   next fight of yours it comes on, whatever its kind. `/8v8 rivals` lists the enemy guilds you
   have wiped or been wiped by, over all evenings.
+- **Pictures.** `source/tools/pvp_map_draw.py` draws a zone's points and legs on the client's map
+  of it, and, from a recording of an evening, where every team went, fought and was wiped.
 
 ## Your group
 
