@@ -11,7 +11,7 @@ a command to type or a file to look at; the why of each thing is in
 | Thing | Where |
 |---|---|
 | The source, and these pages | `C:\Workspace\OfflineDAoC` (GitHub: your fork; `main` is what is released: tag `v0.1.1` is what the game you play runs; later work is on branch `pvp-8v8-m11` until it is merged) |
-| The game you play | `D:\OfflineDAoC` (release 0.37b with the 8v8 build installed over it on 2026-11-25: `v0.1`, then the fix of M13.9 an hour later, which is tag `v0.1.1`. The backups are in `D:\OfflineDAoC\deployment-backups`: `scrim-20261125-082823` puts the 0.37b server back, `scrim-20261125-085442` puts `v0.1` as tagged back) |
+| The game you play | `D:\OfflineDAoC` (release 0.37b with the 8v8 build installed over it on 2026-11-25: `v0.1`, then the fix of M13.9 an hour later, which is tag `v0.1.1`. The backups are in `D:\OfflineDAoC\deployment-backups`: `scrim-20261125-082823` puts the 0.37b server back, `scrim-20261125-085442` puts `v0.1` as tagged back, `scrim-20261125-101034` puts `v0.1.1` back (the build after it, of the same day: the evening as your session, emblems)) |
 | The copy for trying things | `D:\OfflineDAoC-scrim` (has `pvp-test-commands.txt`, so every `/8v8` command answers there) |
 | The 8v8 code | `source\server\GameServer\bots\pvp`, the command in `source\server\GameServer\commands\playercommands\Pvp8v8Command.cs` |
 | The tools | `source\tools\pvp_*.py`, `source\tools\scrim_server.py`, `source\server\tools\deploy_scrim.ps1` |
