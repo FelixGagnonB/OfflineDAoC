@@ -3916,8 +3916,26 @@ kept; a way for a dead player to tell the group "just die".
   - **The scrim server's guilds keep their ranks** (the pool "world": 48 guilds at realm
     level 9 to 95, 23 of them with a record against the owner). To try the start from rank 1
     level 1 there, that pool has to be set aside; not done without the owner's word.
-- [ ] **M13.7** (S) The pull request to main, the tag, and the play install with a backup. On
-  the owner's word.
+- [x] **M13.7** (S) The pull request to main, the tag, and the play install with a backup. On
+  the owner's word. *2026-11-25.* The owner: "On a general note, I am not renewing my Claude
+  subscription. Ideally, we have everything done before the end of my sub and deployed in
+  D:\OfflineDAoC" (it ends on 2026-12-16); asked what to do once the evening of bots on the last
+  build had ended cleanly, picked "Merge, tag, install", and for the guilds "Keep fixed groups"
+  (a guild of more than eight that forms its groups from its members, as players did, was the
+  owner's thought that day and is not built).
+  - **Before it:** the play install compared with the scrim copy, which had run the build for
+    nine days: the same tables and the same number of rows in everything the 8v8 reads (items,
+    spells, abilities, the classes' ability lists, the level-50 loadouts, monsters, zones), the
+    same server properties, the same 103 navigation files; never played (no account, no
+    character), its gamebot population at 0. And an evening of bots on the last build with the
+    owner's realm ability orders (36 teams, ten minutes): 90 fights, 9 wipes, 197 abilities
+    pressed (Mastery of Concentration 14, Raging Power 8, Avoid Pain 6, The Empty Mind 3,
+    Faith Healing 2 among them), no purchase failed, no tick failed.
+  - **Done:** pull request 6 merged to `main`, tagged `v0.1`, the build installed on
+    `D:\OfflineDAoC` by `deploy_scrim.ps1` (six files, with a backup). The play install's server
+    was not started: its server files were compared with the scrim copy's instead.
+  - `docs/PVP-8V8-HANDOVER.md`: for the owner to build, install, undo and change things without
+    an assistant.
 
 ## Scorecard
 
