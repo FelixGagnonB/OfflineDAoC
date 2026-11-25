@@ -1173,6 +1173,9 @@ namespace DOL.GS
         private static int MostOfOneRealm(IEnumerable<PvpRoamTeam> teams) =>
             teams.GroupBy(team => team.Realm).Select(realm => realm.Count()).DefaultIfEmpty(0).Max();
 
+        /// <summary>True for a player with a group in the roam or the evening that is running.</summary>
+        public static bool Leads(GamePlayer player) => player != null && _teams.Any(team => team.Leader == player);
+
         /// <summary>The squad of the team a player leads in the roam; null for a player who leads none.</summary>
         public static PvpSquad SquadOf(GamePlayer player) =>
             player == null ? null : _teams.FirstOrDefault(team => team.Leader == player)?.Team.Squad;

@@ -3873,6 +3873,16 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [x] **M13.9** (S) The evening begins at login, and only then. *Built 2026-11-25, after the tag;
+  automated tests only.* Reading the first-time path again before the owner's first evening on
+  the play install: the game tells of a player "entering" (`GamePlayerEvent.GameEntered`) each
+  time its client has loaded a region, so after every change of region and not at login alone.
+  With `v0.1` a player that left the frontier (an evening ends when its player is no longer in
+  it), to train a realm ability in the capital, would have been taken back to Emain Macha four
+  seconds after arriving, by a new evening. Built: the first entering of a session begins the
+  evening (`PvpEveningStart.IsLogin`); a start asked for twice within thirty seconds is made
+  once; `/8v8 evening` begins an evening when none runs, for the way back from the trainer. A
+  player's own evening is known by its group being in it (`PvpRoam.Leads`), not by its squad.
 - [x] **M13.8** (M) The realm ability orders, up to the cap. *In the game 2026-11-25; automated tests only.* The
   owner wrote an order for each of the 26 classes of the 8v8 groups
   (`docs/DAoC-1.65-8v8-RA-Progressions-v3.md`), where the orders before were a first reading that stopped at 63 to

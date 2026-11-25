@@ -44,10 +44,29 @@ namespace DOL.GS
             GameEventMgr.AddHandler(GamePlayerEvent.GameEntered, new DOLEventHandler(OnEntered));
         }
 
+        private const string EnteredProperty = "PVP_8V8_ENTERED_THE_GAME", BeginsProperty = "PVP_8V8_EVENING_BEGINS";
+
+        /// <summary>
+        /// Whether this coming in is the player's login. The game tells of a player "entering"
+        /// each time its client has loaded a region, so also after every change of region: the
+        /// port to the frontier that begins the evening, <c>/8v8 go</c>, and a walk through a
+        /// portal to the capital. Without this a player that left the frontier for its trainer
+        /// (the evening ends when its player is no longer in it) was taken back to Emain Macha
+        /// four seconds after it arrived. Found reading the code on 2026-11-25, before the
+        /// owner's first evening on the play install.
+        /// </summary>
+        public static bool IsLogin(bool enteredBeforeThisSession) => !enteredBeforeThisSession;
+
+        /// <summary>A second start asked for while the first is still taking the player to the frontier is not made.</summary>
+        public static bool IsUnderWay(long now, long begunAt) => begunAt > 0 && now - begunAt < 30_000;
+
         private static void OnEntered(DOLEvent e, object sender, EventArgs args)
         {
             if (sender is not GamePlayer player || !PvpWeights.Current.Real.EveningAtLogin)
                 return;
+            if (!IsLogin(player.TempProperties.GetProperty<bool>(EnteredProperty)))
+                return;
+            player.TempProperties.SetProperty(EnteredProperty, true);
             // A moment for the client to have the world: the evening takes the player to its realm's start.
             new ECSGameTimer(player, _ =>
             {
@@ -56,8 +75,13 @@ namespace DOL.GS
             }, 4_000);
         }
 
-        /// <summary>Begins the player's evening when it has none: on coming in, and once <c>/8v8 ready</c> has made its character.</summary>
-        public static void BeginFor(GamePlayer player)
+        /// <summary>
+        /// Begins the player's evening when it has none: on coming in, once <c>/8v8 ready</c> has
+        /// made its character, and when the player asks (<c>/8v8 evening</c>, after it has been
+        /// away from the frontier, which ends an evening).
+        /// </summary>
+        /// <param name="asked">The player typed it: it begins whether or not evenings begin at login on this server.</param>
+        public static void BeginFor(GamePlayer player, bool asked = false)
         {
             try
             {
@@ -65,13 +89,16 @@ namespace DOL.GS
                     return;
                 void Say(string text) => player.Out.SendMessage("[8v8] " + text, eChatType.CT_Important, eChatLoc.CL_SystemWindow);
                 PvpRealWeights real = PvpWeights.Current.Real;
-                (bool begins, string told) = AtLogin(real.EveningAtLogin,
+                if (IsUnderWay(GameLoop.GameLoopTime, player.TempProperties.GetProperty<long>(BeginsProperty)) && !PvpScrim.Running)
+                    return;
+                (bool begins, string told) = AtLogin(real.EveningAtLogin || asked,
                     Is8v8Character(player.Level, PvpPlayerReady.BuildsFor(player.Realm).Any(build => build.Class == (eCharacterClass)player.CharacterClass.ID)),
-                    PvpScrim.Running, PvpScrim.IsPlaying(player));
+                    PvpScrim.Running, PvpScrim.IsPlaying(player) || PvpRoam.Leads(player));
                 if (told != null)
                     Say(told);
                 if (!begins)
                     return;
+                player.TempProperties.SetProperty(BeginsProperty, GameLoop.GameLoopTime);
                 PvpPlayerSetting kept = PvpPlayerSettings.Get(AppContext.BaseDirectory, player.InternalID);
                 PvpRoamMap zone = kept.Zone == null ? null : PvpRoam.MapFor(kept.Zone);
                 PvpRoam.StartFor(player, Say, kept.Lineup == null ? null : PvpBuildCatalog.FindGroup(kept.Lineup), zone ?? PvpRoam.Emain,

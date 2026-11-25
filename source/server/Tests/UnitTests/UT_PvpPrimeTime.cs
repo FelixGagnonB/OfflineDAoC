@@ -30,6 +30,13 @@ namespace DOL.UnitTests
             // The player's own evening runs (it has just made its character in it): nothing to do and nothing to say.
             Assert.That(PvpEveningStart.AtLogin(true, true, true, true), Is.EqualTo((false, (string)null)));
             Assert.That(PvpEveningStart.AtLogin(false, true, false, false), Is.EqualTo((false, (string)null)));
+            // Only the login begins it: the game tells of a player "entering" after every change of region too (a walk to the
+            // trainer in the capital would have ended with the player taken back to the frontier).
+            Assert.That(PvpEveningStart.IsLogin(enteredBeforeThisSession: false), Is.True);
+            Assert.That(PvpEveningStart.IsLogin(true), Is.False);
+            Assert.That(PvpEveningStart.IsUnderWay(now: 20_000, begunAt: 10_000), Is.True, "the first start is still taking the player there");
+            Assert.That(PvpEveningStart.IsUnderWay(50_000, 10_000), Is.False);
+            Assert.That(PvpEveningStart.IsUnderWay(20_000, 0), Is.False, "none was begun");
             Assert.That(PvpEveningStart.Is8v8Character(50, true), Is.True);
             Assert.That(PvpEveningStart.Is8v8Character(49, true), Is.False);
             Assert.That(PvpEveningStart.Is8v8Character(50, false), Is.False);
@@ -65,7 +72,7 @@ namespace DOL.UnitTests
             Assert.That(PvpRoam.KindWord(PvpTeamKind.Hunter), Is.EqualTo("zerg hunters"));
             Assert.That(PvpRoam.KindWord(null), Is.EqualTo("other"));
             // What a player has of the command on the play install, and what is kept for a test server or a game master.
-            foreach (string word in new[] { "call", "calls", "lead", "ready", "guild", "who", "rivals", "ranks", "go", "corpse" })
+            foreach (string word in new[] { "call", "calls", "lead", "ready", "guild", "evening", "who", "rivals", "ranks", "go", "corpse" })
                 Assert.That(DOL.GS.Commands.Pvp8v8CommandHandler.IsKeptFromAPlayer(word, false, false), Is.False, word);
             foreach (string word in new[] { "prime", "roam", "play", "setup", "group", "skill", "status", "stop", "clear", "lanes", "watch", "feed", "" })
             {
