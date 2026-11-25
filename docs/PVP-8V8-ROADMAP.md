@@ -3874,7 +3874,30 @@ kept; a way for a dead player to tell the group "just die".
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
 - [ ] **M13.6** (S) The fixes of M12.9 to M12.12 and M13.1 on the scrim server, an evening of
-  bots, an evening of the owner's.
+  bots, an evening of the owner's. *On the scrim server since the owner logged off on
+  2026-11-24 (M13.2 to M13.5 an hour later, started and not run); one evening of bots; the
+  owner's evening is to come.* The evening of bots (36 teams, 13 minutes, the build of M12.9
+  to M13.1 and M13.5):
+  - Packs: four of two groups and four of three at the start. Three or four groups of a
+    bad group's realm were still in 18 of its 22 fights: packs meet their realm-mates.
+  - A bad group's members were asleep 16.8% of their time in combat (the others 5.0%) and
+    pressed Purge 14 times (the others 129). Against the owner's Bards it had been 2 to 4%.
+  - A bad group was wiped in 6 of its 14 fights with more groups than the enemy (2 of 75 over
+    the six evenings before, none of 32 on the evening with slow hands alone), and killed 81
+    for 103 lost (429 for 379; 76 for 13). An elite team killed 11 for none, the hunters 29
+    for 2.
+  - Ten teams gave up waiting by a fight: five turned back, five walked on round it. Of
+    those five none fought the groups it had left alone; the nearest they came to one of
+    them was 2,600 to 3,100 units (one had the fight come to it, 1,300), where a team had
+    walked through the owner's group at 160.
+  - A group-wide ability by a second member within its time: none of 34 uses.
+  - Not exercised by bots: a cure at rest (none was cast), sprint on a retreat a player
+    calls, the two Bards' songs, a click in a fight, `/8v8 call die`, `/8v8 guild`, the
+    player's commands, the evening at login.
+  - No tick failed.
+  - **The scrim server's guilds keep their ranks** (the pool "world": 48 guilds at realm
+    level 9 to 95, 23 of them with a record against the owner). To try the start from rank 1
+    level 1 there, that pool has to be set aside; not done without the owner's word.
 - [ ] **M13.7** (S) The pull request to main, the tag, and the play install with a backup. On
   the owner's word.
 
