@@ -226,6 +226,12 @@ has played it yet.**
   Soldier's Barricade, Brilliant Aura and Ameliorating Melodies (thirty). In every group, yours
   and the guilds'. **Built 2026-11-24, automated tests only.**
 - Your companions keep their names from one session to the next.
+- **Two Bards share the songs** (the line-up `hib-2bard`; since 2026-11-24, automated tests
+  only). The first of the two by name holds the speed song, on the road, on the way in and on
+  a retreat, and plays nothing in a fight, where it has its mez to cast; the second holds the
+  endurance song all the time. When one of them is dead the other holds endurance in a fight,
+  on a retreat, at rest and with an enemy in sight, and speed only on an empty road. A group
+  with one Bard plays as before: speed on the road and on a retreat, endurance in a fight.
 - **A guild of your own.** `/8v8 guild <name>` forms a guild with you as its guildmaster,
   wherever you stand and at no cost (letters and spaces, thirty at most, not a name a guild
   has already). Your seven companions wear its name under theirs, the ones that are out at

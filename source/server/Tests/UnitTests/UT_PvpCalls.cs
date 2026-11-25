@@ -9,6 +9,30 @@ namespace DOL.UnitTests
     public class UT_PvpCalls
     {
         [Test]
+        public void TwoBardsShareTheSongs()
+        {
+            // The owner, 2026-11-24: "1 bard has speed up and the other has endurance ... If the endurance bard dies, then the other has to play it".
+            var speed = BotSongTwistPolicy.PvpBardSong.Speed;
+            var endurance = BotSongTwistPolicy.PvpBardSong.Endurance;
+            // The Bard of a group with one plays as it did.
+            Assert.That(BotSongTwistPolicy.TwoBards(1, 1, 0, false, false, false), Is.EqualTo(BotSongTwistPolicy.PvpBardSong.AsOne));
+            // On the road: one speed, one endurance.
+            Assert.That(BotSongTwistPolicy.TwoBards(2, 2, 0, false, false, false), Is.EqualTo(speed));
+            Assert.That(BotSongTwistPolicy.TwoBards(2, 2, 1, false, false, false), Is.EqualTo(endurance));
+            // In a fight the endurance stays up and the other casts its mez.
+            Assert.That(BotSongTwistPolicy.TwoBards(2, 2, 0, true, false, true), Is.EqualTo(BotSongTwistPolicy.PvpBardSong.Nothing));
+            Assert.That(BotSongTwistPolicy.TwoBards(2, 2, 1, true, false, true), Is.EqualTo(endurance));
+            // On a retreat: one tries the speed, the other keeps the endurance up.
+            Assert.That(BotSongTwistPolicy.TwoBards(2, 2, 0, false, true, true), Is.EqualTo(speed));
+            Assert.That(BotSongTwistPolicy.TwoBards(2, 2, 1, false, true, true), Is.EqualTo(endurance));
+            // The one left of two: endurance in a fight, on the run and with an enemy in sight; speed on an empty road.
+            Assert.That(BotSongTwistPolicy.TwoBards(2, 1, 0, true, false, true), Is.EqualTo(endurance));
+            Assert.That(BotSongTwistPolicy.TwoBards(2, 1, 0, false, true, true), Is.EqualTo(endurance));
+            Assert.That(BotSongTwistPolicy.TwoBards(2, 1, 0, false, false, true), Is.EqualTo(endurance));
+            Assert.That(BotSongTwistPolicy.TwoBards(2, 1, 0, false, false, false), Is.EqualTo(speed));
+        }
+
+        [Test]
         public void ADeadPlayerGivesALostFightUp()
         {
             // The owner, 2026-11-24: "i'd need a wait to tell them 'just die'".

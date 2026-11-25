@@ -3793,6 +3793,15 @@ The plan the owner agreed to that day ("Let's proceed and test with bots first")
     (`BotBrain.TryPvpRestCure`, `PvpHealPlan.RestCure`): before it sits, a member that can
     takes disease, then poison, then nearsight off every member in its reach, the player
     first, one healer to a member.
+  - **Two Bards share the songs.** The owner: "we have 2 bards, we should be roaming at speed
+    6: 1 bard has speed up and the other has endurance. During a retreat one could try to play
+    speed has one should already have endurance up. If the endurance bard dies, then the other
+    has to play it if possilbe, high priority". Each of the two played as the Bard of a group
+    with one: in the run of M12.12 both held the speed song (76 of 88 seconds between them)
+    and nobody the endurance. Built (`BotSongTwistPolicy.TwoBards`): with both alive the first
+    by name holds speed and plays nothing in a fight, the second holds endurance all the time;
+    the one left of two holds endurance in a fight, on the run, at rest and with an enemy
+    known, and speed on an empty road. A group with one Bard is as it was.
 
 **Where M12 stands (2026-11-24).** Built and run with bots on the scrim server: the measure, the
 kite, breaking off, no raising with too many on it. A seventh evening on the last build (13

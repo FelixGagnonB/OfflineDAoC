@@ -2239,7 +2239,23 @@ namespace DOL.AI.Brain
             // Only what the group sees: by distance alone (tried for a night) its speed dropping told
             // the group an enemy was near before anybody had seen one (the owner, 2026-11-20).
             // (A group that rests wants its endurance back: the same song.)
-            bool pvpBardEnemyNear = pvpBardPlays && (PvpSquad?.Known.Count > 0 || PvpSquad?.Resting == true) && !chasing;
+            bool pvpEnemyKnownOrResting = pvpBardPlays && (PvpSquad?.Known.Count > 0 || PvpSquad?.Resting == true);
+            bool pvpBardEnemyNear = pvpEnemyKnownOrResting && !chasing;
+            // Two Bards share the songs: one holds speed, the other endurance (BotSongTwistPolicy.TwoBards).
+            BotSongTwistPolicy.PvpBardSong pvpDuty = BotSongTwistPolicy.PvpBardSong.AsOne;
+            if (pvpBardPlays && bot.Group != null)
+            {
+                List<GameBot> bards = bot.Group.GetMembersInTheGroup().OfType<GameBot>()
+                    .Where(mate => mate.IsPvpBot && (eCharacterClass)mate.CharacterClass.ID == eCharacterClass.Bard).OrderBy(mate => mate.Name, StringComparer.Ordinal).ToList();
+                List<GameBot> living = bards.Where(mate => mate.IsAlive).ToList();
+                pvpDuty = BotSongTwistPolicy.TwoBards(bards.Count, living.Count, living.IndexOf(bot), immediateCombat && !chasing, chasing, pvpEnemyKnownOrResting);
+            }
+            if (pvpDuty == BotSongTwistPolicy.PvpBardSong.Nothing)
+            {
+                _nextSongTwistTick = GameLoop.GameLoopTime + 1_000;
+                return false;
+            }
+            eSpellType pvpDutySong = pvpDuty == BotSongTwistPolicy.PvpBardSong.Endurance ? eSpellType.EnduranceRegenBuff : eSpellType.SpeedEnhancement;
             IEnumerable<Spell> songCandidates = (bot.MiscSpells ?? [])
                 .Concat(bot.InstantMiscSpells ?? [])
                 .Where(spell => spell != null && spell.IsPulsing && !spell.IsHarmful &&
@@ -2257,8 +2273,9 @@ namespace DOL.AI.Brain
                 // speed 100% while roaming and endurance during fight"). Slipping its resistance hymns in
                 // made it cast the speed again every three and a half seconds; twisting speed and
                 // endurance, tried for a morning, left the Bard a thousand units and more behind its group.
-                .Where(spell => !pvpBardPlays || immediateCombat && !chasing ||
-                                spell.SpellType == (pvpBardEnemyNear ? eSpellType.EnduranceRegenBuff : eSpellType.SpeedEnhancement));
+                .Where(spell => !pvpBardPlays ||
+                                (pvpDuty != BotSongTwistPolicy.PvpBardSong.AsOne ? spell.SpellType == pvpDutySong
+                                    : immediateCombat && !chasing || spell.SpellType == (pvpBardEnemyNear ? eSpellType.EnduranceRegenBuff : eSpellType.SpeedEnhancement)));
             if (ownerMoving)
                 songCandidates = songCandidates.GroupBy(spell => spell.SpellType)
                     .Select(group => group.OrderByDescending(spell => spell.Level)
