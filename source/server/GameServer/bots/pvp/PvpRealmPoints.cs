@@ -118,6 +118,19 @@ namespace DOL.GS
         /// <summary>A team that rests gets up when an enemy team is within this of it.</summary>
         public int RestEndsWithEnemyWithin { get; set; } = 5_000;
 
+        /// <summary>
+        /// The 8v8 zone (PvpRoam.EightZone, M13.15): one zone of every evening where nobody adds.
+        /// The owner, 2026-11-25: "Could we build a zone for dedicated 8v8 without adds? ... use
+        /// an unuse zone and make it a dedicated 8v8 only zone". Which zone it is, by the word
+        /// that names it ("thid", "collory", ...; empty: there is none); how many guilds of each
+        /// realm are in it at the most (a third of the realm's, and one at the least); and for
+        /// how long after its fight a group that is not whole again is left alone by the kinds
+        /// of group that wait (PvpRoam.WaitsForARestedGroup).
+        /// </summary>
+        public string EightZone { get; set; } = "thid";
+        public int EightZoneGroups { get; set; } = 2;
+        public int EightZoneRestSeconds { get; set; } = 120;
+
         /// <summary>Whether a team of bots rests now: a member is low, and nobody is near to fight.</summary>
         public static bool TeamRests(int lowestPercent, PvpRealWeights real) =>
             real.TeamRestsBelowPercent > 0 && lowestPercent < real.TeamRestsBelowPercent;

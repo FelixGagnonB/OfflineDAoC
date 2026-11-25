@@ -14,6 +14,68 @@ namespace DOL.UnitTests
     public class UT_PvpPrimeTime
     {
         [Test]
+        public void TheEightZoneIsForOneGroupAgainstOne()
+        {
+            // The owner, 2026-11-25: "Could we build a zone for dedicated 8v8 without adds? ... use an unuse zone and make it a
+            // dedicated 8v8 only zone"; who is in it: "Every kind, no adds"; a group that has just fought: "Could be a mix of 1
+            // and 2, based on what kind of group is waiting".
+            Assert.That(PvpRoam.EightZone, Is.SameAs(PvpRoam.Thidranki), "the one ground no evening used");
+            Assert.That(PvpRoam.Frontiers, Does.Not.Contain(PvpRoam.Thidranki));
+            // An evening is in its frontier zones as ever, and in the 8v8 zone.
+            for (int seed = 1; seed <= 20; seed++)
+            {
+                List<PvpRoamMap> zones = PvpRoam.EveningZones(PvpRoam.Emain, 8, new Random(seed), PvpRoam.Thidranki);
+                Assert.That(zones[0], Is.SameAs(PvpRoam.Emain));
+                Assert.That(zones[^1], Is.SameAs(PvpRoam.Thidranki));
+                Assert.That(zones, Has.Count.EqualTo(4));
+                Assert.That(zones, Is.Unique);
+                // A player that comes in standing in the 8v8 zone: the evening is in the frontier all the same.
+                List<PvpRoamMap> from = PvpRoam.EveningZones(PvpRoam.Thidranki, 8, new Random(seed), PvpRoam.Thidranki);
+                Assert.That(from[0], Is.SameAs(PvpRoam.Emain));
+                Assert.That(from.Count(zone => zone == PvpRoam.Thidranki), Is.EqualTo(1));
+                // Another zone named for it is not drawn as an ordinary zone as well.
+                List<PvpRoamMap> other = PvpRoam.EveningZones(PvpRoam.Emain, 40, new Random(seed), PvpRoamZones.MountCollory);
+                Assert.That(other.Count(zone => zone == PvpRoamZones.MountCollory), Is.EqualTo(1));
+                Assert.That(other[^1], Is.SameAs(PvpRoamZones.MountCollory));
+            }
+            Assert.That(PvpRoam.EveningZones(PvpRoam.Emain, 2, new Random(1), PvpRoam.Thidranki), Does.Not.Contain(PvpRoam.Thidranki), "too few groups to spare any");
+            Assert.That(PvpRoam.EveningZones(PvpRoam.Emain, 8, new Random(1), null), Does.Not.Contain(PvpRoam.Thidranki), "no 8v8 zone named");
+            // A third of a realm's guilds, two at the most as it is set, one at the least.
+            Assert.That(PvpRoam.EightZoneGroups(8, 2), Is.EqualTo(2));
+            Assert.That(PvpRoam.EightZoneGroups(7, 2), Is.EqualTo(2));
+            Assert.That(PvpRoam.EightZoneGroups(4, 2), Is.EqualTo(1));
+            Assert.That(PvpRoam.EightZoneGroups(2, 2), Is.EqualTo(1));
+            Assert.That(PvpRoam.EightZoneGroups(12, 4), Is.EqualTo(4));
+            Assert.That(PvpRoam.EightZoneGroups(0, 2), Is.Zero);
+            // The kinds that play 8v8 leave a group to rest after its fight; a bad or a casual group takes it as it finds it.
+            foreach (PvpTeamKind kind in new[] { PvpTeamKind.Decent, PvpTeamKind.Strong, PvpTeamKind.Elite })
+                Assert.That(PvpRoam.WaitsForARestedGroup(kind), Is.True, kind.ToString());
+            foreach (PvpTeamKind kind in new[] { PvpTeamKind.Bad, PvpTeamKind.Clingy, PvpTeamKind.Adder, PvpTeamKind.Hunter })
+                Assert.That(PvpRoam.WaitsForARestedGroup(kind), Is.False, kind.ToString());
+            Assert.That(PvpRoam.IsWhole(dead: 0, lowestHealthPercent: 100, lowestPowerPercent: 100), Is.True);
+            Assert.That(PvpRoam.IsWhole(1, 100, 100), Is.False);
+            Assert.That(PvpRoam.IsWhole(0, 84, 100), Is.False);
+            Assert.That(PvpRoam.IsWhole(0, 90, 59), Is.False);
+            Assert.That(PvpRoam.IsRecovering(inAFight: false, itsFightHasJustEnded: true, secondsSinceItsLastFight: -1, whole: false, leftForSeconds: 120), Is.True);
+            Assert.That(PvpRoam.IsRecovering(false, false, 60, false, 120), Is.True);
+            Assert.That(PvpRoam.IsRecovering(false, false, 60, true, 120), Is.False, "whole again");
+            Assert.That(PvpRoam.IsRecovering(false, false, 120, false, 120), Is.False, "not left alone for ever");
+            Assert.That(PvpRoam.IsRecovering(true, false, 60, false, 120), Is.False, "in a fight, it is in a fight");
+            Assert.That(PvpRoam.IsRecovering(false, false, -1, false, 120), Is.False, "it has had no fight");
+            Assert.That(PvpRoam.HoldsOff(waitsForARestedGroup: true, itIsRecovering: false, theOtherIsRecovering: true), Is.True);
+            Assert.That(PvpRoam.HoldsOff(true, true, false), Is.True, "nor does it start one hurt itself");
+            Assert.That(PvpRoam.HoldsOff(true, false, false), Is.False);
+            Assert.That(PvpRoam.HoldsOff(false, true, true), Is.False);
+            // One group against one: a group is picked by one group only, and picks one only.
+            Assert.That(PvpRoam.MayPick(itIsPickedByAThird: false, itHasPickedAThird: false, weArePickedByAThird: false, weHavePickedAThird: false), Is.True);
+            Assert.That(PvpRoam.MayPick(true, false, false, false), Is.False);
+            Assert.That(PvpRoam.MayPick(false, true, false, false), Is.False);
+            Assert.That(PvpRoam.MayPick(false, false, true, false), Is.False);
+            Assert.That(PvpRoam.MayPick(false, false, false, true), Is.False);
+            Assert.That(PvpRoam.ZonesLine([PvpRoam.Emain, PvpRoam.Thidranki], PvpRoam.Emain, PvpRoam.Thidranki), Does.Contain("Thidranki (8v8 only, nobody adds)"));
+        }
+
+        [Test]
         public void EveryGuildWearsAnEmblemOfItsOwn()
         {
             // The owner, 2026-11-25: "We all wear the default all green, red, blue. It would be nice if each guild has it's own

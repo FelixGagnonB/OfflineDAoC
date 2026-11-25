@@ -115,6 +115,12 @@ namespace DOL.GS
         public PvpRoamTeam PackLead;
         /// <summary>It has had its rest since its last fight.</summary>
         public bool Rested;
+        /// <summary>When its last fight was over (0: it has had none since it stood up).</summary>
+        public long FoughtUntil;
+        /// <summary>In the 8v8 zone: the enemy group it has picked to fight, which is then nobody else's (PvpRoam.MayPick).</summary>
+        public PvpRoamTeam Claim;
+        /// <summary>In the 8v8 zone: the enemy groups it is leaving to rest after their fight.</summary>
+        public readonly HashSet<PvpRoamTeam> LetsRest = [];
         /// <summary>The place off its road it is walking to, to rest there; null when it rests where it is or not at all.</summary>
         public System.Numerics.Vector3? Hide;
         public long HideSince;
@@ -395,6 +401,83 @@ namespace DOL.GS
         /// zone had one fight of eleven).
         /// </summary>
         public static int ZonesFor(int groupsPerRealm, int zonesThereAre) => Math.Clamp((groupsPerRealm + 1) / 3, 1, Math.Max(1, zonesThereAre));
+
+        /// <summary>
+        /// The 8v8 zone (M13.15): one zone of every evening where nobody adds. The owner,
+        /// 2026-11-25: "Could we build a zone for dedicated 8v8 without adds? By build, I do not
+        /// mean creating a new zone, but use an unuse zone and make it a dedicated 8v8 only zone";
+        /// asked who is in it, "Every kind, no adds"; asked how a group that has just fought is
+        /// treated, "Could be a mix of 1 and 2, based on what kind of group is waiting".
+        /// <para>
+        /// It is Thidranki unless the settings name another (PvpRealWeights.EightZone): the one
+        /// ground no evening used, three starts round three points 15,000 apart, so a fight is
+        /// never far. What holds in it, for the groups of bots:
+        /// </para>
+        /// <para>
+        /// Nobody walks with anybody: no packs, no group beside another. Nobody joins a fight
+        /// that is on, whatever its kind. A group picks one enemy group and that one is then
+        /// nobody else's (<see cref="MayPick"/>), so two do not start on one at the same moment.
+        /// And a group that has just fought is left alone until it is whole again
+        /// (<see cref="IsWhole"/>) by the kinds that play it that way
+        /// (<see cref="WaitsForARestedGroup"/>), which do not start a fight hurt themselves
+        /// either; a bad or a casual group takes it as it finds it.
+        /// </para>
+        /// <para>
+        /// The player's own group is not held to any of it by the server: its companions go for
+        /// what the player attacks or calls, there as everywhere.
+        /// </para>
+        /// </summary>
+        public static PvpRoamMap EightZone => MapFor(PvpWeights.Current.Real.EightZone);
+
+        // The 8v8 zone of the evening that is on; null when it has none.
+        private static volatile PvpRoamMap _eight;
+
+        /// <summary>How many guilds of a realm are in the 8v8 zone: a third of those that are out, one at the least, and no more than the settings say.</summary>
+        public static int EightZoneGroups(int guildsOfTheRealm, int atTheMost) =>
+            guildsOfTheRealm <= 0 ? 0 : Math.Clamp(guildsOfTheRealm / 3, 1, Math.Max(1, atTheMost));
+
+        /// <summary>The kinds of group that leave a group to rest after its fight, in the 8v8 zone: the ones that play 8v8. (A team that is no guild does too.)</summary>
+        public static bool WaitsForARestedGroup(PvpTeamKind? kind) => kind is null or PvpTeamKind.Decent or PvpTeamKind.Strong or PvpTeamKind.Elite;
+
+        /// <summary>A group is whole: nobody dead, nobody under 85% of its health, no caster under 60% of its power.</summary>
+        public static bool IsWhole(int dead, int lowestHealthPercent, int lowestPowerPercent) => dead == 0 && lowestHealthPercent >= 85 && lowestPowerPercent >= 60;
+
+        /// <summary>
+        /// A group is getting over a fight: it is in none, it is not whole, and its fight has
+        /// just ended or ended less than <paramref name="leftForSeconds"/> ago (a group that
+        /// cannot get whole is not left alone for ever).
+        /// </summary>
+        /// <param name="secondsSinceItsLastFight">Negative: it has had none.</param>
+        public static bool IsRecovering(bool inAFight, bool itsFightHasJustEnded, double secondsSinceItsLastFight, bool whole, int leftForSeconds) =>
+            !inAFight && !whole && (itsFightHasJustEnded || secondsSinceItsLastFight >= 0 && secondsSinceItsLastFight < leftForSeconds);
+
+        /// <summary>In the 8v8 zone a group that waits for a rested group starts no fight while it, or the other, is getting over one.</summary>
+        public static bool HoldsOff(bool waitsForARestedGroup, bool itIsRecovering, bool theOtherIsRecovering) =>
+            waitsForARestedGroup && (itIsRecovering || theOtherIsRecovering);
+
+        /// <summary>
+        /// In the 8v8 zone a group may pick an enemy group for its own when neither of the two
+        /// is in somebody else's plans: nobody else has picked that one, that one has picked
+        /// nobody else, and the same for the group itself. The teams are looked at one after the
+        /// other each second, so of two that come for one group the first has it.
+        /// </summary>
+        public static bool MayPick(bool itIsPickedByAThird, bool itHasPickedAThird, bool weArePickedByAThird, bool weHavePickedAThird) =>
+            !itIsPickedByAThird && !itHasPickedAThird && !weArePickedByAThird && !weHavePickedAThird;
+
+        /// <summary>
+        /// The zones of an evening with its 8v8 zone: the frontier zones drawn as ever
+        /// (<see cref="ZonesTonight"/>, among those that are not the 8v8 zone), and the 8v8 zone
+        /// when the evening has three groups a realm or more. An evening whose player stands in
+        /// the 8v8 zone is in the frontier from Emain Macha.
+        /// </summary>
+        public static List<PvpRoamMap> EveningZones(PvpRoamMap begins, int groupsPerRealm, Random random, PvpRoamMap eight)
+        {
+            List<PvpRoamMap> open = Frontiers.Where(zone => zone != eight).ToList();
+            List<PvpRoamMap> zones = ZonesTonight(open.Contains(begins) ? begins : Emain, groupsPerRealm, open, random);
+            if (eight != null && groupsPerRealm >= 3)
+                zones.Add(eight);
+            return zones;
+        }
 
         /// <summary>
         /// The zones of an evening (M11.8): where it begins, the crowded one (the crowd is always
@@ -1007,11 +1090,12 @@ namespace DOL.GS
         /// The first line of <c>/8v8 who</c> on an evening in several zones: which they are, what
         /// each is like (<see cref="PvpZoneCrowd"/>), and the words that take the player's group there.
         /// </summary>
-        public static string ZonesLine(IReadOnlyList<PvpRoamMap> zones, PvpRoamMap yours)
+        public static string ZonesLine(IReadOnlyList<PvpRoamMap> zones, PvpRoamMap yours, PvpRoamMap eight = null)
         {
             string Like(PvpRoamMap zone) => string.Join("; ", new[]
             {
-                zone.Crowd == PvpZoneCrowd.Crowded ? "the crowd" : zone.Crowd == PvpZoneCrowd.Clean ? "clean" : null, zone == yours ? "you are here" : null,
+                zone == eight ? "8v8 only, nobody adds" : zone.Crowd == PvpZoneCrowd.Crowded ? "the crowd" : zone.Crowd == PvpZoneCrowd.Clean ? "clean" : null,
+                zone == yours ? "you are here" : null,
             }.Where(word => word != null));
             return "Tonight: " + string.Join(", ", zones.Select(zone => zone.Name + (Like(zone).Length > 0 ? $" ({Like(zone)})" : string.Empty))) +
                    ". /8v8 go " + string.Join(", ", zones.Where(zone => zone != yours).Select(zone => zone.Id)) + ".";
@@ -1029,7 +1113,7 @@ namespace DOL.GS
             if (teams.Count == 0)
                 return [];
             PvpRoamMap here = viewer == null ? null : teams.FirstOrDefault(team => team.Leader == viewer && !team.Absent)?.Map;
-            List<string> lines = zones.Select(zone => WhoLine(zone.Name, zone == here,
+            List<string> lines = zones.Select(zone => WhoLine(zone.Name + (zone == _eight ? " (8v8 only)" : string.Empty), zone == here,
                 teams.Where(team => team.Map == zone && team.State != "Away" && !team.Absent)
                     .Select(team => (team.Realm, KindWord(team.Profile?.Kind), team.Leader != null && team.Leader == viewer)).ToList())).ToList();
             if (viewer != null && teams.Any(team => team.Leader == viewer))
@@ -1407,9 +1491,14 @@ namespace DOL.GS
                         List<PvpGuildTeam> pool = PvpTeamPool.LoadOrCreate(AppContext.BaseDirectory, PvpTeamPool.World, Math.Max(16, prime * 2), Random.Shared,
                             PvpWeights.Current.Real.GuildsBeginAtTheBottom);
                         // What the player's next evening begins with by itself (PvpEveningStart): this zone, this many groups, this line-up.
-                        PvpPlayerSettings.Set(AppContext.BaseDirectory, player.InternalID, kept => kept with { Lineup = own?.Id, Zone = map.Id, Groups = prime });
-                        // Over some of the frontiers (ZonesTonight), unless one zone or all of them were asked for; a battleground is always one zone.
-                        List<PvpRoamMap> zones = oneZone || !Frontiers.Contains(map) ? null : everyZone ? Frontiers.ToList() : ZonesTonight(map, prime, Frontiers, Random.Shared);
+                        // (An evening its player came into standing in the 8v8 zone is not one that begins there the next time.)
+                        PvpRoamMap eight = EightZone;
+                        PvpPlayerSettings.Set(AppContext.BaseDirectory, player.InternalID,
+                            kept => kept with { Lineup = own?.Id, Zone = map == eight && !oneZone ? kept.Zone : map.Id, Groups = prime });
+                        // Over some of the frontiers and the 8v8 zone (EveningZones), unless one zone or all of them were asked for; another battleground is always one zone.
+                        List<PvpRoamMap> zones = oneZone || !Frontiers.Contains(map) && map != eight ? null
+                            : everyZone ? Frontiers.Append(eight).Where(zone => zone != null).Distinct().ToList()
+                            : EveningZones(map, prime, Random.Shared, eight);
                         Start(2, player.InternalID, player, own, map, null, PvpTeamPool.Tonight(pool, prime, Random.Shared, player.Realm), PvpTeamPool.World, zones);
                         bool away = _teams.FirstOrDefault(team => team.Leader == player) is { Absent: true };
                         say($"Prime time{(zones is { Count: > 1 } ? " in " + string.Join(", ", zones.Select(zone => zone.Name)) + (away ? string.Empty : "; you are in " + map.Name) : " in " + map.Name)}: " +
@@ -1424,7 +1513,7 @@ namespace DOL.GS
                             say($"An evening to try things: your seven are at realm rank {PvpRealmPoints.RankName(trial)} and your group earns nothing. " +
                                 "Your next real fight or evening puts you back at what you have earned.");
                         if (_maps.Count > 1)
-                            say(ZonesLine(_maps, map));
+                            say(ZonesLine(_maps, map, _eight));
                         return;
                     }
                     Start(2, player.InternalID, player, own, map);
@@ -1533,13 +1622,21 @@ namespace DOL.GS
                     teams.Add(team);
                 }
             }
+            // The 8v8 zone of the evening (M13.15), and the zones that are as ever.
+            PvpRoamMap eight = guilds != null && EightZone is { } named && maps.Contains(named) ? named : null;
+            List<PvpRoamMap> open = maps.Where(zone => zone != eight).ToList();
+            _eight = eight;
             // The packs and the followers of the evening: the bad groups by two to five behind one of them, and each
             // group that stays near others beside a group of its realm that walks alone (the player's may be it).
             foreach (IGrouping<eRealm, PvpRoamTeam> realm in teams.Where(team => team.Profile != null).GroupBy(team => team.Realm).ToList())
             {
                 // (A pack comes out together, three seconds apart.)
                 var places = new Dictionary<PvpRoamTeam, int>();
-                foreach ((PvpRoamTeam follower, PvpRoamTeam head) in PvpTeamPool.Packs(realm.Where(team => team.Profile.Company == PvpCompany.Zerg).ToList(), Random.Shared))
+                // Who of the realm is in the 8v8 zone: guilds of every kind but those that hunt packs, each by itself.
+                // (An evening that is in the 8v8 zone only: all of them.)
+                List<PvpRoamTeam> alone = eight == null ? [] : open.Count == 0 ? realm.ToList()
+                    : realm.Where(team => !team.Profile.HuntsPacks).OrderBy(_ => Random.Shared.Next()).Take(EightZoneGroups(realm.Count(), real.EightZoneGroups)).ToList();
+                foreach ((PvpRoamTeam follower, PvpRoamTeam head) in PvpTeamPool.Packs(realm.Where(team => team.Profile.Company == PvpCompany.Zerg && !alone.Contains(team)).ToList(), Random.Shared))
                 {
                     places[head] = places.GetValueOrDefault(head) + 1;
                     follower.Company = head;
@@ -1551,21 +1648,22 @@ namespace DOL.GS
                 // Then each group that stays near others picks a group of its realm to walk with, rather one where the crowd
                 // is and none in a clean zone while there is another. The others go where the team they walk with goes.
                 var placed = teams.Where(team => team.Leader != null).ToList();
-                List<PvpZoneCrowd> crowds = maps.Select(zone => zone.Crowd).ToList();
+                List<PvpZoneCrowd> crowds = open.Select(zone => zone.Crowd).ToList();
                 // (How many groups of the realm a zone will have: those put there, and those that will follow them there.)
-                int[] load = maps.Select(zone => placed.Count(team => team.Realm == realm.Key && team.Map == zone)).ToArray();
+                int[] load = open.Select(zone => placed.Count(team => team.Realm == realm.Key && team.Map == zone)).ToArray();
                 void Takes(PvpRoamTeam team)
                 {
                     int pick = ZoneFor(team.Profile.Kind, crowds, load, Random.Shared.Next());
                     load[pick] += 1 + realm.Count(follower => follower.Company == team);
-                    Place(team, maps[pick], placed);
+                    Place(team, open[pick], placed);
                     placed.Add(team);
                 }
-                foreach (PvpRoamTeam team in realm.Where(team => team.Company == null && team.Profile.Company != PvpCompany.Near).OrderBy(team => Choosiness(team.Profile.Kind)))
+                foreach (PvpRoamTeam team in realm.Where(team => !alone.Contains(team) && team.Company == null && team.Profile.Company != PvpCompany.Near).OrderBy(team => Choosiness(team.Profile.Kind)))
                     Takes(team);
-                List<PvpRoamTeam> hosts = teams.Where(team => team.Realm == realm.Key &&
+                // (Nobody walks beside a group that is in the 8v8 zone, the player's neither.)
+                List<PvpRoamTeam> hosts = teams.Where(team => team.Realm == realm.Key && !alone.Contains(team) && (eight == null || team.Map != eight) &&
                     (team.Leader != null || team.Profile is { Company: PvpCompany.Alone, KeepsToQuietGround: false, HuntsPacks: false })).ToList();
-                foreach (PvpRoamTeam near in realm.Where(team => team.Profile.Company == PvpCompany.Near))
+                foreach (PvpRoamTeam near in realm.Where(team => team.Profile.Company == PvpCompany.Near && !alone.Contains(team)))
                 {
                     int host = Weighted(hosts.Select(team => Leans(PvpTeamKind.Clingy, team.Map.Crowd)).ToList(), Random.Shared.Next());
                     if (host < 0 && hosts.Count > 0)
@@ -1578,6 +1676,11 @@ namespace DOL.GS
                 foreach (PvpRoamTeam team in realm.Where(team => team.Company != null))
                 {
                     Place(team, team.Company.Map, placed);
+                    placed.Add(team);
+                }
+                foreach (PvpRoamTeam team in alone)
+                {
+                    Place(team, eight, placed);
                     placed.Add(team);
                 }
             }
@@ -1691,6 +1794,8 @@ namespace DOL.GS
             team.Waiting = false;
             (team.Hide, team.Rested) = (null, false);
             (team.DeadSince, team.Reforming, team.GivenUp, team.BrokeOffAt, team.Absent, team.SpawnedAt) = (0, false, false, 0, false, now);
+            (team.FoughtUntil, team.Claim) = (0, null);
+            team.LetsRest.Clear();
             (team.State, team.StateSince, team.ContactTick, team.LastEnemyNearTick) = (leader != null ? "Roaming" : "Buffing", now, 0, now);
         }
 
@@ -1935,7 +2040,10 @@ namespace DOL.GS
                              team.Leader is { IsAlive: true }))
                 {
                     // (Elsewhere: a zone its kind goes to.)
-                    List<PvpRoamMap> elsewhere = team.Profile == null ? [] : _maps.Where(zone => zone != team.Map && Leans(team.Profile.Kind, zone.Crowd) > 0).ToList();
+                    // (Not out of the 8v8 zone, and not into it: its groups are its own.)
+                    PvpRoamMap eightZone = _eight;
+                    List<PvpRoamMap> elsewhere = team.Profile == null || team.Map == eightZone ? []
+                        : _maps.Where(zone => zone != team.Map && zone != eightZone && Leans(team.Profile.Kind, zone.Crowd) > 0).ToList();
                     if (team.Guild != null && PortsElsewhere(elsewhere.Count + 1, team.Company != null, teams.Any(other => other.Company == team), Random.Shared.Next(300)))
                     {
                         Place(team, elsewhere[ZoneFor(team.Profile.Kind, elsewhere.Select(zone => zone.Crowd).ToList(), elsewhere.Select(zone =>
@@ -1943,7 +2051,7 @@ namespace DOL.GS
                         Say($"{team.Name} ports to {team.Map.Name}", new { what = "port", team = team.Name, zone = team.Map.Name });
                     }
                     // A group that stays near others does not cross the zone alone to the one it was with: it picks the nearest.
-                    if (team.Profile?.Company == PvpCompany.Near)
+                    if (team.Profile?.Company == PvpCompany.Near && team.Map != eightZone)
                     {
                         PvpRoamTeam nearest = Hosts(teams, team.Realm).Where(host => host != team && host.Map == team.Map && host.Alive > 0)
                             .OrderBy(host => Math.Pow(host.Centre().X - team.Start.Point.X, 2) + Math.Pow(host.Centre().Y - team.Start.Point.Y, 2)).FirstOrDefault();
@@ -1964,6 +2072,23 @@ namespace DOL.GS
             List<PvpRoamTeam> others = teams.Where(other => other.Realm != team.Realm && other.Alive > 0 && !other.Reforming && Near(team, other, 9_000)).ToList();
             team.Quiet = others.Count == 0 && team.ContactTick == 0;
             bool inCombat = team.Team.Members.Any(member => member.IsAlive && member.InCombat);
+            // The 8v8 zone (EightZone): nobody adds, a group picks one enemy group, and a group that has just fought is left to rest.
+            bool eightOnly = _eight != null && team.Map == _eight;
+            if (team.Claim != null && (!eightOnly || !others.Contains(team.Claim)))
+                team.Claim = null;
+            bool Whole(PvpRoamTeam one)
+            {
+                IReadOnlyList<GameLiving> members = one.Team.Members;
+                List<GameLiving> up = members.Where(member => member.IsAlive).ToList();
+                return IsWhole(members.Count - up.Count, up.Count == 0 ? 0 : up.Min(member => (int)member.HealthPercent),
+                    up.Where(member => member.MaxMana > 0).Select(member => (int)member.ManaPercent).DefaultIfEmpty(100).Min());
+            }
+            bool Recovering(PvpRoamTeam one) => IsRecovering(one.Fighting.Any(third => third.Alive > 0), one.ContactTick != 0,
+                one.FoughtUntil == 0 ? -1 : (now - one.FoughtUntil) / 1000.0, Whole(one), real.EightZoneRestSeconds);
+            bool PickedByAThird(PvpRoamTeam one, PvpRoamTeam but) =>
+                teams.Any(third => third != one && third != but && third.Claim == one && third.Alive > 0 && !third.Reforming && third.Map == one.Map);
+            if (team.LetsRest.Count > 0)
+                team.LetsRest.RemoveWhere(other => !eightOnly || !others.Contains(other) || !Recovering(other));
             team.Fighting.RemoveWhere(other => other.Alive == 0 || !Near(team, other, 6_000));
             team.ComingSeen.RemoveWhere(other => other.Alive == 0 || team.Fighting.Count == 0 || !Near(team, other, 9_000));
             foreach (PvpRoamTeam other in others)
@@ -1981,8 +2106,9 @@ namespace DOL.GS
                     bool? drawn = team.Draws.Where(draw => theirFight.Contains(draw.Key)).Select(draw => (bool?)draw.Value).FirstOrDefault();
                     // (A guild adds as its kind does: a bad group always, a decent one never.)
                     // (One that hunts packs does not add either: a pack somebody is on already is theirs.)
-                    bool joins = drawn ?? (PaysBack(team.AddedOnByPlayer, other.Leader != null || theirFight.Any(third => third.Leader != null)) ||
-                                           Joins(team.Profile?.AddChancePercent ?? real.AddChancePercent, Random.Shared.Next(100)));
+                    // (In the 8v8 zone nobody does, whatever its kind and whatever it has against the player.)
+                    bool joins = drawn ?? (!eightOnly && (PaysBack(team.AddedOnByPlayer, other.Leader != null || theirFight.Any(third => third.Leader != null)) ||
+                                                          Joins(team.Profile?.AddChancePercent ?? real.AddChancePercent, Random.Shared.Next(100))));
                     team.Draws[other] = joins;
                     if (drawn == null)
                     {
@@ -2058,13 +2184,38 @@ namespace DOL.GS
                 // It does not start on more groups than it has together itself: eight do not walk into sixteen, nor sixteen
                 // into twenty-four. (A bad group does not count: PvpTeamProfile.CountsHeads.)
                 int theirs = Together(other, teams);
-                if (team.Leader == null && team.Profile?.CountsHeads != false &&
+                // (Not in the 8v8 zone, where a group has one group on it at the most whoever stands near.)
+                if (team.Leader == null && !eightOnly && team.Profile?.CountsHeads != false &&
                     AvoidsTwo(theirs >= 2, Together(team, teams) >= theirs, team.Fighting.Contains(other), attacks))
                     return false;
                 if (team.Leader is { } leader)
                     return PlayerTakesItOn(team.Fighting.Contains(other), attacks, Picks(other));
-                return !PvpRealWeights.LeftAtItsStart(FromItsStart(other), team.Fighting.Contains(other), attacks, real);
+                if (PvpRealWeights.LeftAtItsStart(FromItsStart(other), team.Fighting.Contains(other), attacks, real))
+                    return false;
+                if (!eightOnly)
+                    return true;
+                // The 8v8 zone. A group that is in the fight already, or is attacked, fights. Otherwise: one that waits for a
+                // rested group starts nothing while it or the other is getting over a fight; and it starts on a group only
+                // when it may pick it (MayPick): then that group is its own, and nobody else's.
+                bool on = team.Fighting.Contains(other) || attacks;
+                if (!on && HoldsOff(WaitsForARestedGroup(team.Profile?.Kind), Recovering(team), Recovering(other)))
+                {
+                    if (Recovering(other) && team.LetsRest.Add(other))
+                        Say($"{team.Name} leaves {other.Name} to rest after its fight", new { what = "letrest", team = team.Name, other = other.Name });
+                    return false;
+                }
+                if (!on && !MayPick(PickedByAThird(other, team), other.Claim != null && other.Claim != team, PickedByAThird(team, other), team.Claim != null && team.Claim != other))
+                    return false;
+                if (team.Claim != other)
+                {
+                    team.Claim = other;
+                    Say($"{team.Name} picks {other.Name}", new { what = "pick", team = team.Name, other = other.Name, attacked = attacks ? true : (bool?)null });
+                }
+                return true;
             }).ToList();
+            // (What the player's group has taken on is the player's pick: no group of bots starts on that one.)
+            if (eightOnly && team.Leader != null)
+                team.Claim = foes.FirstOrDefault(team.Fighting.Contains) ?? foes.FirstOrDefault();
             List<GameLiving> enemies = foes.SelectMany(other => other.Team.Members).Where(member => member.IsAlive).ToList();
             foreach (PvpRoamTeam other in foes)
             {
@@ -2158,6 +2309,7 @@ namespace DOL.GS
             else if (team.ContactTick != 0 && !inCombat && FightIsOver(now - team.LastEnemyNearTick))
             {
                 team.ContactTick = 0;
+                team.FoughtUntil = now;
                 team.State = "Roaming";
                 team.Fighting.Clear();
                 team.Team.Squad = NewSquad(team);
@@ -2206,7 +2358,8 @@ namespace DOL.GS
             bool resting = false;
             if (team.Leader == null)
             {
-                bool enemyNear = others.Any(other => Near(team, other, real.RestEndsWithEnemyWithin));
+                // (In the 8v8 zone a group that is left to rest rests with others in sight: only one that comes for it gets it up.)
+                bool enemyNear = (eightOnly ? foes : others).Any(other => Near(team, other, real.RestEndsWithEnemyWithin));
                 if (inCombat || enemyNear || team.State != "Roaming")
                 {
                     // Found, or back in a fight: it gets up and gives the place up.
@@ -2227,7 +2380,7 @@ namespace DOL.GS
                         Say($"{team.Name} rests{(there ? " off its road" : " where it has got to")}", new { what = "rest", team = team.Name, there });
                     }
                 }
-                else if (!team.Rested && enemies.Count == 0 && others.Count == 0)
+                else if (!team.Rested && enemies.Count == 0 && (eightOnly || others.Count == 0))
                 {
                     List<GameBot> up = team.Team.Bots.Where(bot => bot.IsAlive).ToList();
                     int lowest = up.Count == 0 ? 100 : up.Min(bot => Math.Min((int)bot.HealthPercent, bot.MaxMana > 0 ? (int)bot.ManaPercent : 100));
@@ -2490,7 +2643,9 @@ namespace DOL.GS
                 fresh.Team.Bots = [];
                 fresh.Team.Route = fresh.Entry is { } entry ? [entry] : leaving.Start.RouteOf(leaving.Index + 1);
                 // A bad group joins a pack of its realm that has room; a group that stays near others picks its group.
-                if (profile.Company == PvpCompany.Zerg)
+                if (fresh.Map == _eight)
+                    fresh.Company = null;   // in the 8v8 zone nobody walks with anybody
+                else if (profile.Company == PvpCompany.Zerg)
                     fresh.Company = next.FirstOrDefault(team => team.Realm == fresh.Realm && team.Map == fresh.Map && team.Company == null && team.Profile?.Company == PvpCompany.Zerg &&
                                                                 next.Count(other => other.Company == team) < PvpTeamPool.PackMost - 1);
                 else if (profile.Company == PvpCompany.Near && Hosts(next, fresh.Realm).Where(host => host.Map == fresh.Map).ToList() is { Count: > 0 } hosts)

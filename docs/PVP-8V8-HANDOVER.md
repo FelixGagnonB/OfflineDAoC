@@ -88,7 +88,10 @@ built. The ones you are most likely to want, with what is built in:
         "EveningGroups": 8,
         "GuildsBeginAtTheBottom": true,
         "RealmPointRate": 5,
-        "EnemyKeepsUp": true
+        "EnemyKeepsUp": true,
+        "EightZone": "thid",
+        "EightZoneGroups": 2,
+        "EightZoneRestSeconds": 120
       },
       "Abilities": {
         "GroupPurgeApartSeconds": 15,
@@ -99,7 +102,9 @@ built. The ones you are most likely to want, with what is built in:
 
 `EveningGroups`: groups of each realm (16 at most). `RealmPointRate`: how many times the game's
 realm points a kill is worth. `EnemyKeepsUp`: no enemy fights below your group's average rank.
-Restart the server after a change. Not in that file (they are in the code): the size of a pack
+`EightZone`: the zone where nobody adds, by the word `/8v8 go` takes (`""`: none); `EightZoneGroups`:
+guilds of each realm in it at the most; `EightZoneRestSeconds`: how long a group that has just
+fought is left alone there. Restart the server after a change. Not in that file (they are in the code): the size of a pack
 (`PvpTeamPool.PackMost`, 3), what each kind is like (`PvpPrimeTime.cs`, `PvpStyles.cs`), the five
 levels of play (`PvpNotice.cs`).
 

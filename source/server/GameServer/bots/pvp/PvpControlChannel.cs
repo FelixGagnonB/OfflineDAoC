@@ -233,7 +233,7 @@ namespace DOL.GS
                     // (PvpRoam.ZonesTonight, M11.8); Zones=odin,hadrian: in those and the map it begins in.
                     List<PvpRoamMap> zones = string.Equals(Arg("Zones"), "all", StringComparison.OrdinalIgnoreCase) ? PvpRoam.Frontiers.ToList()
                         : string.Equals(Arg("Zones"), "tonight", StringComparison.OrdinalIgnoreCase)
-                            ? PvpRoam.ZonesTonight(PvpRoam.MapFor(Arg("Map")) ?? PvpRoam.Emain, prime, PvpRoam.Frontiers, Random.Shared)
+                            ? PvpRoam.EveningZones(PvpRoam.MapFor(Arg("Map")) ?? PvpRoam.Emain, prime, Random.Shared, PvpRoam.EightZone)
                         : (Arg("Zones") ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                             .Select(PvpRoam.MapFor).Where(zone => zone != null).ToList();
                     return PvpRoam.Start(int.Parse(Arg("Teams") ?? "2"), Arg("Owner") ?? "roam", null, null, PvpRoam.MapFor(Arg("Map")),

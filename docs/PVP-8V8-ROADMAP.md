@@ -3873,6 +3873,28 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [x] **M13.15** (M) The 8v8 zone: one zone of every evening where nobody adds. *Built 2026-11-25; automated tests
+  only; not run on a server (the owner was on the play install).* The owner: "Could we build a zone for dedicated
+  8v8 without adds? By build, I do not mean creating a new zone, but use an unuse zone and make it a dedicated 8v8
+  only zone". Asked who is in it: "Every kind, no adds". Asked how a group that has just fought is treated: "Could
+  be a mix of 1 and 2, based on what kind of group is waiting". Asked which zone: "I am not sure about the
+  battleground, because there is water and we do not have the water breating potion". All twelve frontier zones are
+  in the evenings already and their points are 20,000 apart; Thidranki is the one mapped ground no evening used
+  (three starts, three points 15,000 apart, every leg walked on the navmesh), and the database has no diving in it
+  (old Thidranki, as the frontier rivers). So it is Thidranki, and one word of the settings makes it another zone
+  (`PvpRealWeights.EightZone`). Built (`PvpRoam.EightZone`, `EveningZones`): every evening of three groups a realm
+  or more has it besides its frontier zones; a third of each realm's guilds, two at the most
+  (`EightZoneGroups`), of every kind but the hunters, are put in it, each by itself, and stay in it (nobody ports
+  in or out; a guild that logs off there is followed by one of its kind there). In it: no draw to join a fight is
+  ever won; a group picks one enemy group, which is then nobody else's (`MayPick`: of two that come for one, the
+  first has it); the kinds that play 8v8 (`WaitsForARestedGroup`: decent, strong, elite) start nothing while they
+  or the other are getting over a fight (`IsRecovering`, `IsWhole`, 120 s at the most), a bad or casual group takes
+  it as it finds it; and a group that is left to rest rests with others in sight. The player's group is held to
+  nothing. Not known until it is played: whether the water round Thidranki's middle gets in the way of a fight.
+- [x] **M13.14** (S) `/8v8 call abilities`. *Built 2026-11-25; automated tests only.* The owner: "Could there be
+  another /8v8 command, for my group to /g which active are available / down and how long until it's up". Each
+  companion that has an active realm ability says in group chat which are up and which are down, the soonest
+  first ("up: Purge | down: Group Purge 12:40"); also `ra`, `timers`, `cd`.
 - [x] **M13.13** (S) A group that has just stood up is whole. *Built 2026-11-25; automated tests only.* The
   owner, playing the play install: "When the bot are done buffing, after we release, we are 'low' on hp and
   neither druids or bards heals. We have to wait at the keep for full hp." A group's members are made with full

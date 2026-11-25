@@ -190,6 +190,25 @@ fight, 45 seconds in.
 Every guild of bots wears an emblem of its own on its cloaks and shields, made from its name and
 the same every evening, so a group can be told from afar by its colours.
 
+## The 8v8 zone
+
+One zone of every evening is for one group against one: **Thidranki**. `/8v8 go thid` takes you
+and your group to your realm's start there; `/8v8 who` lists it as "8v8 only".
+
+- Two guilds of each realm are in it, of every kind, each by itself: no packs.
+- Nobody joins a fight that is on. A group that comes on one waits, or walks round it.
+- A group picks one enemy group, and that one is then nobody else's: two do not start on one.
+- After a fight, the decent, strong and elite groups leave the winner alone until it is whole
+  again (two minutes at the most), and start nothing hurt themselves. A bad or a casual group
+  attacks as it finds you.
+- You are held to none of it by the game: your companions go for what you attack or call.
+
+Which zone it is, how many guilds are in it and how long a group is left to rest are settings
+(`EightZone`, `EightZoneGroups`, `EightZoneRestSeconds`; see the handover page). Thidranki has
+water in it. The game's data has no diving there (you swim on top, as in a frontier river, and
+need no potion), but whether the water gets in the way of a fight is not known until it is
+played: if it does, `"EightZone": "collory"` (or any zone's word) moves the 8v8 zone.
+
 ## The kinds of guild you meet
 
 | Kind | How you know it |
