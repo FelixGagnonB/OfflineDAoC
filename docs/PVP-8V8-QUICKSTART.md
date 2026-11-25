@@ -235,6 +235,22 @@ played: if it does, `"EightZone": "collory"` (or any zone's word) moves the 8v8 
 | Elite | Alone on quiet ground; leaves a fight a second group comes into. |
 | Zerg hunters | Elite; goes where the packs are. |
 
+## Your macros on another character
+
+The game keeps a character's macros on your computer, one file a character
+(`%APPDATA%\Electronic Arts\Dark Age of Camelot\OfflineDAoC03\<Name>-5.ini`), so a new character
+has none. To give it another character's:
+
+    python source\tools\copy_macros.py                 lists your characters and their macros
+    python source\tools\copy_macros.py Jade Mycleric   Jade's macros and macro buttons go to Mycleric
+
+Do it at the character selection or with the game closed, not while the character you copy to
+is in the game. Every macro is copied, and every quickbar button that is a macro goes to the
+same place on the same bar; a place where the other character has a spell or a style keeps it.
+`--layout` copies the windows, chat colours, key binds and camera too. The file that is changed
+is copied first (`...ini.bak-<date>-<time>`); a character that has never left the game gets its
+file made from the first one's.
+
 ## If something is wrong
 
 - **The evening does not begin.** Your character must be level 50 from `/8v8 ready`. Type
