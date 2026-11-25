@@ -104,6 +104,9 @@ for realm, members in REALMS:
     out += [f"## {realm}", ""]
     for class_id, label in members:
         keys = [r[0] for r in db.execute("select AbilityKey from ClassXRealmAbility_Atlas where CharClass=?", (class_id,))]
+        # The fork gives Speed of Sound to the Bard and the Skald in code, not in the table (gameutils/SkillBase.cs).
+        if label in ("Bard", "Skald") and "AtlasOF_SpeedOfSound" not in keys:
+            keys.append("AtlasOF_SpeedOfSound")
         rows = []
         for key in keys:
             name, impl = ability.get(key, (key, ""))

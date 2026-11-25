@@ -452,6 +452,7 @@ class lists in the game database; nothing here is a choice of the fork's. It is 
 | Rain of Fire | use | 3 | 3, 6, 10 | 19 |  |
 | Rain of Ice | use | 3 | 3, 6, 10 | 19 |  |
 | Second Wind | use | 1 | 10 | 10 | Aug Con 3 |
+| Speed of Sound | use | 1 | 10 | 10 |  |
 | The Empty Mind | use | 3 | 3, 6, 10 | 19 |  |
 | Augmented Acuity |  | 5 | 1, 3, 6, 10, 14 | 34 |  |
 | Augmented Constitution |  | 5 | 1, 3, 6, 10, 14 | 34 |  |
@@ -473,7 +474,7 @@ class lists in the game database; nothing here is a choice of the fork's. It is 
 | Toughness |  | 5 | 1, 3, 6, 10, 14 | 34 |  |
 | Veil Recovery |  | 5 | 1, 3, 6, 10, 14 | 34 |  |
 
-*Everything on this list: 823 points.*
+*Everything on this list: 833 points.*
 
 ### Runemaster
 
@@ -719,6 +720,7 @@ class lists in the game database; nothing here is a choice of the fork's. It is 
 | Purge | use | 1 | 10 | 10 |  |
 | Raging Power | use | 1 | 10 | 10 | Mystic Crystal Lore 2 |
 | Second Wind | use | 1 | 10 | 10 | Aug Con 3 |
+| Speed of Sound | use | 1 | 10 | 10 |  |
 | The Empty Mind | use | 3 | 3, 6, 10 | 19 |  |
 | Augmented Acuity |  | 5 | 1, 3, 6, 10, 14 | 34 |  |
 | Augmented Constitution |  | 5 | 1, 3, 6, 10, 14 | 34 |  |
@@ -744,7 +746,7 @@ class lists in the game database; nothing here is a choice of the fork's. It is 
 | Veil Recovery |  | 5 | 1, 3, 6, 10, 14 | 34 |  |
 | Wild Healing |  | 5 | 1, 3, 6, 10, 14 | 34 | Aug Acuity 2 |
 
-*Everything on this list: 883 points.*
+*Everything on this list: 893 points.*
 
 ### Hero
 
