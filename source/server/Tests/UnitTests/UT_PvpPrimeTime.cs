@@ -72,9 +72,9 @@ namespace DOL.UnitTests
             Assert.That(PvpRoam.KindWord(PvpTeamKind.Hunter), Is.EqualTo("zerg hunters"));
             Assert.That(PvpRoam.KindWord(null), Is.EqualTo("other"));
             // What a player has of the command on the play install, and what is kept for a test server or a game master.
-            foreach (string word in new[] { "call", "calls", "lead", "ready", "guild", "evening", "who", "rivals", "ranks", "go", "corpse" })
+            foreach (string word in new[] { "call", "calls", "lead", "ready", "guild", "evening", "stop", "who", "rivals", "ranks", "go", "corpse" })
                 Assert.That(DOL.GS.Commands.Pvp8v8CommandHandler.IsKeptFromAPlayer(word, false, false), Is.False, word);
-            foreach (string word in new[] { "prime", "roam", "play", "setup", "group", "skill", "status", "stop", "clear", "lanes", "watch", "feed", "" })
+            foreach (string word in new[] { "prime", "roam", "play", "setup", "group", "skill", "status", "clear", "lanes", "watch", "feed", "" })
             {
                 Assert.That(DOL.GS.Commands.Pvp8v8CommandHandler.IsKeptFromAPlayer(word, false, false), Is.True, word);
                 Assert.That(DOL.GS.Commands.Pvp8v8CommandHandler.IsKeptFromAPlayer(word, true, false), Is.False, word + " on a test server");

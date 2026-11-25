@@ -34,6 +34,7 @@ Everybody started at realm rank 1 level 1. Ranks only move while you are in the 
 | `/8v8 guild` | Says what guild you have. `/8v8 guild <name>` forms one, free, wherever you stand (letters and spaces, 30 at most). |
 | `/8v8 guild lineup` | Says your line-up and lists your realm's. `/8v8 guild lineup <name>` sets it from your next evening on. |
 | `/8v8 evening` | Begins your evening when none is running. It begins by itself when you log in; it ends when you leave the frontier (to your trainer in the capital, say), and this begins it again. |
+| `/8v8 stop` | Ends your evening: your companions and the guilds leave; what was earned is kept. Needed before `/8v8 ready` on a character whose evening is running. |
 | `/8v8 who` | Each zone of the evening: how many groups every realm has in it, and of what kinds. |
 | `/8v8 go <zone>` | Your group ports to your realm's start in another zone of the evening. Not in a fight. |
 | `/8v8 rivals` | The enemy guilds you have wiped or been wiped by, and how often. |
@@ -89,6 +90,8 @@ Repeating a call only renews it. A retreat is ended by any other call.
   again). Your companions spend
   theirs by themselves, in the orders of
   [PVP-8V8-REALM-ABILITIES.md](PVP-8V8-REALM-ABILITIES.md).
+- **Change your own build or class.** `/8v8 stop`, then `/8v8 ready <build> confirm`; the
+  evening begins again when it is done.
 - **Change your group.** `/8v8 guild lineup <name>`, from the next evening. Your own class
   takes its place in the line-up.
 - **Look at a fight afterwards.** Double-click `source\tools\review_my_fights.cmd`: see
@@ -191,7 +194,7 @@ fight, 45 seconds in.
 - **The evening does not begin.** Your character must be level 50 from `/8v8 ready`. Type
   `/8v8 evening`. If you are told a fight or an evening is already running, leave the game and
   come in again.
-- **You want the test commands** (`/8v8 prime`, `/8v8 stop`, `/8v8 status`, a trial at a picked
+- **You want the test commands** (`/8v8 prime`, `/8v8 status`, a trial at a picked
   rank): put an empty file `pvp-test-commands.txt` in `D:\OfflineDAoC\runtime\server` and
   restart the server.
 - **You want a fresh world.** With the server closed, delete `pvp-teams.json` in

@@ -1209,7 +1209,7 @@ namespace DOL.GS
         {
             PvpRoamTeam mine = _teams.FirstOrDefault(team => team.Leader == player);
             if (mine == null || !Prime)
-                throw new InvalidOperationException("You are not out on a prime-time evening. /8v8 prime starts one.");
+                throw new InvalidOperationException("You are not out on an evening. /8v8 evening begins one.");
             if (map == null || !_maps.Contains(map))
                 throw new InvalidOperationException("This evening is on in: " + string.Join(", ", _maps.Select(zone => zone.Name)) + ". /8v8 go " +
                                                     string.Join(", ", _maps.Where(zone => zone != mine.Map).Select(zone => zone.Id)) + ".");

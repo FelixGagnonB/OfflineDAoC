@@ -3873,6 +3873,12 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [x] **M13.10** (S) `/8v8 stop` for a player. *Built 2026-11-25; automated tests only.* The owner, of
+  the play install: "In v0.1.1 on D:\OfflineDAoC, do we really ahve the /8v8 stop ?" It had not: `stop` was among
+  the commands kept for a test server, while `/8v8 ready` on a character whose evening runs (and one runs
+  whenever such a character is in the game) answered "A fight is running. /8v8 stop first.", and three other
+  answers sent a player to `/8v8 prime` or `/8v8 setup`. Built: `stop` is a player's command (it ends the evening;
+  `/8v8 evening` begins one), and those answers name commands a player has.
 - [x] **M13.9** (S) The evening begins at login, and only then. *Built 2026-11-25, after the tag;
   automated tests only.* Reading the first-time path again before the owner's first evening on
   the play install: the game tells of a player "entering" (`GamePlayerEvent.GameEntered`) each

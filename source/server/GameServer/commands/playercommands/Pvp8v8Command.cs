@@ -91,7 +91,10 @@ namespace DOL.GS.Commands
         /// for a game master, or for a server with <see cref="TestMarker"/> beside it, which the
         /// scrim server has and the play install has not.
         /// </summary>
-        public static readonly string[] PlayerWords = ["call", "calls", "lead", "ready", "guild", "evening", "who", "rivals", "ranks", "go", "corpse"];
+        /// (And "stop", since 2026-11-25: with an evening that begins at login, "/8v8 ready" on a character that has one
+        /// running answered "A fight is running. /8v8 stop first.", and a player had no "/8v8 stop". The owner, that day:
+        /// "In v0.1.1 on D:\OfflineDAoC, do we really ahve the /8v8 stop ?")
+        public static readonly string[] PlayerWords = ["call", "calls", "lead", "ready", "guild", "evening", "stop", "who", "rivals", "ranks", "go", "corpse"];
 
         public const string TestMarker = "pvp-test-commands.txt";
 
@@ -104,6 +107,7 @@ namespace DOL.GS.Commands
             "/8v8 calls <on|off>  your companions' calls in group chat",
             "/8v8 lead <on|off>   your companions fall back as one by themselves when the group has too many on it",
             "/8v8 evening         begins your evening when none is running (it begins by itself when you log in; it ends when you leave the frontier)",
+            "/8v8 stop            ends your evening: your companions and the guilds leave, what was earned is kept",
             "/8v8 who             each zone of the evening: how many groups every realm has in it, and of what kinds",
             "/8v8 go <zone>       your group ports to your realm's start in another zone of the evening",
             "/8v8 rivals          the enemy guilds you have wiped or been wiped by, and how often",
@@ -180,7 +184,7 @@ namespace DOL.GS.Commands
                     PvpSquad squad = PvpScrim.SquadOf(player);
                     if (squad == null)
                     {
-                        Say("You call to a group in a fight: start one with /8v8 setup.");
+                        Say("You call to your group in a fight. No evening is running: /8v8 evening begins one.");
                         return;
                     }
                     string word = args.Length > 2 ? args[2].ToLowerInvariant() : string.Empty;
@@ -407,7 +411,7 @@ namespace DOL.GS.Commands
                 {
                     System.Collections.Generic.List<string> rivals = PvpRoam.RivalLines(player);
                     if (rivals.Count == 0)
-                        Say("You have no rivals yet: nobody you have wiped, and nobody who has wiped you. /8v8 prime starts an evening.");
+                        Say("You have no rivals yet: nobody you have wiped, and nobody who has wiped you.");
                     foreach (string line in rivals)
                         Say(line);
                     return;
@@ -480,7 +484,7 @@ namespace DOL.GS.Commands
 
                 case "stop":
                     PvpScrim.Stop();
-                    Say("The fight is ended and the 8v8 bots are gone.");
+                    Say("It is ended and the 8v8 bots are gone; what was earned is kept. /8v8 evening begins an evening.");
                     return;
 
                 case "clear":

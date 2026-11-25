@@ -26,7 +26,7 @@ Built 2026-11-24 and not yet tried in a client.
 - **Only your login begins it.** Going to another region does not (the port to the frontier,
   `/8v8 go`, a walk to your trainer in the capital). An evening ends when you leave the frontier;
   `/8v8 evening` begins one again.
-- **What you type:** `/8v8 evening`, `/8v8 call ...`, `/8v8 calls`, `/8v8 lead`, `/8v8 guild <name>`,
+- **What you type:** `/8v8 evening`, `/8v8 stop`, `/8v8 call ...`, `/8v8 calls`, `/8v8 lead`, `/8v8 guild <name>`,
   `/8v8 guild lineup <name>`, `/8v8 who`, `/8v8 go <zone>`, `/8v8 rivals`, `/8v8 ranks`,
   `/8v8 corpse`, `/8v8 ready`. Everything else in this guide (`prime`, `roam`, `play`,
   `setup`, `status`, `stop` and the rest) is for trying things: it answers on a server that
