@@ -10,8 +10,8 @@ a command to type or a file to look at; the why of each thing is in
 
 | Thing | Where |
 |---|---|
-| The source, and these pages | `C:\Workspace\OfflineDAoC` (GitHub: your fork; `main` is what is released, tag `v0.1`; later work is on branch `pvp-8v8-m11` until it is merged) |
-| The game you play | `D:\OfflineDAoC` (release 0.37b with the 8v8 build installed over it on 2026-11-25: `v0.1`, then the fix of M13.9 an hour later. The backups are in `D:\OfflineDAoC\deployment-backups`: `scrim-20261125-082823` puts the 0.37b server back, `scrim-20261125-085442` puts `v0.1` as tagged back) |
+| The source, and these pages | `C:\Workspace\OfflineDAoC` (GitHub: your fork; `main` is what is released: tag `v0.1.2` is what the game you play runs; later work is on branch `pvp-8v8-m11` until it is merged) |
+| The game you play | `D:\OfflineDAoC` (release 0.37b with the 8v8 build installed over it on 2026-11-25: `v0.1`, then the fix of M13.9 an hour later, which is tag `v0.1.1`, then the work of the rest of that day, which is tag `v0.1.2`. The backups are in `D:\OfflineDAoC\deployment-backups`: `scrim-20261125-082823` puts the 0.37b server back, `scrim-20261125-085442` puts `v0.1` as tagged back, `scrim-20261125-101034` puts `v0.1.1` back, `scrim-20261125-121142` puts back the build between the two tags (the evening as your session, emblems; not the 8v8 zone, not the twelve groups)) |
 | The copy for trying things | `D:\OfflineDAoC-scrim` (has `pvp-test-commands.txt`, so every `/8v8` command answers there) |
 | The 8v8 code | `source\server\GameServer\bots\pvp`, the command in `source\server\GameServer\commands\playercommands\Pvp8v8Command.cs` |
 | The tools | `source\tools\pvp_*.py`, `source\tools\scrim_server.py`, `source\server\tools\deploy_scrim.ps1` |
@@ -48,8 +48,9 @@ and the files below are not touched.
 1. Start the game with its launcher as always. Leave the gamebot population at 0.
 2. A new character: `/8v8 ready` lists your realm's builds, `/8v8 ready <build> confirm` makes
    the character level 50 with that build. The evening begins at once, and from then on each
-   time you come in: guilds of every kind in tonight's zones, your seven around you, everybody
-   from realm rank 1 level 1.
+   time you come in: guilds of every kind in tonight's zones, everybody from realm rank 1
+   level 1. You are not moved: `/8v8 go emain` takes you to the frontier, where your seven join
+   you; out of the frontier they wait off the field and the evening goes on.
 3. Once: `/8v8 guild <name>` (your seven wear it), `/8v8 guild lineup hib-2bard` if you want the
    two Bards (from the next evening).
 4. In the evening: `/8v8 call ...` (push, regroup, hold, engage, extend, assist, control,
@@ -84,10 +85,14 @@ built. The ones you are most likely to want, with what is built in:
     {
       "Real": {
         "EveningAtLogin": true,
-        "EveningGroups": 8,
+        "EveningGroups": 12,
         "GuildsBeginAtTheBottom": true,
         "RealmPointRate": 5,
-        "EnemyKeepsUp": true
+        "EnemyKeepsUp": true,
+        "EightZone": "thid",
+        "EightZoneGroups": 2,
+        "EightZoneRestSeconds": 120,
+        "CleanZonesHaveNoAdds": true
       },
       "Abilities": {
         "GroupPurgeApartSeconds": 15,
@@ -96,9 +101,12 @@ built. The ones you are most likely to want, with what is built in:
       }
     }
 
-`EveningGroups`: groups of each realm (16 at most). `RealmPointRate`: how many times the game's
+`EveningGroups`: groups of each realm (16 at most; eight was the number until 2026-11-25).
+`CleanZonesHaveNoAdds`: the nine clean frontier zones are played as the 8v8 zone is. `RealmPointRate`: how many times the game's
 realm points a kill is worth. `EnemyKeepsUp`: no enemy fights below your group's average rank.
-Restart the server after a change. Not in that file (they are in the code): the size of a pack
+`EightZone`: the zone where nobody adds, by the word `/8v8 go` takes (`""`: none); `EightZoneGroups`:
+guilds of each realm in it at the most; `EightZoneRestSeconds`: how long a group that has just
+fought is left alone there. Restart the server after a change. Not in that file (they are in the code): the size of a pack
 (`PvpTeamPool.PackMost`, 3), what each kind is like (`PvpPrimeTime.cs`, `PvpStyles.cs`), the five
 levels of play (`PvpNotice.cs`).
 

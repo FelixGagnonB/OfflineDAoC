@@ -51,7 +51,15 @@ namespace DOL.GS
     /// it starts a fight, who is in it, its rank and its level of play (the three levels that
     /// exist, PvpSkills).
     /// </summary>
-    /// <param name="SharePercent">Its share of the teams ("like 5% elite, 15% strong, 20% decent, 30% casual and 30% bad, or something like that"; the casual 30 are the two casual kinds, and the hunters' five are taken from the decent).</param>
+    /// <param name="SharePercent">
+    /// Its share of the teams. First the owner's "like 5% elite, 15% strong, 20% decent, 30% casual and 30% bad, or
+    /// something like that" (the casual 30 the two casual kinds, the hunters' five taken from the decent). Since
+    /// 2026-11-25 (M13.16) 20% bad, 20% casual, 25% decent, 20% strong, 10% elite and 5% hunters: the owner, after an
+    /// evening on the play install, "I feel like the population is low and, from what I've seen, mostly bad groups
+    /// running 2fg or more. I have yet to find a clean fight in any of the frontier zone". In that evening's
+    /// recording its five fights in 35 minutes were against four groups, three, three, one (with a group of its realm
+    /// in it) and two.
+    /// </param>
     /// <param name="AddChancePercent">How often it joins a fight it comes on.</param>
     /// <param name="CountsHeads">It does not start on more enemy groups than it has friends beside it.</param>
     /// <param name="MinRealmLevel">The realm level its members begin with is drawn between the two (10 is rank 2, 70 is rank 8).</param>
@@ -67,13 +75,13 @@ namespace DOL.GS
     {
         public static readonly IReadOnlyList<PvpTeamProfile> All =
         [
-            new(PvpTeamKind.Bad, "bad", 30, PvpCompany.Zerg, 100, false, 1, 29, PvpSkill.Bad, PvpLineup.Random, false),
-            new(PvpTeamKind.Clingy, "casual, stays near others", 15, PvpCompany.Near, 90, true, 10, 39, PvpSkill.Casual, PvpLineup.Loose, false),
+            new(PvpTeamKind.Bad, "bad", 20, PvpCompany.Zerg, 100, false, 1, 29, PvpSkill.Bad, PvpLineup.Random, false),
+            new(PvpTeamKind.Clingy, "casual, stays near others", 10, PvpCompany.Near, 90, true, 10, 39, PvpSkill.Casual, PvpLineup.Loose, false),
             // (Casual since 2026-11-24: at the level of a decent team it differed from one only in adding, which the owner found "a bit funky".)
-            new(PvpTeamKind.Adder, "casual 8v8, adds", 15, PvpCompany.Alone, 80, true, 20, 49, PvpSkill.Casual, PvpLineup.NearMeta, false),
-            new(PvpTeamKind.Decent, "decent 8v8", 15, PvpCompany.Alone, 0, true, 30, 59, PvpSkill.Seasoned, PvpLineup.Meta, false),
-            new(PvpTeamKind.Strong, "strong 8v8", 15, PvpCompany.Alone, 0, true, 50, 79, PvpSkill.Sharp, PvpLineup.Meta, false),
-            new(PvpTeamKind.Elite, "elite 8v8", 5, PvpCompany.Alone, 0, true, 70, 95, PvpSkill.Elite, PvpLineup.Meta, true),
+            new(PvpTeamKind.Adder, "casual 8v8, adds", 10, PvpCompany.Alone, 80, true, 20, 49, PvpSkill.Casual, PvpLineup.NearMeta, false),
+            new(PvpTeamKind.Decent, "decent 8v8", 25, PvpCompany.Alone, 0, true, 30, 59, PvpSkill.Seasoned, PvpLineup.Meta, false),
+            new(PvpTeamKind.Strong, "strong 8v8", 20, PvpCompany.Alone, 0, true, 50, 79, PvpSkill.Sharp, PvpLineup.Meta, false),
+            new(PvpTeamKind.Elite, "elite 8v8", 10, PvpCompany.Alone, 0, true, 70, 95, PvpSkill.Elite, PvpLineup.Meta, true),
             new(PvpTeamKind.Hunter, "elite, hunts the zerg", 5, PvpCompany.Alone, 0, false, 70, 95, PvpSkill.Elite, PvpLineup.Meta, false, true),
         ];
 

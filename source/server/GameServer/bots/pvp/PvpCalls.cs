@@ -232,6 +232,46 @@ namespace DOL.GS
         /// </summary>
         public static bool IsDieCall(string word) => (word ?? string.Empty).Trim().ToLowerInvariant() is "die" or "wipe" or "giveup";
 
+        /// <summary>
+        /// "/8v8 call abilities": each companion says which of its active realm abilities it has
+        /// ready and which are down, and for how long. The owner, 2026-11-25: "Could there be
+        /// another /8v8 command, for my group to /g which active are available / down and how
+        /// long until it's up".
+        /// </summary>
+        public static bool IsAbilitiesCall(string word) =>
+            (word ?? string.Empty).Trim().ToLowerInvariant() is "abilities" or "ability" or "ra" or "ras" or "timers" or "cd" or "cooldowns";
+
+        /// <summary>How long until an ability is up again, as it is said: "45s", "12:40".</summary>
+        public static string TimeLeft(int milliseconds)
+        {
+            int seconds = (Math.Max(0, milliseconds) + 999) / 1000;
+            return seconds >= 60 ? $"{seconds / 60}:{seconds % 60:00}" : $"{seconds}s";
+        }
+
+        /// <summary>
+        /// What one companion says of its active abilities: those that are up, then those that
+        /// are down, the soonest first ("up: Purge, Battery of Life | down: Group Purge 12:40").
+        /// Null for a companion that has none: it says nothing.
+        /// </summary>
+        public static string AbilitiesLine(System.Collections.Generic.IReadOnlyList<(string Name, int MillisecondsLeft)> actives)
+        {
+            if (actives == null || actives.Count == 0)
+                return null;
+            var up = new System.Collections.Generic.List<string>();
+            var down = new System.Collections.Generic.List<(string Name, int Left)>();
+            foreach ((string name, int left) in actives)
+            {
+                if (left <= 0)
+                    up.Add(name);
+                else
+                    down.Add((name, left));
+            }
+            down.Sort((a, b) => a.Left.CompareTo(b.Left));
+            string ready = up.Count > 0 ? "up: " + string.Join(", ", up) : null;
+            string waiting = down.Count > 0 ? "down: " + string.Join(", ", down.ConvertAll(one => $"{one.Name} {TimeLeft(one.Left)}")) : null;
+            return ready != null && waiting != null ? ready + " | " + waiting : ready ?? waiting;
+        }
+
         /// <summary>What the player is told of a call to give the fight up; null when it is given up.</summary>
         public static string CannotGiveUp(bool leadsAGroupInARoam, bool callerAlive, bool groupIsDownAlready) =>
             !leadsAGroupInARoam ? "You give a fight up in a roam or a prime-time evening, with your group."

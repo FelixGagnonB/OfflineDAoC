@@ -16,16 +16,17 @@ unfinished are in [PVP-8V8-ROADMAP.md](PVP-8V8-ROADMAP.md).
 Built 2026-11-24 and not yet tried in a client.
 
 - **You come in and the evening begins.** With an 8v8 character (level 50, made with
-  `/8v8 ready <build> confirm`, typed once) you are taken to your realm's start a few seconds
-  after you enter the game: guilds of every kind are out in tonight's zones, your seven are
-  with you, and everything earned is kept. It ends when you leave the game. The zone, the
-  number of groups and your line-up are the ones of your last evening.
+  `/8v8 ready <build> confirm`, typed once) it begins a few seconds after you enter the game:
+  guilds of every kind come out in tonight's zones and everything earned is kept. You are not
+  moved: in a frontier zone your seven are with you, elsewhere they join you when you get there.
+  The number of groups and your line-up are the ones of your last evening.
 - **Everybody begins at realm rank 1 level 1**, your group and every guild, whatever its
   kind. A bad pack is a pack and an elite team plays as one from the first evening; their
   ranks are what they earn while you are in the game.
-- **Only your login begins it.** Going to another region does not (the port to the frontier,
-  `/8v8 go`, a walk to your trainer in the capital). An evening ends when you leave the frontier;
-  `/8v8 evening` begins one again.
+- **It is your session, not your place.** It begins at your login, where you stand, and ends
+  when you leave the game. Out of the frontier (the capital, a trainer) it goes on: your seven
+  wait off the field, where nobody can attack them, and are beside you again when you are back in
+  a frontier zone, on foot or with `/8v8 go <zone>`.
 - **What you type:** `/8v8 evening`, `/8v8 call ...`, `/8v8 calls`, `/8v8 lead`, `/8v8 guild <name>`,
   `/8v8 guild lineup <name>`, `/8v8 who`, `/8v8 go <zone>`, `/8v8 rivals`, `/8v8 ranks`,
   `/8v8 corpse`, `/8v8 ready`. Everything else in this guide (`prime`, `roam`, `play`,
@@ -115,8 +116,8 @@ has played it yet.**
   | Midgard | `odin` (Odin's Gate) | `jamtland` (Jamtland Mountains), `uppland`, `yggdra` (Yggdra Forest) |
   | Albion | `hadrian` (Hadrian's Wall) | `pennine` (Pennine Mountains), `sauvage` (Forest Sauvage), `snowdonia` |
 
-  An evening is not in all of them: it has one zone for every three groups of a realm, so three
-  with eight groups, four with twelve, five with sixteen. They are the zone you begin in, Emain
+  An evening is not in all of them: it has one zone for every four groups of a realm, so two
+  with eight groups, three with twelve, four with sixteen (and the 8v8 zone besides). They are the zone you begin in, Emain
   Macha, and others drawn anew each evening, Odin's Gate and Hadrian's Wall four times as
   readily as a zone behind them. `/8v8 who` begins with the zones of the evening.
 - **What a zone is like.** Emain Macha is where **the crowd** is. Odin's Gate and Hadrian's Wall
@@ -264,8 +265,13 @@ has played it yet.**
   your group goes by it in `/8v8 who`, `/8v8 status` and the recording. `/8v8 guild` alone
   says what guild you have. It is an ordinary guild: `/gc quit` leaves it, and the game's own
   `/gc form` at a guild registrar (one gold piece) does the same with your companions in the
-  group. Not built: an emblem on their cloaks and shields. **Built 2026-11-24, automated tests
-  only.**
+  group. **Built 2026-11-24, automated tests only.**
+- **Emblems.** `/8v8 guild emblem` opens the game's emblem window wherever you stand, at no
+  cost, as often as you like (the game's own way is the emblem keeper in the capital: a second
+  emblem is 200 gold there, and 5 gold for each cloak or shield). What you pick goes on your
+  cloak and shields, worn or carried, and your companions wear it. Every guild of bots wears
+  an emblem made from its name, the same every evening. **Built 2026-11-25, automated tests
+  only; whether every made emblem has a picture in the client is not known.**
 
 ## Realm abilities
 

@@ -972,6 +972,26 @@ namespace DOL.GS
             }
         }
 
+        /// <summary>
+        /// "/8v8 call abilities": each companion that has an active realm ability says in group chat
+        /// which are up and which are down (PvpCalls.AbilitiesLine). How many spoke. Said to the
+        /// player that asked, whether the companions' calls are on or off, the dead too.
+        /// </summary>
+        public int SayAbilities(GamePlayer player)
+        {
+            int spoke = 0;
+            foreach (GameBot bot in _members)
+            {
+                string line = PvpCalls.AbilitiesLine(AutonomousBotRealmAbilities.ActivesOf(bot)
+                    .Select(ability => (ability.Name, bot.GetSkillDisabledDuration(ability))).ToList());
+                if (line == null)
+                    continue;
+                player.Out.SendMessage($"[Party] {bot.Name}: \"{line}\"", PacketHandler.eChatType.CT_Group, PacketHandler.eChatLoc.CL_ChatWindow);
+                spoke++;
+            }
+            return spoke;
+        }
+
         /// <summary>A player of the group calls a rest (PvpCalls.PlayerRestSeconds).</summary>
         public void CallRest(GameLiving caller)
         {

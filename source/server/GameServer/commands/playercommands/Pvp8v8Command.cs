@@ -17,7 +17,7 @@ namespace DOL.GS.Commands
         "/8v8 prime ... rank <1-13>     the same evening to try things: your group at that realm rank for the evening, and it earns nothing (your next real fight puts you back at what you have earned)",
         "/8v8 go <zone>                 on a prime-time evening: your group ports to your realm's start in another zone of the evening (/8v8 who names them); not out of a fight",
         "/8v8 guild [name]              forms a guild with you as its guildmaster, at no cost and wherever you stand: your seven companions wear its name, and on a prime-time evening your group goes by it; alone it says what guild you have",
-        "/8v8 evening                   begins your evening when none is running: it begins by itself when you log in with an 8v8 character, and ends when you leave the frontier",
+        "/8v8 evening                   begins your evening when none is running: it begins by itself when you log in with an 8v8 character, and ends when you leave the game",
         "/8v8 who                       on a prime-time evening: each zone of the evening, how many groups every realm has in it and of what kinds (bad, casual, decent, strong, elite)",
         "/8v8 rivals                    the enemy guilds you have wiped or been wiped by on prime-time evenings, and how often",
         "/8v8 status                    in a roam: what every team is doing (buffing at its start, roaming, fighting whom, resting, waiting by a fight, wiped), how many of it are alive and how far it is",
@@ -91,6 +91,10 @@ namespace DOL.GS.Commands
         /// for a game master, or for a server with <see cref="TestMarker"/> beside it, which the
         /// scrim server has and the play install has not.
         /// </summary>
+        /// ("stop" is not one of them. The owner, 2026-11-25: "In v0.1.1 on D:\OfflineDAoC, do we really ahve the
+        /// /8v8 stop ?", and of having it: "I want it on scrim, it makes testing easy, but not on the real server". So
+        /// "/8v8 ready" on a character whose evening runs, which used to answer "/8v8 stop first", ends and begins that
+        /// evening by itself.)
         public static readonly string[] PlayerWords = ["call", "calls", "lead", "ready", "guild", "evening", "who", "rivals", "ranks", "go", "corpse"];
 
         public const string TestMarker = "pvp-test-commands.txt";
@@ -100,7 +104,9 @@ namespace DOL.GS.Commands
             "/8v8 ready [build]   your character becomes level 50 with that build's class, spec and gear (lists the builds without one)",
             "/8v8 guild [name]    forms your guild: your seven companions wear its name and your group goes by it",
             "/8v8 guild lineup [name]   which eight your group is, from your next evening on",
+            "/8v8 guild emblem    opens the emblem window: your guild's emblem, free, worn by you and your companions",
             "/8v8 call <push|regroup|hold|engage|extend|assist|control|retreat|rest|die>   your call to the group",
+            "/8v8 call abilities   each companion says which active realm abilities it has up, which are down and for how long",
             "/8v8 calls <on|off>  your companions' calls in group chat",
             "/8v8 lead <on|off>   your companions fall back as one by themselves when the group has too many on it",
             "/8v8 evening         begins your evening when none is running (it begins by itself when you log in; it ends when you leave the frontier)",
@@ -180,7 +186,8 @@ namespace DOL.GS.Commands
                     PvpSquad squad = PvpScrim.SquadOf(player);
                     if (squad == null)
                     {
-                        Say("You call to a group in a fight: start one with /8v8 setup.");
+                        Say(PvpRoam.Leads(player) ? "Your companions wait off the field while you are out of the frontier: /8v8 go <zone> takes you back with them."
+                            : "You call to your group in a fight. No evening is running: /8v8 evening begins one.");
                         return;
                     }
                     string word = args.Length > 2 ? args[2].ToLowerInvariant() : string.Empty;
@@ -205,6 +212,12 @@ namespace DOL.GS.Commands
                         Say(PvpRoam.GiveUp(player));
                         return;
                     }
+                    if (PvpCalls.IsAbilitiesCall(word))
+                    {
+                        if (squad.SayAbilities(player) == 0)
+                            Say("Your companions have no active realm ability yet: they buy them as they gain rank.");
+                        return;
+                    }
                     if (PvpCalls.IsControlCall(word))
                     {
                         if (!squad.CallControl(player, player.TargetObject as GameLiving, PvpRoam.StandsBy(player, player.TargetObject as GameLiving)))
@@ -213,7 +226,7 @@ namespace DOL.GS.Commands
                     }
                     if (PvpCalls.OrderFor(word) is not { } called)
                     {
-                        Say("/8v8 call push, regroup, hold, engage, extend, assist, control, retreat, rest or die.");
+                        Say("/8v8 call push, regroup, hold, engage, extend, assist, control, retreat, rest, die or abilities.");
                         return;
                     }
                     squad.CallOrder(player, called);
@@ -262,6 +275,12 @@ namespace DOL.GS.Commands
 
                 case "guild":
                 {
+                    // "/8v8 guild emblem": the game's emblem window, wherever the player stands and at no cost.
+                    if (args.Length > 2 && args[2].ToLowerInvariant() == "emblem")
+                    {
+                        Say(PvpGuildEmblem.Ask(player));
+                        return;
+                    }
                     // "/8v8 guild lineup [name]": which eight the group is, from the next evening on.
                     if (args.Length > 2 && args[2].ToLowerInvariant() == "lineup")
                     {
@@ -328,7 +347,9 @@ namespace DOL.GS.Commands
                         return;
                     }
                     PvpBuild build = PvpPlayerReady.Find(player.Realm, args[2]);
-                    string refusal = PvpScrim.IsPlaying(player) ? "A fight is running. /8v8 stop first."
+                    // Its own evening is ended for the change and begun again after it; a fight of another sort has to be stopped.
+                    bool ownEvening = PvpRoam.Leads(player);
+                    string refusal = PvpScrim.IsPlaying(player) && !ownEvening ? "A fight is running. /8v8 stop first."
                         : PvpPlayerReady.Refusal(player.Realm, player.InCombat, player.IsAlive, build);
                     if (refusal != null)
                     {
@@ -344,10 +365,17 @@ namespace DOL.GS.Commands
                     }
                     try
                     {
+                        if (ownEvening)
+                        {
+                            PvpScrim.Stop();
+                            Say("Your evening is ended for the change; a new one begins when it is done.");
+                        }
                         foreach (string line in PvpPlayerReady.Apply(player, build))
                             Say(line);
+                        // Its new cloak and shields wear its guild's emblem.
+                        PvpGuildEmblem.Wear(player);
                         // An 8v8 character now: its evening begins (PvpEveningStart), as it will each time it comes in.
-                        PvpEveningStart.BeginFor(player);
+                        PvpEveningStart.BeginFor(player, ownEvening);
                     }
                     catch (System.Exception exception)
                     {
@@ -407,7 +435,7 @@ namespace DOL.GS.Commands
                 {
                     System.Collections.Generic.List<string> rivals = PvpRoam.RivalLines(player);
                     if (rivals.Count == 0)
-                        Say("You have no rivals yet: nobody you have wiped, and nobody who has wiped you. /8v8 prime starts an evening.");
+                        Say("You have no rivals yet: nobody you have wiped, and nobody who has wiped you.");
                     foreach (string line in rivals)
                         Say(line);
                     return;
@@ -480,7 +508,7 @@ namespace DOL.GS.Commands
 
                 case "stop":
                     PvpScrim.Stop();
-                    Say("The fight is ended and the 8v8 bots are gone.");
+                    Say("It is ended and the 8v8 bots are gone; what was earned is kept. /8v8 evening begins an evening.");
                     return;
 
                 case "clear":

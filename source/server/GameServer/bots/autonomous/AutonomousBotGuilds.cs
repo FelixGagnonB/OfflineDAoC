@@ -49,7 +49,8 @@ namespace DOL.GS
         {
             int own = item.Emblem != 0 ? item.Emblem : item.Color;
             if (living is not GameBot bot || !CarriesEmblem(item)) return own;
-            int emblem = ShownGuild(bot)?.Emblem ?? 0;
+            // An 8v8 bot wears the emblem of its evening's guild: its player's, or the one made from the guild's name (PvpGuildEmblem).
+            int emblem = bot.IsPvpBot ? PvpGuildEmblem.Of(bot) : ShownGuild(bot)?.Emblem ?? 0;
             return emblem != 0 ? emblem : own;
         }
 

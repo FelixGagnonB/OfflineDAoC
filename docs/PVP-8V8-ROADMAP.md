@@ -3873,6 +3873,89 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [x] **M13.16** (M) More groups, fewer of them bad, and clean zones where nobody adds. *Built 2026-11-25;
+  automated tests only; not run on a server.* The owner, an hour and a half into the play install: "I feel like
+  the population is low and, from what I've seen, mostly bad groups running 2fg or more. I have yet to find a clean
+  fight in any of the frontier zone". Its recording of the evening that was on (35 minutes, eight groups a realm in
+  Hadrian's Wall, Emain Macha and the Pennine Mountains) says the same: five fights, against four Albion groups
+  (a pack of three bad and the casual one beside it), the pack of three again, then in the clean zone an elite
+  group with a strong one and one that adds in the same fight, the strong one with a group of its own realm in it,
+  and the strong one with the one that adds again. No enemy group was within 9,000 units for 52% of the time; the
+  clean zone had three enemy groups in it. Of a realm's eight guilds three were bad, two casual, three of the
+  kinds that fight one against one. Changed: (1) the shares of the kinds, from the owner's first "30% bad, 30%
+  casual, 20% decent, 15% strong, 5% elite" to 20% bad, 20% casual, 25% decent, 20% strong, 10% elite, 5% hunters
+  (`PvpTeamProfile.All`; the guilds a pool already has keep their kind, the ones it gains are drawn by the new
+  shares); (2) twelve groups a realm (`EveningGroups`; the number kept from a player's last evening no longer
+  holds the setting fast) in one zone for every four (`ZonesFor`), so three frontier zones and the 8v8 zone;
+  (3) the clean zones are played as the 8v8 zone is (`CleanZonesHaveNoAdds`): nobody joins a fight that is on, a
+  group picks one enemy group, a group that has just fought is left to rest; and a group that adds is not in a
+  clean zone at all. The owner's ratio and the density were the owner's and my numbers of 2026-11-22: these are
+  a second guess, to be played.
+- [x] **M13.15** (M) The 8v8 zone: one zone of every evening where nobody adds. *Built 2026-11-25; automated tests
+  only; not run on a server (the owner was on the play install).* The owner: "Could we build a zone for dedicated
+  8v8 without adds? By build, I do not mean creating a new zone, but use an unuse zone and make it a dedicated 8v8
+  only zone". Asked who is in it: "Every kind, no adds". Asked how a group that has just fought is treated: "Could
+  be a mix of 1 and 2, based on what kind of group is waiting". Asked which zone: "I am not sure about the
+  battleground, because there is water and we do not have the water breating potion". All twelve frontier zones are
+  in the evenings already and their points are 20,000 apart; Thidranki is the one mapped ground no evening used
+  (three starts, three points 15,000 apart, every leg walked on the navmesh), and the database has no diving in it
+  (old Thidranki, as the frontier rivers). So it is Thidranki, and one word of the settings makes it another zone
+  (`PvpRealWeights.EightZone`). Built (`PvpRoam.EightZone`, `EveningZones`): every evening of three groups a realm
+  or more has it besides its frontier zones; a third of each realm's guilds, two at the most
+  (`EightZoneGroups`), of every kind but the hunters, are put in it, each by itself, and stay in it (nobody ports
+  in or out; a guild that logs off there is followed by one of its kind there). In it: no draw to join a fight is
+  ever won; a group picks one enemy group, which is then nobody else's (`MayPick`: of two that come for one, the
+  first has it); the kinds that play 8v8 (`WaitsForARestedGroup`: decent, strong, elite) start nothing while they
+  or the other are getting over a fight (`IsRecovering`, `IsWhole`, 120 s at the most), a bad or casual group takes
+  it as it finds it; and a group that is left to rest rests with others in sight. The player's group is held to
+  nothing. Not known until it is played: whether the water round Thidranki's middle gets in the way of a fight.
+- [x] **M13.14** (S) `/8v8 call abilities`. *Built 2026-11-25; automated tests only.* The owner: "Could there be
+  another /8v8 command, for my group to /g which active are available / down and how long until it's up". Each
+  companion that has an active realm ability says in group chat which are up and which are down, the soonest
+  first ("up: Purge | down: Group Purge 12:40"); also `ra`, `timers`, `cd`.
+- [x] **M13.13** (S) A group that has just stood up is whole. *Built 2026-11-25; automated tests only.* The
+  owner, playing the play install: "When the bot are done buffing, after we release, we are 'low' on hp and
+  neither druids or bards heals. We have to wait at the keep for full hp." A group's members are made with full
+  health and the buffbot's buffs then raise what full is (Constitution), so everybody stood at four fifths with
+  nobody hurt enough for a healer to look at. Built (`PvpRoam.TopsUp`): for the first minute after its eight
+  are made (at its start, after a wipe, on coming back to the field), while the group has met nobody, each
+  member that is not in combat has its health, power and endurance full, the player too; every team of the
+  evening alike.
+- [x] **M13.12** (S) Every guild wears an emblem. *Built 2026-11-25; automated tests only (an emblem is drawn
+  by a client, and an evening of bots sends no equipment to one).* The owner, after the first evening on the play
+  install: "Can I still visite the capital city to change the guild embleem? We all wear the default all green,
+  red, blue. It would be nice if each guild has it's own embleem and using it". The game's own way is the emblem
+  keeper in the capital: the first emblem free, a second 200 gold, 5 gold for each cloak or shield, and nothing
+  for seven bots that are no players. Built (`PvpGuildEmblem`): `/8v8 guild emblem` opens the game's emblem
+  window anywhere, free and as often as wanted (`EmblemDialogReponseHandler` hands its answer over when that
+  command opened it); the player's cloak and shields, worn or carried, take it, also after `/8v8 ready` and at
+  the start of an evening; an 8v8 bot shows on its cloak and shield its player's guild's emblem, or, for a guild
+  of bots, one made from the guild's name (`Made`: the same every evening, a logo of 1 to 90, two colours that
+  differ), through the same call that gives a gamebot its guild's emblem (`AutonomousBotGuilds.Texture`). Not
+  known: whether each of the 90 logos has a picture in the client for each realm; one that has none shows the
+  pattern and the colours alone.
+- [x] **M13.11** (M) The evening is its player's session, not its player's place. *Built 2026-11-25;
+  automated tests only; not run on a server (the owner was on the play install).* The owner, having started the
+  play install: "When I log in, it should start the evening and bots/teams should start to behave as we discussed
+  ... When I log off, everything obviously stops. Regardless if I leave a frontier zone, to go to the capital city
+  for example, evening should keep goigng and I should be able to go to a non frontier zone without interacting
+  with the evening process." It did not: the player was taken to the frontier at login, and an evening ended as
+  soon as its player's character was out of the world for a moment, which every change of region is. Asked, the
+  owner picked "Stay where I logged out" and, for the seven while the player is away, "Wait off the field".
+  Built: the evening ends when its player has left the game and at nothing else (`PvpRoam.HasLeftTheGame`); at
+  login it begins where the player stands (`StartFor(stay)`), in the frontier zone it is in or else in the zone
+  of its last evening; the player's seven are on the field while it is in a frontier zone and off it otherwise
+  (`PresenceOf`, `FrontierUnder`: a group that is off the field counts nobody alive, is near nobody, has no
+  release point and is left out of `/8v8 who`); `/8v8 go <zone>` works from anywhere. A group whose player walks
+  out of the frontier in the middle of a fight is simply gone from it: not counted as wiped.
+- [x] **M13.10** (S) No answer sends a player to a command it has not. *Built 2026-11-25; automated tests
+  only.* The owner, of the play install: "In v0.1.1 on D:\OfflineDAoC, do we really ahve the /8v8 stop ?" It has
+  not: `stop` is among the commands kept for a test server. But `/8v8 ready` on a character whose evening runs
+  (and one runs whenever such a character is in the game) answered "A fight is running. /8v8 stop first.", and
+  three other answers sent a player to `/8v8 prime` or `/8v8 setup`. I made `stop` a player's command; the owner,
+  the same hour: "I want it on scrim, it makes testing easy, but not on the real server", and it was taken back
+  before it was installed anywhere. Built instead: `/8v8 ready <build> confirm` ends the player's own evening for
+  the change and begins a new one after it, and the other answers name `/8v8 evening`.
 - [x] **M13.9** (S) The evening begins at login, and only then. *Built 2026-11-25, after the tag;
   automated tests only.* Reading the first-time path again before the owner's first evening on
   the play install: the game tells of a player "entering" (`GamePlayerEvent.GameEntered`) each

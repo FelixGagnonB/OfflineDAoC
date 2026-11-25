@@ -13,15 +13,20 @@ For the game you play (`D:\OfflineDAoC`). The long version of everything here is
    `druid-nurture`, `bard`, `hero`, `blademaster`, `eldritch-light`, `enchanter-light`, ...).
 4. Type `/8v8 ready <build> confirm`, for example `/8v8 ready hero confirm`. Your character
    becomes level 50 with that build's class, spec and gear. This is for good.
-5. Your evening begins by itself: you are taken to your realm's start in Emain Macha, your seven
-   companions join you, and guilds of all three realms come out over the first minutes.
+5. Your evening begins by itself, in the frontier: guilds of all three realms come out over the
+   first minutes. You are not moved. `/8v8 go emain` takes you to your realm's start in Emain
+   Macha, and your seven companions join you there.
 6. Once, when you like: `/8v8 guild <name>` gives your group a guild (your companions wear its
-   name). `/8v8 guild lineup hib-2bard` picks the two-Bard group from your next evening on.
+   name; a new character is in its realm's starter guild, so `/gc quit` first), and
+   `/8v8 guild emblem` picks its emblem. `/8v8 guild lineup hib-2bard` picks the two-Bard group from your next evening on.
 
 ## Every evening after that
 
-You log in, and a few seconds later the evening begins: same zone, same line-up and same number
-of groups as last time. It ends when you leave the game. Everything earned is kept: your realm
+You log in, and a few seconds later the evening begins: same line-up and same number of groups
+as last time. You stay where you logged out. In a frontier zone your seven are beside you at
+once; anywhere else they wait off the field until you are in the frontier (`/8v8 go <zone>`, or
+walk in). The evening goes on wherever you go, the capital too, and ends when you leave the
+game. Everything earned is kept: your realm
 points, your companions', the guilds', and who has wiped whom.
 
 Everybody started at realm rank 1 level 1. Ranks only move while you are in the game.
@@ -32,10 +37,11 @@ Everybody started at realm rank 1 level 1. Ranks only move while you are in the 
 |---|---|
 | `/8v8 ready` | Lists your realm's builds. `/8v8 ready <build> confirm` makes this character level 50 with that build. |
 | `/8v8 guild` | Says what guild you have. `/8v8 guild <name>` forms one, free, wherever you stand (letters and spaces, 30 at most). |
+| `/8v8 guild emblem` | Opens the game's emblem window, wherever you stand and at no cost: your guild's emblem goes on your cloak and shields and on your companions'. Pick again whenever you like. |
 | `/8v8 guild lineup` | Says your line-up and lists your realm's. `/8v8 guild lineup <name>` sets it from your next evening on. |
-| `/8v8 evening` | Begins your evening when none is running. It begins by itself when you log in; it ends when you leave the frontier (to your trainer in the capital, say), and this begins it again. |
+| `/8v8 evening` | Begins your evening when none is running. It begins by itself when you log in and runs until you log out, so you seldom need this. |
 | `/8v8 who` | Each zone of the evening: how many groups every realm has in it, and of what kinds. |
-| `/8v8 go <zone>` | Your group ports to your realm's start in another zone of the evening. Not in a fight. |
+| `/8v8 go <zone>` | You and your group port to your realm's start in a zone of the evening, from anywhere (the capital too). Not in a fight. |
 | `/8v8 rivals` | The enemy guilds you have wiped or been wiped by, and how often. |
 | `/8v8 ranks` | Your realm rank and your companions'. |
 | `/8v8 lead on` / `off` | On (as built): your companions fall back as one by themselves when too many are on the group, and say so in capitals. Kept between logins. |
@@ -63,6 +69,7 @@ Put the ones you use on quickbar buttons with `/macro <name> /8v8 call <word>`.
 | `/8v8 call retreat` | Everybody drops everything and runs with you, sprinting. Also `run`, `follow`. | 30 s; call again to keep running |
 | `/8v8 call rest` | After a fight: cures, buffs, then sitting until full. Also `sit`, `buff`. | 2 minutes, or until you move or are attacked |
 | `/8v8 call die` | You are dead and the fight is lost: the group gives it up and stands up at its start. Also `wipe`, `giveup`. | at once |
+| `/8v8 call abilities` | Each companion says in group chat which of its active realm abilities are up, which are down and for how long ("up: Purge | down: Group Purge 12:40"). Also `ra`, `timers`, `cd`. | at once |
 
 Repeating a call only renews it. A retreat is ended by any other call.
 
@@ -81,14 +88,19 @@ Repeating a call only renews it. A retreat is ended by any other call.
   near. With lead on, your group already falls back by itself when ten or more are on it.
 - **After a fight.** `/8v8 call rest`: disease, poison and nearsight are taken off everybody,
   buffs are recast, the group sits.
+- **After you stand up at your start.** Your group is whole (health, power, endurance) while
+  its buffs go on, for its first minute and as long as it has met nobody: no waiting at the
+  keep.
 - **When you die.** A healer raises you if the fight allows. If the whole group goes down, it
   stands up at your realm's start about half a minute later; `/release` takes you there at
   once. If you are dead and the fight is lost, `/8v8 call die` ends it without waiting.
-- **Spend your realm points.** At your class trainer, as in the game. Leaving the frontier ends
-  the evening; when you are done, `/8v8 evening` takes you back and begins a new one (or log in
-  again). Your companions spend
+- **Spend your realm points.** At your class trainer, as in the game. Out of the frontier your
+  companions wait off the field and the evening goes on without your group; `/8v8 go <zone>`
+  takes you back with them. Your companions spend
   theirs by themselves, in the orders of
   [PVP-8V8-REALM-ABILITIES.md](PVP-8V8-REALM-ABILITIES.md).
+- **Change your own build or class.** `/8v8 ready <build> confirm`, out of combat: your evening
+  is ended for the change and a new one begins when it is done.
 - **Change your group.** `/8v8 guild lineup <name>`, from the next evening. Your own class
   takes its place in the line-up.
 - **Look at a fight afterwards.** Double-click `source\tools\review_my_fights.cmd`: see
@@ -174,6 +186,43 @@ fight, 45 seconds in.
 | `BACK AGAIN! KEEP MOVING!` | A further leg of the same. |
 | `PUSH! PUSH! ALL ON THEM!`, `EXTEND! FALL BACK AND KITE!`, `REGROUP! BACK TO THE HEALERS!` | The group's order changed. |
 | `THIS ONE IS LOST! 3 OF US LEFT, 14 OF THEM! RETREAT?` | Half the group or both healers are dead and you are outnumbered. |
+
+Every guild of bots wears an emblem of its own on its cloaks and shields, made from its name and
+the same every evening, so a group can be told from afar by its colours.
+
+## Where to find which fight
+
+An evening has twelve groups of each realm (yours one of them), in three frontier zones and the
+8v8 zone. `/8v8 who` lists the zones and what is in each; `/8v8 go <zone>` takes you there.
+
+| Zone | What you find |
+|---|---|
+| Emain Macha (the crowd) | The packs of bad groups, the groups that add, the hunters. Rarely one against one. |
+| Odin's Gate, Hadrian's Wall (mixed) | Some of everything. |
+| The nine behind them (clean, nobody adds) | Decent, strong and elite groups, each alone. Nobody joins a fight that is on. |
+| Thidranki (8v8 only) | Guilds of every kind, each alone, and nobody adds. Small: a fight is never far. |
+
+Of ten groups about two are bad, two casual, and six of the kinds that fight one group against
+one (decent, strong, elite, hunters).
+
+## The 8v8 zone
+
+One zone of every evening is for one group against one: **Thidranki**. `/8v8 go thid` takes you
+and your group to your realm's start there; `/8v8 who` lists it as "8v8 only".
+
+- Two guilds of each realm are in it, of every kind, each by itself: no packs.
+- Nobody joins a fight that is on. A group that comes on one waits, or walks round it.
+- A group picks one enemy group, and that one is then nobody else's: two do not start on one.
+- After a fight, the decent, strong and elite groups leave the winner alone until it is whole
+  again (two minutes at the most), and start nothing hurt themselves. A bad or a casual group
+  attacks as it finds you.
+- You are held to none of it by the game: your companions go for what you attack or call.
+
+Which zone it is, how many guilds are in it and how long a group is left to rest are settings
+(`EightZone`, `EightZoneGroups`, `EightZoneRestSeconds`; see the handover page). Thidranki has
+water in it. The game's data has no diving there (you swim on top, as in a frontier river, and
+need no potion), but whether the water gets in the way of a fight is not known until it is
+played: if it does, `"EightZone": "collory"` (or any zone's word) moves the 8v8 zone.
 
 ## The kinds of guild you meet
 
