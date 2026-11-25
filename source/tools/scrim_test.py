@@ -11,6 +11,7 @@ It does by itself what was done by hand before every install: `dotnet build`, `d
 evening of bots (`roam-start Prime=<groups> Zones=tonight`), a reading of the server log and
 of the recording, and the stop of the evening and of the server.
 
+Everything runs at below normal priority, so the game that is played keeps the processor.
 The game that is played may be running the whole time: the scrim server uses the test ports
 (scrim_server.py), and the install looks only at the scrim copy's own server and client. It
 never touches the game that is played. It does not start when the scrim copy is in use (an
@@ -23,6 +24,7 @@ in an evening of six minutes or more, fights were fought); 1: it did not; 2: it 
 import collections
 import glob
 import json
+import math
 import os
 import subprocess
 import sys
@@ -39,7 +41,10 @@ KNOWN = ("An item with the same key has already been added. Key: &tc",)
 
 
 def run(command, **more):
-    return subprocess.run(command, capture_output=True, text=True, errors="replace", **more)
+    # Below normal priority: a build and the unit tests take every processor for a minute, and the game that is
+    # played must not wait for them (2026-11-25: its server's loop fell to 62% of its rate during a build).
+    return subprocess.run(command, capture_output=True, text=True, errors="replace",
+                          creationflags=subprocess.BELOW_NORMAL_PRIORITY_CLASS, **more)
 
 
 def request(runtime, *words):
@@ -93,6 +98,8 @@ def read_recording(path):
     zones = {}
     one = collections.Counter()
     more = collections.Counter()
+    beside = collections.Counter()
+    moments = collections.defaultdict(list)
     for row in rows:
         if row.get("k") != "team" or not row.get("zone"):
             continue
@@ -102,8 +109,17 @@ def read_recording(path):
             one[row["zone"]] += 1
         elif foes > 1:
             more[row["zone"]] += 1
+        if foes:
+            moments[(row["zone"], int(row.get("t", 0)) // 1000)].append(row)
+    # Two fights in one place: a team in a fight with another fight, not its own, within 4,500 units (PvpRoam.OneFightWithin).
+    for (zone, _), there in moments.items():
+        for row in there:
+            if any(other is not row and other["name"] not in row["fighting"] and row["name"] not in other["fighting"] and
+                   not set(other["fighting"]) & set(row["fighting"]) and
+                   math.dist((row["x"], row["y"]), (other["x"], other["y"])) < 4500 for other in there):
+                beside[zone] += 1
     return dict(teams=len(head.get("teams", [])), kinds=dict(kinds), events=dict(events),
-                zones=dict(collections.Counter(zones.values())), one=dict(one), more=dict(more))
+                zones=dict(collections.Counter(zones.values())), one=dict(one), more=dict(more), beside=dict(beside))
 
 
 def main(argv):
@@ -177,7 +193,7 @@ def main(argv):
     log = os.path.join(runtime, "server", "logs", "server.log")
     began = time.time()
     try:
-        scrim_server.start(game, scrim_server.TEST_PORT)
+        scrim_server.start(game, scrim_server.TEST_PORT, low=True)
     except SystemExit as failure:
         say(f"FAILED: the server did not start: {failure}")
         return finish(1)
@@ -220,7 +236,8 @@ def main(argv):
             for zone in sorted(set(read["one"]) | set(read["more"])):
                 one, more = read["one"].get(zone, 0), read["more"].get(zone, 0)
                 say(f"  {zone}{' (nobody adds)' if zone in NO_ADDS else ''}: in a fight with one enemy group {one} team-samples, with two or more {more}"
-                    + (" <- LOOK AT THIS" if zone in NO_ADDS and more > 0 else ""))
+                    + (" <- LOOK AT THIS" if zone in NO_ADDS and more > 0 else "")
+                    + (f"; beside another fight {read['beside'].get(zone, 0)}" if zone in NO_ADDS else ""))
         # (Groups come out one after the other and buff first: in less than six minutes there may be no fight yet.)
         fought = fights > 0 or minutes < 6
         if fights == 0:

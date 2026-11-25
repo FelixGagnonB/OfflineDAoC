@@ -459,6 +459,22 @@ namespace DOL.GS
             waitsForARestedGroup && (itIsRecovering || theOtherIsRecovering);
 
         /// <summary>
+        /// In the 8v8 zone no fight begins beside another: a group starts on nobody while a third
+        /// group that is in a fight, or has picked a group or been picked, is within this of it or
+        /// of the group it would start on. The owner, 2026-11-25, in Thidranki on the first
+        /// evening with the zone: "I feel like we had 2 fg mids". It had: its fight with one
+        /// Midgard group and the fight of a Hibernian group with the other began a second apart
+        /// and 600 to 2,200 units from each other, and stayed so for two and a half minutes. Each
+        /// was one group against one (every point of damage the owner's group took was the one
+        /// group's), and it was sixteen against sixteen to look at, with the disease of the one
+        /// fight landing in the other.
+        /// </summary>
+        public const int OneFightWithin = 4_500;
+
+        /// <summary>See <see cref="OneFightWithin"/>.</summary>
+        public static bool StartsBesideAFight(bool aBusyGroupIsNearUs, bool aBusyGroupIsNearIt) => aBusyGroupIsNearUs || aBusyGroupIsNearIt;
+
+        /// <summary>
         /// In the 8v8 zone a group may pick an enemy group for its own when neither of the two
         /// is in somebody else's plans: nobody else has picked that one, that one has picked
         /// nobody else, and the same for the group itself. The teams are looked at one after the
@@ -2208,6 +2224,13 @@ namespace DOL.GS
                         Say($"{team.Name} leaves {other.Name} to rest after its fight", new { what = "letrest", team = team.Name, other = other.Name });
                     return false;
                 }
+                // And no fight begins beside another (OneFightWithin): not while a third group that is in a fight, or has
+                // picked or been picked, is near this group or near that one.
+                bool Busy(PvpRoamTeam third) => third != team && third != other && third.Map == team.Map && third.Alive > 0 && !third.Reforming &&
+                    (third.Fighting.Any(fought => fought.Alive > 0) || third.Claim != null || PickedByAThird(third, null));
+                if (!on && StartsBesideAFight(teams.Any(third => Busy(third) && Near(third, team, OneFightWithin)),
+                        teams.Any(third => Busy(third) && Near(third, other, OneFightWithin))))
+                    return false;
                 if (!on && !MayPick(PickedByAThird(other, team), other.Claim != null && other.Claim != team, PickedByAThird(team, other), team.Claim != null && team.Claim != other))
                     return false;
                 if (team.Claim != other)

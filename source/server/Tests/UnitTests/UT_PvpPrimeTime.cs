@@ -14,6 +14,27 @@ namespace DOL.UnitTests
     public class UT_PvpPrimeTime
     {
         [Test]
+        public void AGroupWithNoAssistDoesNotStandBeforeSleepers()
+        {
+            // The owner, 2026-11-25: "we were 5 out of 5 mezzed. The mid team just stayed idle waiting for mezz to wear off
+            // instead of picking a target and killing it".
+            Assert.That(PvpKillTarget.TakesTheNearest(itsGroupAssists: false, hasATargetOfItsOwn: false), Is.True);
+            Assert.That(PvpKillTarget.TakesTheNearest(false, true), Is.False, "one that somebody has made angry is on that one, as a bad group is");
+            Assert.That(PvpKillTarget.TakesTheNearest(true, false), Is.False, "a group that assists has its kill target");
+            // An awake enemy before a sleeping one, the nearer first; the one taken before is kept; none out of reach.
+            Assert.That(PvpKillTarget.Nearest([(900, true), (1_400, false), (2_000, false)], -1, 3_500), Is.EqualTo(1));
+            Assert.That(PvpKillTarget.Nearest([(900, true), (400, true), (600, true)], -1, 3_500), Is.EqualTo(1), "all asleep: the nearest sleeper");
+            Assert.That(PvpKillTarget.Nearest([(900, true), (400, true), (600, false)], 0, 3_500), Is.EqualTo(0), "the one it has");
+            Assert.That(PvpKillTarget.Nearest([(4_000, false)], -1, 3_500), Is.EqualTo(-1));
+            Assert.That(PvpKillTarget.Nearest([], -1, 3_500), Is.EqualTo(-1));
+            // A caster's spell is not marked down for a sleeping target when everybody is asleep.
+            Assert.That(PvpActionChoice.SleepCounts(targetIsAsleep: true, spellIsAMez: false, everyEnemyIsAsleep: false), Is.True);
+            Assert.That(PvpActionChoice.SleepCounts(true, false, true), Is.False);
+            Assert.That(PvpActionChoice.SleepCounts(true, true, false), Is.False);
+            Assert.That(PvpActionChoice.SleepCounts(false, false, false), Is.False);
+        }
+
+        [Test]
         public void TheEightZoneIsForOneGroupAgainstOne()
         {
             // The owner, 2026-11-25: "Could we build a zone for dedicated 8v8 without adds? ... use an unuse zone and make it a
@@ -73,6 +94,11 @@ namespace DOL.UnitTests
             Assert.That(PvpRoam.MayPick(false, false, true, false), Is.False);
             Assert.That(PvpRoam.MayPick(false, false, false, true), Is.False);
             Assert.That(PvpRoam.ZonesLine([PvpRoam.Emain, PvpRoam.Thidranki], PvpRoam.Emain, PvpRoam.Thidranki), Does.Contain("Thidranki (8v8 only, nobody adds)"));
+            // "I feel like we had 2 fg mids": two fights of one against one, begun a second apart and 600 units from each other.
+            Assert.That(PvpRoam.StartsBesideAFight(aBusyGroupIsNearUs: false, aBusyGroupIsNearIt: true), Is.True);
+            Assert.That(PvpRoam.StartsBesideAFight(true, false), Is.True);
+            Assert.That(PvpRoam.StartsBesideAFight(false, false), Is.False);
+            Assert.That(PvpRoam.OneFightWithin, Is.GreaterThanOrEqualTo(PvpRoam.GoesRoundAFightAt), "as far off as a group goes round a fight");
         }
 
         [Test]

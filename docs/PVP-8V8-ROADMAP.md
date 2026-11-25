@@ -3873,6 +3873,29 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [x] **M13.19** (S) A group with no assist does not stand before sleepers. *Built 2026-11-25; an evening of bots on
+  the scrim copy, where the case itself did not come up.* The owner, of a fight in Thidranki: "we were 5 out of 5
+  mezzed. The mid team just stayed idle waiting for mezz to wear off instead of picking a target and killing it".
+  The recording has it twice in that fight: a bad Midgard group, eight up and none asleep, struck no blow for ten
+  seconds with six sleeping enemies before it, and for five seconds with three; its fighters had no target. A bad
+  group has no kill target (`PvpKillWeights.Assists`), and a member without one attacked only whoever had made it
+  angry; its casters marked every sleeping target down below what is worth a cast. Built: a damage dealer of such a
+  group with no target of its own takes the nearest enemy, an awake one before a sleeping one, and keeps it while
+  it lives (`PvpKillTarget.TakesTheNearest`, `Nearest`); a caster's spell is not marked down for a sleeping target
+  when every enemy alive is asleep (`PvpActionChoice.SleepCounts`). In the scrim evening bad groups took the
+  nearest 509 times (ten of them a sleeper), and no bad group had every living enemy asleep, so the very case was
+  not seen. Their damage per team-second was 126, against 124 and 97 in the two evenings before: no change that
+  shows. The builds and tests of this day also ran at full priority beside the owner's game and took its server's
+  loop to 62% once (12:32); `scrim_test.py` now runs everything below normal priority.
+- [x] **M13.18** (S) In the 8v8 zone and the clean zones no fight begins beside another. *Built and run on the scrim
+  copy 2026-11-25.* The owner, in Thidranki: "I feel like we had 2 fg mids". The recording: its fight with one bad
+  Midgard group and the fight of a bad Hibernian group with the other began a second apart, 600 units from each
+  other, and stayed within 2,200 for two and a half minutes; all 21,080 points of damage on the owner's group were
+  the one group's. Before the change 508 of some 2,000 team-samples of fighting in Thidranki were beside another
+  fight in the owner's evening, 208 of 652 in a scrim evening. Built (`PvpRoam.OneFightWithin`, 4,500,
+  `StartsBesideAFight`): a group starts on nobody while a third group that is in a fight, or has picked or been
+  picked, is within that of it or of the group it would start on. After: 0 of 1,008 and 0 of 540 in two scrim
+  evenings (`scrim_test.py` counts it). Two fights can still come together once they are on.
 - [x] **M13.17** (S) A build is tried on the scrim copy in one go, also while the owner plays. *Built and run
   2026-11-25.* The owner, having twice closed the game and waited for a build to be tried: "we should automate
   automatic deployment to scrim and test instead of waiting for me to shutdown D:\OfflineDAoC then testing on scrim

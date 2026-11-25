@@ -65,7 +65,7 @@ def ours(game):
     return [pid for pid, path in servers() if os.path.normcase(path) == exe]
 
 
-def start(game, port=PORT):
+def start(game, port=PORT, low=False):
     if ours(game):
         raise SystemExit(f"The scrim server is already running (pid {ours(game)}).")
     if port_open(port):
@@ -87,7 +87,9 @@ def start(game, port=PORT):
     process = subprocess.Popen(
         [os.path.join(server, "CoreServer.exe")], cwd=server, env=env,
         stdin=subprocess.DEVNULL, stdout=console, stderr=subprocess.STDOUT,
-        creationflags=subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP)
+        # (low: below normal priority, for a test run beside the game that is played.)
+        creationflags=subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP |
+                      (subprocess.BELOW_NORMAL_PRIORITY_CLASS if low else 0))
     deadline = time.time() + 240
     while time.time() < deadline:
         if process.poll() is not None:
@@ -141,7 +143,7 @@ def main(argv):
               f"port {PORT}: {'open' if port_open() else 'closed'}; test port {TEST_PORT}: {'open' if port_open(TEST_PORT) else 'closed'}; "
               f"other servers: {others or 'none'}")
         return 0
-    return start(game, TEST_PORT if test else PORT) if argv[1] == "start" else stop(game, force)
+    return start(game, TEST_PORT if test else PORT, low=test) if argv[1] == "start" else stop(game, force)
 
 
 if __name__ == "__main__":

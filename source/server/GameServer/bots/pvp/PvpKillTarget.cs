@@ -133,6 +133,33 @@ namespace DOL.GS
         public static int StaleSeconds(double secondsOnTarget, int healthPercent, PvpKillWeights weights) =>
             healthPercent <= weights.StaleIfHealthAbove ? 0 : (int)Math.Max(0, secondsOnTarget - weights.StaleAfterSeconds);
 
+        /// <summary>
+        /// A damage dealer of a group with no assist (a bad group, PvpKillWeights.Assists) takes
+        /// the nearest enemy when it has no target of its own: one that is awake before one that
+        /// is asleep. Its target was whoever had made it angry, and nobody else: the owner,
+        /// 2026-11-25, "we were 5 out of 5 mezzed. The mid team just stayed idle waiting for mezz
+        /// to wear off instead of picking a target and killing it". In that fight a bad Midgard
+        /// group, eight up and none asleep, stood ten seconds before six sleeping enemies and
+        /// five seconds before three, with no target and no blow.
+        /// </summary>
+        public static bool TakesTheNearest(bool itsGroupAssists, bool hasATargetOfItsOwn) => !itsGroupAssists && !hasATargetOfItsOwn;
+
+        /// <summary>Which of the enemies it then takes (-1: none): the one it took before while that lives, else the nearest awake, else the nearest.</summary>
+        public static int Nearest(IReadOnlyList<(int Distance, bool Asleep)> enemies, int takenBefore, int maxDistance)
+        {
+            if (takenBefore >= 0 && takenBefore < enemies.Count)
+                return takenBefore;
+            int best = -1;
+            for (int index = 0; index < enemies.Count; index++)
+            {
+                if (enemies[index].Distance > maxDistance)
+                    continue;
+                if (best < 0 || (enemies[index].Asleep, enemies[index].Distance).CompareTo((enemies[best].Asleep, enemies[best].Distance)) < 0)
+                    best = index;
+            }
+            return best;
+        }
+
         /// <summary>The enemy to kill now, given the one being killed already (-1 for none).</summary>
         public static int Choose(IReadOnlyList<PvpTargetView> enemies, int currentId, PvpKillWeights weights = null)
         {
