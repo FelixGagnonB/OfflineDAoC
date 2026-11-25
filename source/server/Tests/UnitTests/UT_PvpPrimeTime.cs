@@ -37,6 +37,18 @@ namespace DOL.UnitTests
             Assert.That(PvpEveningStart.IsUnderWay(now: 20_000, begunAt: 10_000), Is.True, "the first start is still taking the player there");
             Assert.That(PvpEveningStart.IsUnderWay(50_000, 10_000), Is.False);
             Assert.That(PvpEveningStart.IsUnderWay(20_000, 0), Is.False, "none was begun");
+            // The evening is its player's session, not its player's place: "Regardless if I leave a frontier zone, to go to the capital
+            // city for example, evening should keep goigng" (the owner, 2026-11-25).
+            Assert.That(PvpRoam.HasLeftTheGame(characterIsDeleted: false, clientIsPlaying: true), Is.False, "in the capital, or between two regions");
+            Assert.That(PvpRoam.HasLeftTheGame(true, true), Is.True);
+            Assert.That(PvpRoam.HasLeftTheGame(false, false), Is.True, "at the character screen");
+            // Its seven wait off the field while it is out of the frontier, and are beside it again when it is back.
+            Assert.That(PvpRoam.PresenceOf(playerIsInTheWorld: true, onFrontierGround: false, absent: false), Is.EqualTo(PvpRoam.Presence.Leaves));
+            Assert.That(PvpRoam.PresenceOf(true, false, true), Is.EqualTo(PvpRoam.Presence.Stays));
+            Assert.That(PvpRoam.PresenceOf(true, true, true), Is.EqualTo(PvpRoam.Presence.Returns));
+            Assert.That(PvpRoam.PresenceOf(true, true, false), Is.EqualTo(PvpRoam.Presence.Stays));
+            Assert.That(PvpRoam.PresenceOf(false, false, false), Is.EqualTo(PvpRoam.Presence.Stays), "while its client loads a zone nothing is decided");
+            Assert.That(PvpRoam.PresenceOf(false, true, true), Is.EqualTo(PvpRoam.Presence.Stays));
             Assert.That(PvpEveningStart.Is8v8Character(50, true), Is.True);
             Assert.That(PvpEveningStart.Is8v8Character(49, true), Is.False);
             Assert.That(PvpEveningStart.Is8v8Character(50, false), Is.False);

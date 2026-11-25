@@ -184,7 +184,8 @@ namespace DOL.GS.Commands
                     PvpSquad squad = PvpScrim.SquadOf(player);
                     if (squad == null)
                     {
-                        Say("You call to your group in a fight. No evening is running: /8v8 evening begins one.");
+                        Say(PvpRoam.Leads(player) ? "Your companions wait off the field while you are out of the frontier: /8v8 go <zone> takes you back with them."
+                            : "You call to your group in a fight. No evening is running: /8v8 evening begins one.");
                         return;
                     }
                     string word = args.Length > 2 ? args[2].ToLowerInvariant() : string.Empty;

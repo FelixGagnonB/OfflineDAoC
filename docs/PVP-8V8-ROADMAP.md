@@ -3873,6 +3873,20 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [x] **M13.11** (M) The evening is its player's session, not its player's place. *Built 2026-11-25;
+  automated tests only; not run on a server (the owner was on the play install).* The owner, having started the
+  play install: "When I log in, it should start the evening and bots/teams should start to behave as we discussed
+  ... When I log off, everything obviously stops. Regardless if I leave a frontier zone, to go to the capital city
+  for example, evening should keep goigng and I should be able to go to a non frontier zone without interacting
+  with the evening process." It did not: the player was taken to the frontier at login, and an evening ended as
+  soon as its player's character was out of the world for a moment, which every change of region is. Asked, the
+  owner picked "Stay where I logged out" and, for the seven while the player is away, "Wait off the field".
+  Built: the evening ends when its player has left the game and at nothing else (`PvpRoam.HasLeftTheGame`); at
+  login it begins where the player stands (`StartFor(stay)`), in the frontier zone it is in or else in the zone
+  of its last evening; the player's seven are on the field while it is in a frontier zone and off it otherwise
+  (`PresenceOf`, `FrontierUnder`: a group that is off the field counts nobody alive, is near nobody, has no
+  release point and is left out of `/8v8 who`); `/8v8 go <zone>` works from anywhere. A group whose player walks
+  out of the frontier in the middle of a fight is simply gone from it: not counted as wiped.
 - [x] **M13.10** (S) No answer sends a player to a command it has not. *Built 2026-11-25; automated tests
   only.* The owner, of the play install: "In v0.1.1 on D:\OfflineDAoC, do we really ahve the /8v8 stop ?" It has
   not: `stop` is among the commands kept for a test server. But `/8v8 ready` on a character whose evening runs

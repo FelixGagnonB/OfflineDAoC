@@ -14,10 +14,12 @@ namespace DOL.GS
     /// at login or when the player steps out of its keep: "Yes, I would do it as I log in".
     ///
     /// A player with an 8v8 character (level 50, a class its realm has a build for) that enters
-    /// the game while nothing runs is taken to its realm's start in the zone it had last, with
-    /// the line-up it had last (the realm's main one the first time) and as many groups of each
-    /// realm as it had last (PvpRealWeights.EveningGroups the first time). It is a real evening:
-    /// what everybody earns is kept. It ends when the player leaves the game, as it did.
+    /// the game while nothing runs has its evening begin where it stands: in the frontier zone it
+    /// is in when it is in one, and else in the zone its last evening began in, with its seven
+    /// waiting off the field until it is in the frontier (PvpRoam.PresenceOf). The line-up and the
+    /// number of groups are those of its last evening (the realm's main one and
+    /// PvpRealWeights.EveningGroups the first time). It is a real evening: what everybody earns
+    /// is kept. It goes on wherever the player goes and ends when the player leaves the game.
     /// </summary>
     public static class PvpEveningStart
     {
@@ -101,9 +103,10 @@ namespace DOL.GS
                     return;
                 player.TempProperties.SetProperty(BeginsProperty, GameLoop.GameLoopTime);
                 PvpPlayerSetting kept = PvpPlayerSettings.Get(AppContext.BaseDirectory, player.InternalID);
-                PvpRoamMap zone = kept.Zone == null ? null : PvpRoam.MapFor(kept.Zone);
+                // Where the player stands when that is a frontier zone; else where its last evening began. The player is not moved.
+                PvpRoamMap zone = PvpRoam.FrontierUnder(player) ?? (kept.Zone == null ? null : PvpRoam.MapFor(kept.Zone));
                 PvpRoam.StartFor(player, Say, kept.Lineup == null ? null : PvpBuildCatalog.FindGroup(kept.Lineup), zone ?? PvpRoam.Emain,
-                    Math.Clamp(kept.Groups > 0 ? kept.Groups : real.EveningGroups, 1, 16));
+                    Math.Clamp(kept.Groups > 0 ? kept.Groups : real.EveningGroups, 1, 16), stay: true);
             }
             catch (Exception exception)
             {

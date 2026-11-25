@@ -48,8 +48,9 @@ and the files below are not touched.
 1. Start the game with its launcher as always. Leave the gamebot population at 0.
 2. A new character: `/8v8 ready` lists your realm's builds, `/8v8 ready <build> confirm` makes
    the character level 50 with that build. The evening begins at once, and from then on each
-   time you come in: guilds of every kind in tonight's zones, your seven around you, everybody
-   from realm rank 1 level 1.
+   time you come in: guilds of every kind in tonight's zones, everybody from realm rank 1
+   level 1. You are not moved: `/8v8 go emain` takes you to the frontier, where your seven join
+   you; out of the frontier they wait off the field and the evening goes on.
 3. Once: `/8v8 guild <name>` (your seven wear it), `/8v8 guild lineup hib-2bard` if you want the
    two Bards (from the next evening).
 4. In the evening: `/8v8 call ...` (push, regroup, hold, engage, extend, assist, control,

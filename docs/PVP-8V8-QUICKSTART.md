@@ -13,15 +13,19 @@ For the game you play (`D:\OfflineDAoC`). The long version of everything here is
    `druid-nurture`, `bard`, `hero`, `blademaster`, `eldritch-light`, `enchanter-light`, ...).
 4. Type `/8v8 ready <build> confirm`, for example `/8v8 ready hero confirm`. Your character
    becomes level 50 with that build's class, spec and gear. This is for good.
-5. Your evening begins by itself: you are taken to your realm's start in Emain Macha, your seven
-   companions join you, and guilds of all three realms come out over the first minutes.
+5. Your evening begins by itself, in the frontier: guilds of all three realms come out over the
+   first minutes. You are not moved. `/8v8 go emain` takes you to your realm's start in Emain
+   Macha, and your seven companions join you there.
 6. Once, when you like: `/8v8 guild <name>` gives your group a guild (your companions wear its
    name). `/8v8 guild lineup hib-2bard` picks the two-Bard group from your next evening on.
 
 ## Every evening after that
 
-You log in, and a few seconds later the evening begins: same zone, same line-up and same number
-of groups as last time. It ends when you leave the game. Everything earned is kept: your realm
+You log in, and a few seconds later the evening begins: same line-up and same number of groups
+as last time. You stay where you logged out. In a frontier zone your seven are beside you at
+once; anywhere else they wait off the field until you are in the frontier (`/8v8 go <zone>`, or
+walk in). The evening goes on wherever you go, the capital too, and ends when you leave the
+game. Everything earned is kept: your realm
 points, your companions', the guilds', and who has wiped whom.
 
 Everybody started at realm rank 1 level 1. Ranks only move while you are in the game.
@@ -33,9 +37,9 @@ Everybody started at realm rank 1 level 1. Ranks only move while you are in the 
 | `/8v8 ready` | Lists your realm's builds. `/8v8 ready <build> confirm` makes this character level 50 with that build. |
 | `/8v8 guild` | Says what guild you have. `/8v8 guild <name>` forms one, free, wherever you stand (letters and spaces, 30 at most). |
 | `/8v8 guild lineup` | Says your line-up and lists your realm's. `/8v8 guild lineup <name>` sets it from your next evening on. |
-| `/8v8 evening` | Begins your evening when none is running. It begins by itself when you log in; it ends when you leave the frontier (to your trainer in the capital, say), and this begins it again. |
+| `/8v8 evening` | Begins your evening when none is running. It begins by itself when you log in and runs until you log out, so you seldom need this. |
 | `/8v8 who` | Each zone of the evening: how many groups every realm has in it, and of what kinds. |
-| `/8v8 go <zone>` | Your group ports to your realm's start in another zone of the evening. Not in a fight. |
+| `/8v8 go <zone>` | You and your group port to your realm's start in a zone of the evening, from anywhere (the capital too). Not in a fight. |
 | `/8v8 rivals` | The enemy guilds you have wiped or been wiped by, and how often. |
 | `/8v8 ranks` | Your realm rank and your companions'. |
 | `/8v8 lead on` / `off` | On (as built): your companions fall back as one by themselves when too many are on the group, and say so in capitals. Kept between logins. |
@@ -84,9 +88,9 @@ Repeating a call only renews it. A retreat is ended by any other call.
 - **When you die.** A healer raises you if the fight allows. If the whole group goes down, it
   stands up at your realm's start about half a minute later; `/release` takes you there at
   once. If you are dead and the fight is lost, `/8v8 call die` ends it without waiting.
-- **Spend your realm points.** At your class trainer, as in the game. Leaving the frontier ends
-  the evening; when you are done, `/8v8 evening` takes you back and begins a new one (or log in
-  again). Your companions spend
+- **Spend your realm points.** At your class trainer, as in the game. Out of the frontier your
+  companions wait off the field and the evening goes on without your group; `/8v8 go <zone>`
+  takes you back with them. Your companions spend
   theirs by themselves, in the orders of
   [PVP-8V8-REALM-ABILITIES.md](PVP-8V8-REALM-ABILITIES.md).
 - **Change your own build or class.** `/8v8 ready <build> confirm`, out of combat: your evening

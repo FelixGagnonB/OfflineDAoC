@@ -141,7 +141,13 @@ namespace DOL.GS
 
         /// <summary>The player at its head; null for a team of bots.</summary>
         public GamePlayer Leader => Team.Leader;
-        public int Alive => Team.Members.Count(member => member.IsAlive);
+        /// <summary>
+        /// The player's group while its player is out of the frontier: none of its seven is on the
+        /// field, and nobody reckons with it (PvpRoam.PresenceOf). The player is still its member,
+        /// in another zone or region, so it counts nobody alive and is near nobody.
+        /// </summary>
+        public bool Absent;
+        public int Alive => Absent ? 0 : Team.Members.Count(member => member.IsAlive);
         public (double X, double Y) Centre()
         {
             List<GameLiving> living = Team.Members.Where(member => member.IsAlive).ToList();
@@ -1020,12 +1026,13 @@ namespace DOL.GS
             List<PvpRoamMap> zones = _maps;
             if (teams.Count == 0)
                 return [];
-            PvpRoamMap here = viewer == null ? null : teams.FirstOrDefault(team => team.Leader == viewer)?.Map;
+            PvpRoamMap here = viewer == null ? null : teams.FirstOrDefault(team => team.Leader == viewer && !team.Absent)?.Map;
             List<string> lines = zones.Select(zone => WhoLine(zone.Name, zone == here,
-                teams.Where(team => team.Map == zone && team.State != "Away")
+                teams.Where(team => team.Map == zone && team.State != "Away" && !team.Absent)
                     .Select(team => (team.Realm, KindWord(team.Profile?.Kind), team.Leader != null && team.Leader == viewer)).ToList())).ToList();
-            if (zones.Count > 1 && here != null)
-                lines.Add("/8v8 go " + string.Join(", ", zones.Where(zone => zone != here).Select(zone => zone.Id)) + " takes your group there.");
+            if (viewer != null && teams.Any(team => team.Leader == viewer))
+                lines.Add((here == null ? "You are not in the frontier: your companions wait off the field. " : string.Empty) +
+                          "/8v8 go " + string.Join(", ", zones.Where(zone => zone != here).Select(zone => zone.Id)) + " takes your group there.");
             return lines;
         }
 
@@ -1089,7 +1096,7 @@ namespace DOL.GS
             Say($"[{from.Name}] {speaker}: {text}", new { what = "chat", team = from.Name, speaker, text });
             foreach (PvpRoamTeam mine in teams.Where(team => team.Leader?.Client?.IsPlaying == true && team.Realm == from.Realm))
             {
-                string fromYou = at is { } spot && mine.Map == from.Map ? $" [{FromYouText(spot.X - mine.Leader.X, spot.Y - mine.Leader.Y)}]" : string.Empty;
+                string fromYou = at is { } spot && mine.Map == from.Map && !mine.Absent ? $" [{FromYouText(spot.X - mine.Leader.X, spot.Y - mine.Leader.Y)}]" : string.Empty;
                 mine.Leader.Out.SendMessage($"[Realm] {speaker} <{from.Name}>: {text}{fromYou}", PacketHandler.eChatType.CT_Alliance, PacketHandler.eChatLoc.CL_ChatWindow);
             }
         }
@@ -1198,7 +1205,84 @@ namespace DOL.GS
         /// who left the zone was a player who had left the game: the roam ended.
         /// </summary>
         public static (ushort Region, Point3D Spot)? ReleasePoint(GamePlayer player) =>
-            player != null && _teams.FirstOrDefault(team => team.Leader == player) is { } mine ? (mine.Map.Region, StartSpot(mine.Map, player.Realm)) : null;
+            player != null && _teams.FirstOrDefault(team => team.Leader == player) is { Absent: false } mine ? (mine.Map.Region, StartSpot(mine.Map, player.Realm)) : null;
+
+        /// <summary>
+        /// The evening is its player's session, not its player's place. The owner, 2026-11-25, of
+        /// the play install: "When I log in, it should start the evening ... When I log off,
+        /// everything obviously stops. Regardless if I leave a frontier zone, to go to the capital
+        /// city for example, evening should keep goigng and I should be able to go to a non
+        /// frontier zone without interacting with the evening process." Until then a player whose
+        /// character was not in the world for a moment (any change of region) had "left the game"
+        /// and the evening ended; only /8v8 go was told apart.
+        /// </summary>
+        public static bool HasLeftTheGame(bool characterIsDeleted, bool clientIsPlaying) => characterIsDeleted || !clientIsPlaying;
+
+        public enum Presence
+        {
+            Stays,
+            Leaves,
+            Returns,
+        }
+
+        /// <summary>
+        /// What the player's group does this turn: its seven leave the field when the player is
+        /// out of the frontier and stand beside it again when it is back (asked what they should
+        /// do while the player is in the capital, the owner picked "Wait off the field"). While
+        /// the player's client loads a zone nothing is decided.
+        /// </summary>
+        public static Presence PresenceOf(bool playerIsInTheWorld, bool onFrontierGround, bool absent) =>
+            !playerIsInTheWorld ? Presence.Stays : absent && onFrontierGround ? Presence.Returns : !absent && !onFrontierGround ? Presence.Leaves : Presence.Stays;
+
+        // The zones each map lies in: its own when it is told, and those of its starts and of the points its ways join.
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<PvpRoamMap, HashSet<ushort>> Grounds = new();
+
+        private static HashSet<ushort> GroundOf(PvpRoamMap map) => Grounds.GetOrAdd(map, one =>
+        {
+            var zones = new HashSet<ushort>();
+            if (one.Zone != 0)
+                zones.Add(one.Zone);
+            Region region = WorldMgr.GetRegion(one.Region);
+            foreach ((int X, int Y) point in one.Starts.Select(start => start.Point).Concat((one.Ways ?? []).SelectMany(way => new[] { way.A, way.B })))
+            {
+                if (region?.GetZone(point.X, point.Y) is { } zone)
+                    zones.Add(zone.ID);
+            }
+            return zones;
+        });
+
+        /// <summary>The frontier zone a player stands in: one of this evening's first, then any of the twelve (or the battleground); null anywhere else.</summary>
+        public static PvpRoamMap FrontierUnder(GamePlayer player) =>
+            player?.CurrentZone is { } under
+                ? _maps.Concat(Frontiers).Append(Thidranki).FirstOrDefault(map => map.Region == player.CurrentRegionID && GroundOf(map).Contains(under.ID))
+                : null;
+
+        private static void LeaveTheField(PvpRoamTeam team, long now)
+        {
+            PvpArena.Remove(team.All);
+            team.All.Clear();
+            team.Team.Bots = [];
+            team.Team.Squad = NewSquad(team);
+            team.Fighting.Clear();
+            team.Draws.Clear();
+            team.ComingSeen.Clear();
+            team.Waiting = false;
+            (team.Absent, team.State, team.StateSince, team.ContactTick, team.DeadSince) = (true, "Absent", now, 0, 0);
+            PvpRecorder.Regroup(_recording, team.Name, [team.Leader]);
+            Say($"{team.Name} is off the field: its player is out of the frontier", new { what = "absent", team = team.Name });
+            Tell(team, "You are out of the frontier: your companions wait off the field, and the evening goes on. " +
+                       "/8v8 go <zone> takes you back with them, or walk in.");
+        }
+
+        private static void ReturnToTheField(PvpRoamTeam team, PvpRoamMap ground, List<PvpRoamTeam> teams, long now)
+        {
+            if (ground != team.Map && _maps.Contains(ground))
+                Place(team, ground, teams);
+            Spawn(team, now);
+            PvpRecorder.Regroup(_recording, team.Name, team.Team.Members);
+            Say($"{team.Name} is on the field again, in {ground.Name}", new { what = "present", team = team.Name, zone = ground.Name });
+            Tell(team, $"You are in {ground.Name}: your companions are with you again.");
+        }
 
         /// <summary>
         /// <c>/8v8 go</c>: on a prime-time evening over several zones the player's group ports to
@@ -1213,7 +1297,7 @@ namespace DOL.GS
             if (map == null || !_maps.Contains(map))
                 throw new InvalidOperationException("This evening is on in: " + string.Join(", ", _maps.Select(zone => zone.Name)) + ". /8v8 go " +
                                                     string.Join(", ", _maps.Where(zone => zone != mine.Map).Select(zone => zone.Id)) + ".");
-            if (mine.Map == map)
+            if (mine.Map == map && !mine.Absent)
                 throw new InvalidOperationException($"You are in {map.Name}.");
             if (!player.IsAlive || player.InCombat || mine.ContactTick != 0 || mine.Fighting.Count > 0)
                 throw new InvalidOperationException("Not out of a fight: when it is over.");
@@ -1277,8 +1361,9 @@ namespace DOL.GS
         /// <summary>Whether a kill is written to a team's realm points: not for the player's group on an evening at a picked rank.</summary>
         public static bool Earns(bool ledByAPlayer, int trialLevel) => !(ledByAPlayer && trialLevel > 0);
 
+        /// <param name="stay">The player is not taken anywhere: the evening begins with the player where it stands (PvpEveningStart, at login).</param>
         public static void StartFor(GamePlayer player, Action<string> say, PvpGroupTemplate own = null, PvpRoamMap map = null, int prime = 0, bool oneZone = false,
-            bool everyZone = false, int trialRank = 0)
+            bool everyZone = false, int trialRank = 0, bool stay = false)
         {
             map ??= Emain;
             if (own != null && own.Realm != player.Realm)
@@ -1295,7 +1380,7 @@ namespace DOL.GS
             if (trial > 0)
                 say(PvpPlayerReady.RaiseRealmRank(player, trial) ??
                     $"You are at realm rank {PvpRealmPoints.RankName(player.RealmLevel)} already.");
-            PvpScrim.TravelThen(player, map.Region, StartSpot(map, player.Realm), say, () =>
+            Action begin = () =>
             {
                 try
                 {
@@ -1309,10 +1394,13 @@ namespace DOL.GS
                         // Over some of the frontiers (ZonesTonight), unless one zone or all of them were asked for; a battleground is always one zone.
                         List<PvpRoamMap> zones = oneZone || !Frontiers.Contains(map) ? null : everyZone ? Frontiers.ToList() : ZonesTonight(map, prime, Frontiers, Random.Shared);
                         Start(2, player.InternalID, player, own, map, null, PvpTeamPool.Tonight(pool, prime, Random.Shared, player.Realm), PvpTeamPool.World, zones);
-                        say($"Prime time{(zones is { Count: > 1 } ? " in " + string.Join(", ", zones.Select(zone => zone.Name)) + "; you are in " + map.Name : " in " + map.Name)}: " +
+                        bool away = _teams.FirstOrDefault(team => team.Leader == player) is { Absent: true };
+                        say($"Prime time{(zones is { Count: > 1 } ? " in " + string.Join(", ", zones.Select(zone => zone.Name)) + (away ? string.Empty : "; you are in " + map.Name) : " in " + map.Name)}: " +
                             $"{prime} groups of each realm are out, yours one of them, the others guilds of every kind. " +
-                            "Some walk in packs, some add, some do neither. Kills earn realm points that are kept, and a wipe puts your group " +
-                            "back here (so does /release). /8v8 who, /8v8 go <zone>, /8v8 rivals.");
+                            "Some walk in packs, some add, some do neither. Kills earn realm points that are kept" +
+                            (away ? $". You are not in the frontier: your companions join you there. /8v8 go {map.Id} takes you to your realm's start in {map.Name}, or walk in. "
+                                  : ", and a wipe puts your group back at your realm's start (so does /release). ") +
+                            "/8v8 who, /8v8 go <zone>, /8v8 rivals.");
                         if (own != null)
                             say($"Your group is the line-up {own.Id}.");
                         if (trial > 0)
@@ -1331,7 +1419,11 @@ namespace DOL.GS
                 {
                     say("The roam could not start: " + exception.Message);
                 }
-            }, map.Name);
+            };
+            if (stay)
+                begin();
+            else
+                PvpScrim.TravelThen(player, map.Region, StartSpot(map, player.Realm), say, begin, map.Name);
         }
 
         /// <param name="lineups">Groups to use for their realms' teams of bots in place of the main ones (a test of a line-up; null: the main ones).</param>
@@ -1409,6 +1501,13 @@ namespace DOL.GS
                     {
                         (team.State, team.ComesOutAt, team.StateSince) = ("Away", now + 1000L * ComesOutAfterSeconds(before, map.Starts.ToList().IndexOf(start), real), now);
                         team.Team.Bots = [];
+                    }
+                    else if (led && leader != null && FrontierUnder(leader) == null)
+                    {
+                        // Its player is not in the frontier: its seven wait off the field until it is (PresenceOf, in the tick).
+                        team.Team.Bots = [];
+                        team.Team.Squad = NewSquad(team);
+                        (team.Absent, team.State, team.StateSince) = (true, "Absent", now);
                     }
                     else
                         Spawn(team, now);
@@ -1574,7 +1673,7 @@ namespace DOL.GS
             team.Draws.Clear();
             team.Waiting = false;
             (team.Hide, team.Rested) = (null, false);
-            (team.DeadSince, team.Reforming, team.GivenUp, team.BrokeOffAt) = (0, false, false, 0);
+            (team.DeadSince, team.Reforming, team.GivenUp, team.BrokeOffAt, team.Absent) = (0, false, false, 0, false);
             (team.State, team.StateSince, team.ContactTick, team.LastEnemyNearTick) = (leader != null ? "Roaming" : "Buffing", now, 0, now);
         }
 
@@ -1635,8 +1734,9 @@ namespace DOL.GS
                 PvpRealWeights real = PvpWeights.Current.Real;
                 // (On its way to another zone the player is not in the world for a moment: that is not leaving. Two minutes at most.)
                 bool travelling = _travelling != 0 && now - _travelling < 120_000;
-                // The player has left the game: the roam is over.
-                if (!travelling && teams.Any(team => team.Leader is { } leader && (leader.ObjectState != GameObject.eObjectState.Active || leader.Client?.IsPlaying != true)))
+                // The player has left the game: the roam is over. (Out of the frontier it has not: HasLeftTheGame.)
+                if (!travelling && teams.Any(team => team.Leader is { } leader &&
+                        HasLeftTheGame(leader.ObjectState == GameObject.eObjectState.Deleted, leader.Client?.IsPlaying == true)))
                 {
                     Stop();
                     return;
@@ -1645,6 +1745,23 @@ namespace DOL.GS
                 {
                     if (travelling && team.Leader != null)
                         continue;
+                    // The player's group is on the field while its player is in the frontier, and off it otherwise (PresenceOf).
+                    if (team.Leader is { } itsPlayer)
+                    {
+                        bool inTheWorld = itsPlayer.ObjectState == GameObject.eObjectState.Active;
+                        PvpRoamMap ground = inTheWorld ? FrontierUnder(itsPlayer) : null;
+                        switch (PresenceOf(inTheWorld, ground != null, team.Absent))
+                        {
+                            case Presence.Leaves:
+                                LeaveTheField(team, now);
+                                break;
+                            case Presence.Returns:
+                                ReturnToTheField(team, ground, teams, now);
+                                break;
+                        }
+                        if (team.Absent || !inTheWorld)
+                            continue;
+                    }
                     // The player has walked into another zone of the evening (the zones of a frontier lie side by side; the
                     // bots do not cross, their ground ends at the border): its group is of that zone now.
                     if (team.Leader is { CurrentZone: { } under } && team.Map.Zone != 0 && under.ID != team.Map.Zone && team.Fighting.Count == 0 &&
@@ -1695,7 +1812,7 @@ namespace DOL.GS
 
         /// <summary>True while a living team of another realm is within this of the team's start point.</summary>
         private static bool EnemyNearStart(PvpRoamTeam team, List<PvpRoamTeam> teams, int within) =>
-            teams.Any(other => other.Realm != team.Realm && other.Map == team.Map && other.Team.Members.Any(member => member.IsAlive &&
+            teams.Any(other => other.Realm != team.Realm && !other.Absent && other.Map == team.Map && other.Team.Members.Any(member => member.IsAlive &&
                 member.IsWithinRadius(new Point2D(team.Start.Point.X, team.Start.Point.Y), within)));
 
         /// <summary>
@@ -1717,8 +1834,8 @@ namespace DOL.GS
 
         private static bool Near(PvpRoamTeam a, PvpRoamTeam b, int within)
         {
-            // Two zones are two worlds: nobody is near anybody in another.
-            if (a.Map != b.Map)
+            // Two zones are two worlds: nobody is near anybody in another. Nor near a group whose player is out of the frontier.
+            if (a.Map != b.Map || a.Absent || b.Absent)
                 return false;
             (double ax, double ay) = a.Centre();
             (double bx, double by) = b.Centre();
