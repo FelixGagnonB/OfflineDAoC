@@ -108,6 +108,9 @@ namespace DOL.GS
         /// <summary>Since when it stands by that fight; and that it has given up waiting for it to end.</summary>
         public long WaitingSince;
         public bool GaveUpWaiting;
+        /// <summary>When it gave up waiting by a fight, and on which side it goes round that fight (PvpRoam.AroundAFight; 0: not chosen yet).</summary>
+        public long GaveUpAt;
+        public int AroundSide;
         /// <summary>On the head of a pack: the team of the pack that the others walk behind now (the head itself, until it is down).</summary>
         public PvpRoamTeam PackLead;
         /// <summary>It has had its rest since its last fight.</summary>
@@ -611,6 +614,52 @@ namespace DOL.GS
         /// minutes before a fight that never ended.
         /// </summary>
         public static bool GivesUpWaiting(double secondsStandingByAFight) => secondsStandingByAFight > 45;
+
+        /// <summary>How near to a fight it has left alone a team's road may pass, and how far from it the team goes round.</summary>
+        public const int PassesAFightAt = 4_000, GoesRoundAFightAt = 4_500;
+        /// <summary>For how long a team goes round a fight; after that (a wall, a gate, water in the way) it walks its road.</summary>
+        public const int GoesRoundForSeconds = 75;
+
+        /// <summary>
+        /// Where a team that walks on past a fight it has left alone goes first: a point beside
+        /// that fight, <see cref="GoesRoundAFightAt"/> from its middle, on the side its road
+        /// already leans to. Null when its road does not pass within <see cref="PassesAFightAt"/>
+        /// of the fight: then it walks its road. The owner, 2026-11-24, of a decent Albion group
+        /// that stood by the owner's fight for 45 seconds and then walked on, its road straight
+        /// through the owner's group: "I feel like it ran through us"; and, asked: "I'd go with
+        /// making the group go around, if they decide not to add, instead of walking in middle."
+        /// Looked at again every turn, with the side kept: as the team comes round, the point
+        /// moves round with it, and once the rest of its road is clear there is none.
+        /// </summary>
+        /// <param name="side">The side it goes round on: chosen the first time (1 or -1), kept after.</param>
+        public static (int X, int Y)? AroundAFight((double X, double Y) from, (double X, double Y) to, (double X, double Y) fight, ref int side)
+        {
+            (double dx, double dy) = (to.X - from.X, to.Y - from.Y);
+            double length = Math.Sqrt(dx * dx + dy * dy);
+            if (length < 1)
+                return null;
+            // Where its road is nearest to the fight.
+            double along = Math.Clamp(((fight.X - from.X) * dx + (fight.Y - from.Y) * dy) / (length * length), 0, 1);
+            (double nearX, double nearY) = (from.X + dx * along, from.Y + dy * along);
+            if (Math.Sqrt(Math.Pow(nearX - fight.X, 2) + Math.Pow(nearY - fight.Y, 2)) >= PassesAFightAt)
+                return null;
+            // The point it walks to is in the fight: it goes as near to that point as it may, and stands there.
+            double toFight = Math.Sqrt(Math.Pow(to.X - fight.X, 2) + Math.Pow(to.Y - fight.Y, 2));
+            if (toFight < PassesAFightAt)
+            {
+                (double outX, double outY) = toFight < 1 ? (-dx / length, -dy / length) : ((to.X - fight.X) / toFight, (to.Y - fight.Y) / toFight);
+                // (From the far side of the fight that point is behind it: then round by the side first, as below.)
+                if ((from.X - fight.X) * outX + (from.Y - fight.Y) * outY > 0)
+                {
+                    (double X, double Y) stand = (fight.X + outX * GoesRoundAFightAt, fight.Y + outY * GoesRoundAFightAt);
+                    return Math.Sqrt(Math.Pow(stand.X - from.X, 2) + Math.Pow(stand.Y - from.Y, 2)) < 600 ? null : ((int)stand.X, (int)stand.Y);
+                }
+            }
+            (double acrossX, double acrossY) = (-dy / length, dx / length);
+            if (side == 0)
+                side = (nearX - fight.X) * acrossX + (nearY - fight.Y) * acrossY < 0 ? -1 : 1;
+            return ((int)(fight.X + acrossX * side * GoesRoundAFightAt), (int)(fight.Y + acrossY * side * GoesRoundAFightAt));
+        }
 
         /// <summary>A group that stays near others comes no nearer to them than this: it trails, it does not stand in them.</summary>
         public const int TrailsBehind = 1_800;
@@ -2004,13 +2053,13 @@ namespace DOL.GS
             // turns back the way it came or walks on, and does not stand by that fight again.
             bool leftAFightNear = team.Draws.Any(draw => !draw.Value && draw.Key.Alive > 0 && Near(team, draw.Key, team.Waiting ? 12_000 : 9_000));
             if (!leftAFightNear)
-                team.GaveUpWaiting = false;
+                (team.GaveUpWaiting, team.AroundSide) = (false, 0);
             bool waits = WaitsOutAFight(leftAFightNear, enemies.Count, team.Leader != null || team.Entry != null && (team.GaveUpWaiting || LeadOf(team, teams) != null));
             if (waits && team.Waiting && team.Entry != null && GivesUpWaiting((now - team.WaitingSince) / 1000.0))
             {
-                (team.GaveUpWaiting, waits) = (true, false);
+                (team.GaveUpWaiting, team.GaveUpAt, team.AroundSide, waits) = (true, now, 0, false);
                 bool turned = TurnsAway(team);
-                Say($"{team.Name} {(turned ? "turns away" : "walks on past")}", new { what = "turn", team = team.Name, turned });
+                Say($"{team.Name} {(turned ? "turns away" : "walks on, round the fight")}", new { what = "turn", team = team.Name, turned });
             }
             if (waits != team.Waiting)
             {
@@ -2054,8 +2103,23 @@ namespace DOL.GS
                 // (A group that falls back as one is not marched back at the enemy it is falling back from.)
                 // (One that has said it joins a fight goes to it while it sees nobody: FightItJoined.)
                 else if (!team.Team.Squad.Kiting)
+                {
+                    // One that has given up waiting by a fight it left alone goes round that fight, not through it (AroundAFight).
+                    (int X, int Y)? round = null;
+                    if (team.GaveUpWaiting && leftAFightNear && enemies.Count == 0 && team.Team.Route is { Length: > 0 } road &&
+                        now - team.GaveUpAt < GoesRoundForSeconds * 1_000L)
+                    {
+                        List<(double X, double Y)> left = team.Draws.Where(draw => !draw.Value && draw.Key.Alive > 0 && Near(team, draw.Key, 12_000))
+                            .SelectMany(draw => draw.Key.Fighting.Where(other => other.Alive > 0).Append(draw.Key)).Distinct().Select(other => other.Centre()).ToList();
+                        if (left.Count > 0)
+                        {
+                            (int X, int Y) next = road[team.Team.Waypoint % road.Length];
+                            round = AroundAFight(team.Centre(), (next.X, next.Y), (left.Average(centre => centre.X), left.Average(centre => centre.Y)), ref team.AroundSide);
+                        }
+                    }
                     team.Team.March(enemies, team.Start.Point, null, null, team.ContactTick,
-                        FightItJoined(foes.Select(other => (other.Centre(), team.Draws.TryGetValue(other, out bool joins) && joins)), team.Centre()));
+                        FightItJoined(foes.Select(other => (other.Centre(), team.Draws.TryGetValue(other, out bool joins) && joins)), team.Centre()) ?? round);
+                }
             }
             if (enemies.Count > 0)
             {

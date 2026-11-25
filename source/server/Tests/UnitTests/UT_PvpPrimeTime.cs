@@ -14,6 +14,47 @@ namespace DOL.UnitTests
     public class UT_PvpPrimeTime
     {
         [Test]
+        public void ATeamThatWalksOnPastAFightGoesRoundIt()
+        {
+            // The owner, 2026-11-24: "I'd go with making the group go around, if they decide not to add, instead of walking in middle."
+            // Its road runs east, straight through a fight 8,000 ahead: it goes to a point beside the fight, 4,500 from its middle.
+            int side = 0;
+            (int X, int Y)? round = PvpRoam.AroundAFight((0, 0), (16_000, 0), (8_000, 0), ref side);
+            Assert.That(round, Is.Not.Null);
+            Assert.That(round.Value.X, Is.EqualTo(8_000));
+            Assert.That(Math.Abs(round.Value.Y), Is.EqualTo(PvpRoam.GoesRoundAFightAt));
+            Assert.That(side, Is.Not.Zero, "and it keeps to that side");
+            // Its road leans north of the fight already: it goes round by the north (less Y), not across to the south.
+            side = 0;
+            round = PvpRoam.AroundAFight((0, -1_000), (16_000, -1_000), (8_000, 0), ref side);
+            Assert.That(round.Value.Y, Is.EqualTo(-PvpRoam.GoesRoundAFightAt));
+            // Half way round, the side is kept though the fight is now on the other hand of the line it walks.
+            int kept = side;
+            round = PvpRoam.AroundAFight((7_000, -4_400), (16_000, -1_000), (8_000, 0), ref side);
+            Assert.That(side, Is.EqualTo(kept));
+            // Beside the fight and past it, the rest of its road is clear: it walks its road.
+            Assert.That(PvpRoam.AroundAFight((9_500, -4_500), (16_000, -1_000), (8_000, 0), ref side), Is.Null);
+            // A road that does not come near the fight is walked as it is.
+            side = 0;
+            Assert.That(PvpRoam.AroundAFight((0, 0), (16_000, 0), (8_000, 6_000), ref side), Is.Null);
+            Assert.That(PvpRoam.AroundAFight((0, 0), (0, 0), (100, 0), ref side), Is.Null);
+            // The point it walks to is in the fight: it goes as near to it as it may, on its own side of the fight, and stands there.
+            side = 0;
+            round = PvpRoam.AroundAFight((0, 0), (7_000, 0), (8_000, 0), ref side);
+            Assert.That(round, Is.EqualTo((8_000 - PvpRoam.GoesRoundAFightAt, 0)));
+            Assert.That(PvpRoam.AroundAFight((3_600, 0), (7_000, 0), (8_000, 0), ref side), Is.Null, "it is there");
+            // Wherever it is sent, the point is never nearer to the fight than it goes round at.
+            var random = new Random(3);
+            for (int i = 0; i < 500; i++)
+            {
+                side = 0;
+                (double X, double Y) from = (random.Next(-12_000, 12_000), random.Next(-12_000, 12_000)), to = (random.Next(-12_000, 12_000), random.Next(-12_000, 12_000));
+                if (PvpRoam.AroundAFight(from, to, (0, 0), ref side) is { } point)
+                    Assert.That(Math.Sqrt((double)point.X * point.X + (double)point.Y * point.Y), Is.GreaterThan(PvpRoam.GoesRoundAFightAt - 2));
+            }
+        }
+
+        [Test]
         public void ThePlayerFormsAGuildForItsGroup()
         {
             // The owner, 2026-11-24: "How can I form a guild with my 7 bots?"

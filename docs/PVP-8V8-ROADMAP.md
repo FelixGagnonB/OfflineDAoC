@@ -3749,8 +3749,24 @@ The plan the owner agreed to that day ("Let's proceed and test with bots first")
   twelve evenings of the day, bots and the owner's: of 282 times a team left a fight alone, 53
   were followed within 90 seconds by a fight between it and one of the two without a draw to
   join; how many of those began this way is not known (a fight that ends leaves a winner the
-  team that waited may take on). Not looked at: whether a group that gives up waiting should
-  walk through the fight it left alone at all.
+  team that waited may take on).
+  - **Round the fight, not through it.** The owner, asked: "I'd go with making the group go
+    around, if they decide not to add, instead of walking in middle." Built
+    (`PvpRoam.AroundAFight`): a team that gives up waiting and walks on, and whose road passes
+    within 4,000 units of the middle of the fight it left alone, goes first to a point beside
+    that fight, 4,500 from its middle, on the side its road already leans to; the point is
+    looked for again every turn with the side kept, so the team comes round in an arc and
+    takes its road again once the rest of it is clear. When the point it walks to is in the
+    fight it goes as near as it may and stands. For 75 seconds at most: a wall, a gate or
+    water in the way, and it walks its road as before. *Automated tests only; not run with
+    bots: whether the ground lets a team round at 4,500 in the places fights happen (a keep's
+    gate, the road's ends) is not known.*
+  - **Not changed, and the owner's:** in a fight, the player's click on a member of a group
+    that stands by is taken for an attack by that group when it is within 2,000 units (a
+    player in combat that has one of its members as a target: `Attacks` in `PvpRoam`), and
+    within 6,500 it gives that group to the player's companions as an enemy
+    (`PlayerTakesItOn`). It is how the player picks whom the group takes on out of a fight;
+    in one, a stray click or a tab brings eight more.
 
 **Where M12 stands (2026-11-24).** Built and run with bots on the scrim server: the measure, the
 kite, breaking off, no raising with too many on it. A seventh evening on the last build (13

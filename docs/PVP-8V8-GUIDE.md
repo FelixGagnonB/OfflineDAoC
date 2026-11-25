@@ -146,7 +146,11 @@ has played it yet.**
   the time. **Automated tests only; not yet run with bots or seen in a client.**
 - **Where they go.** Nobody walks a fixed round. At each point a guild picks where to go next,
   not back the way it came. One that does not add stands by a fight it comes on for 45 seconds
-  for it to end, then turns back or walks on past. One that does not count heads (the bad
+  for it to end, then turns back, or walks on round the fight, 4,500 units from its middle
+  (round it since the evening of 2026-11-24, when one walked through the owner's group;
+  automated tests only). It has left you alone and your companions leave it alone, but your
+  own click on one of its members while you are in a fight is taken for an attack when it is
+  within 2,000 units, and within 6,500 it sets your companions on it. One that does not count heads (the bad
   groups, and the hunters) walks into anything; the others do not start on more groups than
   they have together.
 - **A guild with too many on it falls back as one.** When ten or more aim at its eight and they
