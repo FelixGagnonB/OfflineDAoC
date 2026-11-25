@@ -2,13 +2,18 @@
 
     python scrim_server.py status [<game folder>]
     python scrim_server.py start  [<game folder>]     waits until the server accepts connections
+    python scrim_server.py start  [<game folder>] --test     on the test ports, beside the game that is played
     python scrim_server.py stop   [<game folder>]     orderly stop through the 8v8 control channel
     python scrim_server.py stop   [<game folder>] --force    also ends a server that does not answer
 
 The game folder defaults to D:\\OfflineDAoC-scrim. Any other folder must have "scrim" in its
 name: this tool must never start or stop the game the owner plays. Only one server can use
-port 10300, so `start` refuses when anything already listens there.
+port 10300, the one a game client connects to, so `start` refuses when anything already listens
+there. `start --test` uses the test ports (10310, and 10410 for UDP): no client connects to
+those, an evening of bots needs none, and the server runs beside the game that is played
+(scrim_test.py). Each start writes its ports into the copy's serverconfig.xml.
 """
+import re
 import json
 import os
 import socket
@@ -18,12 +23,28 @@ import time
 
 DEFAULT_GAME = r"D:\OfflineDAoC-scrim"
 PORT = 10300
+TEST_PORT = 10310
 
 
-def port_open():
+def port_open(port=PORT):
     with socket.socket() as probe:
         probe.settimeout(1)
-        return probe.connect_ex(("127.0.0.1", PORT)) == 0
+        return probe.connect_ex(("127.0.0.1", port)) == 0
+
+
+def set_ports(game, port):
+    """Writes the port a client connects to, and the UDP port 100 above it, into the copy's serverconfig.xml."""
+    path = os.path.join(game, "runtime", "server", "config", "serverconfig.xml")
+    with open(path, encoding="utf-8") as handle:
+        before = handle.read()
+    after = before
+    for tag, value in (("Port", port), ("RegionPort", port + 100), ("UdpPort", port + 100)):
+        after, count = re.subn(rf"<{tag}>\d+</{tag}>", f"<{tag}>{value}</{tag}>", after)
+        if count != 1:
+            raise SystemExit(f"{path}: expected one <{tag}>, found {count}.")
+    if after != before:
+        with open(path, "w", encoding="utf-8", newline="") as handle:
+            handle.write(after)
 
 
 def servers():
@@ -44,10 +65,12 @@ def ours(game):
     return [pid for pid, path in servers() if os.path.normcase(path) == exe]
 
 
-def start(game):
-    running = servers()
-    if running or port_open():
-        raise SystemExit(f"A server is already running or port {PORT} is in use: {running}")
+def start(game, port=PORT):
+    if ours(game):
+        raise SystemExit(f"The scrim server is already running (pid {ours(game)}).")
+    if port_open(port):
+        raise SystemExit(f"Port {port} is in use: {servers()}" + (" (start --test runs beside it)" if port == PORT else ""))
+    set_ports(game, port)
     server = os.path.join(game, "runtime", "server")
     logs = os.path.join(game, "runtime", "logs")
     os.makedirs(logs, exist_ok=True)
@@ -69,8 +92,8 @@ def start(game):
     while time.time() < deadline:
         if process.poll() is not None:
             raise SystemExit(f"The server exited during startup (code {process.returncode}). See {console.name}")
-        if port_open():
-            print(f"Scrim server is up (pid {process.pid}), port {PORT}. Console log: {console.name}")
+        if port_open(port):
+            print(f"Scrim server is up (pid {process.pid}), port {port}. Console log: {console.name}")
             return 0
         time.sleep(1)
     raise SystemExit("The server did not open its port within 240 seconds.")
@@ -101,7 +124,8 @@ def stop(game, force):
 
 def main(argv):
     force = "--force" in argv
-    argv = [a for a in argv if a != "--force"]
+    test = "--test" in argv
+    argv = [a for a in argv if a not in ("--force", "--test")]
     if len(argv) < 2 or argv[1] not in ("status", "start", "stop"):
         print(__doc__)
         return 2
@@ -114,9 +138,10 @@ def main(argv):
         mine = ours(game)
         others = [entry for entry in servers() if entry[0] not in mine]
         print(f"scrim server: {'running, pid ' + str(mine) if mine else 'not running'}; "
-              f"port {PORT}: {'open' if port_open() else 'closed'}; other servers: {others or 'none'}")
+              f"port {PORT}: {'open' if port_open() else 'closed'}; test port {TEST_PORT}: {'open' if port_open(TEST_PORT) else 'closed'}; "
+              f"other servers: {others or 'none'}")
         return 0
-    return start(game) if argv[1] == "start" else stop(game, force)
+    return start(game, TEST_PORT if test else PORT) if argv[1] == "start" else stop(game, force)
 
 
 if __name__ == "__main__":

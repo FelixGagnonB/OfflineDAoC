@@ -14,7 +14,7 @@ a command to type or a file to look at; the why of each thing is in
 | The game you play | `D:\OfflineDAoC` (release 0.37b with the 8v8 build installed over it on 2026-11-25: `v0.1`, then the fix of M13.9 an hour later, which is tag `v0.1.1`, then the work of the rest of that day, which is tag `v0.1.2`. The backups are in `D:\OfflineDAoC\deployment-backups`: `scrim-20261125-082823` puts the 0.37b server back, `scrim-20261125-085442` puts `v0.1` as tagged back, `scrim-20261125-101034` puts `v0.1.1` back, `scrim-20261125-121142` puts back the build between the two tags (the evening as your session, emblems; not the 8v8 zone, not the twelve groups)) |
 | The copy for trying things | `D:\OfflineDAoC-scrim` (has `pvp-test-commands.txt`, so every `/8v8` command answers there) |
 | The 8v8 code | `source\server\GameServer\bots\pvp`, the command in `source\server\GameServer\commands\playercommands\Pvp8v8Command.cs` |
-| The tools | `source\tools\pvp_*.py`, `source\tools\scrim_server.py`, `source\server\tools\deploy_scrim.ps1` |
+| The tools | `source\tools\pvp_*.py`, `source\tools\scrim_test.py`, `source\tools\scrim_server.py`, `source\server\tools\deploy_scrim.ps1` |
 
 Only one server can run at a time (port 10300): close the scrim server before starting the game
 you play, and the other way round.
@@ -26,9 +26,23 @@ In PowerShell, from `C:\Workspace\OfflineDAoC\source\server`:
     dotnet build "Dawn of Light.sln" -c Release --nologo -v q
     dotnet test Tests/Tests.csproj -c Release --no-build --nologo
 
-Install the build (the server and the game client must be closed; the launcher may stay open).
-The script runs the tests again, keeps a backup of the six files it replaces and prints the line
-that undoes it:
+Try a build before it goes to the game you play, in one go, also while you are playing:
+
+    python source\tools\scrim_test.py
+
+It builds, runs the unit tests, installs the build on the copy for trying things (with a
+backup), starts that copy's server on its own ports (10310 and 10410, which no game client
+uses, so the game you play is not in its way nor it in the game's), runs an evening of bots
+for eight minutes, reads the server's log and the recording, stops everything again and says
+PASSED or FAILED; the same is kept in `D:\OfflineDAoC-scrim\runtime\logs\scrim-test-last.txt`.
+`--minutes 15` is a longer evening, `--groups 8` a smaller one, `--skip-build` tries what is
+built. It does not start while you are on the copy yourself. Two servers at once take the
+memory and the processor of two (some 4 GB each); if the game you play stutters, try the build
+when you are not playing.
+
+Install the build by hand (the server and the game client of that folder must be closed; the
+launcher may stay open, and so may the other game). The script runs the tests again, keeps a
+backup of the six files it replaces and prints the line that undoes it:
 
     # the copy for trying things
     .\tools\deploy_scrim.ps1 -Apply

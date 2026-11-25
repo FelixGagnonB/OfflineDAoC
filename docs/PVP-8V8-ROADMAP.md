@@ -3873,6 +3873,18 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [x] **M13.17** (S) A build is tried on the scrim copy in one go, also while the owner plays. *Built and run
+  2026-11-25.* The owner, having twice closed the game and waited for a build to be tried: "we should automate
+  automatic deployment to scrim and test instead of waiting for me to shutdown D:\OfflineDAoC then testing on scrim
+  and waiting". Built: `source/tools/scrim_test.py` (build, unit tests, install on the scrim copy with a backup,
+  its server on the test ports, an evening of bots, the log and the recording read, everything stopped, PASSED or
+  FAILED, kept in `scrim-test-last.txt`); `scrim_server.py start --test` (ports 10310 and 10410: no client connects
+  there, an evening of bots needs none); `deploy_scrim.ps1` holds an install back only for a server or a client of
+  the folder it installs into. First run beside the owner's own evening on the play install (36 teams there, 36 on
+  the scrim copy): passed, no fault; the play server's game loop ran at 95.8% of its rate while the test ran, the
+  scrim copy's at 95.8% (96.1% alone at noon). In that run the 8v8 zone and a clean zone (Uppland) had no team
+  with two enemy groups on it in 768 team-samples of fighting: the first run of M13.16's clean-zone rule on a
+  server.
 - [x] **M13.16** (M) More groups, fewer of them bad, and clean zones where nobody adds. *Built 2026-11-25;
   automated tests only; not run on a server.* The owner, an hour and a half into the play install: "I feel like
   the population is low and, from what I've seen, mostly bad groups running 2fg or more. I have yet to find a clean
