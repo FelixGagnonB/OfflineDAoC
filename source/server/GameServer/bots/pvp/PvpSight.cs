@@ -10,8 +10,15 @@ namespace DOL.GS
     /// characters hides one from the other. The navmesh's own line of sight only knows where
     /// nobody can walk, so a hill anybody can walk over hid nothing, and two groups always saw
     /// each other at the same distance. The owner, 2026-11-19: "LoS for initial contact would be
-    /// really cool". Used for spotting only: what a group sees before and during a fight. A
-    /// cast is not checked against it.
+    /// really cool". First used for spotting only: what a group sees before and during a fight.
+    /// <para>
+    /// Since 2026-11-25 (M13.20) a cast is checked against it too (<see cref="ClearForACast"/>).
+    /// The owner, in Thidranki: "Could there be something to do for bot to have Line of Sight
+    /// issue? Eld killed a warrior by casting through a hill". A bot's spell on a player is
+    /// checked by that player's game client, as a monster's is; a bot's spell on a bot was
+    /// checked on the navmesh alone. Trees, tents and the like are not in the navmesh and still
+    /// hide nobody, and a spell begun in sight lands on one that has since run behind the hill.
+    /// </para>
     /// </summary>
     public static class PvpSight
     {
@@ -58,6 +65,67 @@ namespace DOL.GS
             }
             return false;
         }
+
+        /// <summary>For a cast the ground must stand this far above the line before it hides: the navmesh is not the ground to the unit, and a caster that is wrongly hidden walks for nothing.</summary>
+        public const int CastTolerance = 30;
+
+        /// <summary>
+        /// The first point at which the ground stands more than <paramref name="tolerance"/>
+        /// above the line of sight, from <paramref name="start"/> on; -1 when there is none.
+        /// </summary>
+        public static int HiddenAt(IReadOnlyList<float> ground, float fromZ, float toZ, int tolerance, int start = 0, int eyeHeight = EyeHeight)
+        {
+            float from = fromZ + eyeHeight, to = toZ + eyeHeight;
+            for (int i = Math.Max(0, start); i < ground.Count; i++)
+            {
+                if (!float.IsNaN(ground[i]) && ground[i] > LineAt(from, to, i, ground.Count) + tolerance)
+                    return i;
+            }
+            return -1;
+        }
+
+        /// <summary>How high the line from the one's eyes to the other's is at point <paramref name="index"/> of <paramref name="points"/> between them.</summary>
+        public static float LineAt(float fromEyes, float toEyes, int index, int points) => fromEyes + (toEyes - fromEyes) * (index + 1) / (points + 1);
+
+        /// <summary>
+        /// Whether a caster sees its target over the ground. As <see cref="Clear(Zone, Vector3, Vector3)"/>,
+        /// with two cautions, because a caster that is wrongly hidden walks instead of casting:
+        /// the ground hides only when it stands clearly above the line
+        /// (<see cref="CastTolerance"/>), and where it does, the place is asked again for a
+        /// floor beneath the line: the height of the ground is that of the highest floor, and two
+        /// that stand under a bridge or a ceiling see each other.
+        /// </summary>
+        public static bool ClearForACast(Zone zone, Vector3 from, Vector3 to)
+        {
+            if (zone == null)
+                return true;
+            float distance = Vector2.Distance(new Vector2(from.X, from.Y), new Vector2(to.X, to.Y));
+            int samples = Samples(distance);
+            if (samples == 0)
+                return true;
+            var ground = new float[samples];
+            for (int i = 0; i < samples; i++)
+            {
+                float along = (i + 1) / (float)(samples + 1);
+                ground[i] = HeightAt(zone, from.X + (to.X - from.X) * along, from.Y + (to.Y - from.Y) * along);
+            }
+            var nav = PathfindingProvider.Instance;
+            for (int at = HiddenAt(ground, from.Z, to.Z, CastTolerance); at >= 0; at = HiddenAt(ground, from.Z, to.Z, CastTolerance, at + 1))
+            {
+                float along = (at + 1) / (float)(samples + 1);
+                float line = LineAt(from.Z + EyeHeight, to.Z + EyeHeight, at, samples);
+                var onTheLine = new Vector3(from.X + (to.X - from.X) * along, from.Y + (to.Y - from.Y) * along, line);
+                // (A floor from a little above the line down to 400 beneath it: the line passes over that floor.)
+                if (nav.GetFloorBeneath(zone, onTheLine, 400, nav.DefaultFilters) is not { } floor || floor.Z > line + CastTolerance + 20)
+                    return false;
+            }
+            return true;
+        }
+
+        /// <summary>See <see cref="ClearForACast(Zone, Vector3, Vector3)"/>. Always true where the weights turn the sight over the ground off.</summary>
+        public static bool ClearForACast(GameObject from, GameObject to, PvpWeights weights) =>
+            from == null || to == null || weights?.SightOverGround == false || from.CurrentRegionID != to.CurrentRegionID ||
+            ClearForACast(from.CurrentZone, new Vector3(from.X, from.Y, from.Z), new Vector3(to.X, to.Y, to.Z));
 
         /// <summary>How many points of the ground to look at between two characters this far apart.</summary>
         public static int Samples(float distance, int step = Step) => Math.Max(0, (int)(distance / step) - 1);

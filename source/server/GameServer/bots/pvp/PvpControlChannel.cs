@@ -250,6 +250,33 @@ namespace DOL.GS
                     return PvpScrim.RouteCheck(ushort.Parse(Arg("Region") ?? "200"), int.Parse(Arg("X1")), int.Parse(Arg("Y1")),
                         int.Parse(Arg("X2")), int.Parse(Arg("Y2")));
 
+                // sight Region= X1= Y1= X2= Y2=: whether one standing at the first point sees one at the second (PvpSight):
+                // the ray along the navmesh, the ground between them for spotting and for a cast, and both heights. Changes nothing.
+                case "sight":
+                {
+                    ushort regionId = ushort.Parse(Arg("Region") ?? "200");
+                    int x1 = int.Parse(Arg("X1")), y1 = int.Parse(Arg("Y1")), x2 = int.Parse(Arg("X2")), y2 = int.Parse(Arg("Y2"));
+                    var nav = PathfindingProvider.Instance;
+                    Zone zone = WorldMgr.GetRegion(regionId)?.GetZone(x1, y1);
+                    float z1 = zone == null ? float.NaN : PvpSight.HeightAt(zone, x1, y1), z2 = zone == null ? float.NaN : PvpSight.HeightAt(zone, x2, y2);
+                    if (float.IsNaN(z1) || float.IsNaN(z2))
+                        return new { Standing = false };
+                    var a = new System.Numerics.Vector3(x1, y1, z1);
+                    var b = new System.Numerics.Vector3(x2, y2, z2);
+                    int points = PvpSight.Samples(System.Numerics.Vector2.Distance(new(x1, y1), new(x2, y2)));
+                    return new
+                    {
+                        Standing = true, FromZ = (int)z1, ToZ = (int)z2, Mesh = nav.HasLineOfSight(zone, a, b, nav.DefaultFilters),
+                        Spotting = PvpSight.Clear(zone, a, b), Cast = PvpSight.ClearForACast(zone, a, b),
+                        Ground = Enumerable.Range(0, points).Select(index =>
+                        {
+                            float height = PvpSight.HeightAt(zone, x1 + (x2 - x1) * (index + 1) / (float)(points + 1), y1 + (y2 - y1) * (index + 1) / (float)(points + 1));
+                            return float.IsNaN(height) ? (int?)null : (int)height;
+                        }).ToList(),
+                        Line = Enumerable.Range(0, points).Select(index => (int)PvpSight.LineAt(z1 + PvpSight.EyeHeight, z2 + PvpSight.EyeHeight, index, points)).ToList(),
+                    };
+                }
+
                 case "scrim-status":
                     return PvpScrim.Status();
 

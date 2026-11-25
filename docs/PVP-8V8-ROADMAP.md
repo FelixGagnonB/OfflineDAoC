@@ -3873,6 +3873,21 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [x] **M13.20** (S) A bot does not cast through a hill. *Built and run on the scrim copy 2026-11-25; not seen in
+  a client.* The owner, in Thidranki: "Could there be something to do for bot to have Line of Sight issue? Eld
+  killed a warrior by casting through a hill". A bot's spell on a player is checked by that player's client; a
+  bot's spell on a bot was checked on the navmesh alone, which a wall stops and a hill that can be walked over does
+  not. The sight over the ground that spotting has had since M4.2 (`PvpSight`) is now asked for a cast, a heal and
+  a cure too (`ClearForACast`): the ground must stand 30 units above the line from eyes to eyes, and where it does
+  the place is asked again for a floor beneath the line, so that two under a bridge see each other. Probed on the
+  scrim copy's ground: across the hill by Hibernia's start in Emain Macha the navmesh saw through ground 350 above
+  the line, the cast is now hidden; in Thidranki, of 149 random pairs 1,500 apart that the navmesh let through,
+  the ground hides 26 (17%), and 5 of 152 at 800. In two scrim evenings casters walked no more than before (0.34
+  decisions to approach a team-second, against 0.49 and 0.35) and spell damage stayed where it was. Not covered:
+  trees and tents, which are not in the navmesh; a spell begun in sight lands on one that has since gone behind
+  the hill. The first of the two evenings found a fault of the game's own casting code: a spell handler ticked
+  once more after its caster had let go of it (`CastingComponent.StartDuringCastLosCheck`), a null reference for
+  which the service takes the caster out of the world; guarded, for every caster.
 - [x] **M13.19** (S) A group with no assist does not stand before sleepers. *Built 2026-11-25; an evening of bots on
   the scrim copy, where the case itself did not come up.* The owner, of a fight in Thidranki: "we were 5 out of 5
   mezzed. The mid team just stayed idle waiting for mezz to wear off instead of picking a target and killing it".

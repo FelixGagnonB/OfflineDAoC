@@ -14,6 +14,25 @@ namespace DOL.UnitTests
     public class UT_PvpPrimeTime
     {
         [Test]
+        public void AHillHidesACastersTarget()
+        {
+            // The owner, 2026-11-25: "Eld killed a warrior by casting through a hill".
+            // Two at the same height, eyes at 60: flat ground hides nobody, a rise of 60 neither, a hill of 200 does.
+            Assert.That(PvpSight.HiddenAt([0f, 0f, 0f], 0, 0, PvpSight.CastTolerance), Is.EqualTo(-1));
+            Assert.That(PvpSight.HiddenAt([30f, 60f, 30f], 0, 0, PvpSight.CastTolerance), Is.EqualTo(-1));
+            Assert.That(PvpSight.HiddenAt([100f, 200f, 100f], 0, 0, PvpSight.CastTolerance), Is.EqualTo(0));
+            Assert.That(PvpSight.HiddenAt([85f, 200f, 85f], 0, 0, PvpSight.CastTolerance), Is.EqualTo(1), "just above the line is not hidden for a cast");
+            Assert.That(PvpSight.HiddenAt([100f, 200f, 100f], 0, 0, PvpSight.CastTolerance, start: 1), Is.EqualTo(1), "the next place, for one that turned out to be a bridge");
+            Assert.That(PvpSight.HiddenAt([100f, 200f, 100f], 0, 0, PvpSight.CastTolerance, start: 3), Is.EqualTo(-1));
+            // One on the hill looks down on one at its foot: the slope between them is under the line.
+            Assert.That(PvpSight.HiddenAt([200f, 100f, 0f], 300, 0, PvpSight.CastTolerance), Is.EqualTo(-1));
+            // Where the navmesh has no ground (water, a slope too steep to walk) nothing is said: its own ray has stopped there.
+            Assert.That(PvpSight.HiddenAt([float.NaN, float.NaN], 0, 0, PvpSight.CastTolerance), Is.EqualTo(-1));
+            Assert.That(PvpSight.LineAt(100, 200, 0, 1), Is.EqualTo(150));
+            Assert.That(PvpSight.ClearForACast(null, null, null), Is.True);
+        }
+
+        [Test]
         public void AGroupWithNoAssistDoesNotStandBeforeSleepers()
         {
             // The owner, 2026-11-25: "we were 5 out of 5 mezzed. The mid team just stayed idle waiting for mezz to wear off

@@ -755,7 +755,9 @@ namespace DOL.AI.Brain
                     {
                         GameLiving member = friends[friend];
                         int away = (int)Body.GetDistanceTo(member);
-                        bool visible = nav.HasLineOfSight(Body.CurrentZone, here, new Vector3(member.X, member.Y, member.Z), nav.DefaultFilters);
+                        // (The navmesh, and the ground between the two: a hill hides. PvpSight.ClearForACast.)
+                        bool visible = nav.HasLineOfSight(Body.CurrentZone, here, new Vector3(member.X, member.Y, member.Z), nav.DefaultFilters) &&
+                                       PvpSight.ClearForACast(Body, member, weights);
                         int classId = member switch
                         {
                             GamePlayer { CharacterClass: { } playerClass } => playerClass.ID,
@@ -784,7 +786,8 @@ namespace DOL.AI.Brain
                         continue;
                     }
                     if (!sight.TryGetValue(enemy, out bool seen))
-                        sight[enemy] = seen = nav.HasLineOfSight(Body.CurrentZone, here, new Vector3(enemy.X, enemy.Y, enemy.Z), nav.DefaultFilters);
+                        sight[enemy] = seen = nav.HasLineOfSight(Body.CurrentZone, here, new Vector3(enemy.X, enemy.Y, enemy.Z), nav.DefaultFilters) &&
+                                              PvpSight.ClearForACast(Body, enemy, weights);
                     // Out of range or behind something: still an option, at the price of the walk.
                     int walk = Math.Max(distance > range ? distance - range + 50 : 0, seen ? 0 : 300);
                     // Where that walk would end, and how many enemy fighters that are free to act would be beside it there.
@@ -905,7 +908,8 @@ namespace DOL.AI.Brain
                                 continue;
                         }
                         int distance = (int)Body.GetDistanceTo(pet);
-                        bool seen = nav.HasLineOfSight(Body.CurrentZone, here, new Vector3(pet.X, pet.Y, pet.Z), nav.DefaultFilters);
+                        bool seen = nav.HasLineOfSight(Body.CurrentZone, here, new Vector3(pet.X, pet.Y, pet.Z), nav.DefaultFilters) &&
+                                    PvpSight.ClearForACast(Body, pet, weights);
                         options.Add(new PvpOption(kind, targets.Count + index, PvpBuffArchetype.Melee, false, false,
                             pet.HealthPercent, false, false, false, kind == PvpActionKind.Damage && pet.IsMezzed, Body.ManaPercent, cost,
                             Math.Max(distance > range ? distance - range + 50 : 0, seen ? 0 : 300))

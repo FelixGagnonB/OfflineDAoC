@@ -153,7 +153,10 @@ namespace DOL.GS
         {
             // Target check may appear redundant since CastingComponent is supposed to set LosChecker to null when no LoS check is required.
             // But for player casted spells, the target is determined by SpellHandler.
-            if (SpellHandler.LosChecker == null || target == null || target == Owner)
+            // (SpellHandler?: a handler can tick once more after the component has let go of it, its cast interrupted or
+            // cleared in the same tick. That was a null reference here, and the service took the caster out of the world
+            // for it: an 8v8 bot gone from its fight, 2026-11-25, scrim copy.)
+            if (SpellHandler?.LosChecker == null || target == null || target == Owner)
                 return false;
 
             _duringCastLosCheckListener.SpellHandler = SpellHandler;
@@ -163,7 +166,7 @@ namespace DOL.GS
 
         public bool StartEndOfCastLosCheck(GameLiving target, SpellHandler spellHandler)
         {
-            if (SpellHandler.LosChecker == null || target == null || target == Owner)
+            if (SpellHandler?.LosChecker == null || target == null || target == Owner)
                 return false;
 
             _endOfCastLosCheckListener.AddPendingLosCheck(target, spellHandler);
