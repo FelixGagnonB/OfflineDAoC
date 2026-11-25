@@ -91,10 +91,11 @@ namespace DOL.GS.Commands
         /// for a game master, or for a server with <see cref="TestMarker"/> beside it, which the
         /// scrim server has and the play install has not.
         /// </summary>
-        /// (And "stop", since 2026-11-25: with an evening that begins at login, "/8v8 ready" on a character that has one
-        /// running answered "A fight is running. /8v8 stop first.", and a player had no "/8v8 stop". The owner, that day:
-        /// "In v0.1.1 on D:\OfflineDAoC, do we really ahve the /8v8 stop ?")
-        public static readonly string[] PlayerWords = ["call", "calls", "lead", "ready", "guild", "evening", "stop", "who", "rivals", "ranks", "go", "corpse"];
+        /// ("stop" is not one of them. The owner, 2026-11-25: "In v0.1.1 on D:\OfflineDAoC, do we really ahve the
+        /// /8v8 stop ?", and of having it: "I want it on scrim, it makes testing easy, but not on the real server". So
+        /// "/8v8 ready" on a character whose evening runs, which used to answer "/8v8 stop first", ends and begins that
+        /// evening by itself.)
+        public static readonly string[] PlayerWords = ["call", "calls", "lead", "ready", "guild", "evening", "who", "rivals", "ranks", "go", "corpse"];
 
         public const string TestMarker = "pvp-test-commands.txt";
 
@@ -107,7 +108,6 @@ namespace DOL.GS.Commands
             "/8v8 calls <on|off>  your companions' calls in group chat",
             "/8v8 lead <on|off>   your companions fall back as one by themselves when the group has too many on it",
             "/8v8 evening         begins your evening when none is running (it begins by itself when you log in; it ends when you leave the frontier)",
-            "/8v8 stop            ends your evening: your companions and the guilds leave, what was earned is kept",
             "/8v8 who             each zone of the evening: how many groups every realm has in it, and of what kinds",
             "/8v8 go <zone>       your group ports to your realm's start in another zone of the evening",
             "/8v8 rivals          the enemy guilds you have wiped or been wiped by, and how often",
@@ -332,7 +332,9 @@ namespace DOL.GS.Commands
                         return;
                     }
                     PvpBuild build = PvpPlayerReady.Find(player.Realm, args[2]);
-                    string refusal = PvpScrim.IsPlaying(player) ? "A fight is running. /8v8 stop first."
+                    // Its own evening is ended for the change and begun again after it; a fight of another sort has to be stopped.
+                    bool ownEvening = PvpRoam.Leads(player);
+                    string refusal = PvpScrim.IsPlaying(player) && !ownEvening ? "A fight is running. /8v8 stop first."
                         : PvpPlayerReady.Refusal(player.Realm, player.InCombat, player.IsAlive, build);
                     if (refusal != null)
                     {
@@ -348,10 +350,15 @@ namespace DOL.GS.Commands
                     }
                     try
                     {
+                        if (ownEvening)
+                        {
+                            PvpScrim.Stop();
+                            Say("Your evening is ended for the change; a new one begins when it is done.");
+                        }
                         foreach (string line in PvpPlayerReady.Apply(player, build))
                             Say(line);
                         // An 8v8 character now: its evening begins (PvpEveningStart), as it will each time it comes in.
-                        PvpEveningStart.BeginFor(player);
+                        PvpEveningStart.BeginFor(player, ownEvening);
                     }
                     catch (System.Exception exception)
                     {

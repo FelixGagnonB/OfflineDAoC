@@ -89,7 +89,8 @@ namespace DOL.GS
                     return;
                 void Say(string text) => player.Out.SendMessage("[8v8] " + text, eChatType.CT_Important, eChatLoc.CL_SystemWindow);
                 PvpRealWeights real = PvpWeights.Current.Real;
-                if (IsUnderWay(GameLoop.GameLoopTime, player.TempProperties.GetProperty<long>(BeginsProperty)) && !PvpScrim.Running)
+                // (Not when the player asks: it has just ended its evening itself.)
+                if (!asked && IsUnderWay(GameLoop.GameLoopTime, player.TempProperties.GetProperty<long>(BeginsProperty)) && !PvpScrim.Running)
                     return;
                 (bool begins, string told) = AtLogin(real.EveningAtLogin || asked,
                     Is8v8Character(player.Level, PvpPlayerReady.BuildsFor(player.Realm).Any(build => build.Class == (eCharacterClass)player.CharacterClass.ID)),
