@@ -14,6 +14,62 @@ namespace DOL.UnitTests
     public class UT_PvpPrimeTime
     {
         [Test]
+        public void ABotOnGroundItCannotLeaveIsFreedAndAColdFightIsOver()
+        {
+            // The owner, 2026-11-25: "2 druids are stuck in a tree and my alb team still consider being in fight".
+            // Asked to walk 600 units eight ways, the two got 0 to 90: trapped. One that gets somewhere one way is not.
+            Assert.That(PvpTrapped.IsTrapped([0, 90, 53, 74, 0, 74, 0, 12]), Is.True);
+            Assert.That(PvpTrapped.IsTrapped([0, 90, 53, 600, 0, 74, 0, 12]), Is.False);
+            Assert.That(PvpTrapped.IsTrapped([]), Is.False, "nothing asked, nothing said");
+            Assert.That(PvpTrapped.IsNear(48), Is.True, "the way in ended 29 to 48 units short of them");
+            Assert.That(PvpTrapped.IsNear(PvpTrapped.WayOutWithin + 1), Is.False, "a bot is not carried across a zone");
+            // A fight in which nobody has been in combat for half a minute is over, whoever still stands near.
+            Assert.That(PvpRoam.HasGoneCold(31_000), Is.True);
+            Assert.That(PvpRoam.HasGoneCold(12_000), Is.False);
+            Assert.That(PvpRoam.ColdAfterSeconds * 1_000, Is.GreaterThan(PvpRoam.FightOverAfterMilliseconds));
+        }
+
+        [Test]
+        public void AHillHidesACastersTarget()
+        {
+            // The owner, 2026-11-25: "Eld killed a warrior by casting through a hill".
+            // Two at the same height, eyes at 60: flat ground hides nobody, a rise of 60 neither, a hill of 200 does.
+            Assert.That(PvpSight.HiddenAt([0f, 0f, 0f], 0, 0, PvpSight.CastTolerance), Is.EqualTo(-1));
+            Assert.That(PvpSight.HiddenAt([30f, 60f, 30f], 0, 0, PvpSight.CastTolerance), Is.EqualTo(-1));
+            Assert.That(PvpSight.HiddenAt([100f, 200f, 100f], 0, 0, PvpSight.CastTolerance), Is.EqualTo(0));
+            Assert.That(PvpSight.HiddenAt([85f, 200f, 85f], 0, 0, PvpSight.CastTolerance), Is.EqualTo(1), "just above the line is not hidden for a cast");
+            Assert.That(PvpSight.HiddenAt([100f, 200f, 100f], 0, 0, PvpSight.CastTolerance, start: 1), Is.EqualTo(1), "the next place, for one that turned out to be a bridge");
+            Assert.That(PvpSight.HiddenAt([100f, 200f, 100f], 0, 0, PvpSight.CastTolerance, start: 3), Is.EqualTo(-1));
+            // One on the hill looks down on one at its foot: the slope between them is under the line.
+            Assert.That(PvpSight.HiddenAt([200f, 100f, 0f], 300, 0, PvpSight.CastTolerance), Is.EqualTo(-1));
+            // Where the navmesh has no ground (water, a slope too steep to walk) nothing is said: its own ray has stopped there.
+            Assert.That(PvpSight.HiddenAt([float.NaN, float.NaN], 0, 0, PvpSight.CastTolerance), Is.EqualTo(-1));
+            Assert.That(PvpSight.LineAt(100, 200, 0, 1), Is.EqualTo(150));
+            Assert.That(PvpSight.ClearForACast(null, null, null), Is.True);
+        }
+
+        [Test]
+        public void AGroupWithNoAssistDoesNotStandBeforeSleepers()
+        {
+            // The owner, 2026-11-25: "we were 5 out of 5 mezzed. The mid team just stayed idle waiting for mezz to wear off
+            // instead of picking a target and killing it".
+            Assert.That(PvpKillTarget.TakesTheNearest(itsGroupAssists: false, hasATargetOfItsOwn: false), Is.True);
+            Assert.That(PvpKillTarget.TakesTheNearest(false, true), Is.False, "one that somebody has made angry is on that one, as a bad group is");
+            Assert.That(PvpKillTarget.TakesTheNearest(true, false), Is.False, "a group that assists has its kill target");
+            // An awake enemy before a sleeping one, the nearer first; the one taken before is kept; none out of reach.
+            Assert.That(PvpKillTarget.Nearest([(900, true), (1_400, false), (2_000, false)], -1, 3_500), Is.EqualTo(1));
+            Assert.That(PvpKillTarget.Nearest([(900, true), (400, true), (600, true)], -1, 3_500), Is.EqualTo(1), "all asleep: the nearest sleeper");
+            Assert.That(PvpKillTarget.Nearest([(900, true), (400, true), (600, false)], 0, 3_500), Is.EqualTo(0), "the one it has");
+            Assert.That(PvpKillTarget.Nearest([(4_000, false)], -1, 3_500), Is.EqualTo(-1));
+            Assert.That(PvpKillTarget.Nearest([], -1, 3_500), Is.EqualTo(-1));
+            // A caster's spell is not marked down for a sleeping target when everybody is asleep.
+            Assert.That(PvpActionChoice.SleepCounts(targetIsAsleep: true, spellIsAMez: false, everyEnemyIsAsleep: false), Is.True);
+            Assert.That(PvpActionChoice.SleepCounts(true, false, true), Is.False);
+            Assert.That(PvpActionChoice.SleepCounts(true, true, false), Is.False);
+            Assert.That(PvpActionChoice.SleepCounts(false, false, false), Is.False);
+        }
+
+        [Test]
         public void TheEightZoneIsForOneGroupAgainstOne()
         {
             // The owner, 2026-11-25: "Could we build a zone for dedicated 8v8 without adds? ... use an unuse zone and make it a
@@ -73,6 +129,11 @@ namespace DOL.UnitTests
             Assert.That(PvpRoam.MayPick(false, false, true, false), Is.False);
             Assert.That(PvpRoam.MayPick(false, false, false, true), Is.False);
             Assert.That(PvpRoam.ZonesLine([PvpRoam.Emain, PvpRoam.Thidranki], PvpRoam.Emain, PvpRoam.Thidranki), Does.Contain("Thidranki (8v8 only, nobody adds)"));
+            // "I feel like we had 2 fg mids": two fights of one against one, begun a second apart and 600 units from each other.
+            Assert.That(PvpRoam.StartsBesideAFight(aBusyGroupIsNearUs: false, aBusyGroupIsNearIt: true), Is.True);
+            Assert.That(PvpRoam.StartsBesideAFight(true, false), Is.True);
+            Assert.That(PvpRoam.StartsBesideAFight(false, false), Is.False);
+            Assert.That(PvpRoam.OneFightWithin, Is.GreaterThanOrEqualTo(PvpRoam.GoesRoundAFightAt), "as far off as a group goes round a fight");
         }
 
         [Test]
@@ -418,7 +479,16 @@ namespace DOL.UnitTests
             List<PvpGuildTeam> more = PvpTeamPool.Generate(6, new Random(8), pool);
             Assert.That(more, Has.Count.EqualTo(18));
             Assert.That(more.Select(team => team.Guild).Intersect(pool.Select(team => team.Guild)), Is.Empty);
-            Assert.That(PvpTeamPool.MostPerRealm, Is.GreaterThanOrEqualTo(24));
+            Assert.That(PvpTeamPool.MostPerRealm, Is.GreaterThanOrEqualTo(48));
+            // "We could stress test and add more guilds and have a bigger pool": three evenings' worth, and no more than there are names.
+            Assert.That(PvpTeamPool.PoolFor(12), Is.EqualTo(36));
+            Assert.That(PvpTeamPool.PoolFor(4), Is.EqualTo(16));
+            Assert.That(PvpTeamPool.PoolFor(PvpTeamPool.MostGroups), Is.EqualTo(PvpTeamPool.MostPerRealm));
+            List<PvpGuildTeam> all = PvpTeamPool.Generate(PvpTeamPool.MostPerRealm, new Random(2));
+            Assert.That(all, Has.Count.EqualTo(3 * PvpTeamPool.MostPerRealm));
+            Assert.That(all.Select(team => team.Guild).Distinct(StringComparer.OrdinalIgnoreCase).Count(), Is.EqualTo(all.Count), "no name twice, in any realm");
+            Assert.That(all.Select(team => team.Id).Distinct().Count(), Is.EqualTo(all.Count));
+            Assert.That(all.Max(team => team.Guild.Length), Is.LessThanOrEqualTo(30));
         }
 
         [Test]
@@ -633,6 +703,17 @@ namespace DOL.UnitTests
                 Assert.That(taken, Does.Not.Contain(other.Id));
             }
             Assert.That(PvpTeamPool.NextOut(pool, eRealm.Midgard, PvpTeamKind.Bad, midgard.Select(team => team.Id).ToHashSet(), new Random(1)), Is.Null, "nobody is left");
+            // An evening that outlasts its pool (the owner, an hour and a half in: "Emain : 4 albion, 1 midgard, Odin's : 0"):
+            // a guild that logged off long enough ago comes out again, of the kind when there is one, the longest gone first.
+            var everybody = midgard.Select(team => team.Id).ToHashSet();
+            List<string> gone = [midgard.First(team => team.ToProfile().Kind == PvpTeamKind.Decent).Id, bad[1].Id, bad[0].Id];
+            Assert.That(PvpTeamPool.NextOut(pool, eRealm.Midgard, PvpTeamKind.Bad, everybody, new Random(1), gone).Id, Is.EqualTo(bad[1].Id));
+            Assert.That(PvpTeamPool.NextOut(pool, eRealm.Midgard, PvpTeamKind.Elite, everybody, new Random(1), gone).Id, Is.EqualTo(gone[0]), "none of its kind: the longest gone");
+            Assert.That(PvpTeamPool.NextOut(pool, eRealm.Albion, PvpTeamKind.Bad, pool.Select(team => team.Id).ToHashSet(), new Random(1), gone), Is.Null, "not another realm's");
+            // (One that has not been out comes before one that comes back.)
+            Assert.That(PvpTeamPool.NextOut(pool, eRealm.Midgard, PvpTeamKind.Bad, taken, new Random(1), gone).Id, Is.Not.AnyOf(gone.ToArray<object>()).And.Not.AnyOf(taken.ToArray<object>()));
+            Assert.That(PvpTeamPool.ComesBack(PvpTeamPool.ComesBackAfterSeconds), Is.True);
+            Assert.That(PvpTeamPool.ComesBack(120), Is.False, "not the moment it has logged off");
         }
 
         [Test]

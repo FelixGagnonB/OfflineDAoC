@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using DOL.GS;
 using DOL.GS.Commands;
@@ -18,6 +19,33 @@ namespace DOL.UnitTests
             // Albion has two Clerics: a player made ready as the second keeps the first among the companions.
             Assert.That(PvpPlayerReady.SlotOf(AlbMain, eCharacterClass.Cleric, "cleric-enhance"), Is.EqualTo(1));
             Assert.That(PvpPlayerReady.SlotOf(AlbMain, eCharacterClass.Cleric, "cleric-rejuv"), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void APlayerThatHasLeftTheGameSinceIsKnownByItsTraining()
+        {
+            // The owner's Cleric, 2026-11-25: Enhancement 42, Rejuvenation 33, Smite 7. Back in the game, its companion was a
+            // second Enhancement Cleric, and the group had no Rejuvenation Cleric.
+            List<PvpBuild> clerics = AlbMain.Select(PvpBuildCatalog.Find).Where(build => build.Class == eCharacterClass.Cleric).ToList();
+            Assert.That(clerics.Select(build => build.Id), Is.EqualTo(new[] { "cleric-rejuv", "cleric-enhance" }));
+            var owner = new Dictionary<string, int> { [Specs.Enhancement] = 42, [Specs.Rejuvenation] = 33, [Specs.Smite] = 7 };
+            string build = PvpPlayerReady.BuildOf(clerics, spec => owner.GetValueOrDefault(spec));
+            Assert.That(build, Is.EqualTo("cleric-enhance"));
+            Assert.That(PvpPlayerReady.SlotOf(AlbMain, eCharacterClass.Cleric, build), Is.EqualTo(1), "the Rejuvenation Cleric stays among the companions");
+            // Each build is nearest to itself; one that has trained nothing is the first of its class, as before.
+            foreach (PvpBuild cleric in clerics)
+                Assert.That(PvpPlayerReady.BuildOf(clerics, spec => cleric.Lines.FirstOrDefault(line => line.Spec == spec).Level), Is.EqualTo(cleric.Id));
+            Assert.That(PvpPlayerReady.BuildOf([], _ => 0), Is.Null);
+            Assert.That(PvpPlayerReady.BuildOf(null, _ => 0), Is.Null);
+        }
+
+        [Test]
+        public void An8v8BotDoesNotMakeItselfAMonsterToCharm()
+        {
+            // The owner, 2026-11-25: "sorc seems to have issue with it's controlled pet and losing speed".
+            Assert.That(AutonomousPetSupport.MakesItsOwnCharmPet(isABot: true, isAn8v8Bot: true), Is.False);
+            Assert.That(AutonomousPetSupport.MakesItsOwnCharmPet(true, false), Is.True, "a gamebot, and a companion of the game as it was, as before");
+            Assert.That(AutonomousPetSupport.MakesItsOwnCharmPet(false, false), Is.False, "never a player");
         }
 
         [Test]

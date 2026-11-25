@@ -129,8 +129,11 @@ namespace DOL.GS
             if (template == null || template.Realm != player.Realm)
                 template = PvpBuildCatalog.Groups.First(group => group.Realm == player.Realm);
             List<string> builds = template.BuildIds.ToList();
-            builds.RemoveAt(PvpPlayerReady.SlotOf(builds, (eCharacterClass)player.CharacterClass.ID,
-                player.TempProperties.GetProperty<string>(PvpPlayerReady.BuildProperty)));
+            // (The build it was made ready as; once it has left the game since, the build its own training is nearest to.)
+            var itsClass = (eCharacterClass)player.CharacterClass.ID;
+            builds.RemoveAt(PvpPlayerReady.SlotOf(builds, itsClass,
+                player.TempProperties.GetProperty<string>(PvpPlayerReady.BuildProperty) ??
+                PvpPlayerReady.BuildOf(builds.Select(PvpBuildCatalog.Find).Where(build => build?.Class == itsClass), player.GetBaseSpecLevel)));
 
             var nav = PathfindingProvider.Instance;
             var centre = new Vector3(player.X, player.Y, player.Z);

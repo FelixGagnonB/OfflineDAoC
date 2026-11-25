@@ -222,7 +222,7 @@ namespace DOL.GS
                     // Listener=hibernia: that realm's chat is written to the recording, as a player of it would read it.
                     PvpRoam.ListenTo(Enum.TryParse(Arg("Listener"), true, out eRealm listener) ? listener : eRealm.None);
                     if (int.TryParse(Arg("Prime"), out int prime) && prime > 0)
-                        guilds = PvpTeamPool.Tonight(PvpTeamPool.LoadOrCreate(AppContext.BaseDirectory, pool, Math.Max(16, prime * 2), Random.Shared), prime, Random.Shared);
+                        guilds = PvpTeamPool.Tonight(PvpTeamPool.LoadOrCreate(AppContext.BaseDirectory, pool, int.TryParse(Arg("PoolSize"), out int poolSize) && poolSize > 0 ? poolSize : PvpTeamPool.PoolFor(prime), Random.Shared), prime, Random.Shared);
                     // Hunters=2: for a test, that many teams of each realm hunt packs this evening (PvpTeamPool.WithHunters).
                     if (guilds != null && int.TryParse(Arg("Hunters"), out int hunters) && hunters > 0)
                         guilds = PvpTeamPool.WithHunters(guilds, hunters);
@@ -249,6 +249,57 @@ namespace DOL.GS
                 case "nav-route":
                     return PvpScrim.RouteCheck(ushort.Parse(Arg("Region") ?? "200"), int.Parse(Arg("X1")), int.Parse(Arg("Y1")),
                         int.Parse(Arg("X2")), int.Parse(Arg("Y2")));
+
+                // sight Region= X1= Y1= X2= Y2=: whether one standing at the first point sees one at the second (PvpSight):
+                // the ray along the navmesh, the ground between them for spotting and for a cast, and both heights. Changes nothing.
+                case "sight":
+                {
+                    ushort regionId = ushort.Parse(Arg("Region") ?? "200");
+                    int x1 = int.Parse(Arg("X1")), y1 = int.Parse(Arg("Y1")), x2 = int.Parse(Arg("X2")), y2 = int.Parse(Arg("Y2"));
+                    var nav = PathfindingProvider.Instance;
+                    Zone zone = WorldMgr.GetRegion(regionId)?.GetZone(x1, y1);
+                    float z1 = zone == null ? float.NaN : PvpSight.HeightAt(zone, x1, y1), z2 = zone == null ? float.NaN : PvpSight.HeightAt(zone, x2, y2);
+                    if (float.IsNaN(z1) || float.IsNaN(z2))
+                        return new { Standing = false };
+                    var a = new System.Numerics.Vector3(x1, y1, z1);
+                    var b = new System.Numerics.Vector3(x2, y2, z2);
+                    int points = PvpSight.Samples(System.Numerics.Vector2.Distance(new(x1, y1), new(x2, y2)));
+                    return new
+                    {
+                        Standing = true, FromZ = (int)z1, ToZ = (int)z2, Mesh = nav.HasLineOfSight(zone, a, b, nav.DefaultFilters),
+                        Spotting = PvpSight.Clear(zone, a, b), Cast = PvpSight.ClearForACast(zone, a, b),
+                        Ground = Enumerable.Range(0, points).Select(index =>
+                        {
+                            float height = PvpSight.HeightAt(zone, x1 + (x2 - x1) * (index + 1) / (float)(points + 1), y1 + (y2 - y1) * (index + 1) / (float)(points + 1));
+                            return float.IsNaN(height) ? (int?)null : (int)height;
+                        }).ToList(),
+                        Line = Enumerable.Range(0, points).Select(index => (int)PvpSight.LineAt(z1 + PvpSight.EyeHeight, z2 + PvpSight.EyeHeight, index, points)).ToList(),
+                    };
+                }
+
+                // way-out Region= X= Y= [FromX= FromY=]: whether one standing at the point can walk off it, and where it would
+                // be put if not (PvpTrapped). Changes nothing.
+                case "way-out":
+                {
+                    ushort regionId = ushort.Parse(Arg("Region") ?? "200");
+                    int x = int.Parse(Arg("X")), y = int.Parse(Arg("Y"));
+                    var nav = PathfindingProvider.Instance;
+                    Zone zone = WorldMgr.GetRegion(regionId)?.GetZone(x, y);
+                    float z = zone == null ? float.NaN : PvpSight.HeightAt(zone, x, y);
+                    if (float.IsNaN(z))
+                        return new { Standing = false };
+                    var at = new System.Numerics.Vector3(x, y, z);
+                    List<int> walks = PvpTrapped.Walks(zone, at);
+                    System.Numerics.Vector3? open = Arg("FromX") == null ? null
+                        : nav.GetFloorBeneath(zone, new System.Numerics.Vector3(int.Parse(Arg("FromX")), int.Parse(Arg("FromY")), 20_000), 20_000, nav.DefaultFilters);
+                    System.Numerics.Vector3? beside = open == null ? null : PvpTrapped.WayOut(zone, at, open.Value);
+                    return new
+                    {
+                        Standing = true, Z = (int)z, Walks = walks, Trapped = PvpTrapped.IsTrapped(walks),
+                        Beside = beside is { } found ? $"{(int)found.X},{(int)found.Y},{(int)found.Z}" : null,
+                        Away = beside is { } near ? (int?)(int)System.Numerics.Vector3.Distance(near, at) : null,
+                    };
+                }
 
                 case "scrim-status":
                     return PvpScrim.Status();

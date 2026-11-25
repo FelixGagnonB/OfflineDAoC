@@ -441,7 +441,8 @@ public static class AutonomousPetSupport
             eCharacterClass ownerClass = characterClass;
             bool ownerHasAggro = owner is GameBot { Brain: BotBrain botBrain } && botBrain.HasAggro;
             GeneratedCharmProfile charmProfile = default;
-            bool mayCreateSyntheticCharm = owner is GameBot &&
+            // (Not an 8v8 bot: MakesItsOwnCharmPet.)
+            bool mayCreateSyntheticCharm = MakesItsOwnCharmPet(owner is GameBot, owner is GameBot { IsPvpBot: true }) &&
                                            CanCreateSyntheticCharmInRegion(owner.CurrentRegion?.IsCapitalCity == true) &&
                                            !owner.InCombat && !owner.IsAttacking && !ownerHasAggro &&
                                            TryGetGeneratedCharmProfile(ownerClass, out charmProfile) &&
@@ -1682,6 +1683,18 @@ public static class AutonomousPetSupport
         }
         return ChooseFromPool(pool, highestRankOnly);
     }
+
+    /// <summary>
+    /// Whether a character makes itself a monster to charm when it has no pet: a gamebot or a
+    /// companion of the game as it was does, an 8v8 bot does not. The owner, 2026-11-25, of its
+    /// Albion group: "sorc seems to have issue with it's controlled pet and losing speed. I need
+    /// to go back to regroup with her from time to time". In that evening's recording the
+    /// companion Sorcerer began the charm 419 times in 96 minutes, every ten seconds, never in a
+    /// fight and each time on another monster made for it; it travelled at 381 units a second
+    /// where the six others ran 503, and was more than 1,500 units behind the player for 44% of
+    /// the way.
+    /// </summary>
+    public static bool MakesItsOwnCharmPet(bool isABot, bool isAn8v8Bot) => isABot && !isAn8v8Bot;
 
     /// <summary>The Sorcerer's charm for the target level: highest value, then highest level, the first listed among equals.</summary>
     private static Spell BestSorcererCharm(GameLiving owner, IReadOnlyList<(Spell Spell, SpellLine Line)> spells, int targetLevel)

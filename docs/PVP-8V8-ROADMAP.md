@@ -3873,6 +3873,129 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [x] **M13.26** (S) The heal for several, by the owner's rule. *Built 2026-11-25; an evening of bots on the scrim
+  copy.* Asked which heals its companion Cleric uses, the recording said: two single heals, and no group or spread
+  heal in forty minutes; over all groups the bot Clerics cast one for 29 of their 1,422 heals, the owner for 139 of
+  its 387. The rule had been three members under 80% and nobody trained. Asked when it reaches for them, the owner:
+  "I usually use either when 4+ members are damage or I am not having LoS to heal as either group or spreadheal
+  requires LoS". Now (`PvpHealWeights.SpreadHealMinHurt` 4, `SpreadHealWhenTrained`, `AreaHealWhenOutOfSight`,
+  `PvpHealPlan.AreaHealIsRight`): four or more members in reach hurt, whether or not somebody is trained; or a
+  member that needs a heal is out of the healer's sight (the navmesh's ray and the ground, as for a cast). Between
+  the group heal and the spread heal it is still the one that restores more for its power. For a Rejuvenation
+  Cleric of this server (group heal 283 each for 97 power, spread heal a pool of 2,360 with 590 a member at the
+  most for 110): with two to seven hurt the spread heal restores nearly twice as much for its power, with all
+  eight the two are level.
+- [x] **M13.25** (S) An 8v8 bot does not make itself a monster to charm. *Built and run on the scrim copy
+  2026-11-25.* The owner, of its Albion group: "sorc seems to have issue with it's controlled pet and losing speed.
+  I need to go back to regroup with her from time to time". The recording of that evening: the companion Sorcerer
+  began the charm 419 times in 96 minutes, every ten seconds, never in a fight and each time on another monster; it
+  travelled at 381 units a second where the six others ran 502 to 505, and was more than 1,500 units behind the
+  player for 44% of the way. A pet class of the game as it was makes itself a monster to charm when it has no pet
+  (`AutonomousPetSupport`): right for a gamebot, wrong on the road of an 8v8 group. Not for an 8v8 bot any more
+  (`MakesItsOwnCharmPet`); gamebots and the companions of the game as it was are as before. In the scrim evening
+  after it no 8v8 bot began a charm. Not found: why the pet was lost each time.
+- [x] **M13.24** (M) A companion at the wheel of the player's group. *Built 2026-11-25; automated tests only: an
+  evening of bots has no player to drive for.* The owner: "Would there be a way that when I do not play
+  bard/sorc/minstrel/skald, 1 of the bot drive? It could say in group chat 'Stick moving out' so we when we are
+  moving. Ideally, the driver would be: bard; sorc or minstrel; pac healer or skald". Asked how far the driving
+  goes: "Roam and engage"; asked when: "Automatic, with an off switch". Built (`PvpDriver`, `PvpRoam.Drives`):
+  unless the player's own character is one of those (a Healer: with Pacification its most trained line) or it has
+  said `/8v8 drive off` (kept, `PvpPlayerSetting.Drive`), its group goes from point to point of its zone as a
+  guild does (`Wander`), follows its driver on the road as a group of bots does (`PvpFormation.DriverOf`, now in
+  the owner's order for every group), and takes on what it meets by the rules a team of bots has and never adds;
+  what the player strikes or calls is the group's all the same, and every call holds. The driver says "Stick,
+  moving out: <place>.", stands for a player more than 1,500 units behind until it is within 800 ("Waiting for
+  you"), stays by one that is down, rests the group after a fight ("Resting here."), and waits thirty seconds
+  after the group has stood up. The player's group is never sent back to its start by itself.
+- [x] **M13.23** (M) An evening lasts as long as its player plays: guilds come back, the pool is bigger, and up to
+  twenty groups a realm. *Built and run on the scrim copy 2026-11-25.* The owner, an hour and a half into an
+  evening of twelve groups a realm: "/8v8 who shows: Emain : 4 albion, 1 midgard, Odin's : 0, Pennine : 0, Thid:
+  1 albion". In that evening 67 guilds had logged off (38 at the end of their 25 to 50 minutes, 29 after three
+  wipes) and 37 had come out in their place: a guild came out only if it had not been out that evening, and the
+  pool had 24 a realm. Then: "We could stress test and add more guilds and have a bigger pool". Built: a guild
+  that logged off ten minutes ago or more comes out again when no fresh one is left (`PvpTeamPool.NextOut`,
+  `ComesBack`), and a place nobody could be found for waits and is filled when somebody can come (`Vacant`);
+  22 more guild names a realm (48); a pool of three evenings' worth (`PoolFor`: 36 a realm for twelve groups);
+  the most groups a realm 20 (`MostGroups`; 16 before). Stress on the scrim copy, eight minutes each at low
+  priority: 16 groups a realm (48 teams) game loop at 91% of its rate, 20 (60 teams) 90%, 24 (72 teams) 84% and
+  once at 8% for ten seconds; no fault in any; memory 2 GB in all three. `scrim_test.py` now tells the load and
+  the coming and going, and takes `--pool` and `--pool-size`. An evening of sixty minutes with a pool of sixteen a
+  realm: 38 guilds logged off and 38 came out in their place, 26 of them for a second time; 36 of 36 teams out at
+  the end, 229 fights, no fault. That evening had one team of the 8v8 zone with two groups on it for 78 seconds
+  (89 of 9,622 team-samples): a group that stood by a fight was caught by a spell for an area of that fight, and
+  the two took each other on. Since then, in a zone where nobody adds, a bot attacks a group only once it has
+  struck one of its members, as a player does.
+- [x] **M13.22** (S) A player that has left the game since is known by its training. *Built 2026-11-25; automated
+  tests only: it shows at a login.* The owner, of its Albion group: "The bot cleric, which heals is it using ?". Two
+  single heals, and it was the wrong Cleric: the owner's own is trained as the Enhancement build, and its companion
+  was a second Enhancement Cleric, the group without its Rejuvenation Cleric. The build a player was made ready as
+  is remembered until it leaves the game; after that the first build of its class was left out of its companions,
+  whichever the player was. Now the build its own training is nearest to (`PvpPlayerReady.BuildOf`). Open: that
+  companion cast no group heal and no spread heal in forty minutes, which the owner cast 113 times with the same
+  training.
+- [x] **M13.21** (S) A bot on ground it cannot leave is put beside it, and a fight nobody strikes in is over. *Built
+  and run on the scrim copy 2026-11-25; the case itself did not come up in the evening of bots.* The owner, in
+  Thidranki: "I think I found a bug. My latest fight vs hibs. 2 druids are stuck in a tree and my alb team still
+  consider being in fight". The recording: a Druid and a Warden of a bad Hibernian group stood on one spot (18979,
+  30483) for the whole fight; the owner's seven stood 1,100 to 1,600 units off for two and a half minutes with no
+  enemy known to them and no blow struck, while the two raised three of their dead. Probed on the scrim copy: from
+  that spot one gets 0 to 74 units in each of eight directions (a patch of the navmesh round a tree), the way to
+  it from outside ends 29 units short, and the navmesh's line of sight does not cross the gap. Of 2,297 points of a
+  grid of 700 over Thidranki two were on such ground. Built: every five seconds a bot that has not moved is asked
+  whether it can walk anywhere; one that cannot is put where the way from its team's start toward it ends, when
+  that is within 400 units (`PvpTrapped`; here 29 and 51); and a fight in which neither side has had a member in
+  combat for 30 seconds is over, whoever stands near (`PvpRoam.HasGoneCold`). In the scrim evening no bot was put
+  anywhere (none was trapped, and none that was not was taken for it). Not known: how the two got onto the patch.
+- [x] **M13.20** (S) A bot does not cast through a hill. *Built and run on the scrim copy 2026-11-25; not seen in
+  a client.* The owner, in Thidranki: "Could there be something to do for bot to have Line of Sight issue? Eld
+  killed a warrior by casting through a hill". A bot's spell on a player is checked by that player's client; a
+  bot's spell on a bot was checked on the navmesh alone, which a wall stops and a hill that can be walked over does
+  not. The sight over the ground that spotting has had since M4.2 (`PvpSight`) is now asked for a cast, a heal and
+  a cure too (`ClearForACast`): the ground must stand 30 units above the line from eyes to eyes, and where it does
+  the place is asked again for a floor beneath the line, so that two under a bridge see each other. Probed on the
+  scrim copy's ground: across the hill by Hibernia's start in Emain Macha the navmesh saw through ground 350 above
+  the line, the cast is now hidden; in Thidranki, of 149 random pairs 1,500 apart that the navmesh let through,
+  the ground hides 26 (17%), and 5 of 152 at 800. In two scrim evenings casters walked no more than before (0.34
+  decisions to approach a team-second, against 0.49 and 0.35) and spell damage stayed where it was. Not covered:
+  trees and tents, which are not in the navmesh; a spell begun in sight lands on one that has since gone behind
+  the hill. The first of the two evenings found a fault of the game's own casting code: a spell handler ticked
+  once more after its caster had let go of it (`CastingComponent.StartDuringCastLosCheck`), a null reference for
+  which the service takes the caster out of the world; guarded, for every caster.
+- [x] **M13.19** (S) A group with no assist does not stand before sleepers. *Built 2026-11-25; an evening of bots on
+  the scrim copy, where the case itself did not come up.* The owner, of a fight in Thidranki: "we were 5 out of 5
+  mezzed. The mid team just stayed idle waiting for mezz to wear off instead of picking a target and killing it".
+  The recording has it twice in that fight: a bad Midgard group, eight up and none asleep, struck no blow for ten
+  seconds with six sleeping enemies before it, and for five seconds with three; its fighters had no target. A bad
+  group has no kill target (`PvpKillWeights.Assists`), and a member without one attacked only whoever had made it
+  angry; its casters marked every sleeping target down below what is worth a cast. Built: a damage dealer of such a
+  group with no target of its own takes the nearest enemy, an awake one before a sleeping one, and keeps it while
+  it lives (`PvpKillTarget.TakesTheNearest`, `Nearest`); a caster's spell is not marked down for a sleeping target
+  when every enemy alive is asleep (`PvpActionChoice.SleepCounts`). In the scrim evening bad groups took the
+  nearest 509 times (ten of them a sleeper), and no bad group had every living enemy asleep, so the very case was
+  not seen. Their damage per team-second was 126, against 124 and 97 in the two evenings before: no change that
+  shows. The builds and tests of this day also ran at full priority beside the owner's game and took its server's
+  loop to 62% once (12:32); `scrim_test.py` now runs everything below normal priority.
+- [x] **M13.18** (S) In the 8v8 zone and the clean zones no fight begins beside another. *Built and run on the scrim
+  copy 2026-11-25.* The owner, in Thidranki: "I feel like we had 2 fg mids". The recording: its fight with one bad
+  Midgard group and the fight of a bad Hibernian group with the other began a second apart, 600 units from each
+  other, and stayed within 2,200 for two and a half minutes; all 21,080 points of damage on the owner's group were
+  the one group's. Before the change 508 of some 2,000 team-samples of fighting in Thidranki were beside another
+  fight in the owner's evening, 208 of 652 in a scrim evening. Built (`PvpRoam.OneFightWithin`, 4,500,
+  `StartsBesideAFight`): a group starts on nobody while a third group that is in a fight, or has picked or been
+  picked, is within that of it or of the group it would start on. After: 0 of 1,008 and 0 of 540 in two scrim
+  evenings (`scrim_test.py` counts it). Two fights can still come together once they are on.
+- [x] **M13.17** (S) A build is tried on the scrim copy in one go, also while the owner plays. *Built and run
+  2026-11-25.* The owner, having twice closed the game and waited for a build to be tried: "we should automate
+  automatic deployment to scrim and test instead of waiting for me to shutdown D:\OfflineDAoC then testing on scrim
+  and waiting". Built: `source/tools/scrim_test.py` (build, unit tests, install on the scrim copy with a backup,
+  its server on the test ports, an evening of bots, the log and the recording read, everything stopped, PASSED or
+  FAILED, kept in `scrim-test-last.txt`); `scrim_server.py start --test` (ports 10310 and 10410: no client connects
+  there, an evening of bots needs none); `deploy_scrim.ps1` holds an install back only for a server or a client of
+  the folder it installs into. First run beside the owner's own evening on the play install (36 teams there, 36 on
+  the scrim copy): passed, no fault; the play server's game loop ran at 95.8% of its rate while the test ran, the
+  scrim copy's at 95.8% (96.1% alone at noon). In that run the 8v8 zone and a clean zone (Uppland) had no team
+  with two enemy groups on it in 768 team-samples of fighting: the first run of M13.16's clean-zone rule on a
+  server.
 - [x] **M13.16** (M) More groups, fewer of them bad, and clean zones where nobody adds. *Built 2026-11-25;
   automated tests only; not run on a server.* The owner, an hour and a half into the play install: "I feel like
   the population is low and, from what I've seen, mostly bad groups running 2fg or more. I have yet to find a clean

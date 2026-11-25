@@ -25,6 +25,23 @@ namespace DOL.GS
         /// build the player was made ready as, else the first build of the player's class, else
         /// the last place.
         /// </summary>
+        /// <summary>
+        /// The build a character is, by what it has trained: of the given builds (those of its
+        /// class in its group), the one whose lines are nearest to its own, line by line; the
+        /// first of them when two are as near. Null when there is none.
+        /// <para>
+        /// The build a player was made ready as is remembered until it leaves the game
+        /// (<see cref="BuildProperty"/>). After that the first build of its class was left out
+        /// of its companions, whichever the player was: the owner's Cleric, trained as the
+        /// Enhancement build, came back in to a second Enhancement Cleric and no Rejuvenation
+        /// Cleric at all (2026-11-25: "The bot cleric, which heals is it using ?").
+        /// </para>
+        /// </summary>
+        public static string BuildOf(IEnumerable<PvpBuild> builds, Func<string, int> trained) =>
+            builds?.Where(build => build != null).Select((build, index) => (build, index))
+                .OrderBy(pair => pair.build.Lines.Sum(line => Math.Abs(line.Level - trained(line.Spec)))).ThenBy(pair => pair.index)
+                .Select(pair => pair.build.Id).FirstOrDefault();
+
         public static int SlotOf(IReadOnlyList<string> builds, eCharacterClass playerClass, string readyBuild)
         {
             int own = readyBuild == null ? -1 : builds.ToList().FindIndex(id => string.Equals(id, readyBuild, StringComparison.OrdinalIgnoreCase));

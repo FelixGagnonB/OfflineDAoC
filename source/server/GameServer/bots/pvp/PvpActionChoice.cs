@@ -621,10 +621,18 @@ namespace DOL.GS
                 score += weights.OnAssignedTarget;
             if (soft && !option.Interrupted)
                 score += weights.TargetIsFree + (option.Casting ? weights.InterruptsACast : 0);
+            // (Not when every enemy is asleep: then there is nobody else to hit, and the option is not marked. SleepCounts.)
             if (option.Mezzed && !option.IsKill)
                 score += weights.TargetMezzed;
             return (int)Math.Round(score);
         }
+
+        /// <summary>
+        /// Whether a sleeping target counts against hitting it: not for a spell that puts to
+        /// sleep (it is judged by itself), and not when every enemy alive is asleep, where
+        /// leaving the sleepers alone is doing nothing (PvpKillTarget.TakesTheNearest).
+        /// </summary>
+        public static bool SleepCounts(bool targetIsAsleep, bool spellIsAMez, bool everyEnemyIsAsleep) => targetIsAsleep && !spellIsAMez && !everyEnemyIsAsleep;
 
         /// <summary>
         /// True when an option is worth the turn. What needs a walk is ranked below what does

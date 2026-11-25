@@ -446,7 +446,13 @@ namespace DOL.AI.Brain
             if (BotBody?.IsPvpBot != true || BotBody.PvpAreaHeals is not { Count: > 0 } heals || Body.Group == null)
                 return null;
             List<GameLiving> members = Body.Group.GetMembersInTheGroup().Where(member => member.IsAlive && InSupportReach(member)).ToList();
-            if (!PvpHealPlan.SeveralHurt(members.Select(member => (int)member.HealthPercent), PvpSquad?.Trained != null, PvpWeights.Of(BotBody).Heal))
+            // (The owner's rule: four or more damaged, or the one in need is out of sight. PvpHealWeights.SpreadHealMinHurt.)
+            PvpWeights its = PvpWeights.Of(BotBody);
+            var nav = PathfindingProvider.Instance;
+            var here = new Vector3(Body.X, Body.Y, Body.Z);
+            bool hidden = its.Heal.AreaHealWhenOutOfSight && members.Any(member => member != Body && member.HealthPercent < its.Heal.HealBelowPercent &&
+                !(nav.HasLineOfSight(Body.CurrentZone, here, new Vector3(member.X, member.Y, member.Z), nav.DefaultFilters) && PvpSight.ClearForACast(Body, member, its)));
+            if (!PvpHealPlan.AreaHealIsRight(PvpHealPlan.SeveralHurt(members.Select(member => (int)member.HealthPercent), PvpSquad?.Trained != null, its.Heal), hidden, its.Heal))
                 return null;
             List<Spell> ready = heals.Where(CheckHealSpell).ToList();
             int best = PvpHealPlan.BestAreaHeal(members.Select(member => member.MaxHealth - member.Health).ToList(),
@@ -755,7 +761,9 @@ namespace DOL.AI.Brain
                     {
                         GameLiving member = friends[friend];
                         int away = (int)Body.GetDistanceTo(member);
-                        bool visible = nav.HasLineOfSight(Body.CurrentZone, here, new Vector3(member.X, member.Y, member.Z), nav.DefaultFilters);
+                        // (The navmesh, and the ground between the two: a hill hides. PvpSight.ClearForACast.)
+                        bool visible = nav.HasLineOfSight(Body.CurrentZone, here, new Vector3(member.X, member.Y, member.Z), nav.DefaultFilters) &&
+                                       PvpSight.ClearForACast(Body, member, weights);
                         int classId = member switch
                         {
                             GamePlayer { CharacterClass: { } playerClass } => playerClass.ID,
@@ -784,7 +792,8 @@ namespace DOL.AI.Brain
                         continue;
                     }
                     if (!sight.TryGetValue(enemy, out bool seen))
-                        sight[enemy] = seen = nav.HasLineOfSight(Body.CurrentZone, here, new Vector3(enemy.X, enemy.Y, enemy.Z), nav.DefaultFilters);
+                        sight[enemy] = seen = nav.HasLineOfSight(Body.CurrentZone, here, new Vector3(enemy.X, enemy.Y, enemy.Z), nav.DefaultFilters) &&
+                                              PvpSight.ClearForACast(Body, enemy, weights);
                     // Out of range or behind something: still an option, at the price of the walk.
                     int walk = Math.Max(distance > range ? distance - range + 50 : 0, seen ? 0 : 300);
                     // Where that walk would end, and how many enemy fighters that are free to act would be beside it there.
@@ -852,7 +861,8 @@ namespace DOL.AI.Brain
                     options.Add(new PvpOption(kind, id, PvpMember.ArchetypeOf(enemy),
                         enemy == kill && !(kind == PvpActionKind.Pet && PvpSquad?.IsCalledAssist(enemy) == true),
                         enemy == PvpAssignedTarget || enemy == PvpDutyTarget, enemy.HealthPercent, hasEffect,
-                        PvpNotice.SeesCasting(Body, enemy), enemy.IsBeingInterrupted, !mez && enemy.IsMezzed, Body.ManaPercent, cost, walk, caught, catchesKill, wakes,
+                        PvpNotice.SeesCasting(Body, enemy), enemy.IsBeingInterrupted,
+                        PvpActionChoice.SleepCounts(enemy.IsMezzed, mez, !PvpEnemies.Any(other => other.IsAlive && !other.IsMezzed)), Body.ManaPercent, cost, walk, caught, catchesKill, wakes,
                         instant, PvpActionChoice.IsController(PvpMember.ClassOf(enemy), weights),
                         PvpSquad?.IsPursuer(enemy) == true, PvpSquad?.Order == PvpOrder.Extend, walkDanger,
                         PvpSquad?.IsOnTrained(enemy) == true, walkInsideEdge, killOutOfReach,
@@ -904,7 +914,8 @@ namespace DOL.AI.Brain
                                 continue;
                         }
                         int distance = (int)Body.GetDistanceTo(pet);
-                        bool seen = nav.HasLineOfSight(Body.CurrentZone, here, new Vector3(pet.X, pet.Y, pet.Z), nav.DefaultFilters);
+                        bool seen = nav.HasLineOfSight(Body.CurrentZone, here, new Vector3(pet.X, pet.Y, pet.Z), nav.DefaultFilters) &&
+                                    PvpSight.ClearForACast(Body, pet, weights);
                         options.Add(new PvpOption(kind, targets.Count + index, PvpBuffArchetype.Melee, false, false,
                             pet.HealthPercent, false, false, false, kind == PvpActionKind.Damage && pet.IsMezzed, Body.ManaPercent, cost,
                             Math.Max(distance > range ? distance - range + 50 : 0, seen ? 0 : 300))

@@ -25,8 +25,14 @@ $release = Join-Path $serverRoot 'Release'
 
 function Assert-Stopped {
     # The launcher may stay open: it does not hold the server files. The server and the game client do.
-    if (Get-Process CoreServer, game, camelot, connect -ErrorAction SilentlyContinue) {
-        throw 'Close the server and the game client first.'
+    # Only those of this game folder: the game that is played does not hold the scrim copy's files, nor the
+    # other way round, so a build goes to the scrim copy while the other game is being played. (A process
+    # whose folder cannot be read counts as this folder's.)
+    $root = (Split-Path $Runtime -Parent).TrimEnd('\') + '\'
+    $held = @(Get-Process CoreServer, game, camelot, connect -ErrorAction SilentlyContinue |
+        Where-Object { -not $_.Path -or $_.Path.StartsWith($root, [StringComparison]::OrdinalIgnoreCase) })
+    if ($held.Count -gt 0) {
+        throw "Close the server and the game client of $root first ($(($held | ForEach-Object { $_.Name + ' ' + $_.Id }) -join ', '))."
     }
 }
 function Get-Hash([string]$path) { (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash }

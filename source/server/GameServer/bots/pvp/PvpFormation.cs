@@ -76,8 +76,10 @@ namespace DOL.GS
         /// </summary>
         public static GameBot DriverOf(IReadOnlyList<GameBot> members)
         {
+            // (In the owner's order since 2026-11-25: the Bard; the Sorcerer, then the Minstrel; the Pacification Healer, then the Skald. PvpDriver.Rank.)
             List<GameBot> alive = members.Where(member => member.IsAlive).ToList();
-            return alive.FirstOrDefault(member => DrivesByClass(PvpMember.ClassOf(member)))
+            return alive.Where(member => PvpDriver.Rank(PvpMember.ClassOf(member), member.PvpBuild?.Id) >= 0)
+                       .OrderBy(member => PvpDriver.Rank(PvpMember.ClassOf(member), member.PvpBuild?.Id)).FirstOrDefault()
                    ?? alive.FirstOrDefault(member => !PvpMember.IsFighter(member))
                    ?? alive.FirstOrDefault();
         }

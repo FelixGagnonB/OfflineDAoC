@@ -23,7 +23,7 @@ namespace DOL.GS
 
         /// <summary>
         /// The evening begins when a player with an 8v8 character enters the game
-        /// (bots/pvp/PvpEveningStart.cs), with this many groups of each realm (16 at the most).
+        /// (bots/pvp/PvpEveningStart.cs), with this many groups of each realm (PvpTeamPool.MostGroups at the most).
         /// Twelve since 2026-11-25 (eight before): the owner, "I feel like the population is low".
         /// </summary>
         public bool EveningAtLogin { get; set; } = true;

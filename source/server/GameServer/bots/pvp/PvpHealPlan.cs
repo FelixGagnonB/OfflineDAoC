@@ -132,8 +132,21 @@ namespace DOL.GS
         /// asleep, interrupted or dead, it turns to healing".
         /// </summary>
         public int BackupHealsBelowWhenHealersDown { get; set; } = 95;
-        /// <summary>A spread or group heal is cast when at least this many members in reach are hurt. 0 = never.</summary>
-        public int SpreadHealMinHurt { get; set; } = 3;
+        /// <summary>
+        /// A spread or group heal is cast when at least this many members in reach are hurt. 0 = never.
+        /// Four since 2026-11-25, and whether or not somebody is trained, and also for a member that
+        /// is out of the healer's sight: the owner, who played healers, asked when it reaches for
+        /// them, "I usually use either when 4+ members are damage or I am not having LoS to heal as
+        /// either group or spreadheal requires LoS" (they need none). Until then it was three hurt
+        /// and nobody trained; in the owner's evening its companion Cleric cast neither once, and
+        /// over all groups the bot Clerics cast one for 29 of their 1,422 heals where the owner cast
+        /// one for 139 of 387.
+        /// </summary>
+        public int SpreadHealMinHurt { get; set; } = 4;
+        /// <summary>The heal for several is cast with somebody trained too (false: the trained member has every heal singly, as until 2026-11-25).</summary>
+        public bool SpreadHealWhenTrained { get; set; } = true;
+        /// <summary>The heal for several is cast for a hurt member the healer does not see: it needs no line of sight.</summary>
+        public bool AreaHealWhenOutOfSight { get; set; } = true;
         /// <summary>A member counts as hurt, for the spread heal, below this health.</summary>
         public int SpreadHealBelowPercent { get; set; } = 80;
         /// <summary>A member is a patient while its health, with the heals already on their way, is below this percent.</summary>
@@ -216,8 +229,16 @@ namespace DOL.GS
         /// once, and nobody has the enemy's assist train on it (that member gets the single heals).
         /// </summary>
         public static bool SeveralHurt(IEnumerable<int> healthPercents, bool someoneTrained, PvpHealWeights weights) =>
-            weights.SpreadHealMinHurt > 0 && !someoneTrained &&
+            weights.SpreadHealMinHurt > 0 && (!someoneTrained || weights.SpreadHealWhenTrained) &&
             healthPercents.Count(percent => percent < weights.SpreadHealBelowPercent) >= weights.SpreadHealMinHurt;
+
+        /// <summary>
+        /// Whether a heal for several is the heal to cast: several are hurt at once
+        /// (<see cref="SeveralHurt"/>), or a member that needs a heal is out of the healer's
+        /// sight, where a heal on that member alone cannot be cast and one for the group can.
+        /// </summary>
+        public static bool AreaHealIsRight(bool severalHurt, bool aPatientIsOutOfSight, PvpHealWeights weights) =>
+            weights.SpreadHealMinHurt > 0 && (severalHurt || weights.AreaHealWhenOutOfSight && aPatientIsOutOfSight);
 
         /// <summary>
         /// Which heal for several to cast: the one that restores the most health for each point

@@ -992,6 +992,9 @@ namespace DOL.GS
             return spoke;
         }
 
+        /// <summary>A member says a line in group chat to the group's players, no sooner than <paramref name="every"/> milliseconds after the last of its kind (the driver's "Stick, moving out").</summary>
+        public void Tell(GameLiving speaker, string kind, string text, int every = 0) => Call(speaker, kind, text, every);
+
         /// <summary>A player of the group calls a rest (PvpCalls.PlayerRestSeconds).</summary>
         public void CallRest(GameLiving caller)
         {
@@ -1448,6 +1451,21 @@ namespace DOL.GS
                         inItsRow = Vector2.Distance(new Vector2(bot.X, bot.Y), new Vector2(stand.X, stand.Y)) <= kite.AtItsPlaceWithin;
                     }
                     fallsBack = fallsBack && fallBackTo != null;
+                }
+                // A group with no assist: a damage dealer with no target of its own takes the nearest enemy, an awake one
+                // before a sleeping one, and keeps it while it lives (PvpKillTarget.TakesTheNearest).
+                if (aim == null && !fallsBack && FightStarted && bot.IsAlive && role == PvpRole.Assist && onDuty == null && alive.Count > 0)
+                {
+                    GameLiving before = brain.PvpAssignedTarget is { IsAlive: true } kept && alive.Contains(kept) ? kept : null;
+                    bool ownTarget = bot.TargetObject is GameLiving { IsAlive: true } has && has != before && alive.Contains(has);
+                    if (PvpKillTarget.TakesTheNearest(PvpWeights.Of(bot).Kill.Assists, ownTarget))
+                    {
+                        int taken = PvpKillTarget.Nearest(alive.Select(enemy => ((int)bot.GetDistanceTo(enemy), enemy.IsMezzed)).ToList(),
+                            before == null ? -1 : alive.IndexOf(before), PvpWeights.Of(bot).Kill.MaxDistance);
+                        aim = taken >= 0 ? alive[taken] : null;
+                        if (aim != null && aim != before)
+                            PvpRecorder.Decision(bot, new { kind = "TakesNearest", d = aim.Name, score = 0, asleep = aim.IsMezzed }, [], null);
+                    }
                 }
                 if (fallsBack)
                 {

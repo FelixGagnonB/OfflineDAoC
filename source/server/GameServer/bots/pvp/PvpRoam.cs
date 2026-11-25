@@ -117,6 +117,16 @@ namespace DOL.GS
         public bool Rested;
         /// <summary>When its last fight was over (0: it has had none since it stood up).</summary>
         public long FoughtUntil;
+        /// <summary>When it logged off (PvpRoam.Rotate): it may come out again later (PvpTeamPool.ComesBack).</summary>
+        public long LeftAt;
+        /// <summary>The player's group with a companion at the wheel (PvpDriver): it roams and picks its fights as a group of bots does.</summary>
+        public bool Driven;
+        /// <summary>The driver stands for its player; it has said it moves out; it has said it rests; and the zone and the standing-up it was last set on its way in.</summary>
+        public bool DriverWaits, DriverMoves, DriverRests;
+        public PvpRoamMap DrivenMap;
+        public long DrivenSince;
+        /// <summary>When one of its members was last in combat (PvpRoam.HasGoneCold).</summary>
+        public long LastCombatTick;
         /// <summary>In the 8v8 zone: the enemy group it has picked to fight, which is then nobody else's (PvpRoam.MayPick).</summary>
         public PvpRoamTeam Claim;
         /// <summary>In the 8v8 zone: the enemy groups it is leaving to rest after their fight.</summary>
@@ -457,6 +467,64 @@ namespace DOL.GS
         /// <summary>In the 8v8 zone a group that waits for a rested group starts no fight while it, or the other, is getting over one.</summary>
         public static bool HoldsOff(bool waitsForARestedGroup, bool itIsRecovering, bool theOtherIsRecovering) =>
             waitsForARestedGroup && (itIsRecovering || theOtherIsRecovering);
+
+        /// <summary>
+        /// Whether a companion is at the wheel of the player's group this second (PvpDriver), and
+        /// what that takes: when it takes the wheel, in a zone the group has come to, or after
+        /// the group has stood up again, the group is put on its way to the nearest point of the
+        /// zone, from where it goes on as a guild does.
+        /// </summary>
+        private static bool Drives(PvpRoamTeam team)
+        {
+            bool drives = team.Leader is { ObjectState: GameObject.eObjectState.Active } player && !team.Absent &&
+                          PvpDriver.BotDrives(PvpDriver.Said(player), PvpDriver.PlayerIsADriver(player), team.Team.Bots.Any(bot => bot.IsAlive));
+            if (drives && (!team.Driven || team.DrivenMap != team.Map || team.DrivenSince != team.SpawnedAt))
+            {
+                (double x, double y) = team.Centre();
+                List<(int X, int Y)> points = (team.Map.Places ?? []).Select(place => place.Point).ToList();
+                (int X, int Y) first = points.Count > 0 ? points.OrderBy(point => Math.Pow(point.X - x, 2) + Math.Pow(point.Y - y, 2)).First() : team.Start.RouteOf(1)[0];
+                (team.Entry, team.CameFrom, team.ArrivedAt, team.DrivenMap, team.DrivenSince) = (first, null, 0, team.Map, team.SpawnedAt);
+                (team.Team.Route, team.Team.Waypoint) = ([first], 0);
+                (team.DriverWaits, team.DriverMoves, team.DriverRests) = (false, false, false);
+                if (!team.Driven)
+                    Say($"{team.Name} has one of its own at the wheel", new { what = "driven", team = team.Name });
+            }
+            else if (!drives && team.Driven)
+            {
+                (team.Entry, team.DrivenMap) = (null, null);
+                Say($"{team.Name} has its player at the wheel", new { what = "undriven", team = team.Name });
+            }
+            team.Driven = drives;
+            return drives;
+        }
+
+        /// <summary>
+        /// A fight in which nobody has been in combat for this long is over, whoever still stands
+        /// near. The owner, 2026-11-25: "2 druids are stuck in a tree and my alb team still
+        /// consider being in fight". Its group stood two and a half minutes "fighting" a group
+        /// whose last two it could not see or reach, and no blow was struck: a fight ended only
+        /// when no enemy had been near for twelve seconds, and they were 1,200 units away.
+        /// </summary>
+        public const int ColdAfterSeconds = 30;
+
+        /// <summary>See <see cref="ColdAfterSeconds"/>.</summary>
+        public static bool HasGoneCold(long millisecondsSinceAnyoneWasInCombat) => millisecondsSinceAnyoneWasInCombat > ColdAfterSeconds * 1_000L;
+
+        /// <summary>
+        /// In the 8v8 zone no fight begins beside another: a group starts on nobody while a third
+        /// group that is in a fight, or has picked a group or been picked, is within this of it or
+        /// of the group it would start on. The owner, 2026-11-25, in Thidranki on the first
+        /// evening with the zone: "I feel like we had 2 fg mids". It had: its fight with one
+        /// Midgard group and the fight of a Hibernian group with the other began a second apart
+        /// and 600 to 2,200 units from each other, and stayed so for two and a half minutes. Each
+        /// was one group against one (every point of damage the owner's group took was the one
+        /// group's), and it was sixteen against sixteen to look at, with the disease of the one
+        /// fight landing in the other.
+        /// </summary>
+        public const int OneFightWithin = 4_500;
+
+        /// <summary>See <see cref="OneFightWithin"/>.</summary>
+        public static bool StartsBesideAFight(bool aBusyGroupIsNearUs, bool aBusyGroupIsNearIt) => aBusyGroupIsNearUs || aBusyGroupIsNearIt;
 
         /// <summary>
         /// In the 8v8 zone a group may pick an enemy group for its own when neither of the two
@@ -824,6 +892,9 @@ namespace DOL.GS
         private static long _lastCall;
         // The guilds that have logged off this evening: their records are written with the others', and they do not come out again.
         private static readonly List<PvpRoamTeam> Gone = [];
+        // The places of guilds that logged off when nobody could come out in their place: filled when somebody can.
+        private static readonly List<PvpRoamTeam> Vacant = [];
+        private static long _vacantTriedAt;
         // With no player: the realm whose chat is written to the log and the recording (roam-start Listener=hibernia), to read it by.
         private static eRealm _listener = eRealm.None;
 
@@ -1158,17 +1229,18 @@ namespace DOL.GS
         public static List<string> RivalLines(GamePlayer viewer)
         {
             List<PvpRoamTeam> teams = _teams;
-            Dictionary<string, PvpRoamTeam> tonight = teams.Concat(Gone).Where(team => team.Guild != null)
-                .GroupBy(team => team.Guild.Id).ToDictionary(same => same.Key, same => same.First());
+            // (A guild that has been out twice this evening: both times.)
+            Dictionary<string, (int WipedByPlayer, int WipedPlayer)> tonight = teams.Concat(Gone).Where(team => team.Guild != null)
+                .GroupBy(team => team.Guild.Id).ToDictionary(same => same.Key, same => (same.Sum(team => team.WipedByPlayer), same.Sum(team => team.WipedPlayer)));
             var lines = new List<string>();
             foreach (PvpGuildTeam guild in PvpTeamPool.Load(AppContext.BaseDirectory, _pool ?? PvpTeamPool.World)
                          .Where(guild => viewer == null || guild.ToRealm() != viewer.Realm))
             {
-                tonight.TryGetValue(guild.Id, out PvpRoamTeam now);
-                int wiped = guild.WipedByPlayer + (now?.WipedByPlayer ?? 0), wipedYou = guild.WipedPlayer + (now?.WipedPlayer ?? 0);
+                tonight.TryGetValue(guild.Id, out (int WipedByPlayer, int WipedPlayer) now);
+                int wiped = guild.WipedByPlayer + now.WipedByPlayer, wipedYou = guild.WipedPlayer + now.WipedPlayer;
                 if (wiped + wipedYou == 0)
                     continue;
-                lines.Add(RivalLine(guild.Guild, NameOf(guild.ToRealm()), wiped, now?.WipedByPlayer ?? 0, wipedYou, now?.WipedPlayer ?? 0));
+                lines.Add(RivalLine(guild.Guild, NameOf(guild.ToRealm()), wiped, now.WipedByPlayer, wipedYou, now.WipedPlayer));
             }
             return lines.OrderByDescending(line => line.Length).ToList();
         }
@@ -1491,7 +1563,7 @@ namespace DOL.GS
                     _trialLevel = trial;
                     if (prime > 0)
                     {
-                        List<PvpGuildTeam> pool = PvpTeamPool.LoadOrCreate(AppContext.BaseDirectory, PvpTeamPool.World, Math.Max(16, prime * 2), Random.Shared,
+                        List<PvpGuildTeam> pool = PvpTeamPool.LoadOrCreate(AppContext.BaseDirectory, PvpTeamPool.World, PvpTeamPool.PoolFor(prime), Random.Shared,
                             PvpWeights.Current.Real.GuildsBeginAtTheBottom);
                         // What the player's next evening begins with by itself (PvpEveningStart): this zone, this many groups, this line-up.
                         // (An evening its player came into standing in the 8v8 zone is not one that begins there the next time.)
@@ -1701,6 +1773,7 @@ namespace DOL.GS
             CalledOut.Clear();
             _lastCall = 0;
             Gone.Clear();
+            Vacant.Clear();
             _timer?.Dispose();
             _timer = new Timer(_ => NpcService.Instance.Post(Tick, 0), null, 1_000, 1_000);
             return Status();
@@ -1725,11 +1798,12 @@ namespace DOL.GS
             // What each guild did this evening goes on its record.
             if (Interlocked.Exchange(ref _pool, null) is { } pool)
                 PvpTeamPool.Record(AppContext.BaseDirectory, pool, teams.Concat(Gone).Where(team => team.Guild != null && team.ComesOutAt <= GameLoop.GameLoopTime)
-                    .GroupBy(team => team.Guild.Id).ToDictionary(same => same.Key, same => new PvpEvening(same.First().Fights, same.First().Kills,
-                        same.First().Deaths, same.First().Wipes, same.First().WipedByPlayer, same.First().WipedPlayer)));
+                    .GroupBy(team => team.Guild.Id).ToDictionary(same => same.Key, same => new PvpEvening(same.Sum(team => team.Fights), same.Sum(team => team.Kills),
+                        same.Sum(team => team.Deaths), same.Sum(team => team.Wipes), same.Sum(team => team.WipedByPlayer), same.Sum(team => team.WipedPlayer))));
             foreach (PvpRoamTeam team in Gone)
                 PvpArena.Remove(team.All);
             Gone.Clear();
+            Vacant.Clear();
         }
 
         /// <summary>A team of bots comes into the world near its start: a guild with the realm points of its kind and its name under each member.</summary>
@@ -1886,6 +1960,12 @@ namespace DOL.GS
                         }
                         if (team.Absent || !inTheWorld)
                             continue;
+                    }
+                    // A member on ground it cannot leave (a patch of the navmesh round a tree) is put beside it (PvpTrapped).
+                    foreach (GameBot bot in team.Team.Bots)
+                    {
+                        if (PvpTrapped.Free(bot, team.Start.Point, now))
+                            Say($"{bot.Name} of {team.Name} is put off ground it could not leave", new { what = "freed", team = team.Name, n = bot.Name, x = bot.X, y = bot.Y });
                     }
                     // Just stood up, and nobody met yet: whole while the buffs go on (TopsUp).
                     if (team.SpawnedAt != 0 && now - team.SpawnedAt < WholeAfterStandingUpSeconds * 1_000L)
@@ -2072,9 +2152,15 @@ namespace DOL.GS
             }
 
             // The teams of another realm that are near, and which of them it is fighting.
+            // Who is at the wheel: the player, or (PvpDriver) one of its seven; nobody's, for a team of bots. With a companion
+            // at the wheel the player's group roams and picks its fights as a group of bots does.
+            bool driven = Drives(team);
+            GamePlayer wheel = driven ? null : team.Leader;
             List<PvpRoamTeam> others = teams.Where(other => other.Realm != team.Realm && other.Alive > 0 && !other.Reforming && Near(team, other, 9_000)).ToList();
             team.Quiet = others.Count == 0 && team.ContactTick == 0;
             bool inCombat = team.Team.Members.Any(member => member.IsAlive && member.InCombat);
+            if (inCombat)
+                team.LastCombatTick = now;
             // The 8v8 zone (EightZone): nobody adds, a group picks one enemy group, and a group that has just fought is left to rest.
             // (And the clean zones of an evening, PvpRealWeights.CleanZonesHaveNoAdds.)
             bool eightOnly = _eight != null && team.Map == _eight || Prime && real.CleanZonesHaveNoAdds && team.Map.Crowd == PvpZoneCrowd.Clean;
@@ -2093,7 +2179,9 @@ namespace DOL.GS
                 teams.Any(third => third != one && third != but && third.Claim == one && third.Alive > 0 && !third.Reforming && third.Map == one.Map);
             if (team.LetsRest.Count > 0)
                 team.LetsRest.RemoveWhere(other => !eightOnly || !others.Contains(other) || !Recovering(other));
-            team.Fighting.RemoveWhere(other => other.Alive == 0 || !Near(team, other, 6_000));
+            // (Or the fight has gone cold: neither side has had a member in combat for half a minute. HasGoneCold.)
+            team.Fighting.RemoveWhere(other => other.Alive == 0 || !Near(team, other, 6_000) ||
+                                               HasGoneCold(now - Math.Max(team.LastCombatTick, other.LastCombatTick)));
             team.ComingSeen.RemoveWhere(other => other.Alive == 0 || team.Fighting.Count == 0 || !Near(team, other, 9_000));
             foreach (PvpRoamTeam other in others)
             {
@@ -2104,14 +2192,15 @@ namespace DOL.GS
                 bool onAFight = ComesOnAFight(theirFight.Count > 0, theirFight.Any(team.Fighting.Contains), team.Fighting.Contains(other));
                 // (The player's own team does what the player does.)
                 // (A team that is in a fight of its own has no eyes for another: it draws when it is free.)
-                if (onAFight && team.Leader == null && team.Fighting.Count == 0 && !team.Draws.ContainsKey(other))
+                if (onAFight && wheel == null && team.Fighting.Count == 0 && !team.Draws.ContainsKey(other))
                 {
                     // What it drew for another team of the same fight holds for this one.
                     bool? drawn = team.Draws.Where(draw => theirFight.Contains(draw.Key)).Select(draw => (bool?)draw.Value).FirstOrDefault();
                     // (A guild adds as its kind does: a bad group always, a decent one never.)
                     // (One that hunts packs does not add either: a pack somebody is on already is theirs.)
                     // (In the 8v8 zone nobody does, whatever its kind and whatever it has against the player.)
-                    bool joins = drawn ?? (!eightOnly && (PaysBack(team.AddedOnByPlayer, other.Leader != null || theirFight.Any(third => third.Leader != null)) ||
+                    // (Nor does the player's group with a companion at the wheel: it is a group that does not add.)
+                    bool joins = drawn ?? (!eightOnly && !driven && (PaysBack(team.AddedOnByPlayer, other.Leader != null || theirFight.Any(third => third.Leader != null)) ||
                                                           Joins(team.Profile?.AddChancePercent ?? real.AddChancePercent, Random.Shared.Next(100))));
                     team.Draws[other] = joins;
                     if (drawn == null)
@@ -2142,7 +2231,9 @@ namespace DOL.GS
             // (A player who only looks at one of them is not attacking: a player counts once it is in combat.)
             // (A player attacks a group when it has struck one of its members: a target alone is a look. PlayerPicks.)
             bool Attacks(PvpRoamTeam other) => other.Team.Members.Any(member => member.IsAlive && member.TargetObject is GameLiving aimed &&
-                (member is not GamePlayer || aimed.attackComponent.AttackerTracker.ContainsAttacker(member)) &&
+                // (In a zone where nobody adds a bot too attacks only once it has struck: one that looks at a member of a fight it
+                // stands by, after a spell of that fight has spilled on it, has not come into it. 2026-11-25, Thidranki, scrim.)
+                (member is not GamePlayer && !eightOnly || aimed.attackComponent.AttackerTracker.ContainsAttacker(member)) &&
                 team.Team.Members.Contains(aimed) && member.IsWithinRadius(aimed, 2_000));
             // The enemy group the player has picked for its own (PlayerPicks): its target, or the one it has called on.
             bool Picks(PvpRoamTeam other)
@@ -2163,7 +2254,7 @@ namespace DOL.GS
             List<PvpRoamTeam> foes = others.Where(other =>
             {
                 // A team that has broken off is let go: a team of bots follows it only so far from where it broke off.
-                if (team.Leader == null && other.Team.Squad is { Leaving: true } gone)
+                if (wheel == null && other.Team.Squad is { Leaving: true } gone)
                 {
                     (double x, double y) = other.Centre();
                     if (!PvpKite.Followed(Math.Sqrt(Math.Pow(x - gone.LeftFrom.X, 2) + Math.Pow(y - gone.LeftFrom.Y, 2)), PvpWeights.Of(team.Team.Bots.FirstOrDefault()).Kite))
@@ -2171,7 +2262,7 @@ namespace DOL.GS
                 }
                 bool attacks = Attacks(other);
                 // An enemy group that comes for its fight is seen before it lands (SeesItComing), and is an enemy from then.
-                if (team.Leader == null && !attacks && (team.ComingSeen.Contains(other) ||
+                if (wheel == null && !attacks && (team.ComingSeen.Contains(other) ||
                         SeesItComing(team.Fighting.Count, team.Fighting.Contains(other), other.Draws.TryGetValue(team, out bool comesForIt) && comesForIt,
                             Near(team, other, AddSeenWithin) && Sees(team, other, AddSeenWithin))))
                 {
@@ -2183,16 +2274,17 @@ namespace DOL.GS
                         Picks(other)))
                     return false;
                 // Already in a fight, a team of bots lets anybody else walk by.
-                if (team.Leader == null && TooBusyFor(team.Fighting.Count, team.Fighting.Contains(other), attacks))
+                if (wheel == null && TooBusyFor(team.Fighting.Count, team.Fighting.Contains(other), attacks))
                     return false;
                 // It does not start on more groups than it has together itself: eight do not walk into sixteen, nor sixteen
                 // into twenty-four. (A bad group does not count: PvpTeamProfile.CountsHeads.)
                 int theirs = Together(other, teams);
                 // (Not in the 8v8 zone, where a group has one group on it at the most whoever stands near.)
-                if (team.Leader == null && !eightOnly && team.Profile?.CountsHeads != false &&
+                if (wheel == null && !eightOnly && team.Profile?.CountsHeads != false &&
                     AvoidsTwo(theirs >= 2, Together(team, teams) >= theirs, team.Fighting.Contains(other), attacks))
                     return false;
-                if (team.Leader is { } leader)
+                // (With a companion at the wheel what the player strikes or calls is the group's all the same; the rest is the driver's.)
+                if (team.Leader != null && (wheel != null || Picks(other)))
                     return PlayerTakesItOn(team.Fighting.Contains(other), attacks, Picks(other));
                 if (PvpRealWeights.LeftAtItsStart(FromItsStart(other), team.Fighting.Contains(other), attacks, real))
                     return false;
@@ -2208,9 +2300,17 @@ namespace DOL.GS
                         Say($"{team.Name} leaves {other.Name} to rest after its fight", new { what = "letrest", team = team.Name, other = other.Name });
                     return false;
                 }
+                // And no fight begins beside another (OneFightWithin): not while a third group that is in a fight, or has
+                // picked or been picked, is near this group or near that one.
+                bool Busy(PvpRoamTeam third) => third != team && third != other && third.Map == team.Map && third.Alive > 0 && !third.Reforming &&
+                    (third.Fighting.Any(fought => fought.Alive > 0) || third.Claim != null || PickedByAThird(third, null));
+                if (!on && StartsBesideAFight(teams.Any(third => Busy(third) && Near(third, team, OneFightWithin)),
+                        teams.Any(third => Busy(third) && Near(third, other, OneFightWithin))))
+                    return false;
                 if (!on && !MayPick(PickedByAThird(other, team), other.Claim != null && other.Claim != team, PickedByAThird(team, other), team.Claim != null && team.Claim != other))
                     return false;
-                if (team.Claim != other)
+                // (Its pick stays its pick while it fights it: a second group that has struck it is fought, and is not its pick.)
+                if (team.Claim != other && !(team.Claim != null && team.Fighting.Contains(team.Claim) && team.Claim.Alive > 0))
                 {
                     team.Claim = other;
                     Say($"{team.Name} picks {other.Name}", new { what = "pick", team = team.Name, other = other.Name, attacked = attacks ? true : (bool?)null });
@@ -2218,7 +2318,7 @@ namespace DOL.GS
                 return true;
             }).ToList();
             // (What the player's group has taken on is the player's pick: no group of bots starts on that one.)
-            if (eightOnly && team.Leader != null)
+            if (eightOnly && wheel != null)
                 team.Claim = foes.FirstOrDefault(team.Fighting.Contains) ?? foes.FirstOrDefault();
             // (A pick it does not go for after all, that group having got to its start, is given up: nobody else is kept from it.)
             else if (eightOnly && team.Claim != null && !foes.Contains(team.Claim))
@@ -2313,7 +2413,7 @@ namespace DOL.GS
                 }
             }
             // The fight is over when no enemy has been near for a while: a fresh squad for the next one.
-            else if (team.ContactTick != 0 && !inCombat && FightIsOver(now - team.LastEnemyNearTick))
+            else if (team.ContactTick != 0 && !inCombat && (FightIsOver(now - team.LastEnemyNearTick) || HasGoneCold(now - team.LastCombatTick)))
             {
                 team.ContactTick = 0;
                 team.FoughtUntil = now;
@@ -2363,7 +2463,7 @@ namespace DOL.GS
             // After a fight a team of bots rests when somebody is low, before it walks on (PvpRealWeights.TeamRestsBelowPercent).
             // It first walks off its road to a place out of the way, where the ground has one (PvpRealWeights.RestsOffTheRoadBy).
             bool resting = false;
-            if (team.Leader == null)
+            if (wheel == null)
             {
                 // (In the 8v8 zone a group that is left to rest rests with others in sight: only one that comes for it gets it up.)
                 bool enemyNear = (eightOnly ? foes : others).Any(other => Near(team, other, real.RestEndsWithEnemyWithin));
@@ -2409,13 +2509,14 @@ namespace DOL.GS
             }
             // After a fight a team of bots sees to its dead before it walks on: it raises them, or goes back to its start.
             GameBot body = null;
-            if (team.Leader == null && !inCombat && enemies.Count == 0 && team.Team.Bots.Any(bot => !bot.IsAlive))
+            if (wheel == null && !inCombat && enemies.Count == 0 && team.Team.Bots.Any(bot => !bot.IsAlive))
             {
                 if (team.DeadSince == 0)
                     team.DeadSince = now;
                 List<GameBot> living = team.Team.Bots.Where(bot => bot.IsAlive).ToList();
                 bool canRaise = living.Any(bot => bot.ResurrectionSpell != null);
-                if (PvpRealWeights.Reforms(canRaise, (now - team.DeadSince) / 1000.0, real))
+                // (Never the player's group: it is not taken off the field under its player. PvpDriver.)
+                if (team.Leader == null && PvpRealWeights.Reforms(canRaise, (now - team.DeadSince) / 1000.0, real))
                 {
                     team.Reforming = true;
                     Say($"{team.Name} goes back to its start to form up again ({team.Team.Bots.Count - living.Count} dead, {(canRaise ? "not raised in time" : "nobody to raise them")})",
@@ -2437,7 +2538,7 @@ namespace DOL.GS
             bool leftAFightNear = team.Draws.Any(draw => !draw.Value && draw.Key.Alive > 0 && Near(team, draw.Key, team.Waiting ? 12_000 : 9_000));
             if (!leftAFightNear)
                 (team.GaveUpWaiting, team.AroundSide) = (false, 0);
-            bool waits = WaitsOutAFight(leftAFightNear, enemies.Count, team.Leader != null || team.Entry != null && (team.GaveUpWaiting || LeadOf(team, teams) != null));
+            bool waits = WaitsOutAFight(leftAFightNear, enemies.Count, wheel != null || team.Entry != null && (team.GaveUpWaiting || LeadOf(team, teams) != null));
             if (waits && team.Waiting && team.Entry != null && GivesUpWaiting((now - team.WaitingSince) / 1000.0))
             {
                 (team.GaveUpWaiting, team.GaveUpAt, team.AroundSide, waits) = (true, now, 0, false);
@@ -2453,8 +2554,31 @@ namespace DOL.GS
                     Say($"{team.Name} waits where it is", new { what = "wait", team = team.Name });
                 }
             }
-            if (team.Leader != null)
+            // A companion at the wheel (PvpDriver) stays by its player when that is down, stands for it when it has fallen
+            // behind, does not set off before the buffs are on, and says when it moves out and when it rests.
+            bool holds = false;
+            GameBot atTheWheel = driven ? PvpFormation.DriverOf(team.Team.Bots) : null;
+            if (driven && enemies.Count == 0 && team.Leader is { } follower && atTheWheel != null)
+            {
+                bool up = follower.IsAlive && follower.ObjectState == GameObject.eObjectState.Active;
+                team.DriverWaits = PvpDriver.Waits(team.DriverWaits, follower.GetDistanceTo(atTheWheel), up);
+                holds = !up || team.DriverWaits || PvpDriver.HoldsAtStart(now - team.SpawnedAt);
+                if (team.DriverWaits)
+                    team.Team.Squad.Tell(atTheWheel, "driver-waits", PvpDriver.WaitingFor(follower.Name), PvpDriver.SaysAgainAfterSeconds * 1_000);
+                if (resting && !team.DriverRests)
+                    team.Team.Squad.Tell(atTheWheel, "driver-rests", PvpDriver.Resting);
+                team.DriverRests = resting;
+                bool moves = !holds && body == null && team.Hide == null && !resting && !waits;
+                if (moves && !team.DriverMoves && team.Team.Route is { Length: > 0 } way)
+                    team.Team.Squad.Tell(atTheWheel, "driver-moves", PvpDriver.MovingOut(team.Map.PlaceOf(way[0].X, way[0].Y, true)), PvpDriver.SaysAgainAfterSeconds * 1_000);
+                team.DriverMoves = moves;
+            }
+            if (wheel != null)
                 team.Team.TravelWithLeader(enemies);
+            else if (driven && team.Leader is { IsAlive: false } down && enemies.Count == 0)
+                team.Team.GatherAt(down, 500);
+            else if (holds)
+                team.Team.Halt();
             else if (body != null)
                 team.Team.GatherAt(body, 500);
             else if (team.Hide is { } hide && enemies.Count == 0)
@@ -2610,10 +2734,24 @@ namespace DOL.GS
                 LogsOff(team.Wipes, team.LogsOffAt != 0 && now >= team.LogsOffAt, team.State == "Down",
                     team.State == "Roaming" && team.Quiet && team.Fighting.Count == 0 && team.ContactTick == 0));
             if (leaving == null)
+            {
+                // A place nobody could be found for is filled once somebody can come: a guild that logged off a while ago.
+                if (Vacant.Count > 0 && now - _vacantTriedAt >= 15_000)
+                {
+                    _vacantTriedAt = now;
+                    List<PvpRoamTeam> withIt = teams.ToList();
+                    if (ComesOut(Vacant[0], withIt, now))
+                    {
+                        Vacant.RemoveAt(0);
+                        _teams = withIt;
+                    }
+                }
                 return;
+            }
             PvpArena.Remove(leaving.All);
             leaving.All.Clear();
             PvpRecorder.Regroup(_recording, leaving.Name, []);
+            leaving.LeftAt = now;
             Gone.Add(leaving);
             List<PvpRoamTeam> next = teams.Where(team => team != leaving).ToList();
             foreach (PvpRoamTeam other in next)
@@ -2633,10 +2771,27 @@ namespace DOL.GS
                     : follower.Profile?.Company == PvpCompany.Zerg ? heir
                     : hosts.Count > 0 ? hosts[Random.Shared.Next(hosts.Count)] : null;
             }
-            // Somebody else of its realm comes out, at its place at the start.
-            var taken = next.Concat(Gone).Where(team => team.Guild != null).Select(team => team.Guild.Id).ToHashSet();
+            // Somebody else of its realm comes out, at its place at the start; when nobody can yet, the place waits.
+            if (!ComesOut(leaving, next, now))
+                Vacant.Add(leaving);
+            _teams = next;
+        }
+
+        /// <summary>
+        /// Somebody of its realm comes out at the place of a guild that has logged off: one that
+        /// has not been out this evening, else one that logged off long enough ago
+        /// (PvpTeamPool.NextOut). False when there is nobody yet.
+        /// </summary>
+        private static bool ComesOut(PvpRoamTeam leaving, List<PvpRoamTeam> next, long now)
+        {
+            HashSet<string> outNow = next.Where(team => team.Guild != null).Select(team => team.Guild.Id).ToHashSet();
+            HashSet<string> taken = outNow.Concat(Gone.Where(team => team.Guild != null).Select(team => team.Guild.Id)).ToHashSet();
+            List<string> back = Gone.Where(team => team.Guild != null && !outNow.Contains(team.Guild.Id)).GroupBy(team => team.Guild.Id)
+                .Select(same => (Id: same.Key, Left: same.Max(team => team.LeftAt)))
+                .Where(gone => PvpTeamPool.ComesBack((now - gone.Left) / 1000.0)).OrderBy(gone => gone.Left).Select(gone => gone.Id).ToList();
             string pool = _pool;
-            if (pool != null && PvpTeamPool.NextOut(PvpTeamPool.Load(AppContext.BaseDirectory, pool), leaving.Realm, leaving.Profile.Kind, taken, Random.Shared) is { } guild)
+            if (pool == null || PvpTeamPool.NextOut(PvpTeamPool.Load(AppContext.BaseDirectory, pool), leaving.Realm, leaving.Profile.Kind, taken, Random.Shared, back) is not { } guild)
+                return false;
             {
                 PvpTeamProfile profile = guild.ToProfile();
                 var fresh = new PvpRoamTeam
@@ -2658,9 +2813,11 @@ namespace DOL.GS
                 else if (profile.Company == PvpCompany.Near && Hosts(next, fresh.Realm).Where(host => host.Map == fresh.Map).ToList() is { Count: > 0 } hosts)
                     fresh.Company = hosts[Random.Shared.Next(hosts.Count)];
                 next.Add(fresh);
-                Say($"{fresh.Name} will come out", new { what = "join", team = fresh.Name, kind = profile.Kind.ToString(), realm = NameOf(fresh.Realm), beside = fresh.Company?.Name });
+                bool again = taken.Contains(guild.Id);
+                Say($"{fresh.Name} will come out{(again ? " again" : string.Empty)}",
+                    new { what = "join", team = fresh.Name, kind = profile.Kind.ToString(), realm = NameOf(fresh.Realm), beside = fresh.Company?.Name, again = again ? true : (bool?)null });
             }
-            _teams = next;
+            return true;
         }
 
         /// <summary>On the road: out, alive, and not gone back to its start.</summary>

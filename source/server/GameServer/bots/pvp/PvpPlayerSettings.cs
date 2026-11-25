@@ -19,7 +19,8 @@ namespace DOL.GS
     /// <param name="Lineup">The line-up of its group (PvpBuildCatalog.FindGroup); null for its realm's main one.</param>
     /// <param name="Zone">The zone its last evening began in (PvpRoamMap.Id); null for Emain Macha.</param>
     /// <param name="Groups">How many groups of each realm its last evening had; 0 for the server's number.</param>
-    public sealed record PvpPlayerSetting(bool Lead = true, string Lineup = null, string Zone = null, int Groups = 0);
+    /// <param name="Drive">Whether one of its companions drives its group (PvpDriver): what it has said with <c>/8v8 drive</c>; null when it has never said, and then by its class.</param>
+    public sealed record PvpPlayerSetting(bool Lead = true, string Lineup = null, string Zone = null, int Groups = 0, bool? Drive = null);
 
     /// <summary>The players' settings, kept in <c>pvp-players.json</c> beside the server (a played file: never in the repository).</summary>
     public static class PvpPlayerSettings

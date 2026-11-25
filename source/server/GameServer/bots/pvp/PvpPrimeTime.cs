@@ -146,6 +146,11 @@ namespace DOL.GS
                 "Avalon Free Lances", "Humberton Militia", "Knights of the Grey Tower", "The Ludlow Nine", "Sons of the Round Table", "Snowdonia Rangers",
                 "Crimson Chapter", "Pennine Watch", "The Lost Legion", "Caer Ulfwych Guard", "Dawn Crusade", "Prydwen Sellswords", "The Cotswold Mob",
                 "Albion Vigil",
+                // (Twenty-two more a realm, 2026-11-25: the owner, "We could stress test and add more guilds and have a bigger pool".)
+                "Swords of Caerwent", "The Yarley Yeomen", "Barrow Kings of Salisbury", "Campacorentin Rangers", "The Avalon Marsh Rats", "Llyn Barfog Company",
+                "Order of the White Hart", "The Camelot Hill Mob", "Excalibur's Shadow", "Sons of Uther", "The Tintagel Guard", "Dartmoor Reavers",
+                "Black Mountain Irregulars", "The Lethantis Circle", "Vetusta Abbey Wardens", "Knights of the Long Road", "The Benowyc Few",
+                "Merlin's Apprentices", "The Sursbrooke Levy", "Hadrian's Last Watch", "Lions of Lyonesse", "The Boldiam Banner",
             ],
             [eRealm.Midgard] =
             [
@@ -154,6 +159,10 @@ namespace DOL.GS
                 "Nine Worlds Warband", "The Galplen Drunks", "Jamtland Reavers", "Blood of Ymir", "Nalliten Shieldwall", "The Black Fjord",
                 "Glacier Kin", "Valkyrie's Chosen", "Huginn and Muninn", "The Mead Hall Brawlers", "Trollheim Irregulars", "Gna Faste Pack",
                 "Winter's Teeth", "Midgard Vigil",
+                "Hounds of Vasudheim", "The Haggerfel Hunters", "Sons of the Long Winter", "Bifrost Breakers", "The Nottmoor Wall", "Shields of Audliten",
+                "Mjolnir's Echo", "The Skona Ravens", "Gotar Wolfpack", "Blodfelag Brothers", "The Huginfel Oath", "Children of the Frost Giant",
+                "Raumarik Runners", "The Dvalin Forge", "Storm of Svasud", "Myrkwood Stalkers", "The Vanern Swamp Rats", "Sleipnir's Riders",
+                "Thunder of Fensalir", "The Arvakr Guard", "Helheim Bound", "Iron of Glenlock",
             ],
             [eRealm.Hibernia] =
             [
@@ -162,8 +171,26 @@ namespace DOL.GS
                 "Mag Mell Wanderers", "Thorn and Thistle", "The Green Tide", "Sons of Nuada", "Breifine Hunters", "The Veiled Path",
                 "Ardagh Irregulars", "Moonlit Grove", "The Shrouded Isles Nine", "Collory Highlanders", "Briar Kin", "Daingean Rovers",
                 "The Wild Hunt", "Hibernia Vigil",
+                "Hounds of Culann", "The Ardee Arrows", "Sons of the Shannon", "Lough Derg Company", "The Connla Greens", "Bog of Cullen Lurkers",
+                "Silvermine Rangers", "The Valley of Bri Leith", "Cursed Forest Stalkers", "Children of Danu", "The Howth Harpers", "Innis Carthaig Guard",
+                "Mardagh's Own", "The Tir na mBeo Few", "Shee of the Parthanan", "The Alainn Bin Chorus", "Ligen Gatekeepers", "Dun Bolg Wardens",
+                "The Scathaig Spears", "Ailinne Watch", "Red Branch Irregulars", "The Faerie Ring",
             ],
         };
+
+        /// <summary>
+        /// The most groups of a realm an evening has (16 until 2026-11-25). Tried on the scrim copy that day, eight minutes
+        /// each: with 16 a realm (48 teams) the server's game loop ran at 91% of its rate, with 20 (60 teams) at 90%, with
+        /// 24 (72 teams) at 84% and once at 8% for ten seconds.
+        /// </summary>
+        public const int MostGroups = 20;
+
+        /// <summary>
+        /// How many guilds of each realm a pool holds for evenings of so many groups a realm:
+        /// three evenings' worth (two until 2026-11-25, when an evening of twelve had used its
+        /// 24 up in fifty minutes), sixteen at the least, and no more than there are names.
+        /// </summary>
+        public static int PoolFor(int groupsPerRealm) => Math.Min(MostPerRealm, Math.Max(16, groupsPerRealm * 3));
 
         /// <summary>How many guild names a realm has: a pool holds no more teams of a realm than this.</summary>
         public static int MostPerRealm => Names.Values.Min(names => names.Length);
@@ -341,11 +368,33 @@ namespace DOL.GS
         /// this evening, of the same kind when there is one, so that the evening keeps its
         /// ratio; null when the realm has nobody left.
         /// </summary>
-        public static PvpGuildTeam NextOut(IReadOnlyCollection<PvpGuildTeam> pool, eRealm realm, PvpTeamKind kind, IReadOnlySet<string> outOrGone, Random random)
+        /// <param name="backLater">
+        /// The teams that logged off long enough ago to come out again (<see cref="ComesBack"/>),
+        /// the longest gone first: one of them comes when nobody is left that has not been out.
+        /// </param>
+        public static PvpGuildTeam NextOut(IReadOnlyCollection<PvpGuildTeam> pool, eRealm realm, PvpTeamKind kind, IReadOnlySet<string> outOrGone, Random random,
+            IReadOnlyList<string> backLater = null)
         {
             List<PvpGuildTeam> free = pool.Where(team => team.ToRealm() == realm && !outOrGone.Contains(team.Id)).OrderBy(_ => random.Next()).ToList();
-            return free.FirstOrDefault(team => team.ToProfile().Kind == kind) ?? free.FirstOrDefault();
+            if ((free.FirstOrDefault(team => team.ToProfile().Kind == kind) ?? free.FirstOrDefault()) is { } fresh)
+                return fresh;
+            List<PvpGuildTeam> back = (backLater ?? []).Select(id => pool.FirstOrDefault(team => team.Id == id && team.ToRealm() == realm)).Where(team => team != null).ToList();
+            return back.FirstOrDefault(team => team.ToProfile().Kind == kind) ?? back.FirstOrDefault();
         }
+
+        /// <summary>
+        /// A guild that has logged off comes out again when it has been gone this long and
+        /// nobody is left that has not been out. An evening was an hour; since it is its
+        /// player's session (M13.11) it outlasts the pool. The owner, 2026-11-25, an hour and a
+        /// half into one of twelve groups a realm: "/8v8 who shows: Emain : 4 albion, 1 midgard,
+        /// Odin's : 0, Pennine : 0, Thid: 1 albion". Sixty-seven guilds had logged off (38 at the
+        /// end of their evening, 29 after three wipes) and 37 had come out; from the fiftieth
+        /// minute nobody was left to come.
+        /// </summary>
+        public const int ComesBackAfterSeconds = 600;
+
+        /// <summary>See <see cref="ComesBackAfterSeconds"/>.</summary>
+        public static bool ComesBack(double secondsSinceItLoggedOff) => secondsSinceItLoggedOff >= ComesBackAfterSeconds;
 
         /// <summary>
         /// How many groups walk in a pack at most. Five until 2026-11-24 ("sometime up to 5-6

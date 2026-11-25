@@ -69,6 +69,7 @@ Put the ones you use on quickbar buttons with `/macro <name> /8v8 call <word>`.
 | `/8v8 call retreat` | Everybody drops everything and runs with you, sprinting. Also `run`, `follow`. | 30 s; call again to keep running |
 | `/8v8 call rest` | After a fight: cures, buffs, then sitting until full. Also `sit`, `buff`. | 2 minutes, or until you move or are attacked |
 | `/8v8 call die` | You are dead and the fight is lost: the group gives it up and stands up at its start. Also `wipe`, `giveup`. | at once |
+| `/8v8 drive [on\|off]` | Who drives your group: one of your companions (see below), or you. Alone it says which. Kept from one login to the next. | until you change it |
 | `/8v8 call abilities` | Each companion says in group chat which of its active realm abilities are up, which are down and for how long ("up: Purge | down: Group Purge 12:40"). Also `ra`, `timers`, `cd`. | at once |
 
 Repeating a call only renews it. A retreat is ended by any other call.
@@ -190,10 +191,30 @@ fight, 45 seconds in.
 Every guild of bots wears an emblem of its own on its cloaks and shields, made from its name and
 the same every evening, so a group can be told from afar by its colours.
 
+## Who drives your group
+
+Unless your own character is a Bard, Sorcerer, Minstrel, Skald or Pacification Healer, one of
+your companions drives: the Bard; else the Sorcerer, then the Minstrel; else the Pacification
+Healer, then the Skald. `/stick` to it.
+
+- It takes the group from point to point of the zone and at the enemy groups it meets, as a
+  decent group does: not into a fight that is on, not into more groups than you are, and by
+  the rules of the zone.
+- In group chat it says "Stick, moving out: mid road." when it sets off, "Waiting for you,
+  <name>." when you are more than 1,500 units behind (it goes on when you are within 800), and
+  "Resting here." after a fight. It waits thirty seconds after the group has stood up.
+- Your calls hold as ever, and an enemy you strike or call is the group's. It stays by you
+  when you are down. It never takes the group off the field: that is yours (`/8v8 call die`,
+  `/release`).
+- `/8v8 drive off` gives you the wheel (kept); `/8v8 drive on` gives it back; `/8v8 drive`
+  says who drives.
+
 ## Where to find which fight
 
 An evening has twelve groups of each realm (yours one of them), in three frontier zones and the
-8v8 zone. `/8v8 who` lists the zones and what is in each; `/8v8 go <zone>` takes you there.
+8v8 zone. A guild plays for 25 to 50 minutes, or until it has been wiped three times, and logs
+off; another comes out in its place, and when all have been out, one that left ten minutes ago
+or more comes out again: the evening lasts as long as you play. `/8v8 who` lists the zones and what is in each; `/8v8 go <zone>` takes you there.
 
 | Zone | What you find |
 |---|---|
@@ -234,6 +255,22 @@ played: if it does, `"EightZone": "collory"` (or any zone's word) moves the 8v8 
 | Strong | The same, sharper; regroups sooner. |
 | Elite | Alone on quiet ground; leaves a fight a second group comes into. |
 | Zerg hunters | Elite; goes where the packs are. |
+
+## Your macros on another character
+
+The game keeps a character's macros on your computer, one file a character
+(`%APPDATA%\Electronic Arts\Dark Age of Camelot\OfflineDAoC03\<Name>-5.ini`), so a new character
+has none. To give it another character's:
+
+    python source\tools\copy_macros.py                 lists your characters and their macros
+    python source\tools\copy_macros.py Jade Mycleric   Jade's macros and macro buttons go to Mycleric
+
+Do it at the character selection or with the game closed, not while the character you copy to
+is in the game. Every macro is copied, and every quickbar button that is a macro goes to the
+same place on the same bar; a place where the other character has a spell or a style keeps it.
+`--layout` copies the windows, chat colours, key binds and camera too. The file that is changed
+is copied first (`...ini.bak-<date>-<time>`); a character that has never left the game gets its
+file made from the first one's.
 
 ## If something is wrong
 
