@@ -9,6 +9,39 @@ namespace DOL.UnitTests
     public class UT_PvpCalls
     {
         [Test]
+        public void ADeadPlayerGivesALostFightUp()
+        {
+            // The owner, 2026-11-24: "i'd need a wait to tell them 'just die'".
+            Assert.That(PvpCalls.IsDieCall("die"), Is.True);
+            Assert.That(PvpCalls.IsDieCall(" Wipe "), Is.True);
+            Assert.That(PvpCalls.IsDieCall("retreat"), Is.False);
+            Assert.That(PvpCalls.CannotGiveUp(leadsAGroupInARoam: true, callerAlive: false, groupIsDownAlready: false), Is.Null);
+            Assert.That(PvpCalls.CannotGiveUp(true, true, false), Does.Contain("/8v8 call retreat"));
+            Assert.That(PvpCalls.CannotGiveUp(false, false, false), Does.Contain("roam"));
+            Assert.That(PvpCalls.CannotGiveUp(true, false, true), Does.Contain("down already"));
+            // A new player has the lead on, and what it says is kept.
+            Assert.That(new PvpPlayerSetting().Lead, Is.True);
+            string folder = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "pvp-players-" + System.Guid.NewGuid().ToString("N"));
+            System.IO.Directory.CreateDirectory(folder);
+            try
+            {
+                Assert.That(PvpPlayerSettings.Get(folder, "somebody").Lead, Is.True);
+                PvpPlayerSettings.Set(folder, "somebody", setting => setting with { Lead = false });
+                Assert.That(PvpPlayerSettings.Get(folder, "somebody").Lead, Is.False);
+                Assert.That(PvpPlayerSettings.Get(folder, "another").Lead, Is.True);
+            }
+            finally
+            {
+                System.IO.Directory.Delete(folder, true);
+            }
+            // At rest: disease first, then poison, then nearsight.
+            Assert.That(PvpHealPlan.RestCure(true, true, true), Is.EqualTo(eSpellType.CureDisease));
+            Assert.That(PvpHealPlan.RestCure(false, true, true), Is.EqualTo(eSpellType.CurePoison));
+            Assert.That(PvpHealPlan.RestCure(false, false, true), Is.EqualTo(eSpellType.CureNearsightCustom));
+            Assert.That(PvpHealPlan.RestCure(false, false, false), Is.Null);
+        }
+
+        [Test]
         public void EveryOrderHasItsOwnCall()
         {
             string[] calls = [.. System.Enum.GetValues<PvpOrder>().Select(PvpCalls.Order)];

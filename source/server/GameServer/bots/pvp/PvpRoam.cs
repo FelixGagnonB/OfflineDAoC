@@ -121,6 +121,8 @@ namespace DOL.GS
         /// <summary>Out of a fight with dead members since this tick (0: none); and gone back to its start to form up again.</summary>
         public long DeadSince;
         public bool Reforming;
+        /// <summary>The player, dead, has given the fight up (/8v8 call die): the group is down at once and stands up at its start.</summary>
+        public bool GivenUp;
         /// <summary>When it broke off from a fight it had lost (0: it has not), and when an enemy team was last near it on its run.</summary>
         public long BrokeOffAt, LastFollowedTick;
         /// <summary>The enemy teams it is in a fight with now.</summary>
@@ -804,6 +806,37 @@ namespace DOL.GS
         /// </summary>
         public static bool PlayerTakesItOn(bool fightingItAlready, bool itAttacksUs, bool playerAimsAtItInReach) =>
             fightingItAlready || itAttacksUs || playerAimsAtItInReach;
+
+        /// <summary>
+        /// Whether the player has picked an enemy group for its own to take on. Out of a fight,
+        /// by having one of its members as a target, as before. In a fight with somebody else a
+        /// target alone picks nobody: the player has to have struck that member, or called its
+        /// group on it (/8v8 call assist, /8v8 call control). The owner, 2026-11-24: "say we are
+        /// in a fight and I click on a member of an idle team, does that trigger them to add on
+        /// the fight?" It did, and so did a tab; asked, the owner picked "Attack or call only".
+        /// </summary>
+        public static bool PlayerPicks(bool targetIsOfThatGroup, bool groupFightsSomebodyElse, bool playerHasStruckIt, bool playerCalledOnIt) =>
+            playerCalledOnIt || targetIsOfThatGroup && (!groupFightsSomebodyElse || playerHasStruckIt);
+
+        /// <summary>For a player's call on its target: the target is a member of an enemy group of the roam the player's group is not fighting, within the range it forms up at.</summary>
+        public static bool StandsBy(GamePlayer player, GameLiving target)
+        {
+            if (player == null || target is not { IsAlive: true } || !player.IsWithinRadius(target, PvpFormation.FormRange))
+                return false;
+            List<PvpRoamTeam> teams = _teams;
+            PvpRoamTeam own = teams?.FirstOrDefault(team => team.Leader == player);
+            return own != null && teams.Any(other => other != own && other.Realm != own.Realm && other.Alive > 0 && other.Team.Members.Contains(target));
+        }
+
+        /// <summary>"/8v8 call die" (PvpCalls.IsDieCall): what the player is told.</summary>
+        public static string GiveUp(GamePlayer player)
+        {
+            PvpRoamTeam own = _teams?.FirstOrDefault(team => team.Leader == player);
+            if (PvpCalls.CannotGiveUp(own != null, player.IsAlive, own is { State: "Down" }) is { } why)
+                return why;
+            own.GivenUp = true;
+            return "Your group gives the fight up.";
+        }
 
         /// <summary>
         /// A team of bots that is in a fight takes on nobody new: a group that walks by is left
@@ -1515,7 +1548,7 @@ namespace DOL.GS
             team.Draws.Clear();
             team.Waiting = false;
             (team.Hide, team.Rested) = (null, false);
-            (team.DeadSince, team.Reforming, team.BrokeOffAt) = (0, false, 0);
+            (team.DeadSince, team.Reforming, team.GivenUp, team.BrokeOffAt) = (0, false, false, 0);
             (team.State, team.StateSince, team.ContactTick, team.LastEnemyNearTick) = (leader != null ? "Roaming" : "Buffing", now, 0, now);
         }
 
@@ -1681,7 +1714,7 @@ namespace DOL.GS
                 return;
             }
             // Nobody left: it stands up at its start point after a wait, as a new group of the same eight.
-            if (team.Reforming || IsWiped(team.Team.Bots.Count(bot => bot.IsAlive), team.Leader != null, team.Leader?.IsAlive == true,
+            if (team.Reforming || team.GivenUp || IsWiped(team.Team.Bots.Count(bot => bot.IsAlive), team.Leader != null, team.Leader?.IsAlive == true,
                     team.Leader?.IsWithinRadius(new Point2D(team.Start.Point.X, team.Start.Point.Y), real.StartIsSafeWithin) == true))
             {
                 if (team.State != "Down" && team.Reforming)
@@ -1713,7 +1746,11 @@ namespace DOL.GS
                         RealmChat(teams, team, SightingText(most.Count(), most.Key, InZone(team.Map, team.Map.PlaceOf(x, y)), false, true), (x, y));
                     }
                     team.Fighting.Clear();
-                    Say($"{team.Name} is wiped (its {team.Wipes}.)", new { what = "wipe", team = team.Name });
+                    // Given up by its player: the ones still standing are gone from the field with the rest.
+                    if (team.GivenUp)
+                        PvpArena.Remove(team.All);
+                    Say($"{team.Name} is wiped (its {team.Wipes}.){(team.GivenUp ? " It gave the fight up." : string.Empty)}",
+                        new { what = "wipe", team = team.Name, gaveUp = team.GivenUp ? true : (bool?)null });
                     Tell(team, team.Leader?.IsAlive == true
                         ? $"Your group is down. It stands up here in about {real.WipeStandsUpAfterSeconds} seconds."
                         : $"Your group is wiped. You stand up at your start in about {real.WipeStandsUpAfterSeconds} seconds, or release to go there now.");
@@ -1797,9 +1834,21 @@ namespace DOL.GS
             }
             // Left alone, unless they come for it: by its draw, or because they stand at their own start.
             // (A player who only looks at one of them is not attacking: a player counts once it is in combat.)
+            // (A player attacks a group when it has struck one of its members: a target alone is a look. PlayerPicks.)
             bool Attacks(PvpRoamTeam other) => other.Team.Members.Any(member => member.IsAlive && member.TargetObject is GameLiving aimed &&
-                (member is not GamePlayer || member.InCombat) &&
+                (member is not GamePlayer || aimed.attackComponent.AttackerTracker.ContainsAttacker(member)) &&
                 team.Team.Members.Contains(aimed) && member.IsWithinRadius(aimed, 2_000));
+            // The enemy group the player has picked for its own (PlayerPicks): its target, or the one it has called on.
+            bool Picks(PvpRoamTeam other)
+            {
+                if (team.Leader is not { } player)
+                    return false;
+                GameLiving aimed = player.TargetObject as GameLiving;
+                bool ofThatGroup = aimed is { IsAlive: true } && other.Team.Members.Contains(aimed) && player.IsWithinRadius(aimed, PvpFormation.FormRange);
+                return PlayerPicks(ofThatGroup, team.Fighting.Any(fought => fought != other && fought.Alive > 0),
+                    ofThatGroup && aimed.attackComponent.AttackerTracker.ContainsAttacker(player),
+                    team.Team.Squad?.CalledByPlayer is { } called && other.Team.Members.Contains(called));
+            }
             double FromItsStart(PvpRoamTeam other)
             {
                 (double x, double y) = other.Centre();
@@ -1825,7 +1874,7 @@ namespace DOL.GS
                     attacks = true;
                 }
                 if (LeavesAlone(team.Draws.TryGetValue(other, out bool joins) && !joins, other.Draws.TryGetValue(team, out bool theyJoin) && !theyJoin, attacks,
-                        team.Leader?.TargetObject is GameLiving aimed && other.Team.Members.Contains(aimed)))
+                        Picks(other)))
                     return false;
                 // Already in a fight, a team of bots lets anybody else walk by.
                 if (team.Leader == null && TooBusyFor(team.Fighting.Count, team.Fighting.Contains(other), attacks))
@@ -1837,9 +1886,7 @@ namespace DOL.GS
                     AvoidsTwo(theirs >= 2, Together(team, teams) >= theirs, team.Fighting.Contains(other), attacks))
                     return false;
                 if (team.Leader is { } leader)
-                    return PlayerTakesItOn(team.Fighting.Contains(other), attacks,
-                        leader.TargetObject is GameLiving picked && picked.IsAlive && other.Team.Members.Contains(picked) &&
-                        leader.IsWithinRadius(picked, PvpFormation.FormRange));
+                    return PlayerTakesItOn(team.Fighting.Contains(other), attacks, Picks(other));
                 return !PvpRealWeights.LeftAtItsStart(FromItsStart(other), team.Fighting.Contains(other), attacks, real);
             }).ToList();
             List<GameLiving> enemies = foes.SelectMany(other => other.Team.Members).Where(member => member.IsAlive).ToList();
@@ -2269,7 +2316,7 @@ namespace DOL.GS
                 // A bad group joins a pack of its realm that has room; a group that stays near others picks its group.
                 if (profile.Company == PvpCompany.Zerg)
                     fresh.Company = next.FirstOrDefault(team => team.Realm == fresh.Realm && team.Map == fresh.Map && team.Company == null && team.Profile?.Company == PvpCompany.Zerg &&
-                                                                next.Count(other => other.Company == team) < 4);
+                                                                next.Count(other => other.Company == team) < PvpTeamPool.PackMost - 1);
                 else if (profile.Company == PvpCompany.Near && Hosts(next, fresh.Realm).Where(host => host.Map == fresh.Map).ToList() is { Count: > 0 } hosts)
                     fresh.Company = hosts[Random.Shared.Next(hosts.Count)];
                 next.Add(fresh);

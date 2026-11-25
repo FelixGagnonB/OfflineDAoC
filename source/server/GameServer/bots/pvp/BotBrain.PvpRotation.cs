@@ -103,10 +103,59 @@ namespace DOL.AI.Brain
             TryMaintainClassicSongTwist();
             if (Body.IsCasting || Body.castingComponent?.HasPendingSkillRequests == true)
                 return true;
+            if (TryPvpRestCure())
+            {
+                _pvpRestLocked = false;
+                return true;
+            }
             if (!BotBody.IsRecoveryResting)
                 BotBody.BeginRecoveryRest();
             _pvpRestLocked = true;
             return true;
+        }
+
+        private long _pvpRestCureAt;
+
+        /// <summary>
+        /// At rest a member that can takes off its group what the fight left on it: disease,
+        /// poison and nearsight, from every member in its reach and from the player. The owner,
+        /// 2026-11-24: "When resting, druid do not cure desease, nearsight, etc." In a fight a
+        /// nearsight is lifted from a healer or caster of bots only and a disease between two
+        /// heals; at rest nothing was, and a group set off again diseased. One cure at a time for
+        /// a member: what another is already casting at it is left to that one.
+        /// </summary>
+        private bool TryPvpRestCure()
+        {
+            if (Body.Group == null || GameLoop.GameLoopTime < _pvpRestCureAt)
+                return false;
+            Spell Ready(params Spell[] cures) => cures.FirstOrDefault(CheckHealSpell);
+            foreach (GameLiving member in Body.Group.GetMembersInTheGroup().Where(member => member.IsAlive && InSupportReach(member))
+                         .OrderBy(member => member is GamePlayer ? 0 : 1))
+            {
+                Spell cure = PvpHealPlan.RestCure(member.IsDiseased, member.IsPoisoned, member.effectListComponent.ContainsEffectForEffectType(eEffect.Nearsight)) switch
+                {
+                    eSpellType.CureDisease => Ready(BotBody.CureDisease, BotBody.CureDiseaseGroup),
+                    eSpellType.CurePoison => Ready(BotBody.CurePoison, BotBody.CurePoisonGroup),
+                    eSpellType.CureNearsightCustom => Ready(BotBody.CureNearsight),
+                    _ => null,
+                };
+                if (cure == null || member != Body && !Body.IsWithinRadius(member, cure.CalculateEffectiveRange(Body)) ||
+                    Body.Group.GetMembersInTheGroup().OfType<GameBot>().Any(other => other != Body && other.IsCasting && other.TargetObject == member &&
+                        other.castingComponent?.SpellHandler?.Spell?.SpellType == cure.SpellType))
+                    continue;
+                GameObject before = Body.TargetObject;
+                Body.TargetObject = member;
+                if (BotBody.CastSpell(cure, m_mobSpellLine, false))
+                {
+                    _pvpRestCureAt = GameLoop.GameLoopTime + 1_000;
+                    PvpRecorder.Decision(BotBody, new { kind = cure.SpellType == eSpellType.CureNearsightCustom ? "CureNearsight" : "Cure", spell = cure.Name, d = member.Name, rest = true }, [], null);
+                    if (cure.IsInstantCast)
+                        Body.TargetObject = before;
+                    return true;
+                }
+                Body.TargetObject = before;
+            }
+            return false;
         }
 
         /// <summary>

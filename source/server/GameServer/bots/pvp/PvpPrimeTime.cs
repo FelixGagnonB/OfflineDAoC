@@ -339,11 +339,18 @@ namespace DOL.GS
         }
 
         /// <summary>
+        /// How many groups walk in a pack at most. Five until 2026-11-24 ("sometime up to 5-6
+        /// groups sticking with each others"), when three or four of a realm's bad groups were in
+        /// most of a bad group's fights and the owner, shown that and asked, picked "Two to three".
+        /// </summary>
+        public const int PackMost = 3;
+
+        /// <summary>
         /// The packs of an evening: the teams of a realm that walk in a pack (the bad ones) are
         /// put together by two to <paramref name="most"/>, each pack behind its first team. Returns, for each team that
         /// follows, the team it follows. One such team alone joins the pack before it, or walks alone.
         /// </summary>
-        public static Dictionary<T, T> Packs<T>(IReadOnlyList<T> packTeams, Random random, int most = 5) where T : class
+        public static Dictionary<T, T> Packs<T>(IReadOnlyList<T> packTeams, Random random, int most = PackMost) where T : class
         {
             var follows = new Dictionary<T, T>();
             int index = 0;

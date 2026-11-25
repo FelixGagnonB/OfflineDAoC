@@ -106,7 +106,7 @@ has played it yet.**
 
   | Kind | Share | Walks | Adds on a fight | Its eight | Rank it began at | Where it is |
   |---|---|---|---|---|---|---|
-  | Bad | 30% | in a pack of two to five | always, and without counting the enemy | one or two healers, speed six times in ten, anybody | 1 to 3 | the crowd; sometimes a mixed zone; never a clean one |
+  | Bad | 30% | in a pack of two to three | always, and without counting the enemy | one or two healers, speed six times in ten, anybody | 1 to 3 | the crowd; sometimes a mixed zone; never a clean one |
   | Casual, stays near others | 15% | 1,800 to 3,500 behind a group of its realm (maybe yours) | nine times in ten | two healers, speed, anybody | 2 to 4 | where its group is; it picks none in a clean zone |
   | Casual 8v8 | 15% | alone | eight times in ten | the main group with one or two changed | 3 to 5 | the crowd and the mixed zones; a clean one now and then |
   | Decent 8v8 | 15% | alone | never | the main group | 4 to 6 | everywhere |
@@ -138,7 +138,8 @@ has played it yet.**
   bad groups "not that bad"; run with bots only): in a fight its casters and healers wait one
   to three seconds before half their casts, and four swings in ten of its fighters are without
   a style. Until then a bad group's member did as much damage a minute as an elite team's. It
-  still walks in a pack of two to five, and three or four of them are in most of its fights.
+  walks in a pack of two to three (two to five until 2026-11-24, when three or four of them
+  were in most of its fights).
 
   And one member in four of a bad group has Purge on its bar (the same ones all evening); the
   others sleep a mez out until it ends, they are hit or somebody cures them. Until then every
@@ -148,9 +149,11 @@ has played it yet.**
   not back the way it came. One that does not add stands by a fight it comes on for 45 seconds
   for it to end, then turns back, or walks on round the fight, 4,500 units from its middle
   (round it since the evening of 2026-11-24, when one walked through the owner's group;
-  automated tests only). It has left you alone and your companions leave it alone, but your
-  own click on one of its members while you are in a fight is taken for an attack when it is
-  within 2,000 units, and within 6,500 it sets your companions on it. One that does not count heads (the bad
+  automated tests only). It has left you alone and your companions leave it alone. While
+  you are in a fight, clicking one of its members or tabbing to it does nothing: it comes in
+  only when you hit one of them, or call your group on one (`/8v8 call assist`,
+  `/8v8 call control`). Out of a fight your target is still how you pick the group yours takes
+  on (automated tests only). One that does not count heads (the bad
   groups, and the hunters) walks into anything; the others do not start on more groups than
   they have together.
 - **A guild with too many on it falls back as one.** When ten or more aim at its eight and they
@@ -320,7 +323,8 @@ The guilds of bots see an add coming too (since 2026-11-24): a team in a fight h
 group that comes for it among its enemies from 4,500 units off, and an elite team leaves then,
 before the second group is on it.
 
-`/8v8 lead on` lets your companions' own caller move the group in a roam or a prime-time evening:
+`/8v8 lead` is on unless you turn it off, and what you set is kept from one login to the next
+(it was off at every login until 2026-11-24). It lets your companions' own caller move the group in a roam or a prime-time evening:
 when ten or more aim at your eight and they are on your healers and casters, your seven fall back
 1,800 units as one, as the guilds of bots do, and say so four times in capitals in group chat
 ("KITE BACK! 12 ON OUR 8! KITE BACK!"), then "BACK AGAIN! KEEP MOVING!" for each further leg and
@@ -342,9 +346,10 @@ followed: your group answers "You are down: nobody to run with. We fight on."
 | `/8v8 call assist` | The damage dealers go for your target while it lives (45 seconds at most). |
 | `/8v8 call control` | A mez, stun, root or nearsight goes to your target first (20 seconds). Also `mez`, `cc`. |
 | `/8v8 call push` | Everybody presses forward. An order stands 12 seconds. |
-| `/8v8 call rest` | After a fight: everybody recasts the buffs it keeps up (its own, the group's resistances, its pet), then rests where you stand and regains health, power and endurance, about twenty seconds from empty to full; the Bard plays its endurance song. It ends after two minutes, when you walk on, call something else, or somebody is attacked. Also `sit`, `buff`. |
+| `/8v8 call rest` | After a fight: everybody recasts the buffs it keeps up (its own, the group's resistances, its pet), then rests where you stand and regains health, power and endurance, about twenty seconds from empty to full; the Bard plays its endurance song. It ends after two minutes, when you walk on, call something else, or somebody is attacked. Before they sit, your healers take disease, poison and nearsight off everybody, you too (automated tests only). Also `sit`, `buff`. |
 | `/8v8 call regroup` | Everybody comes back to you and goes on fighting from there. Also `back`. |
-| `/8v8 call retreat` | Everybody drops what it is doing and runs with you: no attack, no cast, no answer to an attack, the speed song on. It stands 30 seconds; call it again to keep running, or any other call to end it. Also `run`, `follow`. |
+| `/8v8 call retreat` | Everybody drops what it is doing and runs with you: no attack, no cast, no answer to an attack, the speed song on. Your companions sprint while it stands, as long as their endurance lasts (they did not until 2026-11-24; automated tests only). It stands 30 seconds; call it again to keep running, or any other call to end it. Also `run`, `follow`. |
+| `/8v8 call die` | When you are dead and the fight is lost: the group gives it up, counts as wiped, and stands up at its start as after a wipe, without waiting for the last of it to fall. Also `wipe`, `giveup`. Automated tests only. |
 | `/8v8 call hold` | The group stands where it is and lets them come. |
 | `/8v8 call engage` | Back to a normal fight: close, mez, kill the called target. |
 | `/8v8 call extend` | The kite: your healers and casters step back, straight away from the enemy, again and again while an enemy is within 1,800 units, casting between steps; your fighters turn on whoever follows and stay with the group. It stands 12 seconds; call it again to keep kiting. Also `kite`. |

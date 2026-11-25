@@ -14,6 +14,21 @@ namespace DOL.UnitTests
     public class UT_PvpPrimeTime
     {
         [Test]
+        public void InAFightAClickPicksNobody()
+        {
+            // The owner, 2026-11-24: "say we are in a fight and I click on a member of an idle team, does that trigger them to add on the fight?"
+            Assert.That(PvpTeamPool.PackMost, Is.EqualTo(3), "and the packs are of two to three");
+            // Out of a fight the player's target is the group its own takes on, as before.
+            Assert.That(PvpRoam.PlayerPicks(targetIsOfThatGroup: true, groupFightsSomebodyElse: false, playerHasStruckIt: false, playerCalledOnIt: false), Is.True);
+            // In a fight with somebody else a target alone is a look.
+            Assert.That(PvpRoam.PlayerPicks(true, true, false, false), Is.False);
+            // A blow, or a call on it, takes that group on.
+            Assert.That(PvpRoam.PlayerPicks(true, true, true, false), Is.True);
+            Assert.That(PvpRoam.PlayerPicks(false, true, false, true), Is.True, "the call stands though the player has another target now");
+            Assert.That(PvpRoam.PlayerPicks(false, false, false, false), Is.False);
+        }
+
+        [Test]
         public void ATeamThatWalksOnPastAFightGoesRoundIt()
         {
             // The owner, 2026-11-24: "I'd go with making the group go around, if they decide not to add, instead of walking in middle."
@@ -248,7 +263,7 @@ namespace DOL.UnitTests
         }
 
         [Test]
-        public void BadGroupsWalkInPacksOfTwoToFive()
+        public void BadGroupsWalkInPacksOfTwoToThree()
         {
             for (int seed = 0; seed < 200; seed++)
             {
@@ -261,7 +276,7 @@ namespace DOL.UnitTests
                     Assert.That(sizes.Sum(), Is.EqualTo(count), what);
                     Assert.That(follows.Values.All(head => !follows.ContainsKey(head)), Is.True, what);
                     if (count >= 2)
-                        Assert.That(sizes, Is.All.InRange(2, 5), what);
+                        Assert.That(sizes, Is.All.InRange(2, PvpTeamPool.PackMost), what);
                 }
             }
         }

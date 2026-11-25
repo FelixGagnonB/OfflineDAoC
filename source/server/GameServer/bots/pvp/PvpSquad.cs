@@ -93,7 +93,7 @@ namespace DOL.GS
         /// </summary>
         public bool KitesOnItsOwn
         {
-            get => _kitesOnItsOwn || LeadsOnThePlayersWord && _allies.OfType<GamePlayer>().Any(player => player.TempProperties.GetProperty<bool>(PvpCalls.LeadsProperty));
+            get => _kitesOnItsOwn || LeadsOnThePlayersWord && _allies.OfType<GamePlayer>().Any(PvpCalls.Leads);
             set => _kitesOnItsOwn = value;
         }
         private bool _kitesOnItsOwn;
@@ -880,14 +880,15 @@ namespace DOL.GS
         /// is not an enemy the group knows. It stands while the target lives and is known, for at
         /// most <see cref="PvpCalls.PlayerAssistSeconds"/>, or until the player calls another.
         /// </summary>
-        public bool CallAssist(GameLiving caller, GameLiving target)
+        /// <param name="standsBy">The target is of an enemy group that stands by the group's fight (PvpRoam.StandsBy): the call takes that group on.</param>
+        public bool CallAssist(GameLiving caller, GameLiving target, bool standsBy = false)
         {
-            if (target is not { IsAlive: true } || !Known.Contains(target))
+            if (target is not { IsAlive: true } || !(Known.Contains(target) || standsBy))
                 return false;
             _retreatUntil = 0;
             _restUntil = 0;
             _calledTarget = target;
-            _calledTargetUntil = GameLoop.GameLoopTime + PvpCalls.PlayerAssistSeconds * 1_000L;
+            (_calledTargetAt, _calledTargetUntil) = (GameLoop.GameLoopTime, GameLoop.GameLoopTime + PvpCalls.PlayerAssistSeconds * 1_000L);
             if (_members.FirstOrDefault(member => member.IsAlive) is { } voice)
             {
                 PvpRecorder.Decision(voice, new { kind = "PlayerAssist", d = target.Name, by = caller.Name }, [], null);
@@ -895,6 +896,14 @@ namespace DOL.GS
             }
             return true;
         }
+
+        // When the player called its assist: the target of a group that stood by is known to the group a moment later.
+        private long _calledTargetAt;
+
+        /// <summary>The enemy a player's assist call or control call stands on; null for none (PvpRoam.PlayerPicks).</summary>
+        public GameLiving CalledByPlayer =>
+            _calledTarget is { IsAlive: true } assist && GameLoop.GameLoopTime < _calledTargetUntil ? assist
+            : _calledControl is { IsAlive: true } control && GameLoop.GameLoopTime < _calledControlUntil ? control : null;
 
         // "Control that one": the enemy a player of the group has called for control on, and until when.
         private GameLiving _calledControl;
@@ -908,9 +917,9 @@ namespace DOL.GS
         /// for <see cref="PvpCalls.PlayerControlSeconds"/>. False when the target is not an enemy
         /// the group knows.
         /// </summary>
-        public bool CallControl(GameLiving caller, GameLiving target)
+        public bool CallControl(GameLiving caller, GameLiving target, bool standsBy = false)
         {
-            if (target is not { IsAlive: true } || !Known.Contains(target))
+            if (target is not { IsAlive: true } || !(Known.Contains(target) || standsBy))
                 return false;
             _retreatUntil = 0;
             _restUntil = 0;
@@ -1251,7 +1260,8 @@ namespace DOL.GS
                         target = _calledTarget;
                         chosen = pool.IndexOf(target);
                     }
-                    else
+                    // (Called on a group that stood by: it is one of the group's enemies within a turn or two.)
+                    else if (!(_calledTarget.IsAlive && tick - _calledTargetAt < 3_000))
                         _calledTarget = null;
                 }
                 // A group that has fallen back turns on whoever followed it out of its healers' reach (bots/pvp/PvpKite.cs).
@@ -1309,7 +1319,10 @@ namespace DOL.GS
                 // fight when needed." On the road nobody sprints. In a fight a bot sprints when it is pressed or has
                 // ground to cover (PvpPositionWeights.SprintNeeded), and that costs it endurance on the move, as it
                 // costs a player (SprintCostPerSecond; this runs once a second).
-                bool pressed = Chasing || Kiting || FallingBack.Contains(bot) || _huntedTick.TryGetValue(bot, out long huntedAt) && GameLoop.GameLoopTime - huntedAt < 2_500;
+                // (And on a retreat the player has called. The owner's evening of 2026-11-24: three Midgard groups ran the
+                // group down at 480 to 500 units a second, sprinting on their Skald's song, while the seven ran behind the
+                // player at 350 to 400 with their endurance at 100 from the call to the last death.)
+                bool pressed = Chasing || Kiting || RetreatsTo != null || FallingBack.Contains(bot) || _huntedTick.TryGetValue(bot, out long huntedAt) && GameLoop.GameLoopTime - huntedAt < 2_500;
                 bot.PvpSprinting = bot.IsAlive && FightStarted && legs.SprintInFights &&
                                    legs.SprintNeeded(pressed, WayLeft(bot), bot.PvpSprinting) &&
                                    legs.CanSprint(bot.EndurancePercent, bot.PvpSprinting, IsFighter(bot) && !Chasing && role != PvpRole.Peel ? legs.FighterKeepsEndurancePercent : 0);

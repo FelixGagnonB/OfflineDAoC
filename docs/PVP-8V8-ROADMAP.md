@@ -3768,6 +3768,32 @@ The plan the owner agreed to that day ("Let's proceed and test with bots first")
     (`PlayerTakesItOn`). It is how the player picks whom the group takes on out of a fight;
     in one, a stray click or a tab brings eight more.
 
+- [ ] **M12.12** (S) A run, and a rest. *Built the evening of 2026-11-24; automated tests only.*
+  - **The owner's last fight of the evening** ("We were running away from many mids group.
+    Something doesn't looks right to me, regarding movement speed and endurance"). From the
+    recording: the Bard's Speed of Sound at 2,252 s, the retreat called at 2,256 s, the seven
+    behind the player at 350 to 400 units a second with their endurance at 100 to the end;
+    three Midgard groups behind them at 385, and from 2,268 s at 480 to 500, sprinting on
+    their Skald's song with their endurance going to 4 and 16; Speed of Sound over at 2,282 s
+    with everybody in combat, so no song took hold again, and the group at 190; eight dead
+    between 2,297 and 2,323 s. A bot sprinted when its group chased, kited or fell back, and
+    not on a retreat the player called. Built: it does (`PvpSquad`, "pressed").
+  - **Found and not changed:** Speed of Sound here is 189% of a walk (361 units a second) and
+    replaces the song while it runs; a Bard's, Skald's or Minstrel's best song is 204% (390).
+    It is the 30 seconds that combat, root and snare do not end, not more speed. The stock
+    number of the server; the owner's whether it should be the top song's.
+  - **Found and not explained:** the owner's own character ran 305 to 320 on the road over
+    two evenings and about 300 under Speed of Sound, where its companions ran 390 and 361;
+    400 with sprint. Not diseased, not rooted, 47 pounds carried. Its speed is read from the
+    positions the client sends; why it is some 15 to 20% under what its buffs say is not
+    known.
+  - **Cures at rest.** The owner: "When resting, druid do not cure desease, nearsight, etc."
+    A resting bot recast what it keeps up and sat down; nearsight was lifted in a fight only,
+    from a healer or caster of bots, and disease between two heals. Built
+    (`BotBrain.TryPvpRestCure`, `PvpHealPlan.RestCure`): before it sits, a member that can
+    takes disease, then poison, then nearsight off every member in its reach, the player
+    first, one healer to a member.
+
 **Where M12 stands (2026-11-24).** Built and run with bots on the scrim server: the measure, the
 kite, breaking off, no raising with too many on it. A seventh evening on the last build (13
 kites, five groups broke off and four got away, 21 teams wiped, the realm chat of a break-off
@@ -3779,6 +3805,43 @@ met, `/8v8 lead on` used; nothing said yet of how a group that falls back or run
 looked at by the owner: whether a group that falls back and one that turns and runs look like players
 doing it; whether one lost fight in three ending in a run is too many or too few; `/8v8 lead on`
 with the owner's own group.
+
+## M13. The first release (v0.1)
+
+**Goal (owner, 2026-11-24):** "For sure, we will merge everything in master we could create a
+v0.1 release and use that as our first tag to deploy on D:\OfflineDAoC"; "let's close
+everything before v0.1 then I'd play some nights and write down some observations". On the
+play install the game is played, not started by test commands: "I consider the /8v8 as testing
+commands, beside the 8v8 calls. Those need to stay in for sure. Same with the /8v8 to instant
+50 + gear. I do want everyone to start at realm rank 1 level 1 and grind it out. There could
+already be group profile regardeless of level at 'release'."
+
+**Decided by the owner that evening:** the evening begins when the player logs in; `/8v8 ready`
+is typed by hand; `/8v8 rivals` stays, `/8v8 status` does not, `/8v8 ranks` undecided;
+`/8v8 who` is to say "which zone has what kind of group and how many groups" and not line-ups
+or ranks; the tag's name either way (`v0.1`). And of the rules left open: packs of two to
+three; in a fight a click picks nobody, a blow or a call does; `/8v8 lead` on by default and
+kept; a way for a dead player to tell the group "just die".
+
+- [x] **M13.1** (S) The rules left open. *Built 2026-11-24; automated tests only.* Packs of two
+  to three (`PvpTeamPool.PackMost`). `PvpRoam.PlayerPicks`: out of a fight the player's
+  target is the group its own takes on, as before; in a fight with somebody else only a
+  member the player has struck, or called on (`/8v8 call assist`, `control`, which now take a
+  member of a group that stands by), and a player counts as attacking a group of bots only
+  when it has struck one of them. `/8v8 lead` on for a new player and kept in
+  `pvp-players.json` beside the server (`PvpPlayerSettings`). `/8v8 call die`: a dead player
+  gives the fight up, the group counts as wiped and stands up at its start
+  (`PvpRoam.GiveUp`).
+- [ ] **M13.2** (M) The evening begins at login: no `/8v8 prime`.
+- [ ] **M13.3** (S) Everybody at rank 1 level 1: the player's group and every guild, whatever
+  its kind.
+- [ ] **M13.4** (S) The player's group is its guild: line-up and members kept, there at login.
+- [ ] **M13.5** (S) The test commands out of a player's way; `/8v8 who` by zone, kind and
+  number.
+- [ ] **M13.6** (S) The fixes of M12.9 to M12.12 and M13.1 on the scrim server, an evening of
+  bots, an evening of the owner's.
+- [ ] **M13.7** (S) The pull request to main, the tag, and the play install with a backup. On
+  the owner's word.
 
 ## Scorecard
 

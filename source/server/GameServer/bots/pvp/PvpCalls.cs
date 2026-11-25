@@ -222,6 +222,42 @@ namespace DOL.GS
 
         public static bool IsRetreatCall(string word) => (word ?? string.Empty).Trim().ToLowerInvariant() is "retreat" or "run" or "follow";
 
+        /// <summary>
+        /// "/8v8 call die": a dead player gives a lost fight up, and the group stands up at its
+        /// start as after a wipe, with no wait for the last of it to fall. The owner, 2026-11-24,
+        /// asked what the ones left should do when a dead player calls retreat: "The idea would be
+        /// to not waste too much time, respawn and move out again as a group. If i'm dead and i
+        /// see we are going to lose, i wont call a retreat. It's rather the opposite, i'd need a
+        /// wait to tell them 'just die'".
+        /// </summary>
+        public static bool IsDieCall(string word) => (word ?? string.Empty).Trim().ToLowerInvariant() is "die" or "wipe" or "giveup";
+
+        /// <summary>What the player is told of a call to give the fight up; null when it is given up.</summary>
+        public static string CannotGiveUp(bool leadsAGroupInARoam, bool callerAlive, bool groupIsDownAlready) =>
+            !leadsAGroupInARoam ? "You give a fight up in a roam or a prime-time evening, with your group."
+            : callerAlive ? "You are alive: /8v8 call retreat takes the group out of a fight. /8v8 call die is for when you are down."
+            : groupIsDownAlready ? "Your group is down already: it stands up at its start in a moment."
+            : null;
+
+        /// <summary>Whether a player's companions fall back as one by themselves (/8v8 lead): what it said this login, else what it keeps (on for a new player).</summary>
+        public static bool Leads(GamePlayer player)
+        {
+            if (player == null)
+                return false;
+            if (player.TempProperties.GetProperty<string>(LeadsProperty) is { } said)
+                return said == "on";
+            bool lead = PvpPlayerSettings.Get(AppContext.BaseDirectory, player.InternalID).Lead;
+            player.TempProperties.SetProperty(LeadsProperty, lead ? "on" : "off");
+            return lead;
+        }
+
+        /// <summary>The player turns the lead on or off, and it is kept.</summary>
+        public static void SetLead(GamePlayer player, bool on)
+        {
+            player.TempProperties.SetProperty(LeadsProperty, on ? "on" : "off");
+            PvpPlayerSettings.Set(AppContext.BaseDirectory, player.InternalID, setting => setting with { Lead = on });
+        }
+
         public static string Retreating(string caller) => $"Retreating with {caller}.";
 
         /// <summary>What the group answers to a retreat called by a member who is dead.</summary>

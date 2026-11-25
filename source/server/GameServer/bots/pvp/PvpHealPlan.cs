@@ -199,6 +199,10 @@ namespace DOL.GS
     /// </summary>
     public static class PvpHealPlan
     {
+        /// <summary>What a resting group's healer takes off a member first: its disease (it halves what heals it and slows it), then poison, then nearsight; null for a clean member.</summary>
+        public static eSpellType? RestCure(bool diseased, bool poisoned, bool nearsighted) =>
+            diseased ? eSpellType.CureDisease : poisoned ? eSpellType.CurePoison : nearsighted ? eSpellType.CureNearsightCustom : null;
+
         /// <summary>True when a heal being cast is no longer worth finishing.</summary>
         public static bool DropsHeal(int targetHealthPercent, bool targetTrained, PvpHealWeights weights) =>
             weights.DropHealAtPercent > 0 && !targetTrained && targetHealthPercent >= weights.DropHealAtPercent;
