@@ -88,8 +88,77 @@ Repeating a call only renews it. A retreat is ended by any other call.
   [PVP-8V8-REALM-ABILITIES.md](PVP-8V8-REALM-ABILITIES.md).
 - **Change your group.** `/8v8 guild lineup <name>`, from the next evening. Your own class
   takes its place in the line-up.
-- **Look at a fight afterwards.** See the handover page: `pvp_myfights.py` on the newest file
-  in `D:\OfflineDAoC\runtime\server\logs\roams`.
+- **Look at a fight afterwards.** Double-click `source\tools\review_my_fights.cmd`: see
+  *Reviewing your fights* below.
+
+## Reviewing your fights
+
+A page in your browser for each evening: pick a fight, watch it from above, read what happened.
+
+**To make the pages and open them:** double-click `source\tools\review_my_fights.cmd` in
+`C:\Workspace\OfflineDAoC`. Play an evening first: the game writes the recording the pages are
+made from; the server may be running or closed. It reads your newest evenings, writes the pages
+to `D:\OfflineDAoC\runtime\logs\fights` and opens the list. From a command line:
+
+    python source\tools\pvp_fights_page.py --open            (the game you play)
+    python source\tools\pvp_fights_page.py --open --scrim    (the copy for trying things)
+    python source\tools\pvp_fights_page.py --open --last 20  (more evenings than the newest eight)
+
+An evening already written is not read again, so only the first run takes a few seconds an
+evening. The pages are plain files with their data in them: nothing is sent anywhere.
+
+**On the list:** the evenings, newest first, each with its fights in a line (when, how long,
+against how many groups, killed and lost, how it ended). Click an evening.
+
+**On an evening's page:**
+
+1. **Pick the fight** in the box at the top. The page opens on the last one.
+2. **Watch it.** `Play` (or the space bar) runs it; the speed is beside it (2x to start with);
+   drag the bar or use the arrow keys to go second by second. North is up, the grid is 1,000
+   units.
+   - A square is a fighter, a circle a caster, a triangle a healer; red is Albion, blue Midgard,
+     green Hibernia. Your group has a white edge, and you a double ring.
+   - A purple ring is asleep, yellow stunned, brown rooted; a cross is dead; the bar under each
+     mark is its health.
+   - The red cross-hair is your group's kill target; the thin yellow lines show whom each of
+     your members is on; the grey tails are the last eight seconds of your group's way.
+   - The box beside the speed picks the view: close, on your group (the names of the others
+     show there), wider, or the whole fight at once.
+   - Under the picture: your group's order at that second, how many of each side are alive, and
+     how many enemies aim at your group.
+3. **The strip under it** is the fight at a glance: damage your group dealt each second (up,
+   green) and took (down, red), a line for how many of your eight were alive, a red tick where
+   one of yours died and a green one where an enemy did. Click anywhere on it to go there.
+4. **On the right:** every member at that second, yours first, then each enemy group with its
+   kind and rank: health, power, and whether it is asleep, stunned, rooted, nearsighted (NS) or
+   diseased.
+5. **"What the recording says"** is the fight in a dozen sentences: the numbers against you,
+   the damage both ways and how much your healers gave back, when your first member fell and to
+   whom, how long each side was held by control, how long your healers could not act, how much
+   of the fight an enemy fighter stood on your healers and casters, your healers' power at the
+   end, which abilities each side pressed, how often your group's order changed, and what you
+   called.
+6. **"The groups"** lists who was in it (kind, rank, what each dealt to you and took from you)
+   and your group member by member (dealt, took, healed).
+7. **"What happened, in order"** is every death, call, order, ability and group that came in.
+   Click a line and the picture goes to that second.
+
+**What to look for:**
+
+- *Were you simply outnumbered?* The first sentence, and "aiming at you" under the picture.
+- *Did your mez do anything?* "The enemy's members were asleep N% of the time".
+- *Whom was the enemy on?* Watch their fighters' squares arrive: the member with squares on it
+  and a falling bar is the one being trained.
+- *Were your healers free?* "Your healers could not act" and "an enemy fighter stood on one of
+  your healers or casters".
+- *Did you run dry?* The healers' power at the end, and the blue bars on the right.
+- *Did a second group come in?* The lines "... is on you" and "ADD!" in the list of what
+  happened.
+- *Did the retreat work?* Go to your "You call: retreat" line and play from there in the wide
+  view.
+
+A link can name a fight and a second: add `#f=2&t=45` to the page's address for the second
+fight, 45 seconds in.
 
 ## What your group says in capitals
 

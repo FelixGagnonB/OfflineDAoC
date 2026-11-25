@@ -116,6 +116,9 @@ it has a rule for; the check says so if a list has another.
 
 ## Looking at a fight afterwards
 
+To watch a fight in your browser, double-click `source\tools\review_my_fights.cmd`; how to read
+the page is in [PVP-8V8-QUICKSTART.md](PVP-8V8-QUICKSTART.md), *Reviewing your fights*. In text:
+
 From `source\tools`, with a recording of the install you played on:
 
     python pvp_myfights.py "D:\OfflineDAoC\runtime\server\logs\roams\<file>.jsonl"          (your fights, one line each)
