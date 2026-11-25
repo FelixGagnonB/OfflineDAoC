@@ -14,6 +14,35 @@ namespace DOL.UnitTests
     public class UT_PvpPrimeTime
     {
         [Test]
+        public void EveryGuildWearsAnEmblemOfItsOwn()
+        {
+            // The owner, 2026-11-25: "We all wear the default all green, red, blue. It would be nice if each guild has it's own
+            // embleem and using it".
+            Assert.That(PvpGuildEmblem.Pack(logo: 5, pattern: 2, primaryColor: 9, secondaryColor: 3), Is.EqualTo((5 << 9) | (2 << 7) | (9 << 3) | 3));
+            int raiders = PvpGuildEmblem.Made("Vindsaul Raiders");
+            Assert.That(raiders, Is.Not.Zero);
+            Assert.That(PvpGuildEmblem.Made("vindsaul raiders "), Is.EqualTo(raiders), "the same every evening, however the name is written");
+            Assert.That(PvpGuildEmblem.Made(""), Is.Zero);
+            // Of the guilds of an evening hardly any two wear the same, the logo is one the client draws, and the colours differ.
+            List<string> names = PvpTeamPool.Generate(16, new Random(3)).Select(team => team.Guild).ToList();
+            List<int> emblems = names.Select(PvpGuildEmblem.Made).ToList();
+            Assert.That(emblems.Distinct().Count(), Is.GreaterThanOrEqualTo(names.Count - 1));
+            foreach (int emblem in emblems)
+            {
+                Assert.That(emblem >> 9, Is.InRange(1, 90));
+                Assert.That(emblem, Is.LessThan(0x10000), "it fits the two bytes the client is sent");
+                Assert.That((emblem >> 3) & 7, Is.Not.EqualTo(emblem & 7));
+            }
+            // A player's guild wears what its player picked; until it has, one made from its name.
+            Assert.That(PvpGuildEmblem.Worn("Stags of Emain", 4_321), Is.EqualTo(4_321));
+            Assert.That(PvpGuildEmblem.Worn("Stags of Emain", 0), Is.EqualTo(PvpGuildEmblem.Made("Stags of Emain")));
+            Assert.That(PvpGuildEmblem.Worn(null, 4_321), Is.Zero, "a bot with no guild wears none");
+            Assert.That(PvpGuildEmblem.CannotAsk(hasAGuild: true, isItsGuildmaster: true), Is.Null);
+            Assert.That(PvpGuildEmblem.CannotAsk(false, false), Does.Contain("/8v8 guild <name>"));
+            Assert.That(PvpGuildEmblem.CannotAsk(true, false), Does.Contain("guildmaster"));
+        }
+
+        [Test]
         public void TheEveningBeginsWhenThePlayerComesIn()
         {
             // The owner, 2026-11-24: "Yes, I would do it as I log in".

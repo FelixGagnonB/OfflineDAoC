@@ -3873,6 +3873,19 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [x] **M13.12** (S) Every guild wears an emblem. *Built 2026-11-25; automated tests only (an emblem is drawn
+  by a client, and an evening of bots sends no equipment to one).* The owner, after the first evening on the play
+  install: "Can I still visite the capital city to change the guild embleem? We all wear the default all green,
+  red, blue. It would be nice if each guild has it's own embleem and using it". The game's own way is the emblem
+  keeper in the capital: the first emblem free, a second 200 gold, 5 gold for each cloak or shield, and nothing
+  for seven bots that are no players. Built (`PvpGuildEmblem`): `/8v8 guild emblem` opens the game's emblem
+  window anywhere, free and as often as wanted (`EmblemDialogReponseHandler` hands its answer over when that
+  command opened it); the player's cloak and shields, worn or carried, take it, also after `/8v8 ready` and at
+  the start of an evening; an 8v8 bot shows on its cloak and shield its player's guild's emblem, or, for a guild
+  of bots, one made from the guild's name (`Made`: the same every evening, a logo of 1 to 90, two colours that
+  differ), through the same call that gives a gamebot its guild's emblem (`AutonomousBotGuilds.Texture`). Not
+  known: whether each of the 90 logos has a picture in the client for each realm; one that has none shows the
+  pattern and the colours alone.
 - [x] **M13.11** (M) The evening is its player's session, not its player's place. *Built 2026-11-25;
   automated tests only; not run on a server (the owner was on the play install).* The owner, having started the
   play install: "When I log in, it should start the evening and bots/teams should start to behave as we discussed

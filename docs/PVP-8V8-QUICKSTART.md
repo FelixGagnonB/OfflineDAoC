@@ -17,7 +17,8 @@ For the game you play (`D:\OfflineDAoC`). The long version of everything here is
    first minutes. You are not moved. `/8v8 go emain` takes you to your realm's start in Emain
    Macha, and your seven companions join you there.
 6. Once, when you like: `/8v8 guild <name>` gives your group a guild (your companions wear its
-   name). `/8v8 guild lineup hib-2bard` picks the two-Bard group from your next evening on.
+   name; a new character is in its realm's starter guild, so `/gc quit` first), and
+   `/8v8 guild emblem` picks its emblem. `/8v8 guild lineup hib-2bard` picks the two-Bard group from your next evening on.
 
 ## Every evening after that
 
@@ -36,6 +37,7 @@ Everybody started at realm rank 1 level 1. Ranks only move while you are in the 
 |---|---|
 | `/8v8 ready` | Lists your realm's builds. `/8v8 ready <build> confirm` makes this character level 50 with that build. |
 | `/8v8 guild` | Says what guild you have. `/8v8 guild <name>` forms one, free, wherever you stand (letters and spaces, 30 at most). |
+| `/8v8 guild emblem` | Opens the game's emblem window, wherever you stand and at no cost: your guild's emblem goes on your cloak and shields and on your companions'. Pick again whenever you like. |
 | `/8v8 guild lineup` | Says your line-up and lists your realm's. `/8v8 guild lineup <name>` sets it from your next evening on. |
 | `/8v8 evening` | Begins your evening when none is running. It begins by itself when you log in and runs until you log out, so you seldom need this. |
 | `/8v8 who` | Each zone of the evening: how many groups every realm has in it, and of what kinds. |
@@ -180,6 +182,9 @@ fight, 45 seconds in.
 | `BACK AGAIN! KEEP MOVING!` | A further leg of the same. |
 | `PUSH! PUSH! ALL ON THEM!`, `EXTEND! FALL BACK AND KITE!`, `REGROUP! BACK TO THE HEALERS!` | The group's order changed. |
 | `THIS ONE IS LOST! 3 OF US LEFT, 14 OF THEM! RETREAT?` | Half the group or both healers are dead and you are outnumbered. |
+
+Every guild of bots wears an emblem of its own on its cloaks and shields, made from its name and
+the same every evening, so a group can be told from afar by its colours.
 
 ## The kinds of guild you meet
 

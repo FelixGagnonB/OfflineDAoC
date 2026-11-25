@@ -18,6 +18,9 @@ namespace DOL.GS.PacketHandler.Client.v168
 			int logo = packet.ReadByte(); //8bits
 			int oldemblem = client.Player.Guild.Emblem;
 			int newemblem = ((logo << 9) | (pattern << 7) | (primarycolor << 3) | secondarycolor);
+			// The window "/8v8 guild emblem" opened: no keeper, no cost, and as often as the player likes (PvpGuildEmblem).
+			if (PvpGuildEmblem.Chosen(client.Player, newemblem))
+				return;
 			GuildMgr.ChangeGuildEmblem(client.Player, oldemblem, newemblem);
 		}
 	}

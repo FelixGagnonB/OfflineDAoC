@@ -104,6 +104,7 @@ namespace DOL.GS.Commands
             "/8v8 ready [build]   your character becomes level 50 with that build's class, spec and gear (lists the builds without one)",
             "/8v8 guild [name]    forms your guild: your seven companions wear its name and your group goes by it",
             "/8v8 guild lineup [name]   which eight your group is, from your next evening on",
+            "/8v8 guild emblem    opens the emblem window: your guild's emblem, free, worn by you and your companions",
             "/8v8 call <push|regroup|hold|engage|extend|assist|control|retreat|rest|die>   your call to the group",
             "/8v8 calls <on|off>  your companions' calls in group chat",
             "/8v8 lead <on|off>   your companions fall back as one by themselves when the group has too many on it",
@@ -267,6 +268,12 @@ namespace DOL.GS.Commands
 
                 case "guild":
                 {
+                    // "/8v8 guild emblem": the game's emblem window, wherever the player stands and at no cost.
+                    if (args.Length > 2 && args[2].ToLowerInvariant() == "emblem")
+                    {
+                        Say(PvpGuildEmblem.Ask(player));
+                        return;
+                    }
                     // "/8v8 guild lineup [name]": which eight the group is, from the next evening on.
                     if (args.Length > 2 && args[2].ToLowerInvariant() == "lineup")
                     {
@@ -358,6 +365,8 @@ namespace DOL.GS.Commands
                         }
                         foreach (string line in PvpPlayerReady.Apply(player, build))
                             Say(line);
+                        // Its new cloak and shields wear its guild's emblem.
+                        PvpGuildEmblem.Wear(player);
                         // An 8v8 character now: its evening begins (PvpEveningStart), as it will each time it comes in.
                         PvpEveningStart.BeginFor(player, ownEvening);
                     }

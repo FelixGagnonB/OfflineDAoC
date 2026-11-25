@@ -265,8 +265,13 @@ has played it yet.**
   your group goes by it in `/8v8 who`, `/8v8 status` and the recording. `/8v8 guild` alone
   says what guild you have. It is an ordinary guild: `/gc quit` leaves it, and the game's own
   `/gc form` at a guild registrar (one gold piece) does the same with your companions in the
-  group. Not built: an emblem on their cloaks and shields. **Built 2026-11-24, automated tests
-  only.**
+  group. **Built 2026-11-24, automated tests only.**
+- **Emblems.** `/8v8 guild emblem` opens the game's emblem window wherever you stand, at no
+  cost, as often as you like (the game's own way is the emblem keeper in the capital: a second
+  emblem is 200 gold there, and 5 gold for each cloak or shield). What you pick goes on your
+  cloak and shields, worn or carried, and your companions wear it. Every guild of bots wears
+  an emblem made from its name, the same every evening. **Built 2026-11-25, automated tests
+  only; whether every made emblem has a picture in the client is not known.**
 
 ## Realm abilities
 

@@ -102,6 +102,8 @@ namespace DOL.GS
                 if (!begins)
                     return;
                 player.TempProperties.SetProperty(BeginsProperty, GameLoop.GameLoopTime);
+                // (Its cloak and shields wear its guild's emblem, whatever it has put on since.)
+                PvpGuildEmblem.Wear(player);
                 PvpPlayerSetting kept = PvpPlayerSettings.Get(AppContext.BaseDirectory, player.InternalID);
                 // Where the player stands when that is a frontier zone; else where its last evening began. The player is not moved.
                 PvpRoamMap zone = PvpRoam.FrontierUnder(player) ?? (kept.Zone == null ? null : PvpRoam.MapFor(kept.Zone));
