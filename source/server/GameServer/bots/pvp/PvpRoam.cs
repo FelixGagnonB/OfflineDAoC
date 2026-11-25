@@ -2216,6 +2216,9 @@ namespace DOL.GS
             // (What the player's group has taken on is the player's pick: no group of bots starts on that one.)
             if (eightOnly && team.Leader != null)
                 team.Claim = foes.FirstOrDefault(team.Fighting.Contains) ?? foes.FirstOrDefault();
+            // (A pick it does not go for after all, that group having got to its start, is given up: nobody else is kept from it.)
+            else if (eightOnly && team.Claim != null && !foes.Contains(team.Claim))
+                team.Claim = null;
             List<GameLiving> enemies = foes.SelectMany(other => other.Team.Members).Where(member => member.IsAlive).ToList();
             foreach (PvpRoamTeam other in foes)
             {
