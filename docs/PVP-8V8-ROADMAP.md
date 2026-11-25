@@ -3873,6 +3873,24 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [x] **M13.8** (M) The realm ability orders, up to the cap. *In the game 2026-11-25; automated tests only.* The
+  owner wrote an order for each of the 26 classes of the 8v8 groups
+  (`docs/DAoC-1.65-8v8-RA-Progressions-v3.md`), where the orders before were a first reading that stopped at 63 to
+  94 points of the 130 the cap gives (rank 14 level 0). Checked against the server
+  (`source/tools/pvp_ra_check.py`: each class's own ability list, levels, costs, what each step needs, and the
+  list bought as a bot buys it): one step does not exist (the Bard's Ameliorating Melodies has one level, not
+  three), thirteen lists cost more than the cap gives so that their last steps are never bought, eight end short
+  of it and are followed by the kind's build. Shown to the owner with what I would order differently (Raging
+  Power earlier for the healers, Ignore Pain earlier for the Hero that peels, First Aid and Ignore Pain for the
+  Blademaster, Mastery of Arms after Augmented Strength 3, Brilliant Aura after Mastery of Concentration); the
+  owner: "I am not sure what's the most optimal RA progression or msot valuable for 8v8. I mostly only know
+  druid / cleric / healer. I guess, for now, let's go as is, and we can always patch later if needed." So the
+  lists are in the game as written (`source/tools/pvp_ra_orders.py` writes them into `PvpRealmAbilities.cs` and
+  writes `docs/PVP-8V8-REALM-ABILITIES.md`). Asked by the owner: "We need to make sure all the RA, passives and
+  actives, are usable by the bots". Read in the code: every passive of the lists is counted for a bot by the
+  same calculation as for a player, and every ability to press has a rule and lands; one fault found and mended:
+  Perfect Recovery cast by a bot on a dead player went through the client's line-of-sight reply, which lost the
+  ability it was cast from, so its thirty minutes never began (`NpcCastingComponent`).
 - [ ] **M13.6** (S) The fixes of M12.9 to M12.12 and M13.1 on the scrim server, an evening of
   bots, an evening of the owner's. *On the scrim server since the owner logged off on
   2026-11-24 (M13.2 to M13.5 an hour later, started and not run); one evening of bots; the

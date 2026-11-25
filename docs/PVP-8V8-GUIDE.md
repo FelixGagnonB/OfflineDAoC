@@ -270,24 +270,19 @@ A bot has the realm ability points of its rank (one a realm level: 10 at rank 2,
 spends them in a fixed order for its class. A step it cannot pay for yet is passed over and comes
 first again when the points are there, as if a respec were free.
 
-| Class | What it buys first, in order |
-|---|---|
-| Druid | Tireless, Group Purge, Purge, Mystic Crystal Lore 2, Augmented Acuity 3, Mastery of Concentration, Battery of Life, Raging Power |
-| Cleric | Tireless, Purge, Mystic Crystal Lore 2, Augmented Acuity 3, Mastery of Concentration, Battery of Life, Bunker of Faith, Raging Power |
-| Healer | Tireless, Purge, Mystic Crystal Lore 2, Augmented Acuity 3, Mastery of Concentration, Perfect Recovery, Battery of Life, Raging Power |
-| Shaman | Tireless, Purge, Mystic Crystal Lore 2, Augmented Acuity 3, Mastery of Concentration, Raging Power |
-| The casters | Tireless, Purge, Mystic Crystal Lore 2, Augmented Acuity 3, Mastery of Concentration, Raging Power, Mastery of Magery 2, Wild Power 2 (the Enchanter: Brilliant Aura of Deflection after Mastery of Concentration) |
-| Minstrel | Tireless, Purge, Speed of Sound, Mystic Crystal Lore 1, First Aid 2, Ignore Pain |
-| Bard | Tireless, Purge, Speed of Sound, Mystic Crystal Lore 2, Ameliorating Melodies, Raging Power, First Aid 2, Ignore Pain |
-| Skald | Tireless, Purge, Speed of Sound, First Aid 2, Ignore Pain, Augmented Strength 3 |
-| Armsman, Warrior, Hero | Tireless, Purge (4 points), Determination 3, First Aid 2, Ignore Pain, Determination 4, Augmented Strength 2, Mastery of Pain 2 (the Armsman: Soldier's Barricade after Ignore Pain) |
-| Mercenary, Blademaster, Berserker, Savage | Tireless, Purge (4 points), Determination 3, First Aid 2, Ignore Pain, Augmented Dexterity 2, Mastery of Pain 2, Determination 4, Dualist's Reflexes 2 |
-| Paladin, Champion | Tireless, Purge, Determination 3, First Aid 2, Ignore Pain (the Paladin: then Faith Healing) |
-| Warden | Tireless, Purge, Mystic Crystal Lore 2, First Aid 2, Ignore Pain |
+Since 2026-11-25 the orders are the owner's own, up to the cap of 130 points (rank 14 level 0), written in
+[DAoC-1.65-8v8-RA-Progressions-v3.md](DAoC-1.65-8v8-RA-Progressions-v3.md). Every class's order, with what each step
+costs and the rank from which a bot holds it, is in [PVP-8V8-REALM-ABILITIES.md](PVP-8V8-REALM-ABILITIES.md); what a
+class may train at all is in [PVP-8V8-REALM-ABILITY-MENU.md](PVP-8V8-REALM-ABILITY-MENU.md).
 
-Every class's full order, with what each step costs and at which rank it is reached, is in
-[PVP-8V8-REALM-ABILITIES.md](PVP-8V8-REALM-ABILITIES.md). The orders themselves are in
-`bots/pvp/PvpRealmAbilities.cs`, one line a class, to be corrected there.
+To change an order: edit the list in the progressions file, then
+
+    python source/tools/pvp_ra_check.py docs/DAoC-1.65-8v8-RA-Progressions-v3.md     (checks it, changes nothing)
+    python source/tools/pvp_ra_orders.py docs/DAoC-1.65-8v8-RA-Progressions-v3.md    (writes the game's lists and the page)
+
+and build, test and install the server as for any change. Every passive and every ability to press in those lists
+has its effect on a bot (read in the code on 2026-11-25, not measured in a fight).
+
 Speed of Sound is the Bard's and the Skald's as well as the Minstrel's (10 points, from rank 3 level 1);
 a player of those classes can train it too.
 

@@ -163,61 +163,134 @@ namespace DOL.GS
         private static Step[] Order(params (string Key, int Level)[] steps) =>
             steps.Select(step => new Step(step.Key.StartsWith("AtlasOF_") ? step.Key : "AtlasOF_" + step.Key, step.Level)).ToArray();
 
-        // A caster that kills: its Purge, its power back, then Mastery of Concentration to cast with a fighter on it.
-        private static readonly Step[] Caster = Order((Tireless, 1), (Purge, 1), (Mcl, 2), (AugAcuity, 3), (Concentration, 1), (RagingPower, 1),
-            ("MasteryOfMagery", 2), ("WildPower", 2), ("Serenity", 2), (EmptyMind, 1), ("Toughness", 2), ("MasteryOfMagery", 3));
-
-        // A fighter in plate or chain: the cheap Purge, Determination against the mez and root that keep it off its target, Ignore Pain.
-        private static readonly Step[] Tank = Order((Tireless, 1), (PurgeReduced, 1), (Determination, 3), (FirstAid, 2), (IgnorePainTank, 1),
-            (Determination, 4), (AugStr, 2), (AugDex, 2), ("MasteryOfPain", 2), (Determination, 5), (AugCon, 3), (AvoidPain, 1), ("Toughness", 2));
-
-        // A fighter with two weapons: the same, with its critical hits before its strength.
-        private static readonly Step[] LightTank = Order((Tireless, 1), (PurgeReduced, 1), (Determination, 3), (FirstAid, 2), (IgnorePainTank, 1),
-            (AugDex, 2), ("MasteryOfPain", 2), (Determination, 4), ("DualistsReflexes", 2), (AugStr, 2), (Determination, 5), ("MasteryOfPain", 3));
-
+        // <orders> Written by source/tools/pvp_ra_orders.py from docs/DAoC-1.65-8v8-RA-Progressions-v3.md: the owner's lists. Change them
+        // there and run the tool; what is between these two marks is written over.
         private static readonly Dictionary<eCharacterClass, Step[]> Orders = new()
         {
-            // ---- the healers
-            // Group Purge first (owner, 2026-11-17: "a Druid has Group Purge, which is a huge difference").
-            [eCharacterClass.Druid] = Order((Tireless, 1), (PvpPurge.GroupPurgeKey, 1), (Purge, 1), (Mcl, 2), (AugAcuity, 3), (Concentration, 1),
-                (Battery, 1), (RagingPower, 1), ("Serenity", 2), ("WildHealing", 2), ("MasteryOfHealing", 2), ("Toughness", 2)),
-            [eCharacterClass.Cleric] = Order((Tireless, 1), (Purge, 1), (Mcl, 2), (AugAcuity, 3), (Concentration, 1), (Battery, 1), (Bunker, 1),
-                (RagingPower, 1), ("Serenity", 2), ("WildHealing", 2), ("MasteryOfHealing", 2), ("Toughness", 2)),
-            [eCharacterClass.Healer] = Order((Tireless, 1), (Purge, 1), (Mcl, 2), (AugAcuity, 3), (Concentration, 1), (PerfectRecovery, 1),
-                (Battery, 1), (RagingPower, 1), ("Serenity", 2), ("WildHealing", 2), ("MasteryOfHealing", 2), ("Toughness", 2)),
-            [eCharacterClass.Shaman] = Order((Tireless, 1), (Purge, 1), (Mcl, 2), (AugAcuity, 3), (Concentration, 1), (RagingPower, 1),
-                ("Serenity", 2), ("WildHealing", 2), ("MasteryOfHealing", 2), ("Toughness", 2), (FirstAid, 2), (IgnorePain, 1)),
-
-            // ---- the casters
-            [eCharacterClass.Sorcerer] = Caster, [eCharacterClass.Theurgist] = Caster, [eCharacterClass.Cabalist] = Caster,
-            [eCharacterClass.Wizard] = Caster, [eCharacterClass.Runemaster] = Caster, [eCharacterClass.Spiritmaster] = Caster,
-            [eCharacterClass.Eldritch] = Caster, [eCharacterClass.Mentalist] = Caster,
-            // The group's resistances for thirty seconds, after its own Mastery of Concentration.
-            [eCharacterClass.Enchanter] = Order((Tireless, 1), (Purge, 1), (Mcl, 2), (AugAcuity, 3), (Concentration, 1), (Aura, 1), (RagingPower, 1),
-                ("MasteryOfMagery", 2), ("WildPower", 2), ("Serenity", 2), (EmptyMind, 1), ("Toughness", 2)),
-
-            // ---- the speed classes
-            [eCharacterClass.Minstrel] = Order((Tireless, 1), (Purge, 1), (SpeedOfSound, 1), (Mcl, 1), (FirstAid, 2), (IgnorePain, 1),
-                (AugCon, 2), (AugDex, 2), ("MasteryOfPain", 2), ("Toughness", 2)),
-            [eCharacterClass.Bard] = Order((Tireless, 1), (Purge, 1), (SpeedOfSound, 1), (Mcl, 2), (Melodies, 1), (RagingPower, 1),
-                (FirstAid, 2), (IgnorePain, 1), (AugCon, 2), ("Toughness", 2)),
-            [eCharacterClass.Skald] = Order((Tireless, 1), (Purge, 1), (SpeedOfSound, 1), (FirstAid, 2), (IgnorePain, 1), (AugStr, 3),
-                (AugDex, 2), ("MasteryOfPain", 2), (AugCon, 2), ("Toughness", 2)),
-
-            // ---- the fighters
-            [eCharacterClass.Armsman] = [.. Tank.Take(5), new Step(Barricade, 1), .. Tank.Skip(5)],
-            [eCharacterClass.Warrior] = Tank, [eCharacterClass.Hero] = Tank,
-            [eCharacterClass.Mercenary] = LightTank, [eCharacterClass.Blademaster] = LightTank,
-            [eCharacterClass.Berserker] = LightTank, [eCharacterClass.Savage] = LightTank,
-
-            // ---- the hybrids
-            [eCharacterClass.Paladin] = Order((Tireless, 1), (Purge, 1), (DeterminationHybrid, 3), (FirstAid, 2), (IgnorePain, 1), (FaithHealing, 1),
-                (AugCon, 3), (AvoidPain, 1), (AugStr, 2), ("Toughness", 2)),
-            [eCharacterClass.Champion] = Order((Tireless, 1), (Purge, 1), (DeterminationHybrid, 3), (FirstAid, 2), (IgnorePain, 1), (AugStr, 3),
-                (AugDex, 2), ("MasteryOfPain", 2), (AugCon, 2), ("Toughness", 2)),
-            [eCharacterClass.Warden] = Order((Tireless, 1), (Purge, 1), (Mcl, 2), (FirstAid, 2), (IgnorePain, 1), (AugCon, 3), (ArmorOfFaith, 1),
-                (AugDex, 2), ("MasteryOfParrying", 2), ("Toughness", 2)),
+            // Druid -- primary healer / group sustain (Regrowth main, Nurture secondary)
+            [eCharacterClass.Druid] = Order(("GroupPurge", 1), ("Purge", 1), ("Tireless", 1), ("MCL", 2), ("AugAcuity", 3),
+                ("MasteryOfConcentration", 1), ("BatteryOfLife", 1), ("RagingPower", 1), ("WildHealing", 2), ("MasteryOfHealing", 2),
+                ("Serenity", 2), ("Toughness", 2), ("WildHealing", 3), ("MasteryOfHealing", 3), ("Serenity", 3), ("Toughness", 3), ("AugCon", 2),
+                ("AugDex", 2), ("AugAcuity", 4), ("WildHealing", 4), ("MasteryOfHealing", 4), ("AugCon", 3)),
+            // Bard -- control / speed / group sustain
+            [eCharacterClass.Bard] = Order(("Purge", 1), ("SpeedOfSound", 1), ("Tireless", 1), ("AmelioratingMelodies", 1), ("MCL", 2),
+                ("RagingPower", 1), ("FirstAid", 2), ("AugCon", 2), ("Toughness", 2), ("IgnorePain", 1), ("AugCon", 3), ("AugDex", 2),
+                ("Toughness", 3), ("AugDex", 3), ("Toughness", 4), ("AugCon", 4)),
+            // Hero -- peel (default)
+            [eCharacterClass.Hero] = Order(("Tireless", 1), ("PurgeReduced", 1), ("Determination", 3), ("Determination", 4), ("AugCon", 3),
+                ("AvoidPain", 1), ("AugDex", 2), ("Determination", 5), ("AugStr", 2), ("Toughness", 2), ("MasteryOfPain", 2), ("AvoidPain", 2),
+                ("AugStr", 3), ("MasteryOfPain", 3), ("AugDex", 3), ("Toughness", 3), ("FirstAid", 2), ("IgnorePainTank", 1), ("AvoidPain", 3),
+                ("AugCon", 4)),
+            // Blademaster -- assist (two in the group)
+            [eCharacterClass.Blademaster] = Order(("Tireless", 1), ("PurgeReduced", 1), ("Determination", 3), ("AugDex", 2), ("MasteryOfPain", 2),
+                ("DualistsReflexes", 2), ("Determination", 4), ("AugStr", 2), ("Determination", 5), ("MasteryOfPain", 3), ("AugCon", 2),
+                ("Toughness", 2), ("AugCon", 3), ("AugDex", 3), ("Toughness", 3), ("AugStr", 3), ("MasteryOfPain", 4), ("AugCon", 4),
+                ("Toughness", 4)),
+            // Champion -- hybrid melee / debuff (not in the current roster)
+            [eCharacterClass.Champion] = Order(("Tireless", 1), ("Purge", 1), ("DeterminationHybrid", 3), ("AugStr", 2), ("AugDex", 2),
+                ("MasteryOfPain", 2), ("AugCon", 3), ("AvoidPain", 1), ("Toughness", 2), ("FirstAid", 2), ("IgnorePain", 1), ("AvoidPain", 2),
+                ("AugStr", 3), ("MasteryOfPain", 3), ("AugDex", 3), ("Toughness", 3), ("AvoidPain", 3), ("AugCon", 4)),
+            // Warden -- defensive support (not in the current roster)
+            [eCharacterClass.Warden] = Order(("Tireless", 1), ("Purge", 1), ("MCL", 2), ("FirstAid", 2), ("IgnorePain", 1), ("AugCon", 3),
+                ("ArmorOfFaith", 1), ("AugDex", 2), ("MasteryOfParrying", 2), ("Toughness", 2), ("ArmorOfFaith", 2), ("MasteryOfParrying", 3),
+                ("AugDex", 3), ("Toughness", 3), ("ArmorOfFaith", 3), ("AugCon", 4)),
+            // Eldritch -- nukes, nearsight, snare nuke
+            [eCharacterClass.Eldritch] = Order(("Purge", 1), ("Tireless", 1), ("MCL", 2), ("AugAcuity", 3), ("MasteryOfConcentration", 1),
+                ("RagingPower", 1), ("MasteryOfMagery", 2), ("WildPower", 2), ("EmptyMind", 1), ("Serenity", 2), ("Toughness", 2),
+                ("MasteryOfMagery", 3), ("EmptyMind", 2), ("AugCon", 2), ("AugDex", 2), ("Toughness", 3), ("Serenity", 3), ("WildPower", 3),
+                ("AugAcuity", 4), ("WildPower", 4), ("MasteryOfMagery", 4)),
+            // Mentalist -- ranged damage / secondary heal (not in the current roster)
+            [eCharacterClass.Mentalist] = Order(("Purge", 1), ("Tireless", 1), ("MCL", 2), ("AugAcuity", 3), ("MasteryOfConcentration", 1),
+                ("RagingPower", 1), ("MasteryOfMagery", 2), ("WildPower", 2), ("EmptyMind", 1), ("Serenity", 2), ("Toughness", 2),
+                ("MasteryOfMagery", 3), ("EmptyMind", 2), ("AugCon", 2), ("AugDex", 2), ("Toughness", 3), ("Serenity", 3), ("WildPower", 3),
+                ("AugAcuity", 4), ("WildPower", 4), ("MasteryOfMagery", 4)),
+            // Enchanter -- debuff / damage / Brilliant Aura of Deflection
+            [eCharacterClass.Enchanter] = Order(("Purge", 1), ("Tireless", 1), ("MCL", 2), ("BrilliantAura", 1), ("AugAcuity", 3),
+                ("MasteryOfConcentration", 1), ("RagingPower", 1), ("MasteryOfMagery", 2), ("WildPower", 2), ("EmptyMind", 1), ("Serenity", 2),
+                ("Toughness", 2), ("EmptyMind", 2), ("AugCon", 2), ("AugDex", 2), ("Toughness", 3), ("Serenity", 3), ("WildPower", 3),
+                ("AugAcuity", 4), ("WildPower", 4), ("MasteryOfMagery", 4)),
+            // Cleric -- primary healer (Rejuvenation) / buffer (Enhancement)
+            [eCharacterClass.Cleric] = Order(("Purge", 1), ("Tireless", 1), ("MCL", 2), ("AugAcuity", 3), ("MasteryOfConcentration", 1),
+                ("BatteryOfLife", 1), ("BunkerOfFaith", 1), ("RagingPower", 1), ("WildHealing", 2), ("MasteryOfHealing", 2), ("Serenity", 2),
+                ("Toughness", 2), ("WildHealing", 3), ("MasteryOfHealing", 3), ("Serenity", 3), ("Toughness", 3), ("AugCon", 2), ("AugDex", 2),
+                ("AugAcuity", 4), ("WildHealing", 4), ("MasteryOfHealing", 4), ("AugCon", 3)),
+            // Minstrel -- speed / cure mez / area mez / shouts
+            [eCharacterClass.Minstrel] = Order(("Tireless", 1), ("Purge", 1), ("SpeedOfSound", 1), ("MCL", 2), ("FirstAid", 2), ("AugCon", 2),
+                ("AugDex", 2), ("IgnorePain", 1), ("Toughness", 2), ("MasteryOfPain", 2), ("AugCon", 3), ("Toughness", 3), ("MasteryOfPain", 3),
+                ("AugDex", 3), ("Toughness", 4), ("AugCon", 4), ("MasteryOfPain", 4)),
+            // Paladin -- peel (shield)
+            [eCharacterClass.Paladin] = Order(("Tireless", 1), ("Purge", 1), ("DeterminationHybrid", 3), ("FaithHealing", 1), ("AugCon", 3),
+                ("AvoidPain", 1), ("AugStr", 2), ("Toughness", 2), ("FirstAid", 2), ("IgnorePain", 1), ("AvoidPain", 2), ("AugStr", 3),
+                ("AugDex", 2), ("Toughness", 3), ("AvoidPain", 3), ("AugCon", 4), ("AugStr", 4), ("Toughness", 4)),
+            // Armsman -- assist (polearm on the kill target, shield out only to Slam)
+            [eCharacterClass.Armsman] = Order(("Tireless", 1), ("PurgeReduced", 1), ("Determination", 3), ("SoldiersBarricade", 1), ("AugStr", 2),
+                ("AugDex", 2), ("MasteryOfPain", 2), ("Determination", 4), ("AugCon", 3), ("AvoidPain", 1), ("Determination", 5), ("Toughness", 2),
+                ("FirstAid", 2), ("IgnorePainTank", 1), ("AvoidPain", 2), ("AugStr", 3), ("AugDex", 3), ("Toughness", 3), ("MasteryOfPain", 3),
+                ("AvoidPain", 3)),
+            // Mercenary -- assist (not in the current roster)
+            [eCharacterClass.Mercenary] = Order(("Tireless", 1), ("PurgeReduced", 1), ("Determination", 3), ("AugDex", 2), ("MasteryOfPain", 2),
+                ("DualistsReflexes", 2), ("Determination", 4), ("AugStr", 2), ("Determination", 5), ("MasteryOfPain", 3), ("AugCon", 2),
+                ("Toughness", 2), ("FirstAid", 2), ("IgnorePainTank", 1), ("AugCon", 3), ("AugDex", 3), ("Toughness", 3), ("AugStr", 3),
+                ("MasteryOfPain", 4), ("AugCon", 4), ("Toughness", 4)),
+            // Sorcerer -- main crowd control
+            [eCharacterClass.Sorcerer] = Order(("Purge", 1), ("Tireless", 1), ("AugAcuity", 3), ("MasteryOfConcentration", 1), ("MCL", 2),
+                ("RagingPower", 1), ("EmptyMind", 2), ("Serenity", 2), ("Toughness", 2), ("EmptyMind", 3), ("AugCon", 2), ("AugDex", 2),
+                ("Toughness", 3), ("Serenity", 3), ("AugAcuity", 4), ("AugCon", 3), ("AugDex", 3), ("Toughness", 4)),
+            // Theurgist -- interrupts / pets
+            [eCharacterClass.Theurgist] = Order(("Purge", 1), ("Tireless", 1), ("AugAcuity", 3), ("MasteryOfConcentration", 1), ("MCL", 2),
+                ("RagingPower", 1), ("EmptyMind", 2), ("Serenity", 2), ("Toughness", 2), ("EmptyMind", 3), ("AugCon", 2), ("AugDex", 2),
+                ("Toughness", 3), ("Serenity", 3), ("AugAcuity", 4), ("AugCon", 3), ("AugDex", 3), ("Toughness", 4)),
+            // Cabalist -- debuff / disease / lifedrain
+            [eCharacterClass.Cabalist] = Order(("Purge", 1), ("Tireless", 1), ("MCL", 2), ("AugAcuity", 3), ("MasteryOfConcentration", 1),
+                ("RagingPower", 1), ("EmptyMind", 1), ("MasteryOfMagery", 2), ("WildPower", 2), ("Serenity", 2), ("Toughness", 2),
+                ("MasteryOfMagery", 3), ("EmptyMind", 2), ("AugCon", 2), ("AugDex", 2), ("Toughness", 3), ("Serenity", 3), ("WildPower", 3),
+                ("AugAcuity", 4), ("WildPower", 4), ("MasteryOfMagery", 4)),
+            // Wizard -- ranged damage (not in the current roster)
+            [eCharacterClass.Wizard] = Order(("Purge", 1), ("Tireless", 1), ("MCL", 2), ("AugAcuity", 3), ("MasteryOfConcentration", 1),
+                ("RagingPower", 1), ("MasteryOfMagery", 2), ("WildPower", 2), ("EmptyMind", 1), ("Serenity", 2), ("Toughness", 2),
+                ("MasteryOfMagery", 3), ("EmptyMind", 2), ("AugCon", 2), ("AugDex", 2), ("Toughness", 3), ("Serenity", 3), ("WildPower", 3),
+                ("AugAcuity", 4), ("WildPower", 4), ("MasteryOfMagery", 4)),
+            // Healer -- main healer (Mending) / control-leaning (Pacification)
+            [eCharacterClass.Healer] = Order(("Purge", 1), ("Tireless", 1), ("MCL", 2), ("PerfectRecovery", 1), ("AugAcuity", 3),
+                ("MasteryOfConcentration", 1), ("BatteryOfLife", 1), ("RagingPower", 1), ("WildHealing", 2), ("MasteryOfHealing", 2),
+                ("Serenity", 2), ("Toughness", 2), ("WildHealing", 3), ("MasteryOfHealing", 3), ("Serenity", 3), ("Toughness", 3), ("AugCon", 2),
+                ("AugDex", 2), ("AugAcuity", 4), ("WildHealing", 4), ("MasteryOfHealing", 4), ("AugCon", 3)),
+            // Shaman -- buffer / disease / secondary heal
+            [eCharacterClass.Shaman] = Order(("Purge", 1), ("Tireless", 1), ("MCL", 2), ("AugAcuity", 3), ("MasteryOfConcentration", 1),
+                ("RagingPower", 1), ("FirstAid", 2), ("IgnorePain", 1), ("WildHealing", 2), ("MasteryOfHealing", 2), ("Serenity", 2),
+                ("Toughness", 2), ("WildHealing", 3), ("MasteryOfHealing", 3), ("Serenity", 3), ("Toughness", 3), ("AugCon", 2), ("AugDex", 2),
+                ("AugAcuity", 4), ("WildHealing", 4), ("MasteryOfHealing", 4), ("AugCon", 3)),
+            // Skald -- speed / shouts / mez / melee
+            [eCharacterClass.Skald] = Order(("Tireless", 1), ("Purge", 1), ("SpeedOfSound", 1), ("AugDex", 2), ("AugStr", 2), ("MasteryOfPain", 2),
+                ("AugCon", 2), ("Toughness", 2), ("FirstAid", 2), ("IgnorePain", 1), ("AugStr", 3), ("AugDex", 3), ("AugCon", 3),
+                ("MasteryOfPain", 3), ("Toughness", 3), ("Toughness", 4), ("AugCon", 4), ("MasteryOfPain", 4), ("AugStr", 4)),
+            // Warrior -- peel (hammer and shield)
+            [eCharacterClass.Warrior] = Order(("Tireless", 1), ("PurgeReduced", 1), ("Determination", 3), ("Determination", 4), ("AugCon", 3),
+                ("AvoidPain", 1), ("AugDex", 2), ("Determination", 5), ("AugStr", 2), ("MasteryOfPain", 2), ("Toughness", 2), ("FirstAid", 2),
+                ("IgnorePainTank", 1), ("AvoidPain", 2), ("AugStr", 3), ("MasteryOfPain", 3), ("AugDex", 3), ("Toughness", 3), ("AvoidPain", 3),
+                ("AugCon", 4)),
+            // Berserker -- assist
+            [eCharacterClass.Berserker] = Order(("Tireless", 1), ("PurgeReduced", 1), ("Determination", 3), ("AugDex", 2), ("MasteryOfPain", 2),
+                ("DualistsReflexes", 2), ("Determination", 4), ("AugStr", 2), ("Determination", 5), ("MasteryOfPain", 3), ("AugCon", 2),
+                ("Toughness", 2), ("FirstAid", 2), ("IgnorePainTank", 1), ("AugCon", 3), ("AugDex", 3), ("Toughness", 3), ("AugStr", 3),
+                ("MasteryOfPain", 4), ("AugCon", 4), ("Toughness", 4)),
+            // Savage -- assist
+            [eCharacterClass.Savage] = Order(("Tireless", 1), ("PurgeReduced", 1), ("Determination", 3), ("AugDex", 2), ("MasteryOfPain", 2),
+                ("DualistsReflexes", 2), ("Determination", 4), ("AugStr", 2), ("Determination", 5), ("MasteryOfPain", 3), ("AugCon", 2),
+                ("Toughness", 2), ("FirstAid", 2), ("IgnorePainTank", 1), ("AugCon", 3), ("AugDex", 3), ("Toughness", 3), ("AugStr", 3),
+                ("MasteryOfPain", 4), ("AugCon", 4), ("Toughness", 4)),
+            // Runemaster -- nukes / nearsight / area damage
+            [eCharacterClass.Runemaster] = Order(("Purge", 1), ("Tireless", 1), ("MCL", 2), ("AugAcuity", 3), ("MasteryOfConcentration", 1),
+                ("RagingPower", 1), ("EmptyMind", 1), ("MasteryOfMagery", 2), ("WildPower", 2), ("Serenity", 2), ("Toughness", 2),
+                ("MasteryOfMagery", 3), ("EmptyMind", 2), ("AugCon", 2), ("AugDex", 2), ("Toughness", 3), ("Serenity", 3), ("WildPower", 3),
+                ("AugAcuity", 4), ("WildPower", 4), ("MasteryOfMagery", 4)),
+            // Spiritmaster -- utility / debuff / pets (not in the current roster)
+            [eCharacterClass.Spiritmaster] = Order(("Purge", 1), ("Tireless", 1), ("MCL", 2), ("AugAcuity", 3), ("MasteryOfConcentration", 1),
+                ("RagingPower", 1), ("EmptyMind", 1), ("MasteryOfMagery", 2), ("WildPower", 2), ("Serenity", 2), ("Toughness", 2),
+                ("MasteryOfMagery", 3), ("EmptyMind", 2), ("AugCon", 2), ("AugDex", 2), ("Toughness", 3), ("Serenity", 3), ("WildPower", 3),
+                ("AugAcuity", 4), ("WildPower", 4), ("MasteryOfMagery", 4)),
         };
+        // </orders>
 
         /// <summary>What a class buys first; a class without an order keeps the one every 8v8 bot had.</summary>
         public static IReadOnlyList<Step> OrderOf(int classId) =>

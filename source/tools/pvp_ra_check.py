@@ -16,7 +16,7 @@ import sqlite3
 import sys
 
 SERVER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "server", "GameServer")
-DB = "file:" + (sys.argv[2].replace("\\", "/") if len(sys.argv) > 2 else "D:/OfflineDAoC-scrim/runtime/data/opendaoc.sqlite3.db") + "?mode=ro"
+DEFAULT_DB = "D:/OfflineDAoC-scrim/runtime/data/opendaoc.sqlite3.db"
 
 # ---- the handlers: cost and levels of every ability
 classes = {}
@@ -94,8 +94,15 @@ CLASS_ID = {"Cleric": 6, "Sorcerer": 8, "Minstrel": 4, "Theurgist": 5, "Paladin"
             "Spiritmaster": 27, "Thane": 21, "Bonedancer": 30, "Druid": 47, "Bard": 48, "Hero": 44, "Blademaster": 43, "Eldritch": 40,
             "Enchanter": 41, "Warden": 46, "Champion": 45, "Mentalist": 42, "Valewalker": 56, "Animist": 55}
 
-db = sqlite3.connect(DB, uri=True)
-ABILITY = {key: (name.strip(), (impl or "").split(".")[-1]) for key, name, impl in db.execute("select KeyName, Name, Implementation from Ability")}
+db = None
+ABILITY = {}
+
+
+def open_db(path=None):
+    global db
+    db = sqlite3.connect("file:" + (path or DEFAULT_DB).replace(chr(92), "/") + "?mode=ro", uri=True)
+    ABILITY.clear()
+    ABILITY.update({key: (name.strip(), (impl or "").split(".")[-1]) for key, name, impl in db.execute("select KeyName, Name, Implementation from Ability")})
 
 
 def norm(name):
@@ -122,85 +129,96 @@ def plan(steps, points):
     return owned, points
 
 
-text = open(sys.argv[1], encoding="utf-8").read()
-sections = re.split(r"^### ", text, flags=re.M)[1:]
-for section in sections:
-    title, _, body = section.partition("\n")
-    label = title.split("--")[0].strip()
-    if label not in CLASS_ID:
-        continue
-    available = {}
-    for (key,) in db.execute("select AbilityKey from ClassXRealmAbility_Atlas where CharClass=?", (CLASS_ID[label],)):
-        if key in ABILITY:
-            available[key] = ABILITY[key]
-    # The fork gives Speed of Sound to the Bard and the Skald in code, not in the table (gameutils/SkillBase.cs).
-    if label in ("Bard", "Skald") and A + "SpeedOfSound" in ABILITY:
-        available[A + "SpeedOfSound"] = ABILITY[A + "SpeedOfSound"]
-    by_name = {}
-    for key, (name, impl) in available.items():
-        by_name.setdefault(norm(name), []).append(key)
-    problems, steps, listed = [], [], []
-    for number, raw in re.findall(r"^(\d+)\.\s+(.+?)\s*$", body, re.M):
-        if re.match(r"^## ", raw):
-            break
-        tag = re.search(r"\((fighter|hybrid)\)", raw)
-        name = re.sub(r"\((fighter|hybrid)\)", "", raw).strip()
-        m = re.match(r"^(.*?)(?:\s+(\d+))?$", name)
-        name, target = m.group(1).strip(), int(m.group(2) or 1)
-        keys = by_name.get(norm(name))
-        if not keys:
-            problems.append(f"#{number} {raw}: the {label} cannot train it (not in its class list)")
+def read(path, database=None):
+    """Every list of the file: (title, class, steps, listed, problems, total, held_at).
+    steps: (key, target level, cost of each level); listed: (number, the step as written, key, target level);
+    held_at: the realm level from which a bot that buys the list holds each numbered step for good."""
+    open_db(database)
+    text = open(path, encoding="utf-8").read()
+    for section in re.split(r"^### ", text, flags=re.M)[1:]:
+        title, _, body = section.partition("\n")
+        body = re.split(r"^## ", body, flags=re.M)[0]
+        label = title.split("--")[0].strip()
+        if label not in CLASS_ID:
             continue
-        key = keys[0]
-        if len(keys) > 1:
-            # Two spellings of one ability: the class's cheaper Purge or Ignore Pain, the hybrid Determination.
-            key = sorted(keys, key=lambda k: sum(levels(available[k][1])))[0]
-        if tag and tag.group(1) == "fighter" and key != A + "PurgeReduced":
-            problems.append(f"#{number} {raw}: the {label} has the Purge at {levels(available[key][1])[0]} points, not the fighters' at 4")
-        if tag and tag.group(1) == "hybrid" and key != A + "DeterminationHybrid":
-            problems.append(f"#{number} {raw}: the {label} has no hybrid Determination ({key})")
-        ladder = levels(available[key][1])
-        if not ladder:
-            problems.append(f"#{number} {raw}: its cost could not be read")
+        available = {}
+        for (key,) in db.execute("select AbilityKey from ClassXRealmAbility_Atlas where CharClass=?", (CLASS_ID[label],)):
+            if key in ABILITY:
+                available[key] = ABILITY[key]
+        # The fork gives Speed of Sound to the Bard and the Skald in code, not in the table (gameutils/SkillBase.cs).
+        if label in ("Bard", "Skald") and A + "SpeedOfSound" in ABILITY:
+            available[A + "SpeedOfSound"] = ABILITY[A + "SpeedOfSound"]
+        by_name = {}
+        for key, (name, impl) in available.items():
+            by_name.setdefault(norm(name), []).append(key)
+        problems, steps, listed = [], [], []
+        for number, raw in re.findall(r"^(\d+)\.\s+(.+?)\s*$", body, re.M):
+            tag = re.search(r"\((fighter|hybrid)\)", raw)
+            name = re.sub(r"\((fighter|hybrid)\)", "", raw).strip()
+            m = re.match(r"^(.*?)(?:\s+(\d+))?$", name)
+            name, target = m.group(1).strip(), int(m.group(2) or 1)
+            keys = by_name.get(norm(name))
+            if not keys:
+                problems.append(f"#{number} {raw}: the {label} cannot train it (not in its class list)")
+                continue
+            key = keys[0]
+            if len(keys) > 1:
+                # Two spellings of one ability: the class's cheaper Purge or Ignore Pain, the hybrid Determination.
+                key = sorted(keys, key=lambda k: sum(levels(available[k][1])))[0]
+            if tag and tag.group(1) == "fighter" and key != A + "PurgeReduced":
+                problems.append(f"#{number} {raw}: the {label} has the Purge at {levels(available[key][1])[0]} points, not the fighters' at 4")
+            if tag and tag.group(1) == "hybrid" and key != A + "DeterminationHybrid":
+                problems.append(f"#{number} {raw}: the {label} has no hybrid Determination ({key})")
+            ladder = levels(available[key][1])
+            if not ladder:
+                problems.append(f"#{number} {raw}: its cost could not be read")
+                continue
+            if target > len(ladder):
+                problems.append(f"#{number} {raw}: it has {len(ladder)} level{'s' if len(ladder) > 1 else ''} here (cost {', '.join(map(str, ladder))}); level {target} does not exist")
+                target = len(ladder)
+            timed = any("timed" in c for c in chain(available[key][1]))
+            if timed and key not in PRESSED:
+                problems.append(f"#{number} {raw}: an ability to press that the bots have no rule for; a bot never buys it")
+            steps.append((key, target, ladder))
+            listed.append((number, raw, key, target))
+        if not steps:
             continue
-        if target > len(ladder):
-            problems.append(f"#{number} {raw}: it has {len(ladder)} level{'s' if len(ladder) > 1 else ''} here (cost {', '.join(map(str, ladder))}); level {target} does not exist")
-            target = len(ladder)
-        timed = any("timed" in c for c in chain(available[key][1]))
-        if timed and key not in PRESSED:
-            problems.append(f"#{number} {raw}: an ability to press that the bots have no rule for; a bot never buys it")
-        steps.append((key, target, ladder))
-        listed.append((number, raw, key, target))
-    if not steps:
-        continue
-    # What each step needs, and whether the list ever has it.
-    final = {}
-    for key, target, ladder in steps:
-        final[key] = max(final.get(key, 0), target)
-    for number, raw, key, target in listed:
-        need = REQ.get(key)
-        if need and final.get(need[0], 0) < need[1]:
-            problems.append(f"#{number} {raw}: needs {ABILITY[need[0]][0]} {need[1]}, which the list never reaches; it is never bought")
-    total = sum(sum(steps_ladder[:final[key]]) for key, steps_ladder in {k: l for k, _, l in steps}.items())
-    print(f"\n=== {title.strip()}")
-    print(f"    {len(steps)} steps, {total} points in all" + (f": {total - 130} more than the cap gives" if total > 130 else f"; {130 - total} left at the cap" if total < 130 else ": exactly the cap"))
-    # When each step is really held.
-    # (Held for good: a bot's purchases are worked out afresh at each rank, so a cheap step bought with small change
-    # can be gone again at the next rank, when a dearer step above it is in reach.)
-    held_at = {}
-    for points in range(130, 0, -1):
-        owned, _ = plan(steps, points)
+        # What each step needs, and whether the list ever has it.
+        final = {}
+        for key, target, ladder in steps:
+            final[key] = max(final.get(key, 0), target)
         for number, raw, key, target in listed:
-            if owned.get(key, 0) >= target:
-                if held_at.get(number) == points + 1 or points == 130:
-                    held_at[number] = points
-            elif number in held_at and held_at[number] <= points:
-                del held_at[number]
-    order = sorted(listed, key=lambda s: (held_at.get(s[0], 999), int(s[0])))
-    print("    held for good from (as a bot buys): " + "; ".join(f"{raw} {rank(held_at[n]) if n in held_at else 'never'}" for n, raw, _, _ in order))
-    out_of_order = [(n, raw) for i, (n, raw, _, _) in enumerate(order) if any(int(m) < int(n) and held_at.get(m, 999) > held_at.get(n, 999) for m, _, _, _ in listed)]
-    for points in (20, 40, 70, 100):
-        owned, left = plan(steps, points)
-        print(f"    at {rank(points)} ({points}): " + ", ".join(f"{ABILITY[k][0]}{' ' + str(v) if len(dict((kk, l) for kk, _, l in steps)[k]) > 1 else ''}" for k, v in owned.items()) + (f"; {left} unspent" if left else ""))
-    for p in problems:
-        print("    !! " + p)
+            need = REQ.get(key)
+            if need and final.get(need[0], 0) < need[1]:
+                problems.append(f"#{number} {raw}: needs {ABILITY[need[0]][0]} {need[1]}, which the list never reaches; it is never bought")
+        total = sum(sum(ladder[:final[key]]) for key, ladder in {k: l for k, _, l in steps}.items())
+        # When each step is held for good: a bot's purchases are worked out afresh at each rank, so a cheap step bought
+        # with small change can be gone again at the next rank, when a dearer step above it is in reach.
+        held_at = {}
+        for points in range(130, 0, -1):
+            owned, _ = plan(steps, points)
+            for number, raw, key, target in listed:
+                if owned.get(key, 0) >= target:
+                    if held_at.get(number) == points + 1 or points == 130:
+                        held_at[number] = points
+                elif number in held_at and held_at[number] <= points:
+                    del held_at[number]
+        yield title.strip(), label, steps, listed, problems, total, held_at
+
+
+def main():
+    for title, label, steps, listed, problems, total, held_at in read(sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else None):
+        print(f"\n=== {title}")
+        print(f"    {len(steps)} steps, {total} points in all" + (f": {total - 130} more than the cap gives" if total > 130 else f"; {130 - total} left at the cap" if total < 130 else ": exactly the cap"))
+        order = sorted(listed, key=lambda s: (held_at.get(s[0], 999), int(s[0])))
+        print("    held for good from (as a bot buys): " + "; ".join(f"{raw} {rank(held_at[n]) if n in held_at else 'never'}" for n, raw, _, _ in order))
+        ladders = {k: l for k, _, l in steps}
+        for points in (20, 40, 70, 100):
+            owned, left = plan(steps, points)
+            print(f"    at {rank(points)} ({points}): " + ", ".join(f"{ABILITY[k][0]}{' ' + str(v) if len(ladders[k]) > 1 else ''}" for k, v in owned.items()) + (f"; {left} unspent" if left else ""))
+        for p in problems:
+            print("    !! " + p)
+
+
+if __name__ == "__main__":
+    main()

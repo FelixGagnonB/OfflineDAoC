@@ -117,7 +117,9 @@ namespace DOL.UnitTests
             Assert.That(druid.ContainsKey(PvpPurge.GroupPurgeKey) && druid.ContainsKey(AutonomousBotRealmAbilities.Purge), Is.True);
             Assert.That(druid[AutonomousBotRealmAbilities.Mcl], Is.EqualTo(2));
             Assert.That(druid.ContainsKey(PvpRealmAbilities.Concentration), Is.False, "24 points more: at rank 7");
-            Assert.That(Plan(eCharacterClass.Druid, 60).ContainsKey(PvpRealmAbilities.Concentration), Is.True);
+            // (The owner's lists of 2026-11-25, docs/DAoC-1.65-8v8-RA-Progressions-v3.md: Group Purge, Purge, Tireless, Mystic Crystal Lore 2,
+            // Augmented Acuity 3, Mastery of Concentration: 58 points, held for good from 6L8 once the steps after it are not bought first.)
+            Assert.That(Plan(eCharacterClass.Druid, 70).ContainsKey(PvpRealmAbilities.Concentration), Is.True);
         }
 
         [Test]
@@ -131,12 +133,16 @@ namespace DOL.UnitTests
         }
 
         [Test]
-        public void AFighterAtRankFiveHasPurgeDeterminationAndIgnorePain()
+        public void AFighterAtRankFiveHasPurgeDeterminationAndAvoidPain()
         {
+            // The owner's list for the Hero that peels (2026-11-25): Determination 4, then Augmented Constitution 3 for Avoid Pain;
+            // Ignore Pain comes late in it (rank 11), where the list before had it at rank 4.
             Dictionary<string, int> hero = Plan(eCharacterClass.Hero, 40);
             Assert.That(hero.ContainsKey(AutonomousBotRealmAbilities.PurgeReduced), Is.True);
-            Assert.That(hero[PvpRealmAbilities.Determination], Is.GreaterThanOrEqualTo(3));
-            Assert.That(hero.ContainsKey(AutonomousBotRealmAbilities.IgnorePainTank), Is.True);
+            Assert.That(hero[PvpRealmAbilities.Determination], Is.GreaterThanOrEqualTo(4));
+            Assert.That(hero.ContainsKey(PvpRealmAbilities.AvoidPain), Is.True);
+            Assert.That(hero.ContainsKey(AutonomousBotRealmAbilities.IgnorePainTank), Is.False);
+            Assert.That(Plan(eCharacterClass.Hero, 113).ContainsKey(AutonomousBotRealmAbilities.IgnorePainTank), Is.True);
         }
 
         [Test]
