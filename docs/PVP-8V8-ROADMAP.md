@@ -3873,6 +3873,24 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [x] **M13.16** (M) More groups, fewer of them bad, and clean zones where nobody adds. *Built 2026-11-25;
+  automated tests only; not run on a server.* The owner, an hour and a half into the play install: "I feel like
+  the population is low and, from what I've seen, mostly bad groups running 2fg or more. I have yet to find a clean
+  fight in any of the frontier zone". Its recording of the evening that was on (35 minutes, eight groups a realm in
+  Hadrian's Wall, Emain Macha and the Pennine Mountains) says the same: five fights, against four Albion groups
+  (a pack of three bad and the casual one beside it), the pack of three again, then in the clean zone an elite
+  group with a strong one and one that adds in the same fight, the strong one with a group of its own realm in it,
+  and the strong one with the one that adds again. No enemy group was within 9,000 units for 52% of the time; the
+  clean zone had three enemy groups in it. Of a realm's eight guilds three were bad, two casual, three of the
+  kinds that fight one against one. Changed: (1) the shares of the kinds, from the owner's first "30% bad, 30%
+  casual, 20% decent, 15% strong, 5% elite" to 20% bad, 20% casual, 25% decent, 20% strong, 10% elite, 5% hunters
+  (`PvpTeamProfile.All`; the guilds a pool already has keep their kind, the ones it gains are drawn by the new
+  shares); (2) twelve groups a realm (`EveningGroups`; the number kept from a player's last evening no longer
+  holds the setting fast) in one zone for every four (`ZonesFor`), so three frontier zones and the 8v8 zone;
+  (3) the clean zones are played as the 8v8 zone is (`CleanZonesHaveNoAdds`): nobody joins a fight that is on, a
+  group picks one enemy group, a group that has just fought is left to rest; and a group that adds is not in a
+  clean zone at all. The owner's ratio and the density were the owner's and my numbers of 2026-11-22: these are
+  a second guess, to be played.
 - [x] **M13.15** (M) The 8v8 zone: one zone of every evening where nobody adds. *Built 2026-11-25; automated tests
   only; not run on a server (the owner was on the play install).* The owner: "Could we build a zone for dedicated
   8v8 without adds? By build, I do not mean creating a new zone, but use an unuse zone and make it a dedicated 8v8

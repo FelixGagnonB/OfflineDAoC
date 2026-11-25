@@ -366,7 +366,8 @@ namespace DOL.GS
         {
             (PvpTeamKind.Bad, PvpZoneCrowd.Crowded) => 6, (PvpTeamKind.Bad, PvpZoneCrowd.Mixed) => 2, (PvpTeamKind.Bad, _) => 0,
             (PvpTeamKind.Clingy, PvpZoneCrowd.Crowded) => 4, (PvpTeamKind.Clingy, PvpZoneCrowd.Mixed) => 3, (PvpTeamKind.Clingy, _) => 0,
-            (PvpTeamKind.Adder, PvpZoneCrowd.Crowded) => 4, (PvpTeamKind.Adder, PvpZoneCrowd.Mixed) => 4, (PvpTeamKind.Adder, _) => 1,
+            // (A group that adds is not in a clean zone at all, since M13.16: there nobody adds.)
+            (PvpTeamKind.Adder, PvpZoneCrowd.Crowded) => 4, (PvpTeamKind.Adder, PvpZoneCrowd.Mixed) => 4, (PvpTeamKind.Adder, _) => 0,
             (PvpTeamKind.Decent, PvpZoneCrowd.Crowded) => 2, (PvpTeamKind.Decent, PvpZoneCrowd.Mixed) => 4, (PvpTeamKind.Decent, _) => 3,
             (PvpTeamKind.Strong, PvpZoneCrowd.Crowded) => 1, (PvpTeamKind.Strong, PvpZoneCrowd.Mixed) => 3, (PvpTeamKind.Strong, _) => 5,
             (PvpTeamKind.Elite, PvpZoneCrowd.Crowded) => 0, (PvpTeamKind.Elite, PvpZoneCrowd.Mixed) => 1, (PvpTeamKind.Elite, _) => 6,
@@ -395,12 +396,14 @@ namespace DOL.GS
         };
 
         /// <summary>
-        /// How many zones an evening is in: one for every three groups of a realm, which is some
-        /// nine teams a zone (eight groups of a realm: three zones, as in the evenings of
-        /// 2026-11-22, where 24 teams in three zones had a fight every other minute and 36 in one
-        /// zone had one fight of eleven).
+        /// How many zones an evening is in: one for every four groups of a realm, some twelve
+        /// teams a zone. It was one for every three (as in the evenings of 2026-11-22, where 24
+        /// teams in three zones had a fight every other minute and 36 in one zone had one fight
+        /// of eleven) until the owner, 2026-11-25, on the play install: "I feel like the
+        /// population is low"; with eight groups a realm in three zones it had nobody within
+        /// 9,000 units for half of its evening, and three enemy groups in its clean zone.
         /// </summary>
-        public static int ZonesFor(int groupsPerRealm, int zonesThereAre) => Math.Clamp((groupsPerRealm + 1) / 3, 1, Math.Max(1, zonesThereAre));
+        public static int ZonesFor(int groupsPerRealm, int zonesThereAre) => Math.Clamp((groupsPerRealm + 2) / 4, 1, Math.Max(1, zonesThereAre));
 
         /// <summary>
         /// The 8v8 zone (M13.15): one zone of every evening where nobody adds. The owner,
@@ -1094,7 +1097,7 @@ namespace DOL.GS
         {
             string Like(PvpRoamMap zone) => string.Join("; ", new[]
             {
-                zone == eight ? "8v8 only, nobody adds" : zone.Crowd == PvpZoneCrowd.Crowded ? "the crowd" : zone.Crowd == PvpZoneCrowd.Clean ? "clean" : null,
+                zone == eight ? "8v8 only, nobody adds" : zone.Crowd == PvpZoneCrowd.Crowded ? "the crowd" : zone.Crowd == PvpZoneCrowd.Clean ? "clean, nobody adds" : null,
                 zone == yours ? "you are here" : null,
             }.Where(word => word != null));
             return "Tonight: " + string.Join(", ", zones.Select(zone => zone.Name + (Like(zone).Length > 0 ? $" ({Like(zone)})" : string.Empty))) +
@@ -2073,7 +2076,8 @@ namespace DOL.GS
             team.Quiet = others.Count == 0 && team.ContactTick == 0;
             bool inCombat = team.Team.Members.Any(member => member.IsAlive && member.InCombat);
             // The 8v8 zone (EightZone): nobody adds, a group picks one enemy group, and a group that has just fought is left to rest.
-            bool eightOnly = _eight != null && team.Map == _eight;
+            // (And the clean zones of an evening, PvpRealWeights.CleanZonesHaveNoAdds.)
+            bool eightOnly = _eight != null && team.Map == _eight || Prime && real.CleanZonesHaveNoAdds && team.Map.Crowd == PvpZoneCrowd.Clean;
             if (team.Claim != null && (!eightOnly || !others.Contains(team.Claim)))
                 team.Claim = null;
             bool Whole(PvpRoamTeam one)

@@ -190,6 +190,21 @@ fight, 45 seconds in.
 Every guild of bots wears an emblem of its own on its cloaks and shields, made from its name and
 the same every evening, so a group can be told from afar by its colours.
 
+## Where to find which fight
+
+An evening has twelve groups of each realm (yours one of them), in three frontier zones and the
+8v8 zone. `/8v8 who` lists the zones and what is in each; `/8v8 go <zone>` takes you there.
+
+| Zone | What you find |
+|---|---|
+| Emain Macha (the crowd) | The packs of bad groups, the groups that add, the hunters. Rarely one against one. |
+| Odin's Gate, Hadrian's Wall (mixed) | Some of everything. |
+| The nine behind them (clean, nobody adds) | Decent, strong and elite groups, each alone. Nobody joins a fight that is on. |
+| Thidranki (8v8 only) | Guilds of every kind, each alone, and nobody adds. Small: a fight is never far. |
+
+Of ten groups about two are bad, two casual, and six of the kinds that fight one group against
+one (decent, strong, elite, hunters).
+
 ## The 8v8 zone
 
 One zone of every evening is for one group against one: **Thidranki**. `/8v8 go thid` takes you

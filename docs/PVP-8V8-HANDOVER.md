@@ -85,13 +85,14 @@ built. The ones you are most likely to want, with what is built in:
     {
       "Real": {
         "EveningAtLogin": true,
-        "EveningGroups": 8,
+        "EveningGroups": 12,
         "GuildsBeginAtTheBottom": true,
         "RealmPointRate": 5,
         "EnemyKeepsUp": true,
         "EightZone": "thid",
         "EightZoneGroups": 2,
-        "EightZoneRestSeconds": 120
+        "EightZoneRestSeconds": 120,
+        "CleanZonesHaveNoAdds": true
       },
       "Abilities": {
         "GroupPurgeApartSeconds": 15,
@@ -100,7 +101,8 @@ built. The ones you are most likely to want, with what is built in:
       }
     }
 
-`EveningGroups`: groups of each realm (16 at most). `RealmPointRate`: how many times the game's
+`EveningGroups`: groups of each realm (16 at most; eight was the number until 2026-11-25).
+`CleanZonesHaveNoAdds`: the nine clean frontier zones are played as the 8v8 zone is. `RealmPointRate`: how many times the game's
 realm points a kill is worth. `EnemyKeepsUp`: no enemy fights below your group's average rank.
 `EightZone`: the zone where nobody adds, by the word `/8v8 go` takes (`""`: none); `EightZoneGroups`:
 guilds of each realm in it at the most; `EightZoneRestSeconds`: how long a group that has just

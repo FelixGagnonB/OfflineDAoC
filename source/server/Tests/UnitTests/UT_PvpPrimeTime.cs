@@ -24,7 +24,7 @@ namespace DOL.UnitTests
             // An evening is in its frontier zones as ever, and in the 8v8 zone.
             for (int seed = 1; seed <= 20; seed++)
             {
-                List<PvpRoamMap> zones = PvpRoam.EveningZones(PvpRoam.Emain, 8, new Random(seed), PvpRoam.Thidranki);
+                List<PvpRoamMap> zones = PvpRoam.EveningZones(PvpRoam.Emain, 12, new Random(seed), PvpRoam.Thidranki);
                 Assert.That(zones[0], Is.SameAs(PvpRoam.Emain));
                 Assert.That(zones[^1], Is.SameAs(PvpRoam.Thidranki));
                 Assert.That(zones, Has.Count.EqualTo(4));
@@ -267,30 +267,33 @@ namespace DOL.UnitTests
         [Test]
         public void TheKindsAreInTheOwnersRatio()
         {
-            // "like 5% elite, 15% strong, 20% decent, 30% casual and 30% bad, or something like that"
+            // First "like 5% elite, 15% strong, 20% decent, 30% casual and 30% bad, or something like that". Since 2026-11-25,
+            // after the owner's "mostly bad groups running 2fg or more. I have yet to find a clean fight": half and more of
+            // the groups are of the kinds that fight one group against one.
             Assert.That(PvpTeamProfile.All.Sum(profile => profile.SharePercent), Is.EqualTo(100));
-            Assert.That(PvpTeamProfile.Of(PvpTeamKind.Elite).SharePercent, Is.EqualTo(5));
-            Assert.That(PvpTeamProfile.Of(PvpTeamKind.Strong).SharePercent, Is.EqualTo(15));
-            // (The hunters, whom the owner named a day later, have their five from the decent.)
-            Assert.That(PvpTeamProfile.Of(PvpTeamKind.Decent).SharePercent + PvpTeamProfile.Of(PvpTeamKind.Hunter).SharePercent, Is.EqualTo(20));
+            Assert.That(PvpTeamProfile.Of(PvpTeamKind.Elite).SharePercent, Is.EqualTo(10));
+            Assert.That(PvpTeamProfile.Of(PvpTeamKind.Strong).SharePercent, Is.EqualTo(20));
+            Assert.That(PvpTeamProfile.Of(PvpTeamKind.Decent).SharePercent, Is.EqualTo(25));
             Assert.That(PvpTeamProfile.Of(PvpTeamKind.Hunter).SharePercent, Is.EqualTo(5));
-            Assert.That(PvpTeamProfile.Of(PvpTeamKind.Clingy).SharePercent + PvpTeamProfile.Of(PvpTeamKind.Adder).SharePercent, Is.EqualTo(30), "the two casual kinds");
-            Assert.That(PvpTeamProfile.Of(PvpTeamKind.Bad).SharePercent, Is.EqualTo(30));
+            Assert.That(PvpTeamProfile.Of(PvpTeamKind.Clingy).SharePercent + PvpTeamProfile.Of(PvpTeamKind.Adder).SharePercent, Is.EqualTo(20), "the two casual kinds");
+            Assert.That(PvpTeamProfile.Of(PvpTeamKind.Bad).SharePercent, Is.EqualTo(20));
+            Assert.That(PvpTeamProfile.All.Where(profile => profile.AddChancePercent == 0 && profile.Company == PvpCompany.Alone).Sum(profile => profile.SharePercent),
+                Is.GreaterThanOrEqualTo(55), "those that neither add nor walk with anybody");
 
             Dictionary<PvpTeamKind, int> twenty = PvpTeamPool.Quotas(20);
-            Assert.That(twenty[PvpTeamKind.Bad], Is.EqualTo(6));
-            Assert.That(twenty[PvpTeamKind.Decent], Is.EqualTo(3));
+            Assert.That(twenty[PvpTeamKind.Bad], Is.EqualTo(4));
+            Assert.That(twenty[PvpTeamKind.Decent], Is.EqualTo(5));
             Assert.That(twenty[PvpTeamKind.Hunter], Is.EqualTo(1));
-            Assert.That(twenty[PvpTeamKind.Strong], Is.EqualTo(3));
-            Assert.That(twenty[PvpTeamKind.Elite], Is.EqualTo(1));
+            Assert.That(twenty[PvpTeamKind.Strong], Is.EqualTo(4));
+            Assert.That(twenty[PvpTeamKind.Elite], Is.EqualTo(2));
             foreach (int count in new[] { 1, 3, 4, 7, 8, 12, 16, 26 })
             {
                 Assert.That(PvpTeamPool.Quotas(count).Values.Sum(), Is.EqualTo(count), count.ToString());
                 Assert.That(PvpTeamPool.Quotas(count, new Random(count)).Values.Sum(), Is.EqualTo(count), "drawn: " + count);
             }
-            // Among eight there is an elite team some evenings, and not never.
+            // Among eight there is an elite team most evenings, and not every one.
             int withElite = Enumerable.Range(0, 400).Count(seed => PvpTeamPool.Quotas(8, new Random(seed))[PvpTeamKind.Elite] > 0);
-            Assert.That(withElite, Is.InRange(40, 240));
+            Assert.That(withElite, Is.InRange(200, 395));
         }
 
         [Test]
@@ -398,7 +401,8 @@ namespace DOL.UnitTests
             {
                 List<PvpGuildTeam> ofRealm = pool.Where(team => team.ToRealm() == realm).ToList();
                 Assert.That(ofRealm, Has.Count.EqualTo(16), realm.ToString());
-                Assert.That(ofRealm.Count(team => team.ToProfile().Kind == PvpTeamKind.Bad), Is.EqualTo(5), realm.ToString());
+                Assert.That(ofRealm.Count(team => team.ToProfile().Kind == PvpTeamKind.Bad), Is.EqualTo(3), realm.ToString());
+                Assert.That(ofRealm.Count(team => team.ToProfile().Kind == PvpTeamKind.Decent), Is.EqualTo(4), realm.ToString());
                 Assert.That(ofRealm.Count(team => team.ToProfile().Kind == PvpTeamKind.Elite), Is.EqualTo(1), realm.ToString());
             }
             foreach (PvpGuildTeam team in pool)
@@ -428,7 +432,7 @@ namespace DOL.UnitTests
             {
                 List<PvpGuildTeam> ofRealm = tonight.Where(team => team.ToRealm() == realm).ToList();
                 Assert.That(ofRealm, Has.Count.EqualTo(8), realm.ToString());
-                Assert.That(ofRealm.Count(team => team.ToProfile().Kind == PvpTeamKind.Bad), Is.InRange(2, 3), realm.ToString());
+                Assert.That(ofRealm.Count(team => team.ToProfile().Kind == PvpTeamKind.Bad), Is.InRange(1, 2), realm.ToString());
             }
             // The player's own group is one of its realm's eight.
             List<PvpGuildTeam> withPlayer = PvpTeamPool.Tonight(pool, 8, new Random(4), eRealm.Hibernia);
@@ -761,7 +765,7 @@ namespace DOL.UnitTests
             Assert.That(PvpRoam.Leans(PvpTeamKind.Elite, PvpZoneCrowd.Crowded), Is.Zero);
             Assert.That(PvpRoam.Leans(PvpTeamKind.Bad, PvpZoneCrowd.Clean), Is.Zero);
             Assert.That(PvpRoam.Leans(PvpTeamKind.Clingy, PvpZoneCrowd.Clean), Is.Zero);
-            Assert.That(PvpRoam.Leans(PvpTeamKind.Adder, PvpZoneCrowd.Clean), Is.GreaterThan(0), "now and then one comes where it is not wanted");
+            Assert.That(PvpRoam.Leans(PvpTeamKind.Adder, PvpZoneCrowd.Clean), Is.Zero, "nobody adds in a clean zone, so a group that adds is not in one (M13.16)");
             foreach (PvpTeamKind kind in Enum.GetValues<PvpTeamKind>())
                 Assert.That(Enum.GetValues<PvpZoneCrowd>().Sum(crowd => PvpRoam.Leans(kind, crowd)), Is.GreaterThan(0), kind.ToString());
             PvpZoneCrowd[] zones = [PvpZoneCrowd.Crowded, PvpZoneCrowd.Mixed, PvpZoneCrowd.Clean];
@@ -791,14 +795,14 @@ namespace DOL.UnitTests
         [Test]
         public void TheZonesOfAnEvening()
         {
-            // One zone for every three groups of a realm: some nine teams a zone.
-            Assert.That(new[] { 1, 2, 4, 5, 8, 12, 16 }.Select(groups => PvpRoam.ZonesFor(groups, 12)), Is.EqualTo(new[] { 1, 1, 1, 2, 3, 4, 5 }));
+            // One zone for every four groups of a realm (three until 2026-11-25, when the owner found "the population is low").
+            Assert.That(new[] { 1, 2, 4, 5, 8, 12, 16 }.Select(groups => PvpRoam.ZonesFor(groups, 12)), Is.EqualTo(new[] { 1, 1, 1, 1, 2, 3, 4 }));
             Assert.That(PvpRoam.ZonesFor(16, 3), Is.EqualTo(3), "no more than there are");
             Assert.That(PvpRoam.ZonesFor(8, 0), Is.EqualTo(1));
             var seen = new HashSet<PvpRoamMap>();
             for (int seed = 0; seed < 300; seed++)
             {
-                List<PvpRoamMap> zones = PvpRoam.ZonesTonight(PvpRoam.Emain, 8, PvpRoam.Frontiers, new Random(seed));
+                List<PvpRoamMap> zones = PvpRoam.ZonesTonight(PvpRoam.Emain, 12, PvpRoam.Frontiers, new Random(seed));
                 Assert.That(zones, Has.Count.EqualTo(3));
                 Assert.That(zones[0], Is.SameAs(PvpRoam.Emain), "where it begins");
                 Assert.That(zones.Distinct().Count(), Is.EqualTo(3));
@@ -808,7 +812,7 @@ namespace DOL.UnitTests
             // It begins where the player is, and the crowd is somewhere all the same.
             for (int seed = 0; seed < 50; seed++)
             {
-                List<PvpRoamMap> zones = PvpRoam.ZonesTonight(PvpRoamZones.Breifine, 8, PvpRoam.Frontiers, new Random(seed));
+                List<PvpRoamMap> zones = PvpRoam.ZonesTonight(PvpRoamZones.Breifine, 12, PvpRoam.Frontiers, new Random(seed));
                 Assert.That(zones.Take(2), Is.EqualTo(new[] { PvpRoamZones.Breifine, PvpRoam.Emain }));
                 Assert.That(zones, Has.Count.EqualTo(3));
             }
@@ -817,7 +821,7 @@ namespace DOL.UnitTests
             int ported = 0, behind = 0;
             for (int seed = 0; seed < 600; seed++)
             {
-                List<PvpRoamMap> zones = PvpRoam.ZonesTonight(PvpRoam.Emain, 8, PvpRoam.Frontiers, new Random(seed));
+                List<PvpRoamMap> zones = PvpRoam.ZonesTonight(PvpRoam.Emain, 12, PvpRoam.Frontiers, new Random(seed));
                 ported += zones.Count(zone => zone == PvpRoam.OdinsGate);
                 behind += zones.Count(zone => zone == PvpRoamZones.Uppland);
             }
@@ -825,11 +829,11 @@ namespace DOL.UnitTests
             Assert.That(behind, Is.GreaterThan(0));
             // What the player is told of them.
             Assert.That(PvpRoam.ZonesLine([PvpRoam.Emain, PvpRoam.OdinsGate, PvpRoamZones.Breifine], PvpRoam.Emain),
-                Is.EqualTo("Tonight: Emain Macha (the crowd; you are here), Odin's Gate, Breifine (clean). /8v8 go odin, breifine."));
+                Is.EqualTo("Tonight: Emain Macha (the crowd; you are here), Odin's Gate, Breifine (clean, nobody adds). /8v8 go odin, breifine."));
             Assert.That(PvpRoam.ZonesLine([PvpRoam.Emain, PvpRoamZones.Pennine], PvpRoamZones.Pennine),
-                Is.EqualTo("Tonight: Emain Macha (the crowd), Pennine Mountains (clean; you are here). /8v8 go emain."));
+                Is.EqualTo("Tonight: Emain Macha (the crowd), Pennine Mountains (clean, nobody adds; you are here). /8v8 go emain."));
             // More groups than there are zones for: all twelve.
-            Assert.That(PvpRoam.ZonesTonight(PvpRoam.Emain, 40, PvpRoam.Frontiers, new Random(3)), Is.EquivalentTo(PvpRoam.Frontiers));
+            Assert.That(PvpRoam.ZonesTonight(PvpRoam.Emain, 50, PvpRoam.Frontiers, new Random(3)), Is.EquivalentTo(PvpRoam.Frontiers));
         }
 
         [Test]

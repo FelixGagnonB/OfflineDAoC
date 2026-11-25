@@ -108,7 +108,9 @@ namespace DOL.GS
                 // Where the player stands when that is a frontier zone; else where its last evening began. The player is not moved.
                 PvpRoamMap zone = PvpRoam.FrontierUnder(player) ?? (kept.Zone == null ? null : PvpRoam.MapFor(kept.Zone));
                 PvpRoam.StartFor(player, Say, kept.Lineup == null ? null : PvpBuildCatalog.FindGroup(kept.Lineup), zone ?? PvpRoam.Emain,
-                    Math.Clamp(kept.Groups > 0 ? kept.Groups : real.EveningGroups, 1, 16), stay: true);
+                    // (As many groups as the settings say: what was kept from the last evening was only ever that number,
+                    // and held it fast when the setting was changed.)
+                    Math.Clamp(real.EveningGroups, 1, 16), stay: true);
             }
             catch (Exception exception)
             {

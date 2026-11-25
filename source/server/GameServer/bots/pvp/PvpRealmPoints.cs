@@ -23,10 +23,11 @@ namespace DOL.GS
 
         /// <summary>
         /// The evening begins when a player with an 8v8 character enters the game
-        /// (bots/pvp/PvpEveningStart.cs), with this many groups of each realm the first time.
+        /// (bots/pvp/PvpEveningStart.cs), with this many groups of each realm (16 at the most).
+        /// Twelve since 2026-11-25 (eight before): the owner, "I feel like the population is low".
         /// </summary>
         public bool EveningAtLogin { get; set; } = true;
-        public int EveningGroups { get; set; } = 8;
+        public int EveningGroups { get; set; } = 12;
 
         /// <summary>
         /// The guilds a player's evenings are made with begin at realm rank 1 level 1, whatever
@@ -128,6 +129,14 @@ namespace DOL.GS
         /// of group that wait (PvpRoam.WaitsForARestedGroup).
         /// </summary>
         public string EightZone { get; set; } = "thid";
+        /// <summary>
+        /// The clean zones of an evening (the nine frontier zones behind the three a realm ported
+        /// to) are played as the 8v8 zone is: nobody joins a fight that is on, a group picks one
+        /// enemy group, a group that has just fought is left to rest (M13.16). The owner,
+        /// 2026-11-25: "I have yet to find a clean fight in any of the frontier zone"; in the
+        /// clean zone of that evening a group that adds came into two of its three fights.
+        /// </summary>
+        public bool CleanZonesHaveNoAdds { get; set; } = true;
         public int EightZoneGroups { get; set; } = 2;
         public int EightZoneRestSeconds { get; set; } = 120;
 

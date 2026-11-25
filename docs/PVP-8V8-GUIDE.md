@@ -116,8 +116,8 @@ has played it yet.**
   | Midgard | `odin` (Odin's Gate) | `jamtland` (Jamtland Mountains), `uppland`, `yggdra` (Yggdra Forest) |
   | Albion | `hadrian` (Hadrian's Wall) | `pennine` (Pennine Mountains), `sauvage` (Forest Sauvage), `snowdonia` |
 
-  An evening is not in all of them: it has one zone for every three groups of a realm, so three
-  with eight groups, four with twelve, five with sixteen. They are the zone you begin in, Emain
+  An evening is not in all of them: it has one zone for every four groups of a realm, so two
+  with eight groups, three with twelve, four with sixteen (and the 8v8 zone besides). They are the zone you begin in, Emain
   Macha, and others drawn anew each evening, Odin's Gate and Hadrian's Wall four times as
   readily as a zone behind them. `/8v8 who` begins with the zones of the evening.
 - **What a zone is like.** Emain Macha is where **the crowd** is. Odin's Gate and Hadrian's Wall
