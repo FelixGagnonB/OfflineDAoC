@@ -16,6 +16,7 @@ namespace DOL.GS.Commands
         "/8v8 prime [zone] [number] [one|all]   a prime-time evening in some of the frontier zones: that many groups of each realm (8 if you give none, 16 at most), yours one of them, the others guilds of every kind: packs of bad groups, groups that add, groups that do not. One zone for every three groups of a realm: the one you begin in, the crowded one (Emain Macha) and others that change from evening to evening. zone: where you begin (emain, odin, hadrian, breifine, cruachan, collory, pennine, sauvage, snowdonia, jamtland, uppland, yggdra; thid for Thidranki alone). one: in that zone only; all: in all twelve",
         "/8v8 prime ... rank <1-13>     the same evening to try things: your group at that realm rank for the evening, and it earns nothing (your next real fight puts you back at what you have earned)",
         "/8v8 go <zone>                 on a prime-time evening: your group ports to your realm's start in another zone of the evening (/8v8 who names them); not out of a fight",
+        "/8v8 guild [name]              forms a guild with you as its guildmaster, at no cost and wherever you stand: your seven companions wear its name, and on a prime-time evening your group goes by it; alone it says what guild you have",
         "/8v8 who                       on a prime-time evening: the guilds of your realm that are out, their rank and who is in them, and how many groups the other realms have out",
         "/8v8 rivals                    the enemy guilds you have wiped or been wiped by on prime-time evenings, and how often",
         "/8v8 status                    in a roam: what every team is doing (buffing at its start, roaming, fighting whom, resting, waiting by a fight, wiped), how many of it are alive and how far it is",
@@ -63,6 +64,21 @@ namespace DOL.GS.Commands
             rest = kept.ToArray();
             return null;
         }
+
+        /// <summary>
+        /// Why a guild of that name cannot be formed by "/8v8 guild"; null when it can. The
+        /// owner, 2026-11-24: "How can I form a guild with my 7 bots?" The game's own way
+        /// (/gc form at a guild registrar, a gold piece) is in a capital, and an 8v8 character
+        /// has no coin and no reason to be there.
+        /// </summary>
+        public static string GuildProblem(string name, string guildItHas, bool lettersAreValid, bool aGuildHasIt, bool aTeamOfBotsHasIt) =>
+            !string.IsNullOrEmpty(guildItHas) ? $"You are in {guildItHas} already; your companions wear its name. (/gc quit leaves it.)"
+            : string.IsNullOrWhiteSpace(name) ? "You have no guild. /8v8 guild <name> forms one: you its guildmaster, your seven companions wearing its name."
+            : name.Length > 30 ? "That name is too long: thirty letters at most."
+            : !lettersAreValid ? "A guild's name is letters and spaces only."
+            : aGuildHasIt ? $"There is a guild called {name} already."
+            : aTeamOfBotsHasIt ? $"{name} is one of the guilds of bots that are out on a prime-time evening. Pick another name."
+            : null;
 
         public void OnCommand(GameClient client, string[] args)
         {
@@ -179,6 +195,36 @@ namespace DOL.GS.Commands
                     else
                         player.TempProperties.RemoveProperty(PvpCalls.OffProperty);
                     Say(off ? "Your companions' calls are off." : "Your companions call in group chat: assist, incoming, orders, out of power.");
+                    return;
+                }
+
+                case "guild":
+                {
+                    string name = string.Join(" ", args.Skip(2)).Trim();
+                    bool letters = name.Length > 0 && GuildCommandHandler.IsValidGuildName(name);
+                    if (GuildProblem(name, player.GuildName, letters, letters && GuildMgr.DoesGuildExist(name),
+                            PvpTeamPool.Load(System.AppContext.BaseDirectory, PvpTeamPool.World)
+                                .Any(team => string.Equals(team.Guild, name, System.StringComparison.OrdinalIgnoreCase))) is { } problem)
+                    {
+                        Say(problem);
+                        return;
+                    }
+                    Guild guild = GuildMgr.CreateGuild(player.Realm, name, player);
+                    if (guild == null || !guild.AddPlayer(player, guild.GetRankByID(0)))
+                    {
+                        Say($"The guild {name} could not be formed.");
+                        return;
+                    }
+                    // The companions that are out wear it at once; the next ones when they are made (PvpArena.SpawnCompanions).
+                    int wearing = 0;
+                    foreach (GameBot bot in player.Group?.GetMembersInTheGroup().OfType<GameBot>().Where(bot => bot.IsPvpBot) ?? [])
+                    {
+                        (bot.PvpGuild, bot.GuildName) = (guild.Name, guild.Name);
+                        wearing++;
+                    }
+                    Say($"{guild.Name} is formed, and you are its guildmaster. " +
+                        (wearing > 0 ? $"Your {wearing} companions wear its name. " : "Your companions will wear its name. ") +
+                        "On a prime-time evening your group goes by it from the next evening you start.");
                     return;
                 }
 

@@ -214,6 +214,15 @@ has played it yet.**
   Soldier's Barricade, Brilliant Aura and Ameliorating Melodies (thirty). In every group, yours
   and the guilds'. **Built 2026-11-24, automated tests only.**
 - Your companions keep their names from one session to the next.
+- **A guild of your own.** `/8v8 guild <name>` forms a guild with you as its guildmaster,
+  wherever you stand and at no cost (letters and spaces, thirty at most, not a name a guild
+  has already). Your seven companions wear its name under theirs, the ones that are out at
+  once and every later group when it is made, and from the next prime-time evening you start
+  your group goes by it in `/8v8 who`, `/8v8 status` and the recording. `/8v8 guild` alone
+  says what guild you have. It is an ordinary guild: `/gc quit` leaves it, and the game's own
+  `/gc form` at a guild registrar (one gold piece) does the same with your companions in the
+  group. Not built: an emblem on their cloaks and shields. **Built 2026-11-24, automated tests
+  only.**
 
 ## Realm abilities
 

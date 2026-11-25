@@ -162,6 +162,9 @@ namespace DOL.GS
                 if (real)
                     (bot.PvpRosterOwner, bot.PvpRosterPlace, bot.PvpPoints) = (player.InternalID, place, points);
                 bot.Heading = player.Heading;
+                // A companion wears the guild of the player it is with (/8v8 guild).
+                if (!string.IsNullOrEmpty(player.GuildName))
+                    bot.PvpGuild = player.GuildName;
                 bot.PvpHuman = PvpSkills.WeightsFor(PvpSkills.Group);
                 if (!bot.AddToWorld() || !player.Group.AddMember(bot))
                 {

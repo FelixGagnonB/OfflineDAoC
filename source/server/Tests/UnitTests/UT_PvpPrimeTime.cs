@@ -14,6 +14,23 @@ namespace DOL.UnitTests
     public class UT_PvpPrimeTime
     {
         [Test]
+        public void ThePlayerFormsAGuildForItsGroup()
+        {
+            // The owner, 2026-11-24: "How can I form a guild with my 7 bots?"
+            Assert.That(DOL.GS.Commands.Pvp8v8CommandHandler.GuildProblem("Stags of Emain", "", true, false, false), Is.Null);
+            Assert.That(DOL.GS.Commands.Pvp8v8CommandHandler.GuildProblem("", "", false, false, false), Does.Contain("/8v8 guild <name>"));
+            Assert.That(DOL.GS.Commands.Pvp8v8CommandHandler.GuildProblem("Another", "Stags of Emain", true, false, false), Does.Contain("Stags of Emain already"));
+            Assert.That(DOL.GS.Commands.Pvp8v8CommandHandler.GuildProblem(new string('a', 31), "", true, false, false), Does.Contain("too long"));
+            Assert.That(DOL.GS.Commands.Pvp8v8CommandHandler.GuildProblem("Stags 2", "", false, false, false), Does.Contain("letters and spaces"));
+            Assert.That(DOL.GS.Commands.Pvp8v8CommandHandler.GuildProblem("Stags", "", true, true, false), Does.Contain("already"));
+            Assert.That(DOL.GS.Commands.Pvp8v8CommandHandler.GuildProblem("Vindsaul Raiders", "", true, false, true), Does.Contain("guilds of bots"));
+            // On a prime-time evening its group goes by the guild's name, unless a guild of bots that is out has the same.
+            Assert.That(PvpRoam.OwnTeamName("Stags of Emain", "hib-main", ["Vindsaul Raiders"]), Is.EqualTo("Stags of Emain"));
+            Assert.That(PvpRoam.OwnTeamName("", "hib-main", ["Vindsaul Raiders"]), Is.EqualTo("hib-main"));
+            Assert.That(PvpRoam.OwnTeamName("vindsaul raiders", "hib-main", ["Vindsaul Raiders"]), Is.EqualTo("hib-main"));
+        }
+
+        [Test]
         public void TheKindsAreInTheOwnersRatio()
         {
             // "like 5% elite, 15% strong, 20% decent, 30% casual and 30% bad, or something like that"

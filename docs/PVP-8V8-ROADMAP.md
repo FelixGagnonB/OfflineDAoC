@@ -3695,6 +3695,20 @@ The plan the owner agreed to that day ("Let's proceed and test with bots first")
     than anything in how a member plays. Not touched. Also not known: how slow hands look from
     the other side of a fight.
 
+- [ ] **M12.10** (S) A guild for the player's group. *Built the evening of 2026-11-24;
+  automated tests only.* The owner: "How can I form a guild with my 7 bots? Or should you do
+  it for us?" Every team of bots on a prime-time evening wore a guild's name and the owner's
+  seven wore none: an 8v8 companion is not made as a `/spawn` companion is and has no owner
+  whose guild it shows, and the game's own way to form one (`/gc form` at a registrar in a
+  capital, a gold piece) is far from where an 8v8 character is. Built: `/8v8 guild <name>`
+  forms an ordinary guild with the player as guildmaster, at no cost and anywhere
+  (`Pvp8v8CommandHandler.GuildProblem` says why a name will not do: a guild already, too long,
+  not letters, taken, or the name of a guild of bots in the pool); a companion wears the
+  guild of the player it is made for (`PvpArena.SpawnCompanions`), and the ones that are out
+  wear it at once; on a prime-time evening the player's team goes by the guild's name and not
+  by its line-up's (`PvpRoam.OwnTeamName`). Not built: the guild's emblem on the companions'
+  cloaks and shields.
+
 **Where M12 stands (2026-11-24).** Built and run with bots on the scrim server: the measure, the
 kite, breaking off, no raising with too many on it. A seventh evening on the last build (13
 kites, five groups broke off and four got away, 21 teams wiped, the realm chat of a break-off

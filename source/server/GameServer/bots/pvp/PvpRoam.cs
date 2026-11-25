@@ -701,6 +701,11 @@ namespace DOL.GS
         /// <summary>The names of a realm's teams: "mid-main" and "mid-main#2".</summary>
         public static string TeamName(string groupId, int number) => number <= 1 ? groupId : $"{groupId}#{number}";
 
+        /// <summary>What the player's group is called on a prime-time evening: its guild's name, unless it has none or a guild of bots that is out has the same.</summary>
+        public static string OwnTeamName(string guildOfThePlayer, string otherwise, IEnumerable<string> guildsOfBots) =>
+            string.IsNullOrWhiteSpace(guildOfThePlayer) || guildsOfBots.Any(name => string.Equals(name, guildOfThePlayer, StringComparison.OrdinalIgnoreCase))
+                ? otherwise : guildOfThePlayer;
+
         /// <summary>Whether a team that comes on a fight joins it: one draw, <paramref name="roll"/> from 0 to 99.</summary>
         public static bool Joins(int addChancePercent, int roll) => roll < addChancePercent;
 
@@ -1265,8 +1270,9 @@ namespace DOL.GS
                 }
                 else
                 {
+                    // The player's group goes by its guild when it has one (/8v8 guild), as every guild of bots does.
                     if (leader != null && start.Realm == leader.Realm)
-                        entries.Add((TeamName(template.Id, 1), own ?? template, true, null));
+                        entries.Add((OwnTeamName(leader.GuildName, TeamName(template.Id, 1), guilds.Select(guild => guild.Guild)), own ?? template, true, null));
                     entries.AddRange(guilds.Where(guild => guild.ToRealm() == start.Realm).Select(guild => (guild.Guild, guild.ToTemplate(), false, guild)));
                 }
                 for (int index = 0; index < entries.Count; index++)
