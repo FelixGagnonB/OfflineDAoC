@@ -14,6 +14,25 @@ namespace DOL.AI.Brain
         public bool IsPvpAreaMezAim(GameLiving target) => target != null && _pvpAreaMezAim == target && GameLoop.GameLoopTime < _pvpControlCastUntil;
         private bool PvpControlInFlight => Body.IsCasting && GameLoop.GameLoopTime<_pvpControlCastUntil &&
             Body.castingComponent?.SpellHandler?.Spell?.ID==_pvpControlSpellId;
+        /// <summary>
+        /// For a bot of an 8v8 group: whether that enemy, or the owner of that pet, is one of
+        /// the enemies its group is fighting. This routine takes whoever of another realm is
+        /// within 1,800 units, and a group that has left a fight alone and walks by is that
+        /// (PvpRoam.LeavesAlone). In the owner's evening of 2026-11-24 a decent Albion group that
+        /// had stood by the owner's fight for 45 seconds walked on, its road went through the
+        /// owner's group, and the owner's Eldritch cast its area mez at the group's Sorcerer 160
+        /// units away; the eight then turned on the owner's seven and killed them. The owner: "I
+        /// feel like it ran through us then turned their back and attacked us". True for every
+        /// other bot.
+        /// </summary>
+        private bool PvpOfItsFight(GameLiving target)
+        {
+            if (BotBody?.IsPvpBot != true || PvpEnemies is not { } enemies)
+                return true;
+            GameLiving who = target is not GameBot && target is GameNPC { Brain: IControlledBrain pet } && pet.GetLivingOwner() is GameLiving owner ? owner : target;
+            return enemies.Contains(who);
+        }
+
         private bool TryPvpCrowdControl()
         {
             // Under a squad brain the main mezzers choose their mez and stun by score (BotBrain.PvpRotation.cs).
@@ -26,7 +45,7 @@ namespace DOL.AI.Brain
             // PvE never enters this policy; native levels, specs, mana, immunity,
             // interruption and spell timers still decide whether a cast succeeds.
             GameLiving[] enemies = Body.GetNPCsInRadius(1800).Where(BotPvpCrowdControl.PlayerLike).Cast<GameLiving>()
-                .Concat(Body.GetPlayersInRadius(1800)).Where(t => BotSiegeRuntime.LegalEnemy(Body,t) && !t.IsMezzed &&
+                .Concat(Body.GetPlayersInRadius(1800)).Where(t => BotSiegeRuntime.LegalEnemy(Body,t) && PvpOfItsFight(t) && !t.IsMezzed &&
                     !t.IsStealthed && t != PvpAssignedTarget && !BotPvpCrowdControl.Protected(Body,t) && CompanionEngagementMode.Allows(Body,t) &&
                     !CompanionPvpEngagement.Focused(Body,t) && !CompanionPvpEngagement.Defending(Body,t))
                 .OrderBy(Body.GetDistanceTo).Take(24).ToArray();

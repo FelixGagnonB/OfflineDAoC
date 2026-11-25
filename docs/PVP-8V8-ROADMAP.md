@@ -3729,6 +3729,29 @@ The plan the owner agreed to that day ("Let's proceed and test with bots first")
   by its line-up's (`PvpRoam.OwnTeamName`). Not built: the guild's emblem on the companions'
   cloaks and shields.
 
+- [ ] **M12.11** (S) A group left alone is left alone by every member. *Built the evening of
+  2026-11-24; automated tests only (the owner was on the server).* The owner, of the last
+  fight of that evening: "A 2nd group ran by, but did not add. They just stood idle. Then at
+  some point, they started to run away. Did my team attacked them? I feel like it ran through
+  us then turned their back and attacked us". From the recording: Prydwen Sellswords (decent,
+  does not add) came on the owner's fight with The Cotswold Mob at 1,049 s, 8,800 units off,
+  drew "leaves them to it" and stood for 45 seconds; at 1,094 s it gave up waiting and, not
+  yet at its first point, walked on, and its road went through the owner's group (160 units
+  from its middle at 1,123 s). At 1,125 s the owner's Eldritch had the group's Sorcerer as its
+  target and was casting Paralyzing Sphere, its area mez; in the same second Prydwen took the
+  owner's group for an enemy, and its first blows landed at 1,126.7 s. Seven of the owner's
+  eight died. The player had picked nobody of that group. The cause: a class whose mez, stun
+  or root is not chosen by score (the Eldritch's area mez; `PvpCrowdControlIsScored`) still
+  ran the older routine `TryPvpCrowdControl`, which takes whoever of another realm is within
+  1,800 units, and a member that aims at a group is what ends being left alone
+  (`PvpRoam.LeavesAlone`). Built: that routine, for a bot of an 8v8 group, takes only the
+  enemies its group is fighting, and their pets (`BotBrain.PvpOfItsFight`). Counted over
+  twelve evenings of the day, bots and the owner's: of 282 times a team left a fight alone, 53
+  were followed within 90 seconds by a fight between it and one of the two without a draw to
+  join; how many of those began this way is not known (a fight that ends leaves a winner the
+  team that waited may take on). Not looked at: whether a group that gives up waiting should
+  walk through the fight it left alone at all.
+
 **Where M12 stands (2026-11-24).** Built and run with bots on the scrim server: the measure, the
 kite, breaking off, no raising with too many on it. A seventh evening on the last build (13
 kites, five groups broke off and four got away, 21 teams wiped, the realm chat of a break-off
