@@ -1299,14 +1299,17 @@ namespace DOL.GS
                     _trialLevel = trial;
                     if (prime > 0)
                     {
-                        List<PvpGuildTeam> pool = PvpTeamPool.LoadOrCreate(AppContext.BaseDirectory, PvpTeamPool.World, Math.Max(16, prime * 2), Random.Shared);
+                        List<PvpGuildTeam> pool = PvpTeamPool.LoadOrCreate(AppContext.BaseDirectory, PvpTeamPool.World, Math.Max(16, prime * 2), Random.Shared,
+                            PvpWeights.Current.Real.GuildsBeginAtTheBottom);
+                        // What the player's next evening begins with by itself (PvpEveningStart): this zone, this many groups, this line-up.
+                        PvpPlayerSettings.Set(AppContext.BaseDirectory, player.InternalID, kept => kept with { Lineup = own?.Id, Zone = map.Id, Groups = prime });
                         // Over some of the frontiers (ZonesTonight), unless one zone or all of them were asked for; a battleground is always one zone.
                         List<PvpRoamMap> zones = oneZone || !Frontiers.Contains(map) ? null : everyZone ? Frontiers.ToList() : ZonesTonight(map, prime, Frontiers, Random.Shared);
                         Start(2, player.InternalID, player, own, map, null, PvpTeamPool.Tonight(pool, prime, Random.Shared, player.Realm), PvpTeamPool.World, zones);
                         say($"Prime time{(zones is { Count: > 1 } ? " in " + string.Join(", ", zones.Select(zone => zone.Name)) + "; you are in " + map.Name : " in " + map.Name)}: " +
                             $"{prime} groups of each realm are out, yours one of them, the others guilds of every kind. " +
                             "Some walk in packs, some add, some do neither. Kills earn realm points that are kept, and a wipe puts your group " +
-                            "back here (so does /release). /8v8 who, /8v8 status, /8v8 go <zone>, /8v8 rivals, /8v8 stop.");
+                            "back here (so does /release). /8v8 who, /8v8 go <zone>, /8v8 rivals.");
                         if (own != null)
                             say($"Your group is the line-up {own.Id}.");
                         if (trial > 0)

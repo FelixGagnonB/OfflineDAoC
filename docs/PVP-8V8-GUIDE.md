@@ -11,6 +11,28 @@ unfinished are in [PVP-8V8-ROADMAP.md](PVP-8V8-ROADMAP.md).
 2. `/8v8 setup`: pick, then click **Start**.
 3. `/8v8 stop` ends whatever is running and removes every 8v8 bot.
 
+## Playing an evening (the play install, from v0.1)
+
+Built 2026-11-24 and not yet tried in a client.
+
+- **You come in and the evening begins.** With an 8v8 character (level 50, made with
+  `/8v8 ready <build> confirm`, typed once) you are taken to your realm's start a few seconds
+  after you enter the game: guilds of every kind are out in tonight's zones, your seven are
+  with you, and everything earned is kept. It ends when you leave the game. The zone, the
+  number of groups and your line-up are the ones of your last evening.
+- **Everybody begins at realm rank 1 level 1**, your group and every guild, whatever its
+  kind. A bad pack is a pack and an elite team plays as one from the first evening; their
+  ranks are what they earn while you are in the game.
+- **What you type:** `/8v8 call ...`, `/8v8 calls`, `/8v8 lead`, `/8v8 guild <name>`,
+  `/8v8 guild lineup <name>`, `/8v8 who`, `/8v8 go <zone>`, `/8v8 rivals`, `/8v8 ranks`,
+  `/8v8 corpse`, `/8v8 ready`. Everything else in this guide (`prime`, `roam`, `play`,
+  `setup`, `status`, `stop` and the rest) is for trying things: it answers on a server that
+  has the file `pvp-test-commands.txt` beside it (the scrim server has), or for a game
+  master.
+- **`/8v8 who`** says, for each zone of the evening, how many groups every realm has in it
+  and of what kinds: "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1
+  casual. Hibernia 2: yours, 1 elite."
+
 ## The three ways to play
 
 | | What it is | Groups | Rank and realm points |

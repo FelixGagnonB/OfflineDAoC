@@ -3841,12 +3841,38 @@ kept; a way for a dead player to tell the group "just die".
   `pvp-players.json` beside the server (`PvpPlayerSettings`). `/8v8 call die`: a dead player
   gives the fight up, the group counts as wiped and stands up at its start
   (`PvpRoam.GiveUp`).
-- [ ] **M13.2** (M) The evening begins at login: no `/8v8 prime`.
-- [ ] **M13.3** (S) Everybody at rank 1 level 1: the player's group and every guild, whatever
-  its kind.
-- [ ] **M13.4** (S) The player's group is its guild: line-up and members kept, there at login.
+- [ ] **M13.2** (M) The evening begins at login: no `/8v8 prime`. *Built 2026-11-24; automated
+  tests only, and it cannot be tried without a client.* A player with an 8v8 character (level
+  50, a class its realm has a build for) that enters the game while nothing runs is taken,
+  four seconds later, to its realm's start in the zone its last evening began in, with the
+  line-up and the number of groups it had last (Emain Macha, the main line-up and eight the
+  first time), in a real evening (`PvpEveningStart`, `PvpRealWeights.EveningAtLogin`). A new
+  character is told to type `/8v8 ready`, and its evening begins when that is done. While an
+  evening of bots runs on the server the player's does not begin and it is told so. It ends
+  when the player leaves the game, as before.
+- [ ] **M13.3** (S) Everybody at rank 1 level 1. *Built 2026-11-24; automated tests only.* A
+  guild made for a player's evenings begins at realm level 1 whatever its kind
+  (`PvpRealWeights.GuildsBeginAtTheBottom`, `PvpTeamPool.Generate`); the kinds, their
+  line-ups and how they play are there from the first evening. The player's companions begin
+  there already. Guilds that exist keep what they have: the scrim server's pool was made
+  before, with a rank for each kind, and the play install has none yet. An evening of bots
+  started by the tools still has its guilds at the rank of their kind. Standing as it was:
+  no member of an enemy group fights below the average of the player's group
+  (`EnemyKeepsUp`), and a kill is worth five times the game's own (`RealmPointRate`).
+- [ ] **M13.4** (S) The player's group is its guild. *Built 2026-11-24; automated tests only.*
+  `/8v8 guild <name>` (M12.10); `/8v8 guild lineup [name]` says or sets which eight the group
+  is, from the next evening on; line-up, zone and number of groups are kept in
+  `pvp-players.json` (`PvpPlayerSetting`), the companions' names and what they have earned
+  in the roster as before.
 - [ ] **M13.5** (S) The test commands out of a player's way; `/8v8 who` by zone, kind and
-  number.
+  number. *Built 2026-11-24; automated tests only.* A player has `call`, `calls`, `lead`,
+  `ready`, `guild`, `who`, `rivals`, `ranks`, `go` and `corpse`; every other word of `/8v8`
+  answers with those ten unless the player is a game master or the server has
+  `pvp-test-commands.txt` beside it, which the scrim server has
+  (`Pvp8v8CommandHandler.IsKeptFromAPlayer`). `/8v8 who`: one line for each zone of the
+  evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
+  Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
+  than `/8v8 go`, which stays.
 - [ ] **M13.6** (S) The fixes of M12.9 to M12.12 and M13.1 on the scrim server, an evening of
   bots, an evening of the owner's.
 - [ ] **M13.7** (S) The pull request to main, the tag, and the play install with a backup. On

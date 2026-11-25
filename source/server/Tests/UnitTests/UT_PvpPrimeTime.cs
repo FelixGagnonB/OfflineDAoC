@@ -14,6 +14,44 @@ namespace DOL.UnitTests
     public class UT_PvpPrimeTime
     {
         [Test]
+        public void TheEveningBeginsWhenThePlayerComesIn()
+        {
+            // The owner, 2026-11-24: "Yes, I would do it as I log in".
+            Assert.That(new PvpRealWeights().EveningAtLogin, Is.True);
+            Assert.That(PvpEveningStart.AtLogin(beginsAtLogin: true, hasAn8v8Character: true, somethingRuns: false, itIsThePlayersOwn: false), Is.EqualTo((true, (string)null)));
+            // A new character is told what to type; "/8v8 ready" is typed by hand ("I would type it").
+            (bool begins, string told) = PvpEveningStart.AtLogin(true, false, false, false);
+            Assert.That(begins, Is.False);
+            Assert.That(told, Does.Contain("/8v8 ready"));
+            // An evening of bots is running: the player's waits.
+            (begins, told) = PvpEveningStart.AtLogin(true, true, true, false);
+            Assert.That(begins, Is.False);
+            Assert.That(told, Does.Contain("running on this server already"));
+            // The player's own evening runs (it has just made its character in it): nothing to do and nothing to say.
+            Assert.That(PvpEveningStart.AtLogin(true, true, true, true), Is.EqualTo((false, (string)null)));
+            Assert.That(PvpEveningStart.AtLogin(false, true, false, false), Is.EqualTo((false, (string)null)));
+            Assert.That(PvpEveningStart.Is8v8Character(50, true), Is.True);
+            Assert.That(PvpEveningStart.Is8v8Character(49, true), Is.False);
+            Assert.That(PvpEveningStart.Is8v8Character(50, false), Is.False);
+
+            // "I do want everyone to start at realm rank 1 level 1 and grind it out. There could already be group profile".
+            Assert.That(new PvpRealWeights().GuildsBeginAtTheBottom, Is.True);
+            List<PvpGuildTeam> release = PvpTeamPool.Generate(20, new Random(5), null, fromTheBottom: true);
+            Assert.That(release.Select(team => team.SeedLevel), Is.All.EqualTo(1));
+            Assert.That(PvpRealmPoints.RankName(1), Is.EqualTo("1L1"));
+            Assert.That(release.Select(team => team.Kind).Distinct().Count(), Is.GreaterThanOrEqualTo(6), "and every kind is there from the first evening");
+            Assert.That(PvpTeamPool.Generate(20, new Random(5)).Max(team => team.SeedLevel), Is.GreaterThan(60), "an evening of bots still has an elite team at its rank");
+
+            // What a player keeps from one evening to the next.
+            var kept = new PvpPlayerSetting();
+            Assert.That((kept.Lead, kept.Lineup, kept.Zone, kept.Groups), Is.EqualTo((true, (string)null, (string)null, 0)));
+            Assert.That(DOL.GS.Commands.Pvp8v8CommandHandler.LineupAnswer(null, false, "hib-main", ["hib-main (a, b)", "hib-2bard (c, d)"]),
+                Is.EqualTo("Your group's line-up is hib-main. /8v8 guild lineup <name>: hib-main (a, b); hib-2bard (c, d)."));
+            Assert.That(DOL.GS.Commands.Pvp8v8CommandHandler.LineupAnswer("hib-2bard", true, "hib-2bard", []), Does.Contain("from your next evening on"));
+            Assert.That(DOL.GS.Commands.Pvp8v8CommandHandler.LineupAnswer("alb-main", false, "hib-main", []), Does.Contain("is not a line-up of your realm"));
+        }
+
+        [Test]
         public void WhoSaysWhichZoneHasWhatKindOfGroupAndHowMany()
         {
             // The owner, 2026-11-24: "the idea would be to know which zone has what kind of group and how many groups."

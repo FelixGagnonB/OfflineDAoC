@@ -21,6 +21,23 @@ namespace DOL.GS
         /// </summary>
         public bool EnemyKeepsUp { get; set; } = true;
 
+        /// <summary>
+        /// The evening begins when a player with an 8v8 character enters the game
+        /// (bots/pvp/PvpEveningStart.cs), with this many groups of each realm the first time.
+        /// </summary>
+        public bool EveningAtLogin { get; set; } = true;
+        public int EveningGroups { get; set; } = 8;
+
+        /// <summary>
+        /// The guilds a player's evenings are made with begin at realm rank 1 level 1, whatever
+        /// their kind, and earn what they come to. The owner, 2026-11-24: "I do want everyone to
+        /// start at realm rank 1 level 1 and grind it out. There could already be group profile
+        /// regardeless of level at 'release'." Off: a guild begins at the rank of its kind (a
+        /// bad group at 1 to 3, an elite team at 8 to 10), as the guilds made before that day
+        /// did and as an evening of bots still has them.
+        /// </summary>
+        public bool GuildsBeginAtTheBottom { get; set; } = true;
+
         /// <summary>A member of the killing group this far from the one that died has no share.</summary>
         public int ShareWithin { get; set; } = 6_000;
 

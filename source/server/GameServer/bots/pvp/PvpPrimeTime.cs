@@ -259,7 +259,8 @@ namespace DOL.GS
         /// Teams for a pool: <paramref name="perRealm"/> of each realm, the kinds in the owner's
         /// ratio within each realm, each with a guild name no team in <paramref name="existing"/> has.
         /// </summary>
-        public static List<PvpGuildTeam> Generate(int perRealm, Random random, IReadOnlyCollection<PvpGuildTeam> existing = null)
+        /// <param name="fromTheBottom">Every guild begins at realm rank 1 level 1 (PvpRealWeights.GuildsBeginAtTheBottom), not at the rank of its kind.</param>
+        public static List<PvpGuildTeam> Generate(int perRealm, Random random, IReadOnlyCollection<PvpGuildTeam> existing = null, bool fromTheBottom = false)
         {
             var teams = new List<PvpGuildTeam>();
             foreach (eRealm realm in Realms)
@@ -271,7 +272,7 @@ namespace DOL.GS
                 {
                     PvpTeamProfile profile = PvpTeamProfile.Of(kinds[index]);
                     teams.Add(new PvpGuildTeam(IdOf(realm, names[index]), names[index], PvpRoam.NameOf(realm), profile.Kind.ToString(),
-                        Compose(realm, profile.Lineup, random), random.Next(profile.MinRealmLevel, profile.MaxRealmLevel + 1)));
+                        Compose(realm, profile.Lineup, random), fromTheBottom ? 1 : random.Next(profile.MinRealmLevel, profile.MaxRealmLevel + 1)));
                 }
             }
             return teams;
@@ -376,7 +377,7 @@ namespace DOL.GS
         }
 
         /// <summary>A pool with at least <paramref name="perRealm"/> teams of each realm: what is kept, and new teams made for what is missing (and kept).</summary>
-        public static List<PvpGuildTeam> LoadOrCreate(string folder, string pool, int perRealm, Random random)
+        public static List<PvpGuildTeam> LoadOrCreate(string folder, string pool, int perRealm, Random random, bool fromTheBottom = false)
         {
             lock (Gate)
             {
@@ -385,7 +386,7 @@ namespace DOL.GS
                 if (missing <= 0)
                     return teams;
                 // The same number more for every realm, so that each realm keeps the ratio of kinds.
-                teams.AddRange(Generate(missing, random, teams));
+                teams.AddRange(Generate(missing, random, teams, fromTheBottom));
                 Save(folder, pool, teams);
                 return teams;
             }

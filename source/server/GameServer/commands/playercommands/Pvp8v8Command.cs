@@ -98,6 +98,7 @@ namespace DOL.GS.Commands
         [
             "/8v8 ready [build]   your character becomes level 50 with that build's class, spec and gear (lists the builds without one)",
             "/8v8 guild [name]    forms your guild: your seven companions wear its name and your group goes by it",
+            "/8v8 guild lineup [name]   which eight your group is, from your next evening on",
             "/8v8 call <push|regroup|hold|engage|extend|assist|control|retreat|rest|die>   your call to the group",
             "/8v8 calls <on|off>  your companions' calls in group chat",
             "/8v8 lead <on|off>   your companions fall back as one by themselves when the group has too many on it",
@@ -111,6 +112,13 @@ namespace DOL.GS.Commands
         /// <summary>Whether a word of the command is one a player may not use here.</summary>
         public static bool IsKeptFromAPlayer(string word, bool testServer, bool gameMaster) =>
             !testServer && !gameMaster && !PlayerWords.Contains((word ?? string.Empty).ToLowerInvariant());
+
+        /// <summary>What "/8v8 guild lineup [name]" answers: the line-up the group has, and the ones its realm has to pick from.</summary>
+        public static string LineupAnswer(string asked, bool known, string has, System.Collections.Generic.IReadOnlyList<string> ofItsRealm) =>
+            (asked == null ? $"Your group's line-up is {has}."
+                : known ? $"Your group's line-up is {has} from your next evening on (your own class takes its place in it)."
+                : $"\"{asked}\" is not a line-up of your realm; yours stays {has}.") +
+            " /8v8 guild lineup <name>: " + string.Join("; ", ofItsRealm) + ".";
 
         public void OnCommand(GameClient client, string[] args)
         {
@@ -244,6 +252,18 @@ namespace DOL.GS.Commands
 
                 case "guild":
                 {
+                    // "/8v8 guild lineup [name]": which eight the group is, from the next evening on.
+                    if (args.Length > 2 && args[2].ToLowerInvariant() == "lineup")
+                    {
+                        System.Collections.Generic.List<PvpGroupTemplate> mine = PvpBuildCatalog.Groups.Concat(PvpBuildCatalog.Variants).Where(group => group.Realm == player.Realm).ToList();
+                        PvpGroupTemplate lineup = args.Length > 3 ? mine.FirstOrDefault(group => group.Id.Equals(args[3], System.StringComparison.OrdinalIgnoreCase)) : null;
+                        if (lineup != null)
+                            PvpPlayerSettings.Set(System.AppContext.BaseDirectory, player.InternalID,
+                                kept => kept with { Lineup = PvpBuildCatalog.Groups.Contains(lineup) ? null : lineup.Id });
+                        string has = PvpPlayerSettings.Get(System.AppContext.BaseDirectory, player.InternalID).Lineup ?? mine.First().Id;
+                        Say(LineupAnswer(args.Length > 3 ? args[3] : null, lineup != null, has, mine.Select(group => $"{group.Id} ({string.Join(", ", group.BuildIds)})").ToList()));
+                        return;
+                    }
                     string name = string.Join(" ", args.Skip(2)).Trim();
                     bool letters = name.Length > 0 && GuildCommandHandler.IsValidGuildName(name);
                     if (GuildProblem(name, player.GuildName, letters, letters && GuildMgr.DoesGuildExist(name),
@@ -316,6 +336,8 @@ namespace DOL.GS.Commands
                     {
                         foreach (string line in PvpPlayerReady.Apply(player, build))
                             Say(line);
+                        // An 8v8 character now: its evening begins (PvpEveningStart), as it will each time it comes in.
+                        PvpEveningStart.BeginFor(player);
                     }
                     catch (System.Exception exception)
                     {

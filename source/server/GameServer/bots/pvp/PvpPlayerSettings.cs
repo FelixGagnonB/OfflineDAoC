@@ -16,7 +16,10 @@ namespace DOL.GS
     /// "I like the messages when the bot decide it's time to kite and run back, it's nice".
     /// Until then it was off at every login.
     /// </param>
-    public sealed record PvpPlayerSetting(bool Lead = true);
+    /// <param name="Lineup">The line-up of its group (PvpBuildCatalog.FindGroup); null for its realm's main one.</param>
+    /// <param name="Zone">The zone its last evening began in (PvpRoamMap.Id); null for Emain Macha.</param>
+    /// <param name="Groups">How many groups of each realm its last evening had; 0 for the server's number.</param>
+    public sealed record PvpPlayerSetting(bool Lead = true, string Lineup = null, string Zone = null, int Groups = 0);
 
     /// <summary>The players' settings, kept in <c>pvp-players.json</c> beside the server (a played file: never in the repository).</summary>
     public static class PvpPlayerSettings
