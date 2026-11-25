@@ -39,7 +39,7 @@ Everybody started at realm rank 1 level 1. Ranks only move while you are in the 
 | `/8v8 ranks` | Your realm rank and your companions'. |
 | `/8v8 lead on` / `off` | On (as built): your companions fall back as one by themselves when too many are on the group, and say so in capitals. Kept between logins. |
 | `/8v8 calls on` / `off` | Your companions' calls in group chat. |
-| `/8v8 corpse <player\\|body\\|fall\\|ghost\\|off>` | How a dead bot is shown. |
+| `/8v8 corpse player`, `body`, `fall`, `ghost` or `off` | How a dead bot is shown. |
 | `/8v8 call <word>` | Your call to the group (below). |
 
 Zones for `/8v8 go`: `emain`, `odin`, `hadrian`, `breifine`, `cruachan`, `collory`, `pennine`,
@@ -55,7 +55,7 @@ Put the ones you use on quickbar buttons with `/macro <name> /8v8 call <word>`.
 | `/8v8 call assist` | The damage dealers go for your target. | while it lives, 45 s at most |
 | `/8v8 call control` | A mez, stun, root or nearsight goes to your target first. Also `mez`, `cc`. | 20 s |
 | `/8v8 call push` | Everybody presses forward. | 12 s |
-| `/8v8 call engage` | Back to a normal fight: close, mez, kill the called target. Also `go`. | until the next call |
+| `/8v8 call engage` | Back to a normal fight: close, mez, kill the called target. Also `go`. | 12 s |
 | `/8v8 call extend` | The kite: healers and casters step back again and again, fighters take whoever follows. Also `kite`. | 12 s; call again to keep kiting |
 | `/8v8 call regroup` | Everybody comes back to you and fights from there. Also `back`. | 12 s |
 | `/8v8 call hold` | The group stands where it is and lets them come. Also `wait`. | 12 s |
