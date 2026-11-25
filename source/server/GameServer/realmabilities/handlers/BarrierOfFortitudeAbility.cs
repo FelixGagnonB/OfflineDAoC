@@ -20,18 +20,16 @@ namespace DOL.GS.RealmAbilities
 			if (CheckPreconditions(living, DEAD | SITTING | MEZZED | STUNNED))
 				return;
 
-			GamePlayer player = living as GamePlayer;
-			List<GamePlayer> playersInGroup = GameLoop.GetListForTick<GamePlayer>();;
+			// A player or a bot (an 8v8 bot buys it); the bots of the group are covered with its players.
+			// (The range was compared with the user's own distance to itself: everyone in the group, anywhere.)
+			if (living is not (GamePlayer or GameBot))
+				return;
+			GameLiving player = living;
 			bool success;
 
 			SendCastMessage(player);
 
-			if (player.Group != null)
-				playersInGroup.AddRange(player.Group.GetPlayersInTheGroup().Where(x => x.IsAlive && player.IsWithinRadius(player, m_range)));
-			else
-				playersInGroup.Add(player);
-
-			foreach (GamePlayer playerInGroup in playersInGroup)
+			foreach (GameLiving playerInGroup in AtlasRAHelpers.GroupInReach(player, m_range))
 			{
 				if (!playerInGroup.IsAlive)
 					continue;

@@ -349,6 +349,10 @@ namespace DOL.GS
         // 2.5 seconds more. A player that swings cannot cast for 3 seconds; an NPC for one swing.
         public override void StartInterruptTimer(int duration, AttackData.eAttackType attackType, GameLiving attacker)
         {
+            // Mastery of Concentration: a hit interrupts nothing while it runs. The spell code keeps the cast
+            // going for anybody; a bot decides by its interrupt timer whether to begin one, so that is kept off.
+            if (attacker != this && effectListComponent.ContainsEffectForEffectType(eEffect.MasteryOfConcentration))
+                return;
             // Taken off here exactly when GameNPC is about to add it.
             if (IsPvpBot && attacker != this && (Brain is not IControlledBrain controlled || controlled.GetPlayerOwner() == null))
                 duration -= 2500;
@@ -356,6 +360,9 @@ namespace DOL.GS
         }
 
         public override int SelfInterruptDurationOnMeleeAttack => IsPvpBot ? 3000 : base.SelfInterruptDurationOnMeleeAttack;
+
+        /// <summary>Mastery of Concentration has begun on this bot: it may cast again at once.</summary>
+        public void OnMasteryOfConcentration() => EndInterruptByOthers();
 
         public void SetPvpRealmLevel(int realmLevel)
         {
@@ -369,6 +376,9 @@ namespace DOL.GS
 
         /// <summary>The weights this 8v8 bot's team fights with in a comparison of two sets; null for the usual ones.</summary>
         public PvpWeights PvpWeightsSet { get; set; }
+
+        /// <summary>The human limits of this 8v8 bot when its group was given a level (PvpSkills); null for those of its weights.</summary>
+        public PvpHumanWeights PvpHuman { get; set; }
 
         public override int MaxConcentration => IsPvpBuffbot ? 1_000_000 : GetModified(eProperty.MaxConcentration);
         public override int Concentration => MaxConcentration - (effectListComponent?.UsedConcentration ?? 0);
@@ -495,12 +505,17 @@ namespace DOL.GS
                 brain.NextThinkTick = GameLoop.GameLoopTime;
         }
 
+        // What a resting bot regains a tick: a tenth, or an 8v8 bot's own pace.
+        private int RestAmount(int native, int maximum) => IsPvpBot
+            ? BotRestRecovery.RecoveryAmount(native, maximum, PvpWeights.Of(this).Real.RestRegainsPercentPerSecond)
+            : BotRestRecovery.RecoveryAmount(native, maximum);
+
         protected override int HealthRegenerationTimerCallback(ECSGameTimer timer)
         {
             if (!IsEnhancedResting || Health >= MaxHealth) return base.HealthRegenerationTimerCallback(timer);
             int native = GetModified(eProperty.HealthRegenerationAmount);
             // Disease/bleed regen suppression remains authoritative.
-            if (native > 0) ChangeHealth(this, eHealthChangeType.Regenerate, BotRestRecovery.RecoveryAmount(native, MaxHealth));
+            if (native > 0) ChangeHealth(this, eHealthChangeType.Regenerate, RestAmount(native, MaxHealth));
             WakeAfterRecovery();
             return BotRestRecovery.TickMilliseconds;
         }
@@ -509,7 +524,7 @@ namespace DOL.GS
         {
             if (!IsEnhancedResting || Mana >= MaxMana) return base.PowerRegenerationTimerCallback(timer);
             ChangeMana(this, eManaChangeType.Regenerate,
-                BotRestRecovery.RecoveryAmount(GetModified(eProperty.PowerRegenerationAmount), MaxMana));
+                RestAmount(GetModified(eProperty.PowerRegenerationAmount), MaxMana));
             WakeAfterRecovery();
             return BotRestRecovery.TickMilliseconds;
         }
@@ -543,7 +558,7 @@ namespace DOL.GS
             }
 
             int regen = GetModified(eProperty.EnduranceRegenerationAmount);
-            if (IsEnhancedResting) regen = BotRestRecovery.RecoveryAmount(regen, maxEndurance);
+            if (IsEnhancedResting) regen = RestAmount(regen, maxEndurance);
             if (regen != 0)
                 ChangeEndurance(this, eEnduranceChangeType.Regenerate, regen);
 
@@ -2772,6 +2787,9 @@ namespace DOL.GS
         {
             if (CompanionFollowPolicy.DeferBuff(this, spell)) return false;
             if (AutonomousGroupFormationFollow.DeferBuff(this, spell)) return false;
+            // An 8v8 bot of a slow level waits a moment before a cast that takes time (PvpHands); a song it keeps up is not one.
+            if (IsPvpBot && spell is { IsInstantCast: false } && !BotSongTwistPolicy.IsMobileSong(this, spell) && PvpHands.Hesitates(this))
+                return false;
             // Final boundary as well as selection filtering: no rank of the
             // disabled shield can keep a Cabalist/Enchanter bot channeling.
             if (AutonomousPetSupport.IsDisabledBotDamageShield(this, spell) ||
@@ -2813,6 +2831,8 @@ namespace DOL.GS
                 !BotSongTwistPolicy.IsMobileSong(this, spell))
                 WakeRecoveryRest();
             bool started = base.CastSpell(spell, line, spellCastingAbilityHandler, checkLos);
+            if (started && IsPvpBot && !spell.IsInstantCast)
+                PvpHands.CastBegan(this);
             CabalistRestDiagnostics.Attempt(this, spell, started);
             if (started && CharacterClass?.ID == (int)eCharacterClass.Animist)
                 AnimistSingleTargetPolicy.CastOwnerSpell(this, spell);
@@ -2846,11 +2866,14 @@ namespace DOL.GS
             base.StartAttack(target);
         }
 
+        /// <summary>The guild of the 8v8 team it is in (bots/pvp/PvpPrimeTime.cs); null for every other bot.</summary>
+        public string PvpGuild { get; set; }
+
         public override bool AddToWorld()
         {
             // The guild name under the bot: its own guild (gamebot) or its owner's (/spawn companion), set before it
             // appears so no extra update is sent (AutonomousBotGuilds).
-            GuildName = AutonomousBotGuilds.GuildNameFor(this);
+            GuildName = PvpGuild ?? AutonomousBotGuilds.GuildNameFor(this);
             if (!base.AddToWorld())
                 return false;
 

@@ -23,12 +23,20 @@ namespace DOL.UnitTests
             // starting location". In front of the keep, as the two others are in front of theirs.
             PvpRoamStart hibernia = PvpRoam.EmainStarts.Single(start => start.Realm == eRealm.Hibernia);
             Assert.That(System.Math.Sqrt(System.Math.Pow(hibernia.Point.X - 425877, 2) + System.Math.Pow(hibernia.Point.Y - 318720, 2)), Is.InRange(1_500, 3_500), "Dun Crauchon");
-            // It reaches both ends of the middle directly: its two teams go opposite ways.
-            Assert.That(hibernia.RouteOf(1).First(), Is.EqualTo(PvpRoam.South));
-            Assert.That(hibernia.RouteOf(2).First(), Is.EqualTo(PvpRoam.North));
-            // Every team first walks to its own end of the open middle, then to the other: never a far goal across the mountains.
+            // Its two teams go opposite ways, each first to the west side, which lies before its keep.
+            Assert.That(hibernia.RouteOf(1).First(), Is.EqualTo(PvpRoam.WestSouth));
+            Assert.That(hibernia.RouteOf(2).First(), Is.EqualTo(PvpRoam.WestNorth));
+            // Albion and Midgard first walk to their own end of the road: never a far goal across the mountains.
             Assert.That(PvpRoam.EmainStarts.Single(start => start.Realm == eRealm.Albion).Route.First(), Is.EqualTo(PvpRoam.South));
             Assert.That(PvpRoam.EmainStarts.Single(start => start.Realm == eRealm.Midgard).Route.First(), Is.EqualTo(PvpRoam.North));
+            // Six points, and a realm's two teams go round them different ways (2026-11-22: with two points all six stood at one).
+            var six = new[] { PvpRoam.North, PvpRoam.South, PvpRoam.Middle, PvpRoam.WestNorth, PvpRoam.WestMiddle, PvpRoam.WestSouth };
+            foreach (PvpRoamStart start in PvpRoam.EmainStarts)
+            {
+                Assert.That(start.RouteOf(1), Is.EquivalentTo(six), start.Realm.ToString());
+                Assert.That(start.RouteOf(2), Is.EquivalentTo(six), start.Realm.ToString());
+                Assert.That(start.RouteOf(2)[1], Is.Not.EqualTo(start.RouteOf(1)[1]), "the second team turns the other way");
+            }
         }
 
         [Test]
@@ -116,6 +124,74 @@ namespace DOL.UnitTests
             Assert.That(PvpRoam.TooBusyFor(1, false, true), Is.False, "\"Only if I decide to add on their fight, they will need to react.\"");
             Assert.That(PvpRoam.TooBusyFor(1, true, false), Is.False, "the one it is fighting");
             Assert.That(PvpRoam.TooBusyFor(0, false, false), Is.False, "a team on its own takes on whom it meets");
+            // A group that comes for its fight is seen before it lands.
+            Assert.That(PvpRoam.SeesItComing(1, false, true, true), Is.True);
+            Assert.That(PvpRoam.SeesItComing(1, false, false, true), Is.False, "a group that walks by, or has left them to it");
+            Assert.That(PvpRoam.SeesItComing(1, false, true, false), Is.False, "too far off, or behind a hill");
+            Assert.That(PvpRoam.SeesItComing(0, false, true, true), Is.False, "it is in no fight: whom it meets it meets");
+            Assert.That(PvpRoam.SeesItComing(1, true, true, true), Is.False, "the one it is fighting already");
+        }
+
+        [Test]
+        public void MonstersGoAndGuardsAndMerchantsStay()
+        {
+            // "Could you remove all monsters from Emain Macha? useless for our tests."
+            Assert.That(PvpArena.IsMonster(false, false, false, false, false), Is.True, "a monster: of no realm and not peaceful");
+            Assert.That(PvpArena.IsMonster(true, false, false, false, false), Is.False, "a bot");
+            Assert.That(PvpArena.IsMonster(false, true, false, false, false), Is.False, "a keep's guard");
+            Assert.That(PvpArena.IsMonster(false, false, true, false, false), Is.False, "somebody's pet");
+            Assert.That(PvpArena.IsMonster(false, false, false, true, false), Is.False, "a merchant, a teleporter or a hastener of a realm");
+            Assert.That(PvpArena.IsMonster(false, false, false, false, true), Is.False, "a peaceful one");
+            Assert.That(new PvpWeights().ClearMonsters, Is.True);
+        }
+
+        [Test]
+        public void ATeamGoesOffItsRoadToRest()
+        {
+            // "it would be nice a team decides to go hide somewhere off, or out of the route the teams make to meet each other and rest"
+            var places = PvpRoam.HidePlaces((1_000, 1_000), (1_000, 9_000), new[] { 7_500, 5_500 }, true);
+            Assert.That(places, Has.Count.EqualTo(4));
+            // Walking south (y grows): straight off the road is east and west, the farther place first.
+            Assert.That(places.Select(place => place.Y).Distinct().Single(), Is.EqualTo(1_000));
+            Assert.That(places.Select(place => System.Math.Abs(place.X - 1_000)), Is.EqualTo(new[] { 7_500, 7_500, 5_500, 5_500 }));
+            Assert.That(places[0].X, Is.Not.EqualTo(places[1].X), "one to each side");
+            Assert.That(PvpRoam.HidePlaces((0, 0), (0, 0), new[] { 7_500 }, true), Is.Empty, "nowhere to go: no side");
+            Assert.That(new PvpRealWeights().RestsOffTheRoadBy.Min(), Is.GreaterThan(5_000), "beyond where a passing group forms up");
+        }
+
+        [Test]
+        public void TheStatusSaysWhatATeamIsDoing()
+        {
+            // "It could be just: fighting - resting - respawn (before they leave the keep)"
+            string[] nobody = [];
+            Assert.That(PvpRoam.Doing("Buffing", false, false, false, false, nobody, 20, 0), Is.EqualTo("at its start, buffing (leaves in 20 s)"));
+            Assert.That(PvpRoam.Doing("Fighting", false, false, false, false, new[] { "mid-main", "alb-main#2" }, 0, 0), Is.EqualTo("fighting mid-main and alb-main#2"));
+            Assert.That(PvpRoam.Doing("Roaming", false, false, true, false, nobody, 0, 0), Is.EqualTo("resting"));
+            Assert.That(PvpRoam.Doing("Roaming", false, true, false, false, nobody, 0, 0), Is.EqualTo("walking off its road to rest"));
+            Assert.That(PvpRoam.Doing("Roaming", true, false, false, false, nobody, 0, 0), Is.EqualTo("waiting by a fight"));
+            Assert.That(PvpRoam.Doing("Roaming", false, false, false, true, nobody, 0, 0), Is.EqualTo("raising its dead"));
+            Assert.That(PvpRoam.Doing("Roaming", false, false, false, false, nobody, 0, 0), Is.EqualTo("roaming"));
+            Assert.That(PvpRoam.Doing("Down", false, false, false, false, nobody, 0, 12), Is.EqualTo("wiped, stands up at its start in 12 s"));
+        }
+
+        [Test]
+        public void AHitFromTheFightNextDoorIsNotAnswered()
+        {
+            Assert.That(PvpRoam.IgnoresHit(true, true, true, false), Is.True, "somebody of the roam its group is not fighting");
+            Assert.That(PvpRoam.IgnoresHit(true, true, true, true), Is.False, "one of its group's enemies");
+            Assert.That(PvpRoam.IgnoresHit(true, true, false, false), Is.False, "a guard or anybody else is answered as ever");
+            Assert.That(PvpRoam.IgnoresHit(false, true, true, false), Is.False, "no roam: a scrim or a session is as it was");
+            Assert.That(PvpRoam.IgnoresHit(true, false, true, false), Is.False, "a team that has not looked round yet defends itself");
+        }
+
+        [Test]
+        public void EightDoNotWalkIntoSixteen()
+        {
+            Assert.That(PvpRoam.AvoidsTwo(true, false, false, false), Is.True, "a team with its realm-mate beside it is not started on by one team");
+            Assert.That(PvpRoam.AvoidsTwo(true, true, false, false), Is.False, "two against two is a fight");
+            Assert.That(PvpRoam.AvoidsTwo(true, false, false, true), Is.False, "they come for it: it answers");
+            Assert.That(PvpRoam.AvoidsTwo(true, false, true, false), Is.False, "a fight that is on goes on");
+            Assert.That(PvpRoam.AvoidsTwo(false, false, false, false), Is.False, "one against one");
         }
 
         [Test]
@@ -174,8 +250,8 @@ namespace DOL.UnitTests
                 foreach (PvpRoamStart start in PvpRoam.Thidranki.Starts)
                     Assert.That(System.Math.Sqrt(System.Math.Pow(point.X - start.Point.X, 2) + System.Math.Pow(point.Y - start.Point.Y, 2)), Is.GreaterThan(10_000));
             }
-            // In Emain Macha both teams of a realm walk the one road.
-            Assert.That(PvpRoam.Emain.StartOf(eRealm.Albion).RouteOf(2), Is.EqualTo(PvpRoam.Emain.StartOf(eRealm.Albion).RouteOf(1)));
+            // In Emain Macha too a realm's two teams take different ways.
+            Assert.That(PvpRoam.Emain.StartOf(eRealm.Albion).RouteOf(2), Is.Not.EqualTo(PvpRoam.Emain.StartOf(eRealm.Albion).RouteOf(1)));
         }
 
         [Test]

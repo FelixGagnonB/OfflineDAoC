@@ -14,20 +14,20 @@ namespace DOL.GS.Effects
 
         public override void OnStartEffect()
         {
-            if (OwnerPlayer == null)
+            if (Owner is not (GamePlayer or GameBot))
                 return;
 
-            OwnerPlayer.OtherBonus[eProperty.ArmorFactor] += (int)Effectiveness;
-            OwnerPlayer.Out.SendUpdateWeaponAndArmorStats();
+            Owner.OtherBonus[eProperty.ArmorFactor] += (int)Effectiveness;
+            OwnerPlayer?.Out.SendUpdateWeaponAndArmorStats();
         }
 
         public override void OnStopEffect()
         {
-            if (OwnerPlayer == null)
+            if (Owner is not (GamePlayer or GameBot))
                 return;
 
-            OwnerPlayer.OtherBonus[eProperty.ArmorFactor] -= (int)Effectiveness;
-            OwnerPlayer.Out.SendUpdateWeaponAndArmorStats();
+            Owner.OtherBonus[eProperty.ArmorFactor] -= (int)Effectiveness;
+            OwnerPlayer?.Out.SendUpdateWeaponAndArmorStats();
         }
     }
 }

@@ -15,6 +15,27 @@ namespace DOL.UnitTests
             new(mezzed, stunned, nearsighted, secondsLeft, archetype, controller);
 
         [Test]
+        public void InABadGroupOneMemberInFourHasPurge()
+        {
+            // The owner, 2026-11-24: "the bad still seems too good to me". Two bad groups under two Bards were asleep 2 to 4% of the time.
+            Assert.That(new PvpPurgeWeights().HeldByPercent, Is.EqualTo(100), "every other kind: everybody");
+            PvpWeights bad = PvpStyles.For(PvpTeamKind.Bad, new PvpWeights());
+            Assert.That(bad.Purge.HeldByPercent, Is.EqualTo(25));
+            Assert.That(PvpStyles.For(PvpTeamKind.Clingy, new PvpWeights()).Purge.HeldByPercent, Is.EqualTo(100));
+            int holds = 0;
+            for (int i = 0; i < 2_000; i++)
+            {
+                string name = "Member" + (char)('a' + i % 26) + i;
+                Assert.That(PvpPurge.Holds(name, 100), Is.True);
+                Assert.That(PvpPurge.Holds(name, 0), Is.False);
+                Assert.That(PvpPurge.Holds(name, 25), Is.EqualTo(PvpPurge.Holds(name, 25)), "the same member all evening");
+                if (PvpPurge.Holds(name, 25))
+                    holds++;
+            }
+            Assert.That(holds, Is.InRange(400, 600));
+        }
+
+        [Test]
         public void AMezzedMemberPurges()
         {
             Assert.That(PvpPurge.Score(Member(mezzed: true), false, Weights), Is.GreaterThanOrEqualTo(Weights.MinScore));

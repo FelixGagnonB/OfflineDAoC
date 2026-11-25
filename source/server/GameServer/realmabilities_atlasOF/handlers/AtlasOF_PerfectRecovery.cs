@@ -19,7 +19,7 @@ namespace DOL.GS.RealmAbilities
         public override int CostForUpgrade(int level) { return 14; }
         public override int GetReUseDelay(int level) { return 1800; } // 30 mins
 
-        private void CreateRezSpell(GamePlayer caster)
+        private void CreateRezSpell(GameLiving caster)
         {
             m_dbspell = new DbSpell();
             m_dbspell.Name = "Perfect Recovery Rez";
@@ -49,8 +49,10 @@ namespace DOL.GS.RealmAbilities
             if (CheckPreconditions(living, DEAD | SITTING | MEZZED | STUNNED))
                 return;
 
-            if (living is not GamePlayer m_caster || m_caster.castingComponent == null)
+            // A player or a bot (an 8v8 bot buys it).
+            if (living is not (GamePlayer or GameBot) || living.castingComponent == null)
                 return;
+            GameLiving m_caster = living;
 
             if (m_caster.TargetObject is not GameLiving)
                 return;
@@ -69,9 +71,9 @@ namespace DOL.GS.RealmAbilities
             // The spell casting code will disable this ability in SpellHandler's FinishSpellcast().
         }
 
-        public void OnRezDeclined(GamePlayer rezzer)
+        public void OnRezDeclined(GameLiving rezzer)
         {
-            rezzer.DisableSkill(this, 0); // Re-enable PR;
+            rezzer?.DisableSkill(this, 0); // Re-enable PR;
         }
     }
 }

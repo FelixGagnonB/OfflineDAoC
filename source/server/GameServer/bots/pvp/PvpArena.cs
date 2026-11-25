@@ -29,8 +29,10 @@ namespace DOL.GS
         /// </summary>
         /// <param name="rosterOwner">In a real session: the roster the group is kept under, for its names and its realm points.</param>
         /// <param name="atLeast">In a real session: no member comes in below this realm level (PvpRealWeights.EnemyKeepsUp).</param>
+        /// <param name="seedPoints">The realm points a member has that the roster does not know yet (a guild team's first evening).</param>
+        /// <param name="guild">The guild shown under each member's name; null for none.</param>
         public static IReadOnlyList<GameBot> SpawnGroup(PvpGroupTemplate template, ushort regionId, int x, int y, int realmLevel = 0,
-            ICollection<GameBot> all = null, string rosterOwner = null, int atLeast = 0)
+            ICollection<GameBot> all = null, string rosterOwner = null, int atLeast = 0, long seedPoints = 0, string guild = null)
         {
             Region region = WorldMgr.GetRegion(regionId) ?? throw new ArgumentException($"No region {regionId}.");
             Zone zone = region.GetZone(x, y) ?? throw new ArgumentException($"No zone at {x},{y} in region {regionId}.");
@@ -51,13 +53,14 @@ namespace DOL.GS
                 int place = PvpRoster.PlaceOf(template.BuildIds, i);
                 PvpRosterEntry kept = roster == null ? null : PvpRoster.Find(roster, template.BuildIds[i], place);
                 GameBot bot = CreateBot(build, template.Realm, i, template.BuildIds.Count, zone, regionId, centre, 140,
-                    roster == null ? realmLevel : Math.Max(atLeast, PvpRealmPoints.LevelFor(kept?.RealmPoints ?? 0)), kept);
+                    roster == null ? realmLevel : Math.Max(atLeast, PvpRealmPoints.LevelFor(kept?.RealmPoints ?? seedPoints)), kept);
+                bot.PvpGuild = guild;
                 if (roster != null)
                 {
-                    (bot.PvpRosterOwner, bot.PvpRosterPlace, bot.PvpPoints) = (rosterOwner, place, kept?.RealmPoints ?? 0);
+                    (bot.PvpRosterOwner, bot.PvpRosterPlace, bot.PvpPoints) = (rosterOwner, place, kept?.RealmPoints ?? seedPoints);
                     if (kept == null)
                     {
-                        roster.Add(new PvpRosterEntry(template.BuildIds[i], place, bot.Name, (int)bot.Gender));
+                        roster.Add(new PvpRosterEntry(template.BuildIds[i], place, bot.Name, (int)bot.Gender, seedPoints));
                         newcomers = true;
                     }
                 }
@@ -67,6 +70,8 @@ namespace DOL.GS
                     throw new InvalidOperationException($"{build.Id} could not enter region {regionId}.");
                 }
 
+                // A group that is not the player's plays at the level chosen for the others (PvpSkills).
+                bot.PvpHuman = PvpSkills.WeightsFor(PvpSkills.Others);
                 if (group == null)
                 {
                     group = new Group(bot);
@@ -157,6 +162,10 @@ namespace DOL.GS
                 if (real)
                     (bot.PvpRosterOwner, bot.PvpRosterPlace, bot.PvpPoints) = (player.InternalID, place, points);
                 bot.Heading = player.Heading;
+                // A companion wears the guild of the player it is with (/8v8 guild).
+                if (!string.IsNullOrEmpty(player.GuildName))
+                    bot.PvpGuild = player.GuildName;
+                bot.PvpHuman = PvpSkills.WeightsFor(PvpSkills.Group);
                 if (!bot.AddToWorld() || !player.Group.AddMember(bot))
                 {
                     bot.Delete();
@@ -246,6 +255,70 @@ namespace DOL.GS
         }
 
         /// <summary>Removes these 8v8 bots from the world: one match's, while others go on.</summary>
+        /// <summary>
+        /// The walk from a place to a point of the ground on the navmesh: whether it arrives, and how long it is.
+        /// </summary>
+        public static (bool Arrives, int Length) Walk(Zone zone, Vector3 from, Vector3 to)
+        {
+            var nav = PathfindingProvider.Instance;
+            Vector3 at = from;
+            double length = 0;
+            Span<WrappedPathfindingNode> nodes = stackalloc WrappedPathfindingNode[256];
+            for (int hops = 0; hops < 40 && Vector3.Distance(at, to) > 150; hops++)
+            {
+                PathfindingResult result = nav.GetPathStraight(zone, at, to, nav.DefaultFilters, nodes);
+                if (result.NodeCount <= 0 || result.Status is PathfindingStatus.NoPathFound or PathfindingStatus.NavmeshUnavailable or PathfindingStatus.NotSet)
+                    break;
+                Vector3 before = at;
+                for (int i = 0; i < Math.Min(result.NodeCount, nodes.Length); i++)
+                {
+                    length += Vector3.Distance(at, nodes[i].Position);
+                    at = nodes[i].Position;
+                }
+                if (Vector3.Distance(before, at) < 50)
+                    break;
+            }
+            return (Vector3.Distance(at, to) <= 150, (int)length);
+        }
+
+        /// <summary>
+        /// What counts as a monster to clear: of no realm, not peaceful, and not a bot, a keep's
+        /// guard or anybody's pet. A merchant, a teleporter, a hastener or a guard stays.
+        /// </summary>
+        public static bool IsMonster(bool bot, bool keepGuard, bool pet, bool ofARealm, bool peaceful) =>
+            !bot && !keepGuard && !pet && !ofARealm && !peaceful;
+
+        /// <summary>
+        /// Takes the monsters of the zones these points lie in out of the world (not out of the
+        /// database). Returns how many. One that was dead and comes back later is caught by the
+        /// next call.
+        /// </summary>
+        public static int ClearMonsters(ushort regionId, IEnumerable<(int X, int Y)> points)
+        {
+            if (!PvpWeights.Current.ClearMonsters || WorldMgr.GetRegion(regionId) is not { } region)
+                return 0;
+            HashSet<Zone> zones = points.Select(point => region.GetZone(point.X, point.Y)).Where(zone => zone != null).ToHashSet();
+            int removed = 0;
+            foreach (GameNPC npc in WorldMgr.GetNPCsFromRegion(regionId))
+            {
+                if (npc == null || npc.ObjectState != GameObject.eObjectState.Active || !zones.Contains(npc.CurrentZone) ||
+                    !IsMonster(npc is GameBot, npc is Keeps.GameKeepGuard, npc.Brain is IControlledBrain, npc.Realm != eRealm.None,
+                        (npc.Flags & GameNPC.eFlags.PEACE) != 0))
+                    continue;
+                try
+                {
+                    npc.RemoveFromWorld();
+                    npc.Delete();
+                    removed++;
+                }
+                catch (Exception)
+                {
+                    // One monster that will not go is no reason to stop a session.
+                }
+            }
+            return removed;
+        }
+
         public static int Remove(IEnumerable<GameBot> bots)
         {
             List<GameBot> all = bots.ToList();

@@ -52,7 +52,8 @@ namespace DOL.AI.Brain
             if (BotBody?.IsPvpBot != true || now >= PvpMoveUntil || Body.IsIncapacitated)
                 return false;
             // A healer breaks the step off for a member that is badly hurt (PvpPositionWeights.HealerBreaksOffAStepToHeal).
-            if (PvpBreaksOffToHeal())
+            // Not on a leg of its group's kite: the group goes back as one, and it heals from where the leg ends.
+            if (PvpSquad?.Kiting != true && PvpBreaksOffToHeal())
             {
                 PvpMoveUntil = 0;
                 Body.StopMovingOnPath();
@@ -67,6 +68,95 @@ namespace DOL.AI.Brain
         }
 
         private long _pvpRaiseTick;
+        private bool _pvpRestLocked;
+
+        /// <summary>
+        /// The group rests (PvpSquad.Resting): this bot first casts what it keeps up, one buff a
+        /// turn, then rests where it stands; the Bard's endurance song plays through it. True
+        /// when the turn is taken. A bot that was resting and no longer is gets up.
+        /// </summary>
+        private bool TryPvpRest()
+        {
+            if (BotBody?.IsPvpBot != true || !Body.IsAlive || PvpSquad?.Resting != true)
+            {
+                if (_pvpRestLocked)
+                {
+                    _pvpRestLocked = false;
+                    BotBody?.WakeRecoveryRest();
+                }
+                return false;
+            }
+            if (Body.IsIncapacitated)
+                return true;
+            // A buff on its way is finished before anything else.
+            if (Body.IsCasting || Body.castingComponent?.HasPendingSkillRequests == true)
+                return true;
+            if (HasAggro)
+                ClearAggroList();
+            if (Body.attackComponent.AttackState)
+                Body.StopAttack();
+            if (TryMaintainTravelAndClassBuffs())
+            {
+                _pvpRestLocked = false;
+                return true;
+            }
+            TryMaintainClassicSongTwist();
+            if (Body.IsCasting || Body.castingComponent?.HasPendingSkillRequests == true)
+                return true;
+            if (TryPvpRestCure())
+            {
+                _pvpRestLocked = false;
+                return true;
+            }
+            if (!BotBody.IsRecoveryResting)
+                BotBody.BeginRecoveryRest();
+            _pvpRestLocked = true;
+            return true;
+        }
+
+        private long _pvpRestCureAt;
+
+        /// <summary>
+        /// At rest a member that can takes off its group what the fight left on it: disease,
+        /// poison and nearsight, from every member in its reach and from the player. The owner,
+        /// 2026-11-24: "When resting, druid do not cure desease, nearsight, etc." In a fight a
+        /// nearsight is lifted from a healer or caster of bots only and a disease between two
+        /// heals; at rest nothing was, and a group set off again diseased. One cure at a time for
+        /// a member: what another is already casting at it is left to that one.
+        /// </summary>
+        private bool TryPvpRestCure()
+        {
+            if (Body.Group == null || GameLoop.GameLoopTime < _pvpRestCureAt)
+                return false;
+            Spell Ready(params Spell[] cures) => cures.FirstOrDefault(CheckHealSpell);
+            foreach (GameLiving member in Body.Group.GetMembersInTheGroup().Where(member => member.IsAlive && InSupportReach(member))
+                         .OrderBy(member => member is GamePlayer ? 0 : 1))
+            {
+                Spell cure = PvpHealPlan.RestCure(member.IsDiseased, member.IsPoisoned, member.effectListComponent.ContainsEffectForEffectType(eEffect.Nearsight)) switch
+                {
+                    eSpellType.CureDisease => Ready(BotBody.CureDisease, BotBody.CureDiseaseGroup),
+                    eSpellType.CurePoison => Ready(BotBody.CurePoison, BotBody.CurePoisonGroup),
+                    eSpellType.CureNearsightCustom => Ready(BotBody.CureNearsight),
+                    _ => null,
+                };
+                if (cure == null || member != Body && !Body.IsWithinRadius(member, cure.CalculateEffectiveRange(Body)) ||
+                    Body.Group.GetMembersInTheGroup().OfType<GameBot>().Any(other => other != Body && other.IsCasting && other.TargetObject == member &&
+                        other.castingComponent?.SpellHandler?.Spell?.SpellType == cure.SpellType))
+                    continue;
+                GameObject before = Body.TargetObject;
+                Body.TargetObject = member;
+                if (BotBody.CastSpell(cure, m_mobSpellLine, false))
+                {
+                    _pvpRestCureAt = GameLoop.GameLoopTime + 1_000;
+                    PvpRecorder.Decision(BotBody, new { kind = cure.SpellType == eSpellType.CureNearsightCustom ? "CureNearsight" : "Cure", spell = cure.Name, d = member.Name, rest = true }, [], null);
+                    if (cure.IsInstantCast)
+                        Body.TargetObject = before;
+                    return true;
+                }
+                Body.TargetObject = before;
+            }
+            return false;
+        }
 
         /// <summary>
         /// "/8v8 call retreat" (PvpSquad.CallRetreat): while the call stands this bot drops its
@@ -76,8 +166,11 @@ namespace DOL.AI.Brain
         /// </summary>
         private bool TryPvpRetreat()
         {
-            if (BotBody?.IsPvpBot != true || !Body.IsAlive || PvpSquad?.RetreatsTo is not { } leader)
+            if (BotBody?.IsPvpBot != true || !Body.IsAlive)
                 return false;
+            // A group of bots that has broken off (PvpSquad.Leaving) runs the same way, for a point and not behind a player.
+            if (PvpSquad?.RetreatsTo is not { } leader)
+                return PvpSquad?.LeavesTo is { } away && PvpLeaves(away);
             // A song may be played on the run; anything else is let go.
             if (Body.IsCasting && Body.castingComponent?.SpellHandler?.Spell is not { InstrumentRequirement: not 0, IsHarmful: false })
                 Body.StopCurrentSpellcast();
@@ -106,14 +199,38 @@ namespace DOL.AI.Brain
             return true;
         }
 
+        private bool PvpLeaves(Vector3 to)
+        {
+            if (Body.IsCasting && Body.castingComponent?.SpellHandler?.Spell is not { InstrumentRequirement: not 0, IsHarmful: false })
+                Body.StopCurrentSpellcast();
+            if (Body.attackComponent.AttackState)
+                Body.StopAttack();
+            if (HasAggro)
+                ClearAggroList();
+            PvpAssignedTarget = null;
+            if (Body.TargetObject != null)
+                Body.TargetObject = null;
+            if (Body.IsIncapacitated)
+                return true;
+            if (Body.FollowTarget != null)
+                Body.StopFollowing();
+            if (!Body.IsWithinRadius(new Point3D((int)to.X, (int)to.Y, (int)to.Z), 200) && (!Body.IsMoving || GameLoop.GameLoopTime % 2_000 < 1_000))
+                Body.PathTo(to, Body.MaxSpeed);
+            TryMaintainClassicSongTwist();
+            return true;
+        }
+
         /// <summary>
         /// The dead groupmate an 8v8 bot raises now, from where it stands, or null
         /// (<see cref="PvpHealWeights.Raises"/>): a healer first, then the nearest.
         /// </summary>
         private GameLiving PvpCorpseToRaise(Spell resurrection)
         {
+            // (A group that falls back as one leaves its dead where they are, and so does one with too many on it:
+            // the raised come back hurt and without their buffs, and the Cleric and the Cabalist of the eight that
+            // lost to sixteen on 2026-11-23 were raised and died again.)
             if (BotBody?.IsPvpBot != true || PvpSquad == null || PvpEnemies == null || Body.Group == null || resurrection == null ||
-                Body.IsCasting || Body.IsIncapacitated || Body.IsSilenced)
+                Body.IsCasting || Body.IsIncapacitated || Body.IsSilenced || PvpSquad.Kiting || PvpSquad.TooManyOnIt)
                 return null;
             PvpWeights all = PvpWeights.Of(BotBody);
             int range = BotBody.castingComponent.CalculateSpellRange(resurrection);
@@ -157,7 +274,7 @@ namespace DOL.AI.Brain
         private bool PvpWalkToRaise(Spell resurrection)
         {
             if (BotBody?.IsPvpBot != true || PvpEnemies == null || Body.Group == null || resurrection == null ||
-                PvpMember.RoleOf(BotBody) != PvpRole.Heal || Body.IsCasting || Body.IsIncapacitated)
+                PvpMember.RoleOf(BotBody) != PvpRole.Heal || Body.IsCasting || Body.IsIncapacitated || PvpSquad?.Kiting == true || PvpSquad?.TooManyOnIt == true)
                 return false;
             PvpWeights all = PvpWeights.Of(BotBody);
             int range = BotBody.castingComponent.CalculateSpellRange(resurrection);
@@ -524,6 +641,12 @@ namespace DOL.AI.Brain
             // In the middle of a cast only an instant can be added, as a player does (owner, 2026-11-17:
             // a Bard fires its amnesia while it casts its mez).
             bool midCast = Body.IsCasting;
+            // A bot of a slow level that is waiting before its next cast chooses nothing meanwhile (PvpHands).
+            if (!midCast && PvpHands.Hesitates(BotBody))
+            {
+                RecordPvpTurnTaken("slow hands");
+                return false;
+            }
             var characterClass = (eCharacterClass)BotBody.CharacterClass.ID;
             PvpWeights weights = PvpWeights.Of(BotBody);
             // The target of the mez, stun or root it is casting has been dealt with or is immune now: stop, and choose again.
@@ -614,7 +737,7 @@ namespace DOL.AI.Brain
             var caughtBy = new Dictionary<(PvpActionKind, int, bool), List<GameLiving>>();
             // Enemies first, then the mezzed members of this bot's own group (for cure mez); an option's target is an index here.
             List<GameLiving> friends = Body.Group?.GetMembersInTheGroup()
-                .Where(member => member != Body && member.IsAlive && member.IsMezzed).ToList() ?? [];
+                .Where(member => member != Body && member.IsAlive && PvpNotice.SeesAsleep(Body, member)).ToList() ?? [];
             List<GameLiving> targets = enemies.Cast<GameLiving>().Concat(friends).ToList();
             foreach ((PvpActionKind kind, Spell spell, bool instant) in spells.Select(pair => (pair.Key, pair.Value, false))
                          .Concat(instants.Select(pair => (pair.Key, pair.Value, true))))
@@ -725,9 +848,11 @@ namespace DOL.AI.Brain
                         caught = inside.Count(other => !other.IsMezzed && other.IsCasting && other.CurrentSpellHandler?.Spell.InstrumentRequirement == 0);
                         wakes = inside.Count(other => other.IsMezzed && other != kill);
                     }
-                    options.Add(new PvpOption(kind, id, PvpMember.ArchetypeOf(enemy), enemy == kill,
+                    // A pet that is cast (the Theurgist's) does not count a player's called assist as the kill target either.
+                    options.Add(new PvpOption(kind, id, PvpMember.ArchetypeOf(enemy),
+                        enemy == kill && !(kind == PvpActionKind.Pet && PvpSquad?.IsCalledAssist(enemy) == true),
                         enemy == PvpAssignedTarget || enemy == PvpDutyTarget, enemy.HealthPercent, hasEffect,
-                        enemy.IsCasting, enemy.IsBeingInterrupted, !mez && enemy.IsMezzed, Body.ManaPercent, cost, walk, caught, catchesKill, wakes,
+                        PvpNotice.SeesCasting(Body, enemy), enemy.IsBeingInterrupted, !mez && enemy.IsMezzed, Body.ManaPercent, cost, walk, caught, catchesKill, wakes,
                         instant, PvpActionChoice.IsController(PvpMember.ClassOf(enemy), weights),
                         PvpSquad?.IsPursuer(enemy) == true, PvpSquad?.Order == PvpOrder.Extend, walkDanger,
                         PvpSquad?.IsOnTrained(enemy) == true, walkInsideEdge, killOutOfReach,
@@ -796,6 +921,11 @@ namespace DOL.AI.Brain
                 blocked["asleep or claimed"] = offLimitsCount.ToString();
 
             List<(PvpOption Option, int Score)> ranked = PvpActionChoice.Rank(characterClass, options, weights, BotBody.PvpBuild?.Id);
+            // Mistakes (PvpHumanWeights.ChoiceNoise): each score is a little off, so the best by the numbers is not always taken.
+            PvpHumanWeights human = PvpNotice.HumanOf(BotBody);
+            if (human.ChoiceNoise > 0 && ranked.Count > 1)
+                ranked = ranked.Select(scored => (scored.Option, Score: scored.Score + PvpNotice.Noise(human, Random.Shared)))
+                    .OrderByDescending(scored => scored.Score).ToList();
             object Describe((PvpOption Option, int Score) scored) => new
             {
                 kind = scored.Option.Kind.ToString(), d = targets[scored.Option.TargetId].Name, score = scored.Score, walk = scored.Option.Short,

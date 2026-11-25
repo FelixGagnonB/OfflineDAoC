@@ -136,6 +136,7 @@ namespace DOL.GS
             if (count > lanes.Count)
                 throw new ArgumentException($"{count} series asked for and there are {lanes.Count} lanes.");
             PvpArena.Clear();
+            PvpArena.ClearMonsters(PvpArenaBox.EmainSouthEast.Region, [PvpArenaBox.EmainSouthEast.SpawnA]);
             if (!_hooked)
             {
                 GameEventMgr.AddHandler(GameLivingEvent.CastFinished, OnCastFinished);
@@ -357,7 +358,7 @@ namespace DOL.GS
         }
 
         /// <summary>Takes the player to a start in the world and goes on when the player stands there: moving between regions takes the client a moment.</summary>
-        public static void TravelThen(GamePlayer player, ushort region, Point3D spot, Action<string> say, Action begin)
+        public static void TravelThen(GamePlayer player, ushort region, Point3D spot, Action<string> say, Action begin, string where = "Emain Macha")
         {
             bool There() => player.ObjectState == GameObject.eObjectState.Active && player.CurrentRegionID == region && player.IsWithinRadius(spot, 2_500);
             if (There())
@@ -365,7 +366,7 @@ namespace DOL.GS
                 begin();
                 return;
             }
-            say("Taking you to the start in Emain Macha; it begins when you are there.");
+            say($"Taking you to the start in {where}; it begins when you are there.");
             player.MoveTo(region, spot.X, spot.Y, spot.Z, player.Heading);
             int waited = 0;
             new ECSGameTimer(player, _ =>
@@ -410,6 +411,7 @@ namespace DOL.GS
             if (own == null || own.Realm != player.Realm)
                 own = PvpBuildCatalog.Groups.First(group => group.Realm == player.Realm);
             PvpArena.Clear();
+            PvpArena.ClearMonsters(PvpArenaBox.EmainSouthEast.Region, [PvpArenaBox.EmainSouthEast.SpawnA]);
             if (!_hooked)
             {
                 GameEventMgr.AddHandler(GameLivingEvent.CastFinished, OnCastFinished);
@@ -439,6 +441,7 @@ namespace DOL.GS
                 run.Stop();
             PvpRoam.Stop();
             PvpArena.Clear();
+            PvpArena.ClearMonsters(PvpArenaBox.EmainSouthEast.Region, [PvpArenaBox.EmainSouthEast.SpawnA]);
         }
 
         private static void Tick(int _)
@@ -717,6 +720,14 @@ namespace DOL.GS
                     PvpRealmPoints.EnemyLevel(0, _a.Bots.Select(bot => bot.RealmLevel).Append(_leader.RealmLevel).ToList(),
                         PvpWeights.Of(_a.Bots.FirstOrDefault()).Real.EnemyKeepsUp)).ToList()
                 : PvpArena.SpawnGroup(_groupB, _arena.Region, spawnB.X, spawnB.Y, _realmLevel, _bots).ToList();
+            // Bots against bots: a level for each side, when the scrim was started with one (to compare two levels).
+            if (_leader == null)
+            {
+                if (PvpSkills.BotsA is { } levelA)
+                    _a.Bots.ForEach(bot => bot.PvpHuman = PvpSkills.WeightsFor(levelA));
+                if (PvpSkills.BotsB is { } levelB)
+                    _b.Bots.ForEach(bot => bot.PvpHuman = PvpSkills.WeightsFor(levelB));
+            }
             _a.Squad = _squadBrainA ? new PvpSquad(_a.Bots, _leader != null ? [_leader] : null) : null;
             _b.Squad = _squadBrainB ? new PvpSquad(_b.Bots) : null;
             // The groups buff where they came in, standing together, and take their rows at the ready

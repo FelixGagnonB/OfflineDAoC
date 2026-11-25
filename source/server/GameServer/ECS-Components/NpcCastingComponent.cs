@@ -49,7 +49,9 @@ namespace DOL.GS
             if (losChecker == null)
                 return base.RequestCastSpellInternal(spell, spellLine, spellCastingAbilityHandler, target, null);
 
-            SpellWaitingForLosCheck spellWaitingForLosCheck = new(spell, spellLine);
+            // (With the ability it is cast from: a realm ability that casts a spell, Perfect Recovery, has its reuse begun by
+            // that spell, and a bot that raised a player with it had the ability back at once.)
+            SpellWaitingForLosCheck spellWaitingForLosCheck = new(spell, spellLine, spellCastingAbilityHandler);
 
             lock (_spellsWaitingForLosCheckLock)
             {
@@ -150,7 +152,7 @@ namespace DOL.GS
                     SpellLine spellLine = spellWaitingForLosCheck.SpellLine;
 
                     if (success && spellLine != null && spell != null)
-                        base.RequestCastSpellInternal(spell, spellLine, null, target as GameLiving, losChecker);
+                        base.RequestCastSpellInternal(spell, spellLine, spellWaitingForLosCheck.Ability, target as GameLiving, losChecker);
                     else
                         _npcOwner.OnCastSpellLosCheckFail(target);
                 }
@@ -163,10 +165,13 @@ namespace DOL.GS
             public readonly Spell Spell;
             public readonly SpellLine SpellLine;
 
-            public SpellWaitingForLosCheck(Spell spell, SpellLine spellLine)
+            public ISpellCastingAbilityHandler Ability { get; }
+
+            public SpellWaitingForLosCheck(Spell spell, SpellLine spellLine, ISpellCastingAbilityHandler ability = null)
             {
                 Spell = spell;
                 SpellLine = spellLine;
+                Ability = ability;
             }
         }
     }

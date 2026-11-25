@@ -415,6 +415,10 @@ namespace DOL.AI.Brain
             if (!Body.IsAlive || Body.ObjectState != GameObject.eObjectState.Active || FSM.GetCurrentState() == FSM.GetState(eFSMStateType.PASSIVE))
                 return;
 
+            // In an 8v8 roam a bot hit from the fight beside its own does not turn on that team (PvpRoam.IgnoresHit).
+            if (ad.GeneratesAggro && PvpRoam.IgnoresHit(BotBody, PvpEnemies, ad.Attacker))
+                return;
+
             if (ad.GeneratesAggro)
             {
                 if (BotBody?.IsRecoveryResting == true)
@@ -1253,6 +1257,9 @@ namespace DOL.AI.Brain
 
             // "/8v8 call retreat": the group runs with the player and does nothing else.
             if (TryPvpRetreat())
+                return;
+            // "/8v8 call rest", and a team of bots between two fights: buffs, then rest.
+            if (TryPvpRest())
                 return;
 
             CompanionPvpEngagement.Observe(BotBody);
@@ -2204,7 +2211,7 @@ namespace DOL.AI.Brain
             bool pvpBardPlays = bot.IsPvpBot && (eCharacterClass)bot.CharacterClass.ID == eCharacterClass.Bard;
             // An 8v8 group in a chase (PvpSquad.Chasing): the speed song is the one that matters, for the
             // Bard as for the Skald and the Minstrel, until the group is in contact again.
-            bool chasing = bot.IsPvpBot && (PvpSquad?.Chasing == true || PvpSquad?.RetreatsTo != null);
+            bool chasing = bot.IsPvpBot && (PvpSquad?.Chasing == true || PvpSquad?.RetreatsTo != null || PvpSquad?.Leaving == true);
             if (immediateCombat && !chasing && !minstrelAtRange && !pvpBardPlays)
             {
                 StopTwistedSong();
@@ -2231,7 +2238,24 @@ namespace DOL.AI.Brain
 
             // Only what the group sees: by distance alone (tried for a night) its speed dropping told
             // the group an enemy was near before anybody had seen one (the owner, 2026-11-20).
-            bool pvpBardEnemyNear = pvpBardPlays && PvpSquad?.Known.Count > 0 && !chasing;
+            // (A group that rests wants its endurance back: the same song.)
+            bool pvpEnemyKnownOrResting = pvpBardPlays && (PvpSquad?.Known.Count > 0 || PvpSquad?.Resting == true);
+            bool pvpBardEnemyNear = pvpEnemyKnownOrResting && !chasing;
+            // Two Bards share the songs: one holds speed, the other endurance (BotSongTwistPolicy.TwoBards).
+            BotSongTwistPolicy.PvpBardSong pvpDuty = BotSongTwistPolicy.PvpBardSong.AsOne;
+            if (pvpBardPlays && bot.Group != null)
+            {
+                List<GameBot> bards = bot.Group.GetMembersInTheGroup().OfType<GameBot>()
+                    .Where(mate => mate.IsPvpBot && (eCharacterClass)mate.CharacterClass.ID == eCharacterClass.Bard).OrderBy(mate => mate.Name, StringComparer.Ordinal).ToList();
+                List<GameBot> living = bards.Where(mate => mate.IsAlive).ToList();
+                pvpDuty = BotSongTwistPolicy.TwoBards(bards.Count, living.Count, living.IndexOf(bot), immediateCombat && !chasing, chasing, pvpEnemyKnownOrResting);
+            }
+            if (pvpDuty == BotSongTwistPolicy.PvpBardSong.Nothing)
+            {
+                _nextSongTwistTick = GameLoop.GameLoopTime + 1_000;
+                return false;
+            }
+            eSpellType pvpDutySong = pvpDuty == BotSongTwistPolicy.PvpBardSong.Endurance ? eSpellType.EnduranceRegenBuff : eSpellType.SpeedEnhancement;
             IEnumerable<Spell> songCandidates = (bot.MiscSpells ?? [])
                 .Concat(bot.InstantMiscSpells ?? [])
                 .Where(spell => spell != null && spell.IsPulsing && !spell.IsHarmful &&
@@ -2249,8 +2273,9 @@ namespace DOL.AI.Brain
                 // speed 100% while roaming and endurance during fight"). Slipping its resistance hymns in
                 // made it cast the speed again every three and a half seconds; twisting speed and
                 // endurance, tried for a morning, left the Bard a thousand units and more behind its group.
-                .Where(spell => !pvpBardPlays || immediateCombat && !chasing ||
-                                spell.SpellType == (pvpBardEnemyNear ? eSpellType.EnduranceRegenBuff : eSpellType.SpeedEnhancement));
+                .Where(spell => !pvpBardPlays ||
+                                (pvpDuty != BotSongTwistPolicy.PvpBardSong.AsOne ? spell.SpellType == pvpDutySong
+                                    : immediateCombat && !chasing || spell.SpellType == (pvpBardEnemyNear ? eSpellType.EnduranceRegenBuff : eSpellType.SpeedEnhancement)));
             if (ownerMoving)
                 songCandidates = songCandidates.GroupBy(spell => spell.SpellType)
                     .Select(group => group.OrderByDescending(spell => spell.Level)
@@ -4988,6 +5013,9 @@ namespace DOL.AI.Brain
                 {
                     if (!member.IsAlive || !InSupportReach(member))
                         continue;
+                    // An 8v8 healer has not seen yet that this one is hurt (healer attention, bots/pvp/PvpNotice.cs).
+                    if (!PvpNotice.SeesHurt(BotBody, member))
+                        continue;
 
                     int deficit = member.MaxHealth - member.Health;
 
@@ -5153,6 +5181,7 @@ namespace DOL.AI.Brain
             // An 8v8 healer heals the member the enemy's fighters are on before it is badly hurt
             // (owner, 2026-11-17), unless somebody else is already in an emergency.
             if (PvpSquad?.Trained is { IsAlive: true } trainedMember && InSupportReach(trainedMember) &&
+                PvpNotice.SeesHurt(BotBody, trainedMember) &&
                 trainedMember.HealthPercent < PvpWeights.Of(BotBody).Heal.TrainedHealBelowPercent &&
                 (spellTarget == null || spellTarget == trainedMember || spellTarget.HealthPercent >= 40))
             {

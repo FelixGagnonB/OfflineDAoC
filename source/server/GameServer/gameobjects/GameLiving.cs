@@ -732,6 +732,8 @@ namespace DOL.GS
 
 		public GameObject LastInterrupter { get; private set; }
 		public long InterruptTime { get; private set; }
+		/// <summary>Ends the interruption by others at once: a bot that has just pressed Mastery of Concentration (GameBot).</summary>
+		protected void EndInterruptByOthers() => InterruptTime = 0;
 		public long SelfInterruptTime { get; private set; }
 		public long InterruptRemainingDuration => Math.Max(0, Math.Max(InterruptTime, SelfInterruptTime) - GameLoop.GameLoopTime);
 		public virtual int SelfInterruptDurationOnMeleeAttack => 3000;
@@ -2061,6 +2063,8 @@ namespace DOL.GS
 			// cancel all left effects
 			EffectList.CancelAll();
 			effectListComponent.CancelAll();
+			// (and the songs it was singing: see EffectService.TickPulsingEffect)
+			effectListComponent.CancelPulses();
 
 			// Stop the regeneration timers
 			StopHealthRegeneration();

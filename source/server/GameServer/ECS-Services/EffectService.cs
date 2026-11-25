@@ -153,6 +153,18 @@ namespace DOL.GS
             // Not every pulsing effect is a `ECSPulseEffect`. Snares and roots decreasing effect are also handled as pulsing spells for example.
             if (spellEffect is ECSPulseEffect pulseEffect)
             {
+                // A song does not outlive its singer. Dying ends every effect on a living but the pulse itself
+                // (EffectListComponent.CancelAll goes over GetEffects, which leaves pulse effects out), so a dead
+                // singer's song went on pulsing on its group. The owner, 2026-11-22, the last of a group alive in a
+                // roam: "I still had endurance up and running"; in that recording the group's Bard had died seven
+                // minutes before, and its endurance song was on the player until the group stood up again.
+                // (Dead and in the world: a singer between two regions is not alive either, and its song is not this one's to end.)
+                if (caster.ObjectState is GameObject.eObjectState.Active && !caster.IsAlive)
+                {
+                    pulseEffect.End();
+                    return;
+                }
+
                 // This should be unreachable.
                 if (!caster.ActivePulseSpells.ContainsKey(spell.SpellType))
                 {

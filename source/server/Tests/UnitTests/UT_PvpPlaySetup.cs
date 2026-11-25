@@ -121,6 +121,11 @@ namespace DOL.UnitTests
             Assert.That(setup.After("Thidranki", eRealm.Albion).Text(eRealm.Albion), Does.Contain("<Thidranki>").And.Contain("[Roam]"));
             Assert.That(setup.After("Rank7", eRealm.Albion).Rank, Is.EqualTo(7));
             Assert.That(setup.After("Follow", eRealm.Albion).BotDrives, Is.True);
+            // M10.2: a level for the player's group and one for the others, each its own clickable words.
+            Assert.That(setup.After("G-Sharp", eRealm.Albion).Group, Is.EqualTo(PvpSkill.Sharp));
+            Assert.That(setup.After("O-Casual", eRealm.Albion).Others, Is.EqualTo(PvpSkill.Casual));
+            Assert.That(setup.After("O-Casual", eRealm.Albion).Group, Is.Null, "the other line is left as it is set");
+            Assert.That(setup.After("G-Sharp", eRealm.Albion).Text(eRealm.Albion), Does.Contain("<G-Sharp>").And.Contain("[G-Casual]").And.Contain("[O-Sharp]"));
             Assert.That(setup.After("Follow", eRealm.Albion).After("Lead", eRealm.Albion).BotDrives, Is.False);
             Assert.That(setup.After(" rank10 ", eRealm.Albion), Is.EqualTo(setup with { Rank = 10 }));
         }

@@ -246,6 +246,14 @@ namespace DOL.GS
         /// a bot's sprint is free, as until then.
         /// </summary>
         public int SprintCostPerSecond { get; set; } = 5;
+
+        /// <summary>
+        /// What a second of sprint costs a bot with Long Wind, by the player's rule (20% less a level,
+        /// rounded down: 4, 3, 2, 1 and nothing at its fifth). Until 2026-11-22 the ability was bought
+        /// and did nothing for a bot.
+        /// </summary>
+        public static int SprintCostWith(int costPerSecond, int longWindPercent) =>
+            Math.Max(0, costPerSecond - Math.Clamp(longWindPercent, 0, 100) * costPerSecond / 100);
         /// <summary>A bot out of breath sprints again once it has this share of its endurance back.</summary>
         public int SprintsAgainAtPercent { get; set; } = 20;
 

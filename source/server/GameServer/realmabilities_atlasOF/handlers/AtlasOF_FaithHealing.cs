@@ -41,7 +41,8 @@ namespace DOL.GS.RealmAbilities
 			if (living.Group != null)
 			{
 				Point3D livingCurrentSpot = new Point3D(living.X, living.Y, living.Z);
-				foreach (var player in living.Group.GetPlayersInTheGroup())
+				// The bots of the group are healed with its players.
+				foreach (GameLiving player in AtlasRAHelpers.GroupInReach(living, Range))
 				{
 					if (player.GetDistanceTo(livingCurrentSpot) <= Range)
 					{

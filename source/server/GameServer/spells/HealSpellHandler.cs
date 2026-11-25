@@ -104,7 +104,8 @@ namespace DOL.GS.Spells
 
             double effectiveness;
 
-            if (playerCaster != null)
+            // An 8v8 bot as a player: Mastery of Healing counted for nothing on it (2026-11-22).
+            if (playerCaster != null || GameBot.UsesPlayerRules(Caster))
                 effectiveness = Caster.Effectiveness + Caster.GetModified(eProperty.HealingEffectiveness) * 0.01;
             else
                 effectiveness = 1.0;

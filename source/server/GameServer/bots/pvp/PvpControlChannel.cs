@@ -186,6 +186,8 @@ namespace DOL.GS
                         .Select(ids => ids.Length == 2 ? (Group(ids[0]), Group(ids[1])) : throw new ArgumentException("A pairing is written A:B."))
                         .ToList();
                     PvpScrim.BotsRoam = Arg("Roam") == "1";
+                    // SkillA / SkillB (casual, seasoned, sharp): a level for each side of a scrim of bots; without them, the level of "the others".
+                    (PvpSkills.BotsA, PvpSkills.BotsB) = (PvpSkills.Parse(Arg("SkillA")), PvpSkills.Parse(Arg("SkillB")));
                     PvpScrim.Start(pairs, int.Parse(Arg("Matches") ?? "1"), (int.Parse(Arg("RealmRank") ?? "1") - 1) * 10,
                         int.Parse(Arg("Limit") ?? "300"),
                         // BrainA / BrainB: "squad" turns the squad brain on for that side; anything else is the old brain.
@@ -214,12 +216,35 @@ namespace DOL.GS
                     // Lineups=hib-2bard: that group for its realm's teams, in place of the main one. StaleCopies=off: an
                     // effect fault as it was before 2026-11-21, to show it (EffectListComponent.RetireStaleCopies).
                     EffectListComponent.RetireStaleCopies = !string.Equals(Arg("StaleCopies"), "off", StringComparison.OrdinalIgnoreCase);
+                    // Prime=8 Pool=test: a prime-time evening (M11), eight guilds of each realm from that pool (made if it is not there).
+                    List<PvpGuildTeam> guilds = null;
+                    string pool = Arg("Pool") ?? "scrim";
+                    // Listener=hibernia: that realm's chat is written to the recording, as a player of it would read it.
+                    PvpRoam.ListenTo(Enum.TryParse(Arg("Listener"), true, out eRealm listener) ? listener : eRealm.None);
+                    if (int.TryParse(Arg("Prime"), out int prime) && prime > 0)
+                        guilds = PvpTeamPool.Tonight(PvpTeamPool.LoadOrCreate(AppContext.BaseDirectory, pool, Math.Max(16, prime * 2), Random.Shared), prime, Random.Shared);
+                    // Hunters=2: for a test, that many teams of each realm hunt packs this evening (PvpTeamPool.WithHunters).
+                    if (guilds != null && int.TryParse(Arg("Hunters"), out int hunters) && hunters > 0)
+                        guilds = PvpTeamPool.WithHunters(guilds, hunters);
+                    // Elites=2: the same for the elite teams.
+                    if (guilds != null && int.TryParse(Arg("Elites"), out int elites) && elites > 0)
+                        guilds = PvpTeamPool.With(guilds, PvpTeamKind.Elite, elites);
+                    // Zones=all: the evening is in every frontier zone; Zones=tonight: in as many as its groups are for, drawn
+                    // (PvpRoam.ZonesTonight, M11.8); Zones=odin,hadrian: in those and the map it begins in.
+                    List<PvpRoamMap> zones = string.Equals(Arg("Zones"), "all", StringComparison.OrdinalIgnoreCase) ? PvpRoam.Frontiers.ToList()
+                        : string.Equals(Arg("Zones"), "tonight", StringComparison.OrdinalIgnoreCase)
+                            ? PvpRoam.ZonesTonight(PvpRoam.MapFor(Arg("Map")) ?? PvpRoam.Emain, prime, PvpRoam.Frontiers, Random.Shared)
+                        : (Arg("Zones") ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                            .Select(PvpRoam.MapFor).Where(zone => zone != null).ToList();
                     return PvpRoam.Start(int.Parse(Arg("Teams") ?? "2"), Arg("Owner") ?? "roam", null, null, PvpRoam.MapFor(Arg("Map")),
                         (Arg("Lineups") ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                            .Select(PvpBuildCatalog.FindGroup).Where(group => group != null).ToList());
+                            .Select(PvpBuildCatalog.FindGroup).Where(group => group != null).ToList(), guilds, pool, zones.Count > 0 ? zones : null);
 
                 case "roam-status":
                     return PvpRoam.Status();
+
+                case "roam-maps":
+                    return PvpRoam.Maps();
 
                 case "nav-route":
                     return PvpScrim.RouteCheck(ushort.Parse(Arg("Region") ?? "200"), int.Parse(Arg("X1")), int.Parse(Arg("Y1")),

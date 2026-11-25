@@ -62,6 +62,12 @@ namespace DOL.GS
             // An 8v8 fighter that took its shield out for the Slam throws the Slam (PvpWeaponSwap.cs).
             if (bot.IsPvpBot && PvpWeaponSwap.SlamNow(bot) is { } slam && Usable(bot, slam, lastAttack))
                 return slam;
+            // An 8v8 fighter of a slow level did not press a style for this swing (PvpHands). Asked at the swing, not when one is queued.
+            if (preserveQueued && PvpHands.SwingsPlain(bot))
+            {
+                bot.styleComponent.NextCombatBackupStyle = null;
+                return null;
+            }
             if (preserveQueued && Usable(bot, queued, lastAttack) && !(control && !PvpStylePolicy.Stops(bot, queued))) return queued;
             Style best = null;
             Style anytime = null;

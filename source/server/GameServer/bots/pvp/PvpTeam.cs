@@ -84,6 +84,9 @@ namespace DOL.GS
             // places in rows around the player, the player's own place left free. In the six
             // sessions of 2026-11-19 all eight stood inside one area mez eight seconds before the
             // first blow, and two to seven of them still did at the first blow.
+            // A group that rests stays where it is (PvpSquad.Resting): no order to follow or to take its rows.
+            if (Squad?.Resting == true)
+                return;
             bool overGround = PvpWeights.Of(Bots.FirstOrDefault()).SightOverGround;
             // Called to retreat, the group takes no rows: each of its bots runs behind the player (BotBrain.TryPvpRetreat).
             if (Squad?.RetreatsTo != null)
@@ -127,8 +130,8 @@ namespace DOL.GS
         /// <summary>A bot that is not fighting takes up the nearest living enemy it can see.</summary>
         public void Engage(IReadOnlyList<GameLiving> enemies)
         {
-            // Called to retreat, nobody takes anybody on.
-            if (Squad?.RetreatsTo != null)
+            // Called to retreat, nobody takes anybody on; nor in a group that has broken off.
+            if (Squad?.RetreatsTo != null || Squad?.Leaving == true)
                 return;
             var nav = PathfindingProvider.Instance;
             // While a group holds, its fighters go for nobody (bots/pvp/PvpReading.cs).
@@ -162,7 +165,8 @@ namespace DOL.GS
         /// <param name="far">Where the other side started: the far end of a patrol in a lane.</param>
         /// <param name="roam">Set in the open basin: the group goes from point to point by this draw.</param>
         /// <param name="contactTick">When the first blow of the fight fell; 0 before it.</param>
-        public void March(IReadOnlyList<GameLiving> enemies, (int X, int Y) far, PvpArenaBox arena, Random roam, long contactTick)
+        /// <param name="toward">Where it goes while it sees no enemy, instead of on along its route: the fight it has said it joins (PvpRoam.FightItJoined).</param>
+        public void March(IReadOnlyList<GameLiving> enemies, (int X, int Y) far, PvpArenaBox arena, Random roam, long contactTick, (int X, int Y)? toward = null)
         {
             List<GameBot> members = Bots.Where(bot => bot.IsAlive).ToList();
             if (members.Count == 0)
@@ -199,7 +203,10 @@ namespace DOL.GS
                     route = PvpFormation.RoamPoints(arena.MinX, arena.MinY, arena.MaxX, arena.MaxY, 3_000);
                 (int X, int Y) next = route[Waypoint % route.Length];
                 double x = members.Average(bot => bot.X), y = members.Average(bot => bot.Y);
-                if (Math.Sqrt(Math.Pow(next.X - x, 2) + Math.Pow(next.Y - y, 2)) < 900)
+                // (On its way to a fight it leaves its route as it is, and takes it up again afterwards.)
+                if (toward is { } fight)
+                    next = fight;
+                else if (Math.Sqrt(Math.Pow(next.X - x, 2) + Math.Pow(next.Y - y, 2)) < 900)
                     next = route[Waypoint = Route == null && roam != null && basin
                         ? PvpFormation.NextRoamPoint(Waypoint % route.Length, route.Length, roam.Next()) : (Waypoint + 1) % route.Length];
                 // The route has no heights: take the ground under the waypoint from the navmesh,
@@ -306,6 +313,30 @@ namespace DOL.GS
                 if (!sighted && bot.IsMoving && GameLoop.GameLoopTime % 4_000 >= 1_000)
                     continue;
                 bot.PathTo(places != null && places.TryGetValue(bot, out Vector3 place) ? place : goal, bot.MaxSpeed);
+            }
+        }
+
+        /// <summary>Out of a fight, everybody goes to a point of the ground and stops there (a place off the road, to rest).</summary>
+        public void GatherAt(Vector3 at, int within)
+        {
+            foreach (GameBot bot in Bots)
+            {
+                if (!bot.IsAlive || bot.IsCasting || bot.IsIncapacitated)
+                    continue;
+                if (bot.FollowTarget != null)
+                    bot.StopFollowing();
+                if (bot.IsWithinRadius(new Point3D((int)at.X, (int)at.Y, (int)at.Z), within))
+                {
+                    if (bot.IsMoving)
+                    {
+                        bot.StopMovingOnPath();
+                        bot.StopMoving();
+                    }
+                    continue;
+                }
+                if (bot.IsMoving && GameLoop.GameLoopTime % 4_000 >= 1_000)
+                    continue;
+                bot.PathTo(at, bot.MaxSpeed);
             }
         }
 

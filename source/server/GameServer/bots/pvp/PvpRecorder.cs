@@ -86,7 +86,9 @@ namespace DOL.GS
         /// A roam: one recording for the whole session and all of its teams, each under its own
         /// name. <paramref name="teams"/>: name, line-up, realm and members (a player among them).
         /// </summary>
-        public static PvpRecording BeginRoam(string label, IReadOnlyList<(string Name, string Group, eRealm Realm, IReadOnlyList<GameLiving> Members)> teams)
+        /// <param name="kinds">On a prime-time evening: each team's kind by its name (PvpTeamKind).</param>
+        public static PvpRecording BeginRoam(string label, IReadOnlyList<(string Name, string Group, eRealm Realm, IReadOnlyList<GameLiving> Members)> teams,
+            IReadOnlyDictionary<string, string> kinds = null)
         {
             Hook();
             Directory.CreateDirectory(RoamFolder);
@@ -102,6 +104,10 @@ namespace DOL.GS
                 {
                     name = team.Name, group = team.Group, realm = team.Realm.ToString(),
                     player = team.Members.OfType<GamePlayer>().FirstOrDefault()?.Name,
+                    // (A guild of a prime-time evening has no bots yet when this is written: its level is its kind's.)
+                    skill = kinds != null && kinds.TryGetValue(team.Name, out string itsKind) && !team.Members.OfType<GameBot>().Any()
+                        ? PvpTeamProfile.Of(itsKind).Skill.ToString() : PvpSkills.NameOf(team.Members.OfType<GameBot>().FirstOrDefault()),
+                    kind = kinds != null && kinds.TryGetValue(team.Name, out string kind) ? kind : null,
                 }),
                 bots = teams.SelectMany(team => team.Members.Select(member => Describe(member, team.Name))),
             });
@@ -147,6 +153,7 @@ namespace DOL.GS
                 // In a comparison of two sets of weights the teams fight with different ones.
                 weights = PvpWeights.Of(teamA[0]), weightsB = PvpWeights.Of(teamB[0]) == PvpWeights.Of(teamA[0]) ? null : PvpWeights.Of(teamB[0]),
                 setA = SetName(teamA[0]), setB = SetName(teamB[0]),
+                skillA = PvpSkills.NameOf(teamA[0]), skillB = PvpSkills.NameOf(teamB[0]),
                 bots = teamA.Concat(teamB).Select(bot => (object)new
                 {
                     n = bot.Name, team = recording.Teams[bot], build = bot.PvpBuild.Id, cls = ((eCharacterClass)bot.ClassId).ToString(),
@@ -444,6 +451,9 @@ namespace DOL.GS
                         k = "squad", t = Now, team = side.Key, kill = squad.KillTarget?.Name, trained = squad.Trained?.Name, known = squad.Known.Count,
                         // The order in force and the readings it came from: the group's own, and the enemy's as it sees it.
                         order = squad.Order.ToString(), own = Shares(squad.Own), theirs = Shares(squad.Theirs), incoming = squad.Incoming,
+                        // The kite (bots/pvp/PvpKite.cs): its side, the enemies that aim at it, and the legs it has gone back.
+                        side = squad.OwnSide, on = squad.OnIt, kite = squad.Kiting, legs = squad.KiteLegs, leaving = squad.Leaving,
+                        stands = squad.KiteStands, prey = squad.Prey?.Name,
                     });
             }
             Drain();

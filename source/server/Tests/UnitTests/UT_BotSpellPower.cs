@@ -41,7 +41,9 @@ namespace DOL.UnitTests
             public override int Endurance { get; set; }
             public override double Effectiveness => 1;
             public override SpellLine GetSpellLine(string key) => null;
-            public override bool IsAlive => true;
+            // (Made without its initialisers run: a field that is false to begin with.)
+            public bool Dead;
+            public override bool IsAlive => !Dead;
             public override bool IsMoving => false;
             public override bool IsCrowdControlled => false;
             public override bool InCombat => false;
@@ -560,6 +562,25 @@ namespace DOL.UnitTests
             Player player = Actor<Player>(); player.Class = bot.Class; player.Level = 50;
             Assert.That(BotSpellPower.PulseCost(player, spell), Is.EqualTo(77));
             Assert.That(BotSpellPower.PulseCost(MakeBot(typeof(ClassHealer), 50), spell), Is.EqualTo(77));
+        }
+
+        [Test] public void ASongDoesNotOutliveItsSinger()
+        {
+            // The owner, 2026-11-22: the last alive of a group whose Bard had died, "I still had endurance up and running".
+            Bot bot = MakeBot(typeof(ClassBonedancer), 50);
+            bot.Mana = bot.MaxMana;
+            Spell spell = new(new DbSpell { SpellID = 99984, Name = "Song test", Type = "SpeedDecrease",
+                Target = "Enemy", Pulse = 1, Frequency = 50, Duration = 5, Power = 9, PulsePower = 77 }, 50);
+            var handler = new DebitOnlyDamage(bot, spell, new SpellLine("test", "test", "", true));
+            var pulse = new ECSPulseEffect(new(bot, 5000, 1, handler), 5000) { NextTick = GameLoop.GameLoopTime - 1 };
+            bot.ActivePulseSpells[spell.SpellType] = spell;
+            var tick = typeof(EffectService).GetMethod("TickPulsingEffect", BindingFlags.NonPublic | BindingFlags.Static);
+            bot.Dead = true;
+            tick.Invoke(null, new object[] { pulse, spell, handler, bot });
+            Assert.That(bot.Mana, Is.EqualTo(bot.MaxMana), "a dead singer's song does not pulse");
+            bot.Dead = false;
+            tick.Invoke(null, new object[] { pulse, spell, handler, bot });
+            Assert.That(bot.Mana, Is.EqualTo(bot.MaxMana - 77), "a living one's does");
         }
 
         [Test] public void FocusRootCannotLatchAttackerIntoChanneling_OrdinaryRootAndNukesRemainAllowed()

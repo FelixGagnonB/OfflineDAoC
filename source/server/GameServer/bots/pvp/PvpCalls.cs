@@ -12,10 +12,100 @@ namespace DOL.GS
         /// <summary>Set on a player who turned the calls off (/8v8 calls off).</summary>
         public const string OffProperty = "PVP_8V8_CALLS_OFF";
 
+        /// <summary>
+        /// Set on a player who lets the group's own caller move it (/8v8 lead on): in a roam the
+        /// seven then fall back as one by themselves when the group has too many on it
+        /// (bots/pvp/PvpKite.cs), and say so loud. Off unless the player turns it on: a group that
+        /// moves by itself leaves a player behind who has not seen the call.
+        /// </summary>
+        public const string LeadsProperty = "PVP_8V8_GROUP_LEADS";
+
+        /// <summary>
+        /// A call that moves the group is said this many times, in capitals. The owner,
+        /// 2026-11-24: "If my group decide to call for a reaction (push, extend, retreat), then
+        /// it would be to say in group chat but spam it in capital or something, 4-5 times, so I
+        /// am aware. There are too much message in /group chat for me to notice otherwise".
+        /// </summary>
+        public const int LoudTimes = 4;
+
+        public static string KiteCalled(int onIt, int ownSide) => $"KITE BACK! {onIt} ON OUR {ownSide}! KITE BACK!";
+        public const string KiteAgain = "BACK AGAIN! KEEP MOVING!";
+
+        /// <summary>
+        /// What a group says that has too many on it and has not been given the lead: it stays
+        /// where the player is, and tells the player what it counts and what can be called
+        /// (/8v8 call kite, /8v8 call retreat). Said again no sooner than every 25 seconds.
+        /// </summary>
+        public static string TooMany(int onIt, int ownSide) => $"TOO MANY! {onIt} ON OUR {ownSide}! CALL IT: KITE OR RETREAT!";
+
+        /// <summary>
+        /// What a group with a player says when it has lost by the measure a group of bots breaks
+        /// off at (PvpKite.BreaksOff): half of it or fewer alive, or none of its healers, and
+        /// half again as many enemies as its side. It does not run by itself: the retreat is the
+        /// player's call. Said again no sooner than every 25 seconds.
+        /// </summary>
+        public static string Lost(int alive, int enemies) => $"THIS ONE IS LOST! {alive} OF US LEFT, {enemies} OF THEM! RETREAT?";
+
+        /// <summary>
+        /// What the player's group says in a roam when it sees enemy groups it is not fighting:
+        /// how many groups, of which realm, on which side of the player and how far (to the
+        /// nearest 500). Until 2026-11-24 it said nothing of what it saw: the realm's other
+        /// groups call out what they see in realm chat and leave out what is near the player
+        /// ("the player stands there: no news"), so of the enemy nearest to it the player was
+        /// told by nobody. Said twice.
+        /// </summary>
+        public static string Sighted(int groups, string realmShort, string side, double away) =>
+            $"INC! {Math.Max(1, groups)}FG {realmShort.ToUpperInvariant()} {side.ToUpperInvariant()}, {Math.Round(away / 500) * 500:N0}!";
+
+        /// <summary>The same realm in sight is said again when more groups of it have come (no sooner than 8 seconds on), or after 45 seconds.</summary>
+        public static bool SaysSighting(double secondsSinceTheLast, int groupsThen, int groupsNow) =>
+            secondsSinceTheLast < 0 || secondsSinceTheLast >= 45 || groupsNow > groupsThen && secondsSinceTheLast >= 8;
+
+        /// <summary>
+        /// What the player's group says when another enemy group comes into its fight, or is seen
+        /// coming for it: how many more, of which realm, from which side. The owner's five
+        /// fights of 2026-11-24 had two, three, two, one and four enemy groups in them, and each
+        /// further group was known to the owner when it was on the group. Said as a call that
+        /// moves the group is (<see cref="LoudTimes"/>); one such call in six seconds, for all
+        /// that have come since the last.
+        /// </summary>
+        public static string Add(int members, string realmShort, string side) =>
+            $"ADD! {Math.Max(1, members)} MORE {realmShort.ToUpperInvariant()} FROM THE {side.ToUpperInvariant()}!";
+        public const int AddEveryMilliseconds = 6_000;
+        public const int TooManyEveryMilliseconds = 25_000;
+        public const string KiteOver = "STAND AND FIGHT HERE!";
+
         /// <summary>An order is said once it has stood this long; "incoming" no sooner than its own time after the last.</summary>
         public const int OrderSettlesMilliseconds = 3_000, IncomingEveryMilliseconds = 8_000;
 
         public static bool OrderIsSettled(long now, long since) => now - since >= OrderSettlesMilliseconds;
+
+        /// <summary>
+        /// The group's own order as it is shouted when it moves the group: push, extend, regroup.
+        /// The owner, 2026-11-24: "If my group decide to call for a reaction (push, extend,
+        /// retreat), then it would be to say in group chat but spam it in capital or something,
+        /// 4-5 times, so I am aware." Null for an order that moves nobody (engage, hold), which is
+        /// said once as before.
+        /// </summary>
+        public static string LoudOrder(PvpOrder order) => order switch
+        {
+            PvpOrder.Push => "PUSH! PUSH! ALL ON THEM!",
+            PvpOrder.Extend => "EXTEND! FALL BACK AND KITE!",
+            PvpOrder.Regroup => "REGROUP! BACK TO THE HEALERS!",
+            _ => null,
+        };
+
+        /// <summary>
+        /// One shouted order in this long: in the owner's fight of 2026-11-24 against one group
+        /// the order went push, extend, engage, push, extend, engage, push in 40 seconds, and
+        /// four lines for each would have been what the shout is there to be seen through. The
+        /// orders between are said once, in ordinary words.
+        /// </summary>
+        public const int LoudOrderEveryMilliseconds = 20_000;
+
+        /// <summary>Whether an order is shouted: it moves the group, it is the group's own and not the player's call, and none was shouted just before.</summary>
+        public static bool ShoutsOrder(PvpOrder order, bool thePlayerCalledIt, long now, long lastShout) =>
+            LoudOrder(order) != null && !thePlayerCalledIt && Due(now, lastShout, LoudOrderEveryMilliseconds);
 
         public static string Order(PvpOrder order) => order switch
         {
@@ -102,6 +192,27 @@ namespace DOL.GS
             nearestEnemy < CalledKiteKeeps && millisecondsSinceItsLastStep >= CalledKiteStepEveryMilliseconds;
 
         /// <summary>
+        /// "/8v8 call rest": the owner, 2026-11-22, "to tell the bot to redo their self-timed
+        /// buffs, druid resists, sit to regen endurance/mana. After a fight, I try to go hide
+        /// somewhere to regain mana/endurance, but bot just stand up idle". While the call
+        /// stands every bot of the group first casts what it keeps up (its own buffs, the group's
+        /// resistances, its pet), then rests where it stands and regains health, power and
+        /// endurance as a player sitting does (PvpRealWeights.RestRegainsPercentPerSecond); the
+        /// Bard plays its endurance song. It ends when the time is up, with any other call, when
+        /// somebody of the group is in combat, or when the player has walked this far from where
+        /// it called.
+        /// </summary>
+        public const int PlayerRestSeconds = 120, RestEndsBeyond = 1_500;
+
+        public static bool IsRestCall(string word) => (word ?? string.Empty).Trim().ToLowerInvariant() is "rest" or "sit" or "buff";
+
+        public const string Resting = "Resting: buffs first, then sitting down.";
+
+        /// <summary>Whether a rest that was called still stands.</summary>
+        public static bool RestStands(long now, long until, bool somebodyInCombat, int callerHasMoved) =>
+            until != 0 && now < until && !somebodyInCombat && callerHasMoved <= RestEndsBeyond;
+
+        /// <summary>
         /// "Retreat: everyone stop doing what they do and follow me" (the owner, 2026-11-21).
         /// Not an order the group fights under, like regroup: nobody attacks, casts or answers
         /// an attack; all of them run with the caller in travel order, the speed song on. It
@@ -111,7 +222,55 @@ namespace DOL.GS
 
         public static bool IsRetreatCall(string word) => (word ?? string.Empty).Trim().ToLowerInvariant() is "retreat" or "run" or "follow";
 
+        /// <summary>
+        /// "/8v8 call die": a dead player gives a lost fight up, and the group stands up at its
+        /// start as after a wipe, with no wait for the last of it to fall. The owner, 2026-11-24,
+        /// asked what the ones left should do when a dead player calls retreat: "The idea would be
+        /// to not waste too much time, respawn and move out again as a group. If i'm dead and i
+        /// see we are going to lose, i wont call a retreat. It's rather the opposite, i'd need a
+        /// wait to tell them 'just die'".
+        /// </summary>
+        public static bool IsDieCall(string word) => (word ?? string.Empty).Trim().ToLowerInvariant() is "die" or "wipe" or "giveup";
+
+        /// <summary>What the player is told of a call to give the fight up; null when it is given up.</summary>
+        public static string CannotGiveUp(bool leadsAGroupInARoam, bool callerAlive, bool groupIsDownAlready) =>
+            !leadsAGroupInARoam ? "You give a fight up in a roam or a prime-time evening, with your group."
+            : callerAlive ? "You are alive: /8v8 call retreat takes the group out of a fight. /8v8 call die is for when you are down."
+            : groupIsDownAlready ? "Your group is down already: it stands up at its start in a moment."
+            : null;
+
+        /// <summary>Whether a player's companions fall back as one by themselves (/8v8 lead): what it said this login, else what it keeps (on for a new player).</summary>
+        public static bool Leads(GamePlayer player)
+        {
+            if (player == null)
+                return false;
+            if (player.TempProperties.GetProperty<string>(LeadsProperty) is { } said)
+                return said == "on";
+            bool lead = PvpPlayerSettings.Get(AppContext.BaseDirectory, player.InternalID).Lead;
+            player.TempProperties.SetProperty(LeadsProperty, lead ? "on" : "off");
+            return lead;
+        }
+
+        /// <summary>The player turns the lead on or off, and it is kept.</summary>
+        public static void SetLead(GamePlayer player, bool on)
+        {
+            player.TempProperties.SetProperty(LeadsProperty, on ? "on" : "off");
+            PvpPlayerSettings.Set(AppContext.BaseDirectory, player.InternalID, setting => setting with { Lead = on });
+        }
+
         public static string Retreating(string caller) => $"Retreating with {caller}.";
+
+        /// <summary>What the group answers to a retreat called by a member who is dead.</summary>
+        public static string CannotRetreat(string caller) => $"You are down, {caller}: nobody to run with. We fight on.";
+
+        /// <summary>
+        /// Where a caster's pet is sent: the enemy its owner interrupts, else the group's kill target.
+        /// Not onto a target the player called with <c>/8v8 call assist</c>: the owner, 2026-11-22,
+        /// "when I use /8v8 call assist, pets should not assist. It's for fighters / casters that are
+        /// able to join". On such a call a pet goes on with the enemy it has, or with none.
+        /// </summary>
+        public static T PetAim<T>(T duty, T kill, T has, bool killIsThePlayersCall) where T : class =>
+            duty ?? (killIsThePlayersCall ? has : kill);
 
         /// <summary>Said by the member that used it: a healer player need not cure what a Purge has taken off.</summary>
         public static string Purged(bool group) => group ? "Group Purge used." : "Purge used.";

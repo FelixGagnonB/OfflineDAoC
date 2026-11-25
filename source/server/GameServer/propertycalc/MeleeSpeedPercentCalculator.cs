@@ -34,7 +34,8 @@ namespace DOL.GS.PropertyCalc
 	{
 		public override int CalcValue(GameLiving living, eProperty property)
 		{
-			if (living is GameNPC)
+			// An 8v8 bot takes the player's formula below: Mastery of Arms and its items' haste counted for nothing (2026-11-22).
+			if (living is GameNPC && !GameBot.UsesPlayerRules(living))
 			{
 				// NPC buffs effects are halved compared to debuffs, so it takes 2% debuff to mitigate 1% buff
 				// See PropertyChangingSpell.ApplyNpcEffect() for details.

@@ -1,7 +1,31 @@
+using System.Collections.Generic;
+
 namespace DOL.GS.RealmAbilities
 {
     public static class AtlasRAHelpers
     {
+        /// <summary>
+        /// Whom a group realm ability reaches: the living members of its user's group within range, its
+        /// user among them; its user alone without a group. A bot in the group counts as a player does,
+        /// a companion as much as a member of an 8v8 group. Until 2026-11-22 every one of these abilities
+        /// looked for the players of the group only: a player's Group Purge, Bunker of Faith or Speed of
+        /// Sound did nothing for the seven companions beside it, and a bot could not use one at all.
+        /// </summary>
+        public static List<GameLiving> GroupInReach(GameLiving user, int range)
+        {
+            List<GameLiving> reached = new();
+            if (user.Group == null)
+            {
+                reached.Add(user);
+                return reached;
+            }
+            foreach (GameLiving member in user.Group.GetMembersInTheGroup())
+            {
+                if (member is GamePlayer or GameBot && member.IsAlive && user.IsWithinRadius(member, range))
+                    reached.Add(member);
+            }
+            return reached;
+        }
         /// <summary>
         /// 6 stat points per level (Augmented Str, Dex, etc).
         /// </summary>

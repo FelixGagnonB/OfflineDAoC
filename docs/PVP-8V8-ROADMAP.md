@@ -912,8 +912,60 @@ walls stop bots. **Passed 2026-11-16.**
   companions leave out the build the player took (Albion has two Clerics). It changes a real
   character for good and nothing on the scrim server can check it: the tests cover only the
   choices (which build, which companion slot, the refusals).
-- [ ] **M1.5** (M) Realm rank for 8v8 bots and companions: stored realm points, earned from kills,
+- [x] **M1.5** (M) Realm rank for 8v8 bots and companions: stored realm points, earned from kills,
   realm abilities bought in the build's order. A scrim setting overrides rank.
+  *Realm abilities, passive and active, built 2026-11-22 (owner: "let's finish realm abilities
+  (passive and active)").*
+  *Run with bots the same day, not seen with a player.* The three main groups spawned at ranks 5
+  and 8 had bought what their orders say (a Druid at 5: Tireless, Group Purge, Purge, Mystic
+  Crystal Lore 2, Augmented Acuity 2; at 8 also Mastery of Concentration and Battery of Life).
+  Six matches at rank 8: Mastery of Concentration 42 times, Battery of Life 20, The Empty Mind
+  10, Perfect Recovery 7, Speed of Sound and Avoid Pain 4 each, Ameliorating Melodies and
+  Soldier's Barricade 3, Brilliant Aura and Bunker of Faith 2, Faith Healing once, and no error
+  in the server's log. Whether each did what its text says (a group running, a heal landing)
+  was not measured. One fault found and fixed: a nearsighted Healer tried Perfect Recovery on
+  a body beyond its shortened reach every second, and the game refused each one. A player's
+  group ability on its companions has run in no client.
+  - **What a class buys** (`bots/pvp/PvpRealmAbilities.cs`, one order a class, 26 classes; the
+    table is in the player guide). They are the assistant's reading of 1.65 builds with what the
+    owner has said (Tireless among the first, Group Purge a Druid's first, power back through
+    Mystic Crystal Lore and Raging Power), **for the owner to correct**. Before, every 8v8 bot
+    bought by the gamebots' four builds with Purge and Mystic Crystal Lore put first.
+  - **Passives that did nothing on a bot**, found by reading every calculator (a bot is an NPC
+    type): Mastery of Arms and item haste (melee speed took the monster formula), Mastery of
+    Healing (heal effectiveness was read for players only), Long Wind (a bot's sprint cost was
+    flat), Wild Minion on a pet that is not a Necromancer's. Fixed for 8v8 bots. Veil Recovery is
+    bought last by every bot: no bot is ill from a resurrection. Serenity and Ethereal Bond had
+    no prerequisite in the bots' plan and have theirs now (all bots). The other twenty-odd
+    passives were read and work.
+  - **Active abilities a bot now buys and uses**, beside Purge, Group Purge, Ignore Pain, Second
+    Wind, First Aid, Mystic Crystal Lore and Raging Power: Speed of Sound, Mastery of
+    Concentration, Battery of Life, Bunker of Faith, Soldier's Barricade, Brilliant Aura of
+    Deflection, Ameliorating Melodies, Faith Healing, Perfect Recovery, Avoid Pain, Armor of
+    Faith, The Empty Mind. Each has one rule with its numbers in the weights (`Abilities`),
+    and nothing is pressed outside a fight. Every one of their handlers was written for a
+    player: with a bot they returned at once, or threw.
+  - **A player's group abilities reach the bots of the group** (`AtlasRAHelpers.GroupInReach`).
+    Group Purge, Speed of Sound, Bunker of Faith, Soldier's Barricade, Brilliant Aura, Ameliorating
+    Melodies and Faith Healing looked for the *players* of the group: the owner's Group Purge
+    freed none of its seven companions. This is engine code and holds for any player with any
+    bot in its group, companions outside 8v8 too. Bunker of Faith also compared its range with
+    the user's distance to itself; it is 1,500 now, as its text says.
+  - **Not used by any bot, and so not bought:** the areas of damage or control, the melee
+    abilities, the pet abilities, Majestic Will, Concentration (listed in the guide). Trip was
+    read and not touched: a player's Trip is cast on every NPC around it, its own bots included
+    as far as the code shows.
+  - **Speed of Sound** (2026-11-22, the owner: "I have not seen Speed of Sound from either
+    Bard, Skald or Minstrel"). The game's data gave it to the Minstrel alone, and a bot used
+    it on a called retreat or with two members held by the legs. It is the Bard's and the
+    Skald's too now (added when the server loads its class table, `SkillBase.cs`: every
+    install of the build, a player of those classes as well; no source was found for 1.65
+    either way, it is the owner's memory). Two more uses, as the owner described them on
+    2026-11-19: to get in (a push with the group's fighters still more than 1,200 from any
+    enemy) and to get away (falling back with two healers or casters under a fighter). In the
+    bots' matches of the day a Minstrel's group ran at 330 to 460 units a second after it,
+    from 180 to 240 before. The Bard's and the Skald's, and the two new uses: automated
+    tests only.
   *The player's side, 2026-11-19:* picking a rank in `/8v8 setup` above the character's own
   gives the character that rank and its points to spend with `/train` (the owner: "even if I
   pick realm rank 5, I have no realm points and can't train purge"). The owner's Hero stands at
@@ -1141,6 +1193,11 @@ Passed 2026-11-17 (four batches of five, see the progress note).
 
 ## M3. Recorder, analyzer and baseline
 
+*Closed 2026-11-22 on the owner's word ("we can close M3").* The recorder, its formats 3 and 4,
+the analyzer, the referee, the replay and the roam page are what every change since has been
+judged with. M3.6 as written (thirty matches a pairing on the AI of November 16) was never run:
+the referee's rules and the regression gate of M10.3 took its place.
+
 *Progress 2026-11-16:* the recorder (`bots/pvp/PvpRecorder.cs`) writes one JSON-lines file per
 match under `runtime/server/logs/scrims`: a header, every attack (result, damage, spell or
 style), every finished cast (spell, type, power, target), deaths, and a once-a-second snapshot of
@@ -1158,17 +1215,17 @@ Not yet recorded: the reason behind each decision (the legacy brain does not exp
 brain of M5 will), heals as amounts, mez breaks. Still to do: M3.5's build-to-build comparison,
 and the baseline batch of 30 matches per pairing (M3.6).
 
-- [ ] **M3.1** (S) Trace format, versioned: match header (groups, builds, ranks, code version),
+- [x] **M3.1** (S) Trace format, versioned: match header (groups, builds, ranks, code version),
   events, decisions, snapshots.
-- [ ] **M3.2** (M) Event capture: attacks from both sides (a new attacker-side hook is needed),
+- [x] **M3.2** (M) Event capture: attacks from both sides (a new attacker-side hook is needed),
   casts started, finished and interrupted, crowd control applied, broken and expired, heals,
   realm abilities, deaths.
-- [ ] **M3.3** (S) Snapshots twice a second: position, health, power, endurance, control state, target.
-- [ ] **M3.4** (M) Thread-safe writer, one JSONL file per match. Brains tick in parallel, so it
+- [x] **M3.3** (S) Snapshots twice a second: position, health, power, endurance, control state, target.
+- [x] **M3.4** (M) Thread-safe writer, one JSONL file per match. Brains tick in parallel, so it
   must not block them.
-- [ ] **M3.5** (L) Analyzer: a per-match report, an aggregate over a batch, and an A/B comparison
+- [x] **M3.5** (L) Analyzer: a per-match report, an aggregate over a batch, and an A/B comparison
   of two builds with the scorecard metrics.
-- [ ] **M3.6** (S) Baseline: at least 30 matches per realm pairing on today's AI. Fill the
+- [x] **M3.6** (S) Baseline: at least 30 matches per realm pairing on today's AI. Fill the
   scorecard's baseline column and write the ranked failure list.
 
 *Recorder format 3 and the fight review, 2026-11-18* (owner: first make sure the recorder and
@@ -2295,6 +2352,13 @@ groups play correctly as well.
 
 ## M9. The owner's group
 
+*Closed 2026-11-22 on the owner's word ("I think we can consider the exit also done"): sessions
+from the launcher, a character readied, the group formed, roams and fights and rematches, with no
+GM command. Built and run with bots, and not reported on by the owner from a client: the roam in
+Thidranki, `/8v8 status`, a group of bots resting off its road, `/8v8 call control`, clicking and
+raising a dead bot, a real session with the realm abilities of 2026-11-22, and the owner's own
+group abilities reaching the companions. They are checked as they come up in play, not as steps.*
+
 *Owner, 2026-11-17:* "I am by no means an 8v8 expert; I am going from memory." Once the owner can
 play, every one of their fights is to be recorded, and the recordings and the analyzer used both
 to improve the bots and to give the owner insight into their own play. Needed for that: the
@@ -2396,7 +2460,7 @@ In order:
      (pace, potions, who keeps a reserve) is the owner's to say.
 7. [ ] Calls (M9.2, M9.3).
 
-- [ ] **M9.1** (M) A lasting companion roster built around the owner's class, earning realm points
+- [x] **M9.1** (M) A lasting companion roster built around the owner's class, earning realm points
   with the owner.
   *First half built 2026-11-20, not yet seen with a player:* a character's seven companions
   keep their names and sex from one session to the next (`PvpRoster.cs`,
@@ -2432,7 +2496,7 @@ In order:
   Not in it yet: more than two groups, a roam that goes on from fight to fight, what a wipe
   costs, and realm abilities bought in the build's order (a bot buys what its points allow by
   the rule the gamebots use).
-- [ ] **M9.7** (L) The roam: several groups in one zone, a session that goes on (added
+- [x] **M9.7** (L) The roam: several groups in one zone, a session that goes on (added
   2026-11-20). The owner's answers that evening, which are the design:
   - *Zone.* "Are battlegrounds enabled? Navmesh good or should we generate them?" The four
     classic ones (Abermenai 253, Thidranki 252, Murdaigean 251, Caledon 250) are in the world
@@ -2727,8 +2791,10 @@ In order:
      - A second cloak was refused with an error and a stack trace in the log for every 8v8 bot
        made, 2,000 times that morning: a bot that wears one is not given another.
 
-- [ ] **M9.2** (M) Bot shot-caller: calls announced in group chat (assist target, mez landed,
+- [x] **M9.2** (M) Bot shot-caller: calls announced in group chat (assist target, mez landed,
   retreat), with an assist key for the owner.
+  *Seen by the owner in a client, 2026-11-22:* "The mez and purge in /g chat also works"; the
+  assist call earlier the same weekend ("Assist works great. I've been using it").
   *First cut 2026-11-19, not yet seen in a client.* In a group with a player, its bots say in
   group chat what the squad already decides (`PvpCalls.cs`): the assist ("Assist Finnarar
   (Healer), at 62%."), the order when it changes (push, regroup on the healers, extend, hold),
@@ -2738,8 +2804,16 @@ In order:
   *Added 2026-11-21, not yet seen in a client:* "3 of them are mezzed." when a mez puts two or
   more of the enemy to sleep (said by the member that mezzes, no more often than every six
   seconds), and "Purge used." / "Group Purge used." by the member that used it.
-- [ ] **M9.3** (M) Owner's calls: `/call` macros for target, push, retreat, control that one,
+- [x] **M9.3** (M) Owner's calls: `/call` macros for target, push, retreat, control that one,
   regroup. The squad brain treats them as its own decisions.
+  *Seen by the owner in a client:* assist and retreat (2026-11-21), the kite of `extend` and
+  `rest` (2026-11-22: "The M9.2 extend (kite) and rest works"). `control` is the one call the
+  owner has not reported on.
+  *Pets stay out of a called assist (2026-11-22, the owner: "when I use /8v8 call assist, pets
+  should not assist. It's for fighters / casters that are able to join").* The call took a
+  caster's interrupt duty away and its pet went to the called target with it. A pet now keeps
+  its duty, or the enemy it has (`PvpCalls.PetAim`), and the Theurgist's cast pets do not count
+  the called target as the kill target. Automated tests only.
   *Built 2026-11-20 as `/8v8 call <assist|push|regroup|hold|engage|extend>`, not yet tried in a
   client.* *"Control that one" added 2026-11-21, not yet tried in a client:*
   `/8v8 call control` (or `mez`, `cc`) on the player's target: for twenty seconds a mez, stun,
@@ -2753,9 +2827,16 @@ In order:
   them with the player marked, and `pvp_referee.py` reads one as it reads a scrim.*
 - [ ] **M9.6** (S) Check both clients: the original client and the new client's target and assist
   buttons.
+  *Parked 2026-11-22, optional, not part of closing M9.* Neither install has the new client
+  (it comes with the 0.37c download, about 60 GB while it installs), the owner plays 8v8 in the
+  original client ("not sure how much I want to use it"), and nobody has looked at how the new
+  client takes the `/8v8` commands, the setup window or the group-chat calls. The updater may
+  refuse the scrim folder, which holds development builds; not tried.
+  *The dead, 2026-11-22, the owner in the original client:* "I think the dead bot is now
+  better." Not said: whether a dead bot can be clicked and raised.
 
 **Exit check:** a full session from the launcher: ready a character, form the group, roam, fight,
-rematch, with no GM commands.
+rematch, with no GM commands. *Met, on the owner's word, 2026-11-22.*
 
 ## M10. Difficulty and tuning
 
@@ -2794,14 +2875,129 @@ round:*
   side positions for positional styles; plans per opponent (M8.5); cooldown timing beyond Purge
   (M8.3); the amount of nearsight (above, "How exact the bots are").
 
-- [ ] **M10.1** (M) Human-like limits as settings: reaction delay, attention, mistake rate.
+- [x] **M10.1** (M) Human-like limits as settings: reaction delay, attention, mistake rate.
+  *Run in fights 2026-11-22 (the owner's own matches and twelve of bots): see "The levels, as the
+  owner met them" below.*
   *First piece 2026-11-20: the end of an enemy's mez or stun immunity is noticed 4 to 20 s late
-  (`PvpNotice`). Not yet: reaction time before answering a mez or a dive, attention, mistakes.*
-- [ ] **M10.2** (S) Named difficulty levels for the enemy group and, separately, for companions.
-- [ ] **M10.3** (M) Regression gate: each new AI build plays a fixed scrim set against the
+  (`PvpNotice`).*
+  *Built 2026-11-22, **not yet run in a fight**:* reaction time (a bot answers a groupmate put
+  to sleep, its own mez or stun, an enemy's cast begun and an enemy fighter on its healers and
+  casters after a moment drawn between 400 and 1,200 ms), attention (15% of the time three
+  times as long) and mistakes (every option weighed is off by up to 6 points). All in
+  `PvpHumanWeights`; all 0 is the bots as they were.
+- *The levels, as the owner met them (2026-11-22).* "I do not seem to find a difference between
+  Casual and Sharp." Three of the owner's matches: the enemy's Purge came a median 3.6 s after
+  a mez in one and 0.9 s in the two others, its cure 2.1 s and 0.5 s: the setting reached the
+  bots (the recordings did not say which level each was; a header has `skillA`/`skillB` now).
+  But a level moved four reactions by a second or two and nothing a player sees. Added on the
+  owner's choice: **assist discipline** (a member goes for a newly called kill target after its
+  own time: Sharp 0.1 to 0.35 s, Seasoned 0.4 to 1.2 s, Casual 2 to 4 s and one time in four
+  8 s) and **healer attention** (a healer sees a member hurt its reaction time after that
+  member went below 90%). `scrim-start SkillA= SkillB=` puts two levels against each other.
+  **Twelve matches, a Casual side against a Sharp one, each realm on both sides, rank 5:**
+  - the first heal on a member came a median 4.2 s after it went below 90% on the Casual
+    side and 1.7 s on the Sharp side (snapshots are a second apart);
+  - a side's members were on a newly called target a median 5.2 s (Casual) and 4.7 s (Sharp)
+    after the call: most of that time is the way there and the cast, and the delay shows
+    little. Not looked into: a member whose old target has died has no kill target meanwhile
+    and may pick the same enemy by itself;
+  - **Casual won 6 and Sharp 6; 50 deaths against 51.** The level decided nothing. The realm
+    decided everything: Albion won its 8, Midgard lost its 8, Hibernia beat Midgard 4 of 4,
+    most of them 8 dead to none or one.
+  So the levels are a matter of how a group feels, not of how hard it is, and what makes a
+  fight hard or easy today is which realm stands opposite. Midgard losing is not new (rank 5,
+  2026-11-20: 2 of 18 against Albion, 6 of 24 against Hibernia). Albion against Hibernia was
+  9 to 15 then and is 6 to 0 over today's two runs: six matches, after the realm abilities
+  and at a different default level, so a sign and not a finding.
+- [x] **M10.2** (S) Named difficulty levels for the enemy group and, separately, for companions.
+  *Built and played. The owner, 2026-11-22, after assist discipline and healer attention were
+  added: "I am not sure I felt a difference between the current 3 levels." They move what was
+  measured and do not change who wins. Making them "more representative of their name" is
+  parked with the tuning (M10.4).*
+  *Built 2026-11-22, **not yet run in a fight**:* Casual, Seasoned (the weights as they are)
+  and Sharp, one for the player's seven and one for every other group: `/8v8 skill`, and two
+  lines of the setup window. A bot is given its level when it is made.
+- [x] **M10.3** (M) Regression gate: each new AI build plays a fixed scrim set against the
   previous one, and a drop blocks it.
+  *First baseline stored 2026-11-22 (`source/tools/pvp-gate-baseline.json`, 21 minutes, the
+  build with the realm abilities, the levels and Speed of Sound for three classes; rank 5,
+  everybody Seasoned).* Twelve rules, nine passing. Failing, and so listed without blocking
+  from now on: the group's healers stand closer than 800 units 16% of the time; a fighter
+  running at the healers is stopped within 3 s 50% of 54 times; 1.1 buffs a match are cast
+  once the fight has started (the enhancement Cleric's). First death at a median of 92 s.
+  In those twelve matches Speed of Sound was used 7 times each by the Bard, the Skald and the
+  Minstrel (each in eight matches): 9 times while the group extended, 4 on a push, 7 with two
+  members held by the legs, once on a regroup.
+  **And the realms again:** Albion beat Midgard 4 of 4, Midgard beat Hibernia 3 of 4, Albion
+  and Hibernia 2 each. Four hours earlier, in twelve matches, Hibernia had beaten Midgard 4
+  of 4 and Albion had beaten Hibernia 4 of 4. Only Albion over Midgard holds from run to run
+  (16 of 18 on 2026-11-20, 12 of 12 today); the other two pairings swing with four matches
+  each, and "the realm decides every match", written above the same day, said more than
+  twelve matches can.
+  *Tool written 2026-11-22 (`source/tools/pvp_gate.py`):* the three main pairings, four
+  matches each, judged by the referee's rules and compared with a baseline kept in the
+  repository; a rule that passed and now fails makes it fail. Two builds cannot fight in one
+  match, so it is the rules that are compared, not wins. **No baseline is stored yet.**
+- *Also 2026-11-22:* "Could you remove all monsters from Emain Macha? useless for our tests."
+  The monsters of the zone a session or a roam is held in are taken out of the world when it
+  starts and once a minute while a roam runs (`PvpArena.ClearMonsters`; guards, merchants and
+  whoever is of a realm or peaceful stay; nothing leaves the database). **Not seen in a run.**
+- *Also 2026-11-22, **`/8v8 call rest`*** (also `sit`, `buff`): "to tell the bot to redo their
+  self-timed buffs, druid resists, sit to regen endurance/mana. After a fight, I try to go hide
+  somewhere to regain mana/endurance, but bot just stand up idle". The companions of the other
+  game modes rest and keep their buffs up when their player stands still; an 8v8 bot is not
+  one of those and did neither. While the call stands (two minutes; until the player walks
+  1,500 units on, calls something else, or somebody gives or takes a blow) every bot of the
+  group casts what it keeps up, one buff a turn, and then rests where it stands: a twentieth
+  of its health, power and endurance a second (`Real.RestRegainsPercentPerSecond`), the Bard
+  on its endurance song. A team of bots in a roam does the same by itself after a fight when
+  a member is under 60%, for forty seconds at most, before it walks on; it used to meet its
+  next enemy with what it had left. **Not seen in a run or a client.**
+- *Also 2026-11-22:* "it would be nice a team decides to go hide somewhere off, or out of the
+  route the teams make to meet each other and rest." Before it rests a team of bots walks off
+  its road, straight to one side, 7,500 units or else 5,500 (a group sees another from 6,500),
+  to a place that the navmesh has ground at and that it can walk to in no more than 1.8 times
+  the straight line; with no such place it rests where it is. It gets up when an enemy team is
+  within 5,000 (`PvpRoam.HidePlaces`, `Real.RestsOffTheRoadBy`). **Not seen in a run.**
+- *Also 2026-11-22, **`/8v8 status`*** (also `roam-status`, `teams`): "it's hard to know if
+  both opposite teams are at keep buffing, fighting or roaming". A line for each team of the
+  roam: what it is doing (at its start buffing and when it leaves, roaming, fighting whom,
+  resting, walking off to rest, raising its dead, waiting by a fight, wiped and when it stands
+  up), how many of it are alive, and how far it is from the player. **Not seen in a client.**
+- *Emain Macha as one long fight, and what was done about it (2026-11-22, three roams of
+  bots on the M10 build, the owner away).* The first, seventeen minutes: one fight at the
+  north end of the road from the third minute to the end, all six teams going through it, and
+  no team ever out of an enemy's reach long enough to rest. How it formed, from the events: a
+  fight of two teams; two teams waiting beside it met and fought each other; a bot of one
+  fight, hit by an area spell of the other, took its attacker as a target, which made the
+  teams "at each other"; and "joins after all" brought the rest in. Three changes:
+  - A bot of a roam does not answer a hit from somebody of the roam that its group is not
+    fighting (`PvpRoam.IgnoresHit`). The second roam: the fights stayed apart and the two
+    Albion teams waited four minutes for theirs.
+  - A team that is in a fight makes no draw on another one; and a team on its own does not
+    start on a team that has its realm-mate beside it (`AvoidsTwo`: a Hibernian team had taken
+    on both Midgard teams in the same second).
+  - **Six points in place of two.** Every team walked the one road between its two ends. The
+    navmesh has open ground west of it (three points 10,000 west are within 10% of the
+    straight line from either end and from Dun Crauchon; a point 10,000 east is 47,000 on
+    foot). The road's middle and three points on the west side are added, and a realm's two
+    teams go round the six different ways. The third roam, nine minutes: two fights of eight
+    against eight from the start, 8,000 units apart, the Albion teams each taking on a winner
+    in turn, and the first rest (an Albion team at 2% walking off its road at 8:17).
+  The monster clearing took 227 monsters out of Emain Macha at the first start. `/8v8 status`
+  as the control channel prints it read as meant. **None of this seen with a player.**
+- *A roam of bots on the merged build, ten minutes (2026-11-22):* out of a fight the Bards
+  and Skalds were back on their speed song (the squad handed over between fights); the mop-up
+  began four times, and the last one or two of a beaten group still lived a median of 16
+  seconds, mezzed or stunned 44% of it, 185 seconds once. The mop-up stops new mezzes, not one
+  that is already on; that longest case is to be looked at.
 - [ ] **M10.4** (M) Tuning rounds with the owner: 20 fights, review the analyzer's failure list,
   fix, repeat.
+  *Parked on the owner's word, 2026-11-22:* "I think for now, I would park the tuning. The bots
+  already feel strong enough, much more mathematically playing than human." With it: the three
+  levels made to fit their names, and the balance between the realms (what holds from run to
+  run is Albion over Midgard; see the gate's baseline under M10.3). What the owner's remark says for
+  whenever this is taken up again: the bots are not too weak, they are too exact.
 - [x] **M10.5** (S) Player guide for the 8v8 mode and an update of the developer docs.
   *Player guide written 2026-11-21: [PVP-8V8-GUIDE.md](PVP-8V8-GUIDE.md)* (the three ways to
   play, the roam's rules, the calls, what has and has not been tried in a client). The owner
@@ -2816,6 +3012,930 @@ round:*
 **Exit check:** all four points of the definition of done.
 
 ---
+
+## M11. Prime time
+
+**Goal (owner, 2026-11-22):** "I always preferred the competitive aspect of 8v8 and the unknown
+from roaming: which team will we face, how many teams (1 team, a zerg [many teams]), where, will
+we jump them or will we get jumped, etc. I am interested in looking if we can recreate the early
+2000 DAoC evening prime time." For the play install (`D:\OfflineDAoC`), which the owner wants
+"mostly only 8v8". Everything is built and tried on the scrim server first; nothing goes to the
+play install without the owner's word.
+
+**The kinds of team, in the owner's words, and a ratio** ("like 5% elite, 15% strong, 20% decent,
+30% casual and 30% bad, or something like that"):
+
+| Kind | Share | Walks | Adds | Group | Rank it begins at | Level of play |
+|---|---|---|---|---|---|---|
+| Bad: "running with more than 1 other group, sometime up to 5-6 groups sticking with each others. Most of these groups would run sub optimal composition" | 30% | in a pack of two to five | always | one healer, speed six times in ten, anybody | 1 to 3 | Casual |
+| Casual: "roaming but staying close to other groups" | 15% | within sight of a friendly group | nine times in ten | two healers, speed, anybody | 2 to 4 | Casual |
+| Casual 8v8: "would not hesitate to add and collect rps" | 15% | alone | eight times in ten | the main group with one or two changed | 3 to 5 | Seasoned |
+| Decent 8v8: "would not add" | 20% | alone | never | the main group | 4 to 6 | Seasoned |
+| Strong 8v8 | 15% | alone | never | the main group | 6 to 8 | Sharp |
+| Elite 8v8: "only 8v8 in specific area to avoid not clean fights" | 5% | alone, leaning to the quiet ground | never | the main group | 8 to 10 | Sharp |
+
+The kinds differ in what a player can see (who they walk with, whether they add, who is in the
+group, their rank), because the three levels of play alone were not felt (M10.2). No kind makes a
+bot stronger in itself.
+
+**What was measured before starting (2026-11-22):** during the owner's roam of six teams (48 bots)
+the scrim server used 15% of one processor core of twelve threads and 6.4 GB, which is what it
+holds idle. Navigation data is installed for all the old frontier zones and the battlegrounds.
+That is one measurement of one size: what 24 or 36 teams cost is M11.2.
+
+- [x] **M11.1** (M) A pool of guild teams and a roam of any number of them. *Built 2026-11-22
+  and run the same night on the scrim server with bots only (12 and 24 guilds); seen in no
+  client.*
+  - A team is a guild: a name, a kind, eight builds and the realm level its members begin at,
+    kept beside the server in `pvp-teams.json` by pool (`world` for play; a test names its own).
+    Its members' names and realm points are in the roster file under the pool and its id, and
+    what it earns comes on top of what it began with. 26 invented guild names a realm; the owner
+    may put remembered ones in the file.
+  - `/8v8 prime [thid] [number]` (4 groups a realm by default, 12 at most until M11.2 has
+    measured), and `roam-start Prime=8 Pool=test` on the control channel. The player's group is
+    one of its realm's.
+  - A guild team walks from point to point as it pleases along the legs of the map that were
+    walked (Emain Macha: seven legs between its six points), not back the way it came. The head
+    of a pack leans to the road, an elite team to the west side.
+  - The bad groups of a realm are put in packs of two to five behind one of them: they set off
+    together, walk to the same point, a group that falls more than 2,000 behind runs after the
+    head, and the head gives them up to 25 seconds at each point. A casual group that stays near
+    others picks a group of its realm that walks alone (the player's may be it) and keeps within
+    4,500 of it.
+  - Each kind adds as the table says. "Joins after all" (two teams of one realm on a realm-mate)
+    is off for guild teams. A team that counts heads does not start on more groups than it has
+    together itself; a bad group does not count.
+  - Its members play at the level of their kind and wear the guild's name.
+  - Not built yet: an elite team leaving a fight that gets dirty; a group with fewer than eight.
+  - **What the two evenings of bots showed (2026-11-22, Emain Macha).**
+    - *The kinds add as they should.* Draws on a fight a team came on, joins against leaves:
+      twelve guilds, 7 minutes: bad 1/0, clingy 1/0, decent 0/5, strong 0/5. Twenty-four guilds,
+      10 minutes: bad 17/0, clingy 10/1, casual 8v8 8/4, decent 0/15, strong 0/18, elite 0/6.
+    - *Company.* A group that stays near others was within reach of its group 97 to 99% of the
+      time among twelve (but one stood a middle 4 units from it: it now trails 1,800 behind),
+      and 49 to 95% among twenty-four, a middle 4,000 to 5,700 away (the reach is 3,500 now, was
+      4,500). A pack's followers were a middle 600 to 1,500 from their head and within reach 62
+      to 100% of the time; one that has been wiped walks back to its pack alone, across the map.
+    - *How large the fights were*, by seconds of fighting among twenty-four guilds: two teams
+      28%, three 29%, four 30%, five 13%. Among twelve: two 50%, three 8%, four 41%.
+    - *Changed from what they showed.* All twelve teams made in one moment stopped the server
+      for 6.9 s: a guild now comes out when its time has come (a realm's half a minute apart,
+      the realms ten seconds apart), and there was no stall in the second evening. Teams that
+      do not add stood "waiting by a fight" for minutes, three Albion teams before the south
+      end of the road, their only way in: a guild now turns back the way it came, or before
+      its first point walks on past. A bad group was drawn with three Healers and three
+      Shamans: two healers and two of a build at most. Realm chat said the same thing every
+      75 s, then every 18 s: now once for a realm at a place until more groups come there.
+    - *Not yet looked at:* whether a team that walks past a fight is left alone by it; what the
+      teams that never add do all evening (two Midgard teams walked five legs in ten minutes
+      without a fight).
+- [x] **M11.2** (S) What it costs: 12, 24 and 36 teams on the scrim server, with the processor
+  time, the memory and the server's own stall warnings of each. Realm points are written to the
+  roster file at every death, which may not hold at that size.
+  *Measured 2026-11-22, bots only, one zone, on the owner's machine (six cores, twelve threads):*
+
+  | Teams | Bots | Of one core | Memory | Stalls the server reported |
+  |---|---|---|---|---|
+  | 6 (the owner's roam) | 48 | 15% | 6.4 GB | none while it ran |
+  | 12 | 96 | 18% | 5.4 GB | one of 6.9 s at the start (every team made at once; fixed) |
+  | 24 | 192 | 23% | 5.7 GB | none |
+  | 36 | 288 | 31% | 5.9 GB | none |
+
+  The machine is not what limits it: the zone is. With 36 guilds in Emain Macha, twelve minutes
+  in, 23 of the 36 were fighting at once, and by seconds of fighting 47% was in fights of five
+  teams or more, up to eleven (two-team fights: 15%; among twelve guilds they were 50%). So the
+  number that is out wants spreading over more zones (M11.3) before it wants raising. No error
+  in the server's log in any of the three evenings; nobody logged off in twelve minutes (the
+  most wipes of one team was two), so the rotation of M11.4 has not been seen to happen yet.
+- [ ] **M11.3** (M) More maps: Odin's Gate and Hadrian's Wall with points and walked legs as
+  Emain Macha has them, and teams that port from one frontier to another.
+  *Built 2026-11-22 and run with bots only; seen in no client.*
+  - Eight points in each zone, every leg checked by itself on the installed navmesh (within 13%
+    of the straight line), found with `source/tools/pvp_map_points.py`. **Hadrian's Wall** is a
+    U round the wall, crossed in the west and in the east: its north half is cut in two between
+    the portal keeps, and Caer Benowyc opens to the west, so Albion's first point is the road
+    west of its keep. **Odin's Gate** is a ring through its east half: its west side is cut in
+    two between the two portal keeps and its middle is not crossed, so Hibernia goes east along
+    the north and Albion along the south. Each realm starts 2,500 units in front of its keep
+    (its own in its home zone, its portal keep elsewhere). The names of the points are mine.
+  - Each team is in one zone and reckons only with teams of that zone. A team that walks alone,
+    or the head of a pack, takes the zone that has the fewest groups of its realm, so a realm's
+    pack is in one zone one evening and in another the next; a team that walks with another
+    goes where that one goes. A guild that walks alone and is wiped ports to another frontier
+    one time in three. `/8v8 go <zone>` takes the player's group to its realm's start in
+    another zone, out of a fight only; the seven are made anew there. Realm chat names the
+    zone. `roam-start Prime=8 Zones=all` on the control channel.
+  - **A three-zone evening of 24 guilds, 12 minutes, bots only:** 23% of one core, as in one
+    zone. Fights in all three zones (Emain Macha 70, Odin's Gate 16, Hadrian's Wall 16, with
+    twelve of the 24 in Emain Macha: each realm's pack had been put in the first zone, which
+    is what the rule above replaced; the next start had 8, 9 and 7 guilds a zone, each realm's
+    pack in a different one). By seconds of fighting: two teams 41%, three 35%, four or more
+    24%. One stall of 1.2 s in the first minutes, while teams were coming out. No port and no
+    log-off happened in twelve minutes: neither has been seen yet.
+  - The roam of six stays in Emain Macha and Thidranki: the ways of the two new zones do not
+    close into a round.
+  - **Two longer evenings the same night (24 guilds, three zones, bots only), 25 and 20
+    minutes.** No error in the server's log and no stall in either.
+    - *Seen to happen:* five ports to another frontier, four log-offs after a third wipe, each
+      followed within a minute by another guild of that realm coming out.
+    - *The first showed, and the second was run after changing:* a pack came apart whenever
+      its head was wiped (its followers were within reach of the head 0 to 23% of the time in
+      two packs of three): the pack now goes on behind whoever of it is on the road. A group
+      that stays near others crossed the zone alone to the group it had been with (one was a
+      middle 29,000 units from it and was wiped three times): it now picks the nearest group
+      of its realm when it stands up. A strong team walked 31 legs in 25 minutes and fought
+      nobody, because a guild that does not add turned back from every fight at once: it now
+      stands by for 45 seconds for the fight to end, then turns back or walks on.
+    - *The second, after those changes:* every one of the 24 guilds that began the evening
+      had fights (two at the least, nine at the most); the teams that never add had three to
+      seven each. By seconds of fighting: two teams 28%, three 40%, four 26%, five or more 6%.
+      Draws: bad 21 joins of 21, casual near others 21 of 22, casual 8v8 11 of 11, decent 0 of
+      17, strong 0 of 10, elite 0 of 6.
+    - *Not measured properly:* how well a pack holds together now. The reader
+      (`source/tools/pvp_prime.py`) still measures a follower's distance to the pack's first
+      head, not to the team it walks behind.
+- [ ] **M11.4** (M) The evening: a pool larger than who is out, teams that log on and off, a
+  population that rises, peaks and thins.
+  *Built 2026-11-22:* a guild comes out when its time has come (M11.1); it logs off when it has
+  been wiped three times, or when its time is up (25 to 50 minutes from its coming out) at its
+  next wipe or on the road with nobody about; another guild of its realm that has not been out
+  that evening, of its kind when there is one, comes out in its place within a minute. A pack
+  whose head logs off goes on behind the first of its others. *Not built:* a population that
+  rises and thins (the number out stays what it was).
+- [ ] **M11.5** (S) What a player hears and can ask. *Built 2026-11-22, automated tests only;
+  not yet run on a server.*
+  - A group of the player's realm calls out in realm chat what it sees within 5,500 units:
+    "2fg albs at south road", "fighting 1fg mids at mid road", and when it is wiped "wiped at
+    north road, 3fg mids". One call in eight seconds, the same group about the same realm after
+    75, and nothing about enemies the player stands beside. The points of a map have names for
+    it; they are mine and the owner's to correct (Emain Macha: south, mid and north road, and
+    the north-west, west and south-west hills).
+  - `/8v8 who`: the guilds of the player's realm that are out, with rank, classes and whom they
+    walk with; of the other realms only how many groups are out.
+  - On a prime-time evening `/8v8 status` tells of the player's realm only. In the roam of six
+    it still lists every team, as the owner asked on 2026-11-22.
+  - `roam-start Listener=hibernia` writes that realm's chat to the recording when no player is
+    in the roam, to read it by.
+- [ ] **M11.6** (S) Memory: each guild's record against the player, and a grudge (a team beaten
+  twice comes looking; a team that was added on remembers). Teams earn only while the player is
+  online.
+  *Built 2026-11-22, automated tests only: a grudge needs a player, and none has played this.*
+  A guild's record against the player is kept from evening to evening (how often the player's
+  group wiped it, how often it was in on the player's wipe); `/8v8 rivals` lists the enemy
+  guilds that have one. A guild the player's group has wiped twice in an evening, or has added
+  on (come into a fight it had with somebody else), comes looking: from each point it takes the
+  way toward the player's group. One that was added on joins the next fight of the player's
+  group it comes on, whatever its kind. Teams exist only while a session runs, so they earn
+  only then.
+- [ ] **M11.7** (M) The play install: 8v8 only (the gamebot population off, the frontier's
+  monsters), delivery, and a backup of what is replaced. Only on the owner's word.
+- [ ] **M11.8** (M) More zones, and each kind of team in its kind of zone. The owner,
+  2026-11-23, after looking at where the teams of the first night had walked (drawn on the
+  client's maps: "it looks close to route we were running"): "Maybe we should look at adding
+  more zones and spreading teams (and type of teams) across them all."
+  *Built 2026-11-23 and run with bots only; seen in no client.*
+  - **Twelve zones**, four in each realm's frontier: the three the others ported to, and the
+    nine behind them (Breifine, Cruachan Gorge, Mount Collory; Jamtland Mountains, Uppland,
+    Yggdra Forest; Pennine Mountains, Forest Sauvage, Snowdonia), in `PvpRoamZones.cs`. A bot
+    does not walk from one zone into the next: a way asked across a border is not found on the
+    installed navmesh, so each zone is a map of its own, as the first three are.
+  - Each of the nine was laid out by `source/tools/pvp_map_pick.py` on the installed navmesh
+    and looked at on the client's map: seven to nine points 15,000 or 18,000 apart, none within
+    9,000 of a keep, a leg where the way on foot is within 13% of the straight line (9 to 15
+    legs a zone, 15,700 to 25,200 units). The realm of the zone starts in front of one of its
+    keeps. The two others had no keep and no porter there: each comes in at a place of its own
+    off the legs (the three starts 41,000 to 52,000 apart). That is invented.
+  - **A zone is crowded, mixed or clean** (`PvpZoneCrowd`): Emain Macha; Odin's Gate and
+    Hadrian's Wall; the nine. **Each kind leans to its kind of zone** (`PvpRoam.Leans`): packs
+    and groups that stay near others never in a clean zone, an elite team never in the crowd,
+    a decent team everywhere. Of the zones its kind goes to, a team rather takes one with few
+    groups of its realm. The numbers are a first guess.
+  - **An evening is in some of the twelve** (`ZonesTonight`): one zone for every three groups
+    of a realm (three with eight groups, four with twelve, five with sixteen, which is the most
+    now): where it begins, Emain Macha, and others drawn anew each evening, Odin's Gate and
+    Hadrian's Wall four times as readily as a zone behind them. `/8v8 prime ... all` is all
+    twelve. `/8v8 who` begins with the zones of the evening and what each is like.
+  - A player who walks from one zone of the evening into the next is of that zone from then
+    on. *Not run at all: it takes a player.*
+  - **Two evenings of bots, 2026-11-23** (no error in the server's log but the known one at
+    its start; the slowest tick 115 ms):
+
+    | | Teams, zones | Of one core | Zone | Teams there | Fights begun | Fighting time with two teams only |
+    |---|---|---|---|---|---|---|
+    | 14 minutes | 24 in 3 | 23.5% | Emain Macha (crowded) | 11: 4 bad, 3 near others, 3 decent, 1 adds | 42 | 23% |
+    | | | | Odin's Gate (mixed) | 7: 2 bad, 2 near others, 1 adds, 1 decent, 1 hunter | 24 | 16% |
+    | | | | Snowdonia (clean) | 6: 3 strong, 1 elite, 1 decent, 1 adds | 8 | 88% |
+    | 17 minutes | 36 in 4 | 27.7% | Emain Macha (crowded) | 15: 8 bad, 4 near others, 2 add, 1 hunter | 125 | 3% (65% with five or more) |
+    | | | | Odin's Gate (mixed) | 9: 4 bad, 2 near others, 1 decent, 1 elite, 1 hunter | 33 | 26% |
+    | | | | Yggdra Forest (clean) | 7: 4 strong, 3 decent | 10 | 100% |
+    | | | | Snowdonia (clean) | 5: 3 add, 2 decent | 8 | 100% |
+
+    The spread is what was meant: the crowd in Emain Macha, fights of two in the clean zones.
+    A clean zone had a fight begun every 100 to 130 seconds for all its teams together,
+    which is few; whether that is too quiet to play in is for a player to say. In the second
+    evening three of Snowdonia's five were groups that add: that kind leans to a clean zone
+    little (1, against 4 for the crowd and 4 for a mixed zone), but a zone that has nobody of
+    a team's realm yet draws it three times as much, and that made up for it.
+- [ ] **M11.9** (S) The teams that hunt the zerg. The owner, 2026-11-23: "There was 8v8 elite
+  team that would run to these 'zerg' (many teams running together) to kill them. A really
+  famous guild is Free RPS. They had videos from doing it, even killing a 140 persons zerg."
+  *Built 2026-11-23 and run with bots only; seen in no client.*
+  - A seventh kind (`PvpTeamKind.Hunter`, 5% of the guilds, taken from the decent, which are
+    15% now): an elite team as to rank, eight and play, that is where the crowd is, walks
+    toward the nearest groups of an enemy realm that walk together and that nobody is fighting
+    yet, and starts on them whatever their number. With no such groups about it walks the road
+    and fights the single groups it meets.
+  - It does not add. Written first to join a fight a pack was in; the owner the same evening:
+    "If my group gets to the zerg 1st, the bot elite team won't add if they get there 2nd and
+    3rd right ?" A pack somebody is on already is theirs.
+  - **What happened, in the two evenings above** (three fights of two hunter teams; too few to
+    say what usually happens):
+
+    | Against | Lasted | Its own alive | Theirs | Farthest from where it began |
+    |---|---|---|---|---|
+    | Two Midgard groups together, then two Hibernian bad groups that added | 159 s | 8 to 1, wiped | one group 8 to 4, the others whole | 3,500 |
+    | Three Hibernian bad groups together | 205 s | 8 to 1, wiped | all whole; it had no kill | 2,200 |
+    | One Albion bad group that was away from its pack | 162 s | 8 to 8 | 8 to 1 | 3,700 |
+
+    Eight beat eight without a loss (eleven kills, with those who were raised), lost to two
+    groups and the two that added with four kills, and lost to three groups with none. In the
+    fight it lost to three groups its caller had the group on Extend (the kite)
+    for 96 of 210 seconds, and the group was never more than 2,200 units from where the fight
+    began: the call is made, and it does not carry the group away. The owner had said before
+    the runs: "They will most probably start the fight at a loc and finish much futher back."
+    They did not. Whether to make the kite carry (and what else an eight needs against a pack)
+    is tuning and skill, which the owner parked on 2026-11-22: not started.
+  - After it stopped adding (second evening): six fights come on by a hunter team, six left
+    alone.
+
+**Found on the way (owner, 2026-11-22):** "I was the only one remaining alive from my group and
+I still had endurance up and running." In the recording of that roam the group's Bard died three
+times, and each time its song stayed up until the group stood up again, the last time for seven
+minutes. Dying ended every effect on a living except the pulse of a song itself, and the pulse
+went on casting for its dead caster. Fixed in the shared code (a death ends the pulses; a pulse
+whose caster is dead in the world ends at its next tick), for players, bots and monsters alike.
+*Automated test only. On the scrim server since 2026-11-22; not seen in a fight by anybody.*
+
+**Where M11 stands after its first night (2026-11-22 to 23).** Built and run with bots on the
+scrim server: M11.1 to M11.6. Seen in a client: nothing. Needs a player to be seen at all: the
+grudges and `/8v8 rivals` (M11.6), `/8v8 go`, `/8v8 who`, realm chat as a player reads it, the
+guild names under the bots, and whether a team coming out or standing up is felt as a hitch (one
+stall of 1.2 s was logged in four evenings after teams stopped being made all at once). Not
+built: an elite team leaving a fight that gets dirty; a group of fewer than eight; a population
+that rises and thins; prime time in the setup window. Added on 2026-11-23, built and run with
+bots only: nine more zones and the kinds of zone (M11.8), the teams that hunt the zerg (M11.9). The play install has the release build of
+2026-10-18, with no 8v8 in it at all: M11.7 is an install of the current build over it, with a
+backup, on the owner's word.
+
+**Exit check:** the owner plays an evening on the play install and names what is missing.
+
+## M12. The group as one
+
+The owner, 2026-11-24, after reading how an elite eight of bots had lost to two bad groups where
+it stood (it counted sixteen enemies, was under Extend for 96 of 210 seconds, moved 850 units
+back in a minute and a half, stayed 150 seconds on a Druid that was healed faster than it was
+hurt, and raised two members who died again): "individually, the bots are OK for now. I guess
+it's time to work on the group reaction, awareness and cohesion." This reopens, for the group
+only, what was parked on 2026-11-22; the tuning of single bots, levels and realm balance (M10.4)
+stays parked.
+
+The plan the owner agreed to that day ("Let's proceed and test with bots first"):
+
+- [x] **M12.1** (S) Measure the group. `source/tools/pvp_group.py` reads a recorded evening and
+  gives, for every fight of every team: how far its farthest member is from its middle, how
+  often a member has no healer of its own within 1,850 units, how far the group ended from where
+  the fight began and how far of that was away from the enemy, how far it went back under
+  Extend, the longest time on a kill target that did not die of it, the changes of order a
+  minute, and what a second of fighting dealt and took.
+  **Before** (the two evenings of 2026-11-23): the farthest member 1,300 units from
+  the middle for every kind of team; the back line alone 1,050; fighters out of their healers'
+  reach 12 to 14% of the time, casters 4%; a group ended a fight 1,400 units *nearer* to where
+  the enemy had stood than it began (the middle value, second evening). An ordinary fight is not badly strung out. What was missing
+  is that nothing moved the group as one.
+- [ ] **M12.2, M12.3** (M) The group's place, and a kite that carries (`PvpKite.cs`).
+  *Built 2026-11-24 and run with bots only; seen in no client.*
+  - **What it knows.** Each second a group counts its side (its own living and those of its
+    realm fighting within 3,000 units) and the free enemies that aim at one of them. With 125 on
+    it to a hundred of its own (ten on eight; an even fight has five or six) and two free
+    enemies within 1,500 of one of its healers or casters, it has more on it than it can stand
+    against.
+  - **What it does.** Its caller takes a moment (a sharp group half a second to a second and a
+    half, a seasoned one two to five, a casual one six to twelve), then moves the group's place
+    back a leg: straight away from the enemies near it, or 30, 60, 90 degrees to the side nearer
+    its start, over ground it can walk in a straight line. Every healer and caster keeps the
+    spot it had around the place (no farther than 600 from it) and goes there without stopping
+    to cast or to heal; the fighters stand in a row between the place and the enemy, and go only
+    for an enemy that is on their healers and casters or within 1,100 of them. The kill target
+    is called among the enemies within 1,500. Nobody is raised. After a leg the group stands and
+    works; it takes the next when it still has too many on it. The order is Extend throughout.
+  - **Who.** The teams of bots of a roam, but not the bad groups (a pack that gave ground would
+    not be the crowd it is). Not the player's group: that moves back on the player's call, as
+    before. The owner on a call its own group makes by itself: "say in group chat but spam it
+    in capital or something, 4-5 times, so I am aware. There are too much message in /group chat
+    for me to notice otherwise". Built since as M12.7, off unless the player turns it on.
+  - At the start of a leg a healer or caster that has no enemy fighter on it works for three
+    seconds from where it stands, on whoever is on its groupmates, and then follows.
+  - **Six evenings of bots, 2026-11-24** (36 teams, four zones, 14 minutes each; two teams of
+    each realm made hunters for the test with `roam-start Hunters=2`; no error in the server's
+    log but the known one at its start):
+
+    | | What was new | Times a group fell back | A second falling back: dealt, taken | A second standing with too many on it | Broke off: got away | Teams wiped |
+    |---|---|---|---|---|---|---|
+    | 1 | legs of 700 units, 5.5 s apart | 30 | 66, 221 | 90, 217 | | 22 |
+    | 2 | legs of 1,800 units, 14 s apart | 26 | 69, 146 | 40, 169 | | 18 |
+    | 3 | breaking off, cover at the start of a leg, no raising | 13 | 59, 276 | 25, 202 | 16: 13 | 4 |
+    | 4 | a group on the run keeps its way (with a fault: see M12.5) | 14 | 87, 261 | 18, 175 | 17: 8 | 15 |
+    | 5 | that fault mended; it runs to the side with the fewest enemies | 14 | 68, 230 | 20, 150 | 11: 9 | 11 |
+    | 6 | it breaks off in 35 fights of a hundred that it loses | 24 | 89, 272 | 89, 329 | 4: 2 | 15 |
+
+    **The reaction is there, and it does not win the fight.** A group now starts at one place
+    and ends well back, as the owner had expected of an elite eight against a pack ("start the
+    fight at a loc and finish much futher back"): a kite carried a group up to 6,800 units. It
+    gained nothing by it that these evenings show. In four evenings of six a group that fell
+    back took more a second than one that stood with as many on it, and a group falls back at
+    its worst moments, so the two are not the same fights; what can be said is that falling back
+    did not make the damage less. With the short legs of the first evening fourteen of sixteen
+    enemies stayed within 2,500 units of the group all the way, and an enemy fighter on it was
+    still inside the reach of its own healers (1,466 units from the nearest): everybody runs at
+    the same speed. A group that falls back kills next to nobody (one to nine enemies an
+    evening, in 13 to 30 kites). Eight still lose to sixteen. In the fifth evening two hunter
+    teams of Midgard went at the same pack of three Hibernian bad groups one after the other:
+    each fell back three legs, broke off and got away, 7,000 units from where it had started,
+    with three and with five alive, and neither had killed anybody.
+  - **Not done, and what the recordings point at.** Nothing is cast on the first to follow (a
+    root, a snare, a mez) as a matter of the group; the fighters do not hold a rear; the healers
+    and casters of these teams walk 38 to 44% of their time and cast 16 to 23% of it in every
+    kind of fight, falling back or not (first evening), and a whole group deals 70 to 95 damage
+    a second. That is what a single bot does with its turn, which the owner parked on
+    2026-11-22: a kite cannot pay while it stays so.
+  - **The turn.** The owner, 2026-11-24, told that an elite eight had fallen back from two bad
+    groups and still lost: "I am not sure to undertand how the kiting expert failed vs 2 bad
+    groups. The group should pull back, fighter included, and then handle whichever enemies is
+    closer. My understanding is that the expert team fighter would be ready to take on the ones
+    over extending before thier healer would be in range." Counted over the three evenings
+    before (1,109 seconds of groups falling back): the pack did string out (four enemy fighters
+    at the group's back line at the middle, and three seconds in ten such a fighter was more
+    than 2,000 units from the nearest healer of its own), and the group made nothing of it. A
+    fifth of its damage went to those fighters and two fifths to enemies that had not come up
+    at all; its own fighters were on nobody a third of the time; 52,000 damage went onto those
+    who had followed and 36,000 was healed back on them; and the next leg was taken by the
+    clock. Built the same day:
+    - On a leg everybody pulls back, the fighters too. The leg walked (the middle of the healers
+      and casters within 450 of the place, or nine seconds), the group stands.
+    - Standing, it turns on an enemy that has followed and has no healer of its realm awake
+      within 2,000 units: the one it is on already, else the most hurt, else the nearest
+      (`PvpKite.Prey`). That one is the kill target, for fighters and casters. With nobody out
+      of reach it calls its target as always among those within 1,500, and a fighter with no
+      target takes the nearest enemy within 1,500 of its back line.
+    - It does not take its next leg while it has somebody to turn on, nor until the pack itself
+      has come up: until the free enemies within 2,000 of its back line are too many for its
+      side. (A first try left that to the enemies that aimed at it wherever they stood: it went
+      on 14 seconds after the last leg, five of them standing, with two enemies killed in 23
+      kites and its fighters on nobody 44% of the time.)
+    - **One evening of bots on that build** (36 teams, 15 minutes, with the kinds' styles of
+      M12.6 new in the same evening, so the two cannot be told apart): 13 kites, 17 enemies
+      dead meanwhile where there had been one to nine in 13 to 30; a second falling back dealt
+      86 and took 192, against 49 and 217 standing with too many on it; healers and casters cast
+      25% of the time against 16 to 17, and walked 35% against 46 to 49.
+- [ ] **M12.4** (S) Reading the situation. *Part built 2026-11-24, bots only.*
+  - A group with too many on it raises nobody: the raised come back hurt and without their
+    buffs (the Cleric and the Cabalist of the eight that lost to sixteen on 2026-11-23 were
+    raised and died again).
+  - A new group arriving in a fight is counted the second its members aim at the group; nothing
+    else is made of it. *Since 2026-11-24, bots only:* a team of bots in a fight sees an enemy
+    group that comes for it (that group has drawn "joins" on the fight, is within 4,500 units
+    and in sight of one of its members) and has it among its enemies from then, where it let
+    it walk by until one of its members aimed at the team from within 2,000 units
+    (`PvpRoam.SeesItComing`). An elite team, which leaves a fight a second group has come into
+    (M12.6), leaves when it sees that group coming. One evening of bots (36 teams, 13 minutes,
+    two elite teams a realm): 41 groups seen coming, 34 of them in the fight within a minute,
+    eight seconds after they were seen at the middle (from none to 43); two elite teams left
+    on seeing one come, and both got away; one elite team was wiped. What a group makes of
+    the warning beyond that (its mezzer on the group that arrives) was not measured.
+  - Not touched: a kill target that is healed faster than it is hurt. Giving a target up sooner
+    was tried on 2026-11-19 and taken back ("the question is whom to call, and when").
+- [ ] **M12.5** (M) Breaking off. *Built 2026-11-24 and run with bots only; seen in no client.*
+  - A group has lost when half of its eight or fewer are alive, or none of its healers, and the
+    enemies it knows are half again as many as its side. After its caller's moment the ones
+    left stop fighting and run, at a sprint and with the speed song: to the side with the
+    fewest enemies (each enemy pushes it away, a near one harder), toward its start when no
+    side is better, and then straight on, 2,500 units at a time over ground it can walk.
+  - A team of bots follows it 3,000 units from where it broke off and no farther. A player may
+    follow as far as it likes.
+  - Once no enemy team has been within 2,500 units for three seconds it is away: it goes back
+    to its start to form up again, as a team does that cannot raise its dead, and stands up
+    whole after the wait of a wipe. That is no wipe in its record. It is not taken off the field
+    while a player's group is within 7,500 units (a player sees a bot from 6,000): it runs on
+    until it is out of sight. *That last has never run: it takes a player.* One still being fought after
+    45 seconds turns and fights, and does not leave again.
+  - Not a bad group; not a group with a player in it (the retreat is the player's call); and
+    the last two of a group against three times their number stand and fight, as the owner
+    asked on 2026-11-20.
+  - On a prime-time evening the player's realm hears of it in realm chat: from its own group
+    that runs ("running from 2fg albs at south road (Emain)"), or from the group an enemy runs
+    from ("4 mids on the run at south road (Emain)").
+  - **In 35 fights of a hundred that it loses**, drawn for the fight. With every group leaving
+    that could (third evening) sixteen broke off, thirteen got away and four teams were wiped,
+    where eighteen to twenty-two had been before: a wipe is what a guild's record, its grudge
+    and its logging off are counted in, and the owner had been told "you would sometimes see a
+    beaten group turn and run". The 35 is a guess.
+  - Two faults found by drawing the fights (`source/tools/pvp_fight_draw.py`) and mended the
+    same day. A group on the run took its way anew every four seconds from where the enemy
+    stood, and with the enemy all round it ran west, north and south by turns (950 units in 45
+    seconds); it keeps its way now. Kept, the way was one unit long, which the code that picks
+    the ground took for no way at all: in the fourth evening groups ran their first 2,500 units
+    and then stood until they were dead (eight got away of seventeen). In the fifth, nine of
+    the nine that had finished their run got away, 3,300 to 5,300 units, in 13 to 41 seconds.
+- [ ] **M12.6** (M) The kinds play differently. *Built 2026-11-24 and run with bots only; seen
+  in no client.* The owner, shown that a kind differed from another in company, adding, rank,
+  line-up and speed of reaction and in nothing of how it fought: "all kinds should behave
+  differently regarding Targeting, positioning, healing, crowd control, peeling and
+  interrupting instead of sharing the same value"; of the levels of play, "Should we also have
+  teh same for bad and elite?"; of the casual group that adds, that it "looks a bit funky"; and
+  of the habits proposed for each kind, "These suggestions looks fine to me. We can start with
+  it."
+  - **Five levels of play** (`PvpSkill`): bad, casual, seasoned, sharp, elite. Bad answers in
+    1.5 to 4 seconds, is looking elsewhere 45% of the time and comes to a new kill target 3 to 7
+    seconds late; elite in 0.1 to 0.3 seconds, never distracted. The bad groups play at bad, the
+    two casual kinds at casual (the one that adds was at seasoned, the same as a decent team),
+    the decent at seasoned, the strong at sharp, the elite and the hunters at elite.
+  - **A style for each kind** (`PvpStyles.cs`): a copy of the weights with that kind's habits
+    written over it, given to its bots when they are made. The decent team has none and plays by
+    the weights as they are, as every team did before.
+    - *Bad:* no assist (the call is made and nobody takes it: each fighter goes for the nearest
+      enemy, a caster for whom it likes, sleepers are woken); healers and casters in the melee
+      and in one clump; no order but "engage"; heals late and raises in the fight; its mezzer
+      mostly does damage; no guard, no peel, no interrupt duty.
+    - *Casual, stays near others:* calls the nearest enemy whatever its class and is slow to
+      switch; one clump, nearer than it should be; its fighters chase far; heals a little late;
+      breaks its own mez; guards and does not peel; breaks off in 60 lost fights of a hundred.
+    - *Casual 8v8, adds:* calls the most hurt enemy; its fighters go too far for a kill; peels
+      only once a healer is hit and interrupts healers only; breaks off in 50.
+    - *Strong:* everybody on a new call for four seconds; regroups sooner; the member the enemy
+      is on is healed earlier; the enemy's mezzer is controlled and interrupted first; a
+      fighter on its way to the healers is met before it arrives.
+    - *Elite:* as strong; calls whoever stands out of position sooner; raises nobody with
+      somebody hurt; and **leaves a fight a second enemy group has come into**
+      (`PvpTeamProfile.LeavesDirtyFights`), running as a group that has broken off does.
+    - *Elite, hunts the zerg:* as elite without that last; its targets are the near ones and
+      not the healer at the back of a pack, and it goes for nobody farther than 2,000 units.
+  - Two switches were new code: `PvpKillWeights.Assists` and `PvpPeelWeights.Enabled`.
+  - **Measured** (`source/tools/pvp_kinds.py`, what each kind did in the seconds its teams were
+    fighting). Two evenings before, every kind alike: 44 to 59% of its damage on the enemy its
+    group had called, a healer called 42 to 57% of the time, the back line 1,020 to 1,100 units
+    wide, a heal chosen with the patient at 57 to 65%, 10 to 15 times a minute somebody given
+    an enemy to interrupt. One evening after (36 teams, 15 minutes): a bad group had 18% of its
+    damage on the called enemy, an enemy fighter on its healers and casters 24% of the time, a
+    back line 710 units wide, a heal chosen at 50%, and no peel and no interrupt duty at all;
+    the casual group near others called a fighter 70% of the time, with 78% on its call and
+    three duties a minute; the one that adds had half a decent team's peels and a third of its
+    duties; a decent team was as before (58%, 970 wide, 12 peels and 12 duties a minute). A
+    second evening, cut at eight and a half minutes for the owner's playtest and with elite
+    teams put in (`roam-start Elites=2`), showed the same, and one elite team left a fight a
+    second group had come into.
+  - Every number in the styles is a first guess. Not built: a bad group's healers that do not
+    follow their group; anything of a kind's play that only a player would notice.
+- [ ] **M12.7** (S) The player's group. *Built 2026-11-24; off unless the player turns it on.
+  The owner had it on in two fights of the evening of M12.8 and has not said how it looked.*
+  `/8v8 lead on`: in a roam the
+  seven fall back as one by themselves, as the teams of bots do, and say so in group chat four
+  times in capitals ("KITE BACK! 12 ON OUR 8! KITE BACK!"; two times "BACK AGAIN! KEEP MOVING!"
+  for a further leg and "STAND AND FIGHT HERE!" at the end), as the owner asked: "say in group
+  chat but spam it in capital or something, 4-5 times, so I am aware". Offered a line in the
+  middle of the screen as well: "nah leave it in group chat". A call by the player for anything
+  but the kite stands over it. The seven never break off by themselves. A loud call for a push:
+  built with M12.8.
+- [ ] **M12.8** (M) The owner's first evening against the kinds, and what its recording showed.
+  *The evening was played, 2026-11-24; what was built from it has passed the automated tests,
+  and an evening of bots where bots can show it (where a call is, the join); what is said to a
+  player in group chat no evening of bots can show. Nothing of it has been seen in a client.* A prime-time evening in three zones at
+  realm rank 8 (`rank 8`, M12 above), 43 minutes of play, five fights
+  (`source/tools/pvp_myfights.py`, new: the fights of the player's group one by one):
+
+  | Fight | Against | Result |
+  |---|---|---|
+  | 1 | two Albion groups, casual that stay near others (16 on 8) | wiped in 130 s, three killed |
+  | 2 | those two and a strong one (24 on 8) | wiped in 77 s, none killed; the owner dead after 18 s |
+  | 3 | two Midgard bad groups (16 on 8) | wiped in 96 s, three killed |
+  | 4 | one Albion group, casual, rank 2L3 | won, nine killed and none lost |
+  | 5 | three Midgard groups, two of them strong, and one Albion group in the same place | wiped after three and a half minutes, eight killed |
+
+  One clean 8v8 in five, won outright; the other four were against two groups or more. Nobody
+  broke off from the owner's group: the one group it beat went from four alive to none in
+  sixteen seconds, and a casual caller takes six to twelve to call it.
+  - **Where a call is.** The owner, walking to realm chat's "Crimthain (Breifine)": "I don't see
+    anyone and no one attacking us in Crimthain", and half an hour later, sent south-west:
+    "can't find them". The two Midgard groups were 11,000 and 15,000 units from that point, the
+    nearest named one (the points of a back zone lie 15,000 to 18,000 apart), and in the second
+    case the groups had moved while the owner walked 7,800 units the other way. Built: a spot
+    more than 3,000 units from its point is called by its side of it ("south-west of
+    Crimthain"), what counts as news is still the point; a line about the zone the player is in
+    ends with how far and which way the spot is from the player, to the nearest 500 ("[16,000
+    north-west of you]"); `/8v8 status` gives the way to each group of the realm with the
+    distance (`PvpRoamMap.PlaceOf`, `PvpRoam.Compass`, `FromYouText`).
+  - **A team that says it joins did not always come.** In fight 4 the group that walked with the
+    owner's drew "joins" from 7,200 units off, walked on north along the road it had and stood
+    9,000 units away until the fight was over. A team marches at the enemies it sees (6,500
+    units over open ground) and otherwise along its road, and the draw falls at 9,000. Over the
+    evening, of 237 times a team said "joins", 138 were followed within 90 seconds by a fight
+    with the enemy team it had said it for, 81 by a fight with some other enemy team first, ten
+    by the end of that fight, and eight by nothing at all. (A first count, 99 of 237 "not with
+    that enemy", read as a team that did not come, overstated it: most of them fought somebody.)
+    Built: while it sees nobody, a team goes to the nearest enemy team it drew "joins" for
+    (`PvpRoam.FightItJoined`, the `toward` of `PvpTeam.March`). Two
+    evenings of bots on that build (36 teams, 13 and 9 minutes): of 132 "joins" that could be
+    judged, 107 were followed by a fight with that enemy team, 25 by one with another, and none
+    by nothing, where the owner's evening and two evenings of bots before it had 11 of 388
+    followed by nothing. The share that fought the team it had said it for (90% and 65% in the
+    two) is within what it was before (58 to 80%). No tick failed.
+  - Realm chat's words for a spot by its side of a point take no "at": "1fg mids east of north
+    road (Odin's)" (the first evening of bots had "at east of north road").
+  - **Nothing was said to the owner in three lost fights.** Without `/8v8 lead on` the group did
+    not count what was on it. Built: it counts as a group of bots does, and with too many on it
+    for its caller's moment says four times in capitals "TOO MANY! 13 ON OUR 8! CALL IT: KITE OR
+    RETREAT!", again no sooner than 25 seconds later and not while a call of the player's
+    stands. It moves nowhere by itself. And the group's own push, extend and regroup are said
+    four times in capitals (`PvpCalls.LoudOrder`), one such shout in twenty seconds and not for
+    an order the player called: in fight 4, which it won nine to none, its order changed 14
+    times in 96 seconds (push, extend, engage by turns), and a shout for each would have been
+    56 lines. That to and fro is the old one of M8 ("wants another cure than time") and was not
+    touched. Counted over the evening (every team, the seconds it had an order to choose): 2.4
+    to 4.4 changes a minute by kind, an order standing five to nine seconds at the middle. The
+    order does follow the fight: two or more members ahead, a group was under push 69 to 88% of
+    the time and under extend 2 to 9%; two or more behind, under extend 24 to 77% and never
+    under push. The changes are those of an even fight, where each interrupt on a healer moves
+    the reading.
+  - **What the group sees coming** (asked of nobody; the gap showed in the same recording). The
+    realm's other groups call out enemies in realm chat and leave out those near the player,
+    and the player's own seven said nothing of what they saw: of the five fights, four had two
+    to four enemy groups in them, and each further group was known to the owner when it was on
+    the group. Built, in group chat, for a roam: out of a fight "INC! 2FG MIDS NORTH-WEST,
+    4,500!" (twice) for the groups of a realm the seven see within 5,500 units, again when more
+    have come or after 45 seconds; in a fight "ADD! 8 MORE MIDS FROM THE NORTH!" (four times)
+    for each further group that comes into the fight or has drawn "joins" on it and is seen,
+    one such call in six seconds (`PvpRoam.TellOfIncoming`, `PvpCalls.Sighted`, `Add`). And a
+    group with a player that has lost by the measure of M12.5 says "THIS ONE IS LOST! 3 OF US
+    LEFT, 14 OF THEM! RETREAT?" in place of "too many", with the lead or without; it does not
+    run by itself. They are said to a player, so no evening of bots shows them as said; for the
+    first two, one team of the realm listened to stands in for a player's group in an evening of
+    bots and what it would be told is written to the recording (`PvpRoam.StandsIn`). In one
+    such evening: "INC! 1FG ALBS SOUTH-EAST, 5,500!", eight seconds later "INC! 2FG ALBS EAST,
+    3,000!", four seconds later, in the fight, "ADD! 8 MORE ALBS FROM THE SOUTH-EAST!", and one
+    more sighting; four lines in 13 minutes for a team that met two packs.
+  - **The owner's calls** (asked 2026-11-24: "I did spam the retreat, probably clicked it 3-4
+    times. Does it cause an issue?"). None: a call made again starts its time again and is
+    answered once more. The recording has the retreat four times, once each, and the kite
+    (`/8v8 call extend`) four times within one second in fight 5 and twice within one second
+    two other times. Two things it did show: any other
+    call ends a retreat (in fight 3 a called engage ended one after 16 seconds), which is as
+    meant and now in the guide; and in fight 2 the retreat was called seventeen seconds after
+    the owner had died, was answered "Retreating with Talveh." and did nothing, since a retreat
+    is run with the caller. Built: to a dead caller the group answers "You are down: nobody to
+    run with. We fight on." Not built: survivors that break off on that call as a beaten group
+    of bots does (the player's group would then not be wiped, and its dead player would wait).
+  - **Seen and left for the owner to decide.** The realm's elite and hunter teams came on the
+    owner's group in fight 5 five times and left it to its fight with three Midgard groups, as
+    asked on 2026-11-23 ("the bot elite team won't add if they get there 2nd and 3rd right ?").
+    Only the Hero guards and peels in the owner's line-up, and the Hero is the owner: its
+    healers and casters had an enemy fighter on them 26% of the time, more than any kind of bot
+    team that evening (bad 24%, the others 12 to 18%), with no peel by a bot at all.
+  - The recording's header gave every guild "Seasoned" (its bots are not made when it is
+    written): it now gives the level of its kind.
+  - **One at a time.** The owner, after a second evening the same day (one fight, wiped by three
+    bad groups of Albion): "I called the retreat and I tihnk both bard used SoS at the same
+    time. Only 1 bard should use it, and 2nd should keep it for another itme. In the same vein,
+    druid should use group purge one at a time". The group of that evening had one Bard (see
+    below), and its one Speed of Sound came half a second after the call; its two Druids did
+    use Group Purge 2.4 seconds apart. Built: an ability for the whole group is used by one
+    member at a time (`PvpRealmAbilities.KeptApartSeconds`, a turn kept by the squad): after
+    one has used it no other member uses the same one for 15 seconds (Group Purge), 40 (Speed
+    of Sound, which lasts 30) or 30 (Battery of Life, Bunker of Faith, Soldier's Barricade,
+    Brilliant Aura, Ameliorating Melodies). The turn is taken before the ability is weighed
+    and given back when it is not wanted, so two members weighing it in the same moment do not
+    both choose it. Counted in three evenings before (the owner's two and one of bots): of 102
+    Group Purges, 28 were a second member's within fifteen seconds of the first, many in the
+    same tenth of a second; of 80 Batteries of Life, 23 within thirty. *On the scrim server
+    since the owner logged off, 2026-11-24. One evening of bots on the final build (36 teams, 12 minutes): 8 Group Purges, 6
+    Batteries of Life, 19 Speeds of Sound and 7 of the others, none by a second member within
+    its time; no tick failed. Seen in no client.*
+  - **Speed of Sound on the last of a won fight.** The owner, of an 8v8 won with nobody lost
+    (the third evening of the day, two Bards, against a casual group four ranks lower):
+    "There's a bard that used SoS at the end of the that fight. Is there a reason?" The rule
+    of 2026-11-22, "to get in": the group pushed, its kill target had died half a second
+    before, and its fighters stood 1,180 to 1,200 units from the next of the three enemies
+    left. In the brawl before it both Bards had used it one second apart with five enemies
+    left of forty. Built: not to get in on fewer enemies than the group has members alive
+    (`PvpRealmAbilityWeights.SpeedOfSoundNotToCloseOnFewer`); a called retreat, two members
+    held by the legs and a jumped back line use it as before. Counted before: 11, 3 and 14
+    times an evening a group used it on a push against fewer enemies than it had members
+    alive; in the first evening of bots with the rule (36 teams, 13 minutes, 21 uses), none.
+    Its cost showed the same evening: the owner's group, wiped 58 seconds into its next fight
+    against two bad groups, called a retreat with both Bards' Speed of Sound spent on fights
+    it had won.
+  - **"ADD" for a group the owner's own had turned on.** In that brawl (five enemy groups that
+    were fighting each other, the owner's and a second Hibernian group coming in third) the
+    owner's group was told of three adds in fourteen seconds, twelve lines in capitals, for
+    groups it had gone for itself. Now only for a group one of whose members aims at the
+    group, or that has drawn "joins" on its fight and is seen coming. *On the scrim server
+    since the owner logged off; the stand-in of an evening of bots was told four adds in 13
+    minutes, where the evening before the rule had one team told of three in fourteen seconds.* Of the calls that were as meant that evening, from the
+    recording: "INC! 1FG ALBS SOUTH-EAST, 5,000!" six seconds before the first fight, an add
+    called 25 seconds before two Midgard groups landed, and another 15 seconds before the
+    group that finished the owner's.
+  - **"/8v8 prime emain 8 rank hib-2bard".** The owner asked for the group of two Bards and got
+    the main one. The server's log has the line as typed: no number after "rank", so the
+    line-up's name was taken for the rank's number, and the evening began with the main
+    line-up at the rank the owner had, with nothing said of either. Built: a word after
+    "/8v8 prime" that is not a zone, a number, a line-up, "one", "all" or "rank" with its
+    number from 1 to 13 starts nothing and is named to the player
+    (`Pvp8v8CommandHandler.PrimeWords`), and an evening with another line-up says "Your group
+    is the line-up hib-2bard." *Automated tests only; on the scrim server since the owner
+    logged off.* The owner then played the two-Bard group on the build before, with the number
+    in its place.
+  - **The owner's third evening of the day** (two Bards, rank 8, Emain Macha, 31 minutes, five
+    fights): wiped by five groups after four minutes with ten killed (four groups held for
+    three minutes with all eight alive; a fifth, fresh one landed with both Druids at 9% of
+    their power); a brawl of five enemy groups that were fighting each other, come into third
+    with a second Hibernian group beside it, 16 killed and none lost; a clean 8v8 against a
+    casual group four ranks lower, won with none lost; then wiped by two bad groups in 58
+    seconds and by three groups in 108. The owner: "it's really fun !", and of the group's own
+    calls in capitals: "I like the messages when the bot decide it's time to kite and run
+    back, it's nice". Not said: whether "INC" and "ADD" were readable in the moment.
+
+- [ ] **M12.9** (S) A bad group's slow hands. *Built the evening of 2026-11-24 and run with bots
+  once; seen in no client.* The owner, after three evenings against the kinds: "In my opinion,
+  the bad group are not that bad, especially considering they always run with at least an
+  other group".
+  - **Counted first, over the six evenings of bots of that day.** Both halves hold. A bad
+    group's member did 974 damage a minute of fighting, an elite team's 956 and a decent
+    team's 843; class for class, 1.07 times what the same class did in every other kind. The
+    level of play (M12.6) made it late to answer and seldom on the call, and left its hands as
+    quick as anybody's. And in none of a bad group's 130 fights was it without another group of
+    its realm: two in 8, three in 42, four in 69, five in 11. With more groups than the enemy
+    it was wiped in 2 fights of 75, with as many in 16 of 31 (a decent team in 5 of 14, an
+    elite one in 1 of 15), with fewer in 15 of 24. The owner's own eight fights against bad
+    groups say the same: one group alone, beaten with none lost; two or more, wiped in six of
+    seven (the seventh was a brawl of five groups that were fighting each other).
+  - **Built** (`PvpHands.cs`, two settings of a level in `PvpHumanWeights`, both 0 for every
+    level but bad): in a fight a bad group's member waits one to three seconds before half its
+    casts that take time (heals and raises too; not an instant, not a song), and four swings
+    in ten of its fighters are without a style. Nothing of what a bot is worth was touched:
+    the same spells, styles, rank and equipment.
+  - **One evening after** (36 teams, 13 minutes): a bad group's casters cast 3.9 seconds apart
+    where they had cast 2.5 (the others 3.0 before and after); its healers healed 4.4 seconds
+    apart, the middle value, where it was 2.7; 49% of its fighters' one- and two-handed hits
+    were without a style where 18% were (the others 8%). No caster went into melee while it
+    waited, and no tick failed. **What it did not show:** whether a pack is easier to beat. In
+    all 32 of the bad groups' fights that evening they were three to five groups against
+    fewer, none was wiped, and they killed 76 for 13. The pack decides those fights, not the
+    hands.
+  - **The owner's evening on that build** (two sessions, four fights, rank 8, two Bards): two
+    bad groups and two casual ones of another realm held for six and a half minutes with 12
+    killed and 4 lost; two bad groups beaten with none lost, two bad groups of its own realm
+    beside it; then five of the eight lost in 66 seconds to two bad groups with nobody killed.
+    A pair of bad Midgard groups did 5,600 to 6,000 damage in ten seconds to the owner's eight
+    at their worst on the build before, and 2,700 to 3,000 on this one. The owner: "the bad
+    still seems too good to me, but maybe i'm just that bad now /shrug. The rest seems to be
+    working right".
+  - **What the recordings said of it: Purge.** In those fights, and in three of the day
+    before, the bad groups' members were asleep 2 to 4% of the time they were alive, with two
+    Bards casting 11 to 65 mezzes a fight. The largest share of their sleeps ended after four
+    to seven seconds with no hit and no cure: the sleeper's own Purge, 8 times in the first 70
+    seconds of one fight, 15 in two minutes of another, 23 in six and a half of a third. Every
+    bot buys Purge with its first realm points (`AutonomousBotRealmAbilities.PvpFirst`), a
+    group that has been wiped stands up with its timers reset, and a bad member's hand is on
+    the key four to seven seconds after the mez. So the one thing a group of eight has against
+    sixteen did nothing. Built: `PvpPurgeWeights.HeldByPercent`, 100 for every kind and 25
+    for the bad one (`PvpStyles`): one member in four has Purge on its bar, the same ones all
+    evening by their names, and the others sleep a mez out. *Automated tests only: the owner
+    was on the server; to be deployed and run with bots once the owner is off.*
+  - **Open, the owner's:** the pack. "Bad groups in packs of up to 5-6" is the owner's own
+    picture of the evening (M11), and it is what puts three or four groups of one realm in
+    most of a bad group's fights. Smaller packs (two or three) would change the evening more
+    than anything in how a member plays. Not touched. Also not known: how slow hands look from
+    the other side of a fight.
+
+- [ ] **M12.10** (S) A guild for the player's group. *Built the evening of 2026-11-24;
+  automated tests only.* The owner: "How can I form a guild with my 7 bots? Or should you do
+  it for us?" Every team of bots on a prime-time evening wore a guild's name and the owner's
+  seven wore none: an 8v8 companion is not made as a `/spawn` companion is and has no owner
+  whose guild it shows, and the game's own way to form one (`/gc form` at a registrar in a
+  capital, a gold piece) is far from where an 8v8 character is. Built: `/8v8 guild <name>`
+  forms an ordinary guild with the player as guildmaster, at no cost and anywhere
+  (`Pvp8v8CommandHandler.GuildProblem` says why a name will not do: a guild already, too long,
+  not letters, taken, or the name of a guild of bots in the pool); a companion wears the
+  guild of the player it is made for (`PvpArena.SpawnCompanions`), and the ones that are out
+  wear it at once; on a prime-time evening the player's team goes by the guild's name and not
+  by its line-up's (`PvpRoam.OwnTeamName`). Not built: the guild's emblem on the companions'
+  cloaks and shields.
+
+- [ ] **M12.11** (S) A group left alone is left alone by every member. *Built the evening of
+  2026-11-24; automated tests only (the owner was on the server).* The owner, of the last
+  fight of that evening: "A 2nd group ran by, but did not add. They just stood idle. Then at
+  some point, they started to run away. Did my team attacked them? I feel like it ran through
+  us then turned their back and attacked us". From the recording: Prydwen Sellswords (decent,
+  does not add) came on the owner's fight with The Cotswold Mob at 1,049 s, 8,800 units off,
+  drew "leaves them to it" and stood for 45 seconds; at 1,094 s it gave up waiting and, not
+  yet at its first point, walked on, and its road went through the owner's group (160 units
+  from its middle at 1,123 s). At 1,125 s the owner's Eldritch had the group's Sorcerer as its
+  target and was casting Paralyzing Sphere, its area mez; in the same second Prydwen took the
+  owner's group for an enemy, and its first blows landed at 1,126.7 s. Seven of the owner's
+  eight died. The player had picked nobody of that group. The cause: a class whose mez, stun
+  or root is not chosen by score (the Eldritch's area mez; `PvpCrowdControlIsScored`) still
+  ran the older routine `TryPvpCrowdControl`, which takes whoever of another realm is within
+  1,800 units, and a member that aims at a group is what ends being left alone
+  (`PvpRoam.LeavesAlone`). Built: that routine, for a bot of an 8v8 group, takes only the
+  enemies its group is fighting, and their pets (`BotBrain.PvpOfItsFight`). Counted over
+  twelve evenings of the day, bots and the owner's: of 282 times a team left a fight alone, 53
+  were followed within 90 seconds by a fight between it and one of the two without a draw to
+  join; how many of those began this way is not known (a fight that ends leaves a winner the
+  team that waited may take on).
+  - **Round the fight, not through it.** The owner, asked: "I'd go with making the group go
+    around, if they decide not to add, instead of walking in middle." Built
+    (`PvpRoam.AroundAFight`): a team that gives up waiting and walks on, and whose road passes
+    within 4,000 units of the middle of the fight it left alone, goes first to a point beside
+    that fight, 4,500 from its middle, on the side its road already leans to; the point is
+    looked for again every turn with the side kept, so the team comes round in an arc and
+    takes its road again once the rest of it is clear. When the point it walks to is in the
+    fight it goes as near as it may and stands. For 75 seconds at most: a wall, a gate or
+    water in the way, and it walks its road as before. *Automated tests only; not run with
+    bots: whether the ground lets a team round at 4,500 in the places fights happen (a keep's
+    gate, the road's ends) is not known.*
+  - **Not changed, and the owner's:** in a fight, the player's click on a member of a group
+    that stands by is taken for an attack by that group when it is within 2,000 units (a
+    player in combat that has one of its members as a target: `Attacks` in `PvpRoam`), and
+    within 6,500 it gives that group to the player's companions as an enemy
+    (`PlayerTakesItOn`). It is how the player picks whom the group takes on out of a fight;
+    in one, a stray click or a tab brings eight more.
+
+- [ ] **M12.12** (S) A run, and a rest. *Built the evening of 2026-11-24; automated tests only.*
+  - **The owner's last fight of the evening** ("We were running away from many mids group.
+    Something doesn't looks right to me, regarding movement speed and endurance"). From the
+    recording: the Bard's Speed of Sound at 2,252 s, the retreat called at 2,256 s, the seven
+    behind the player at 350 to 400 units a second with their endurance at 100 to the end;
+    three Midgard groups behind them at 385, and from 2,268 s at 480 to 500, sprinting on
+    their Skald's song with their endurance going to 4 and 16; Speed of Sound over at 2,282 s
+    with everybody in combat, so no song took hold again, and the group at 190; eight dead
+    between 2,297 and 2,323 s. A bot sprinted when its group chased, kited or fell back, and
+    not on a retreat the player called. Built: it does (`PvpSquad`, "pressed").
+  - **Found and not changed:** Speed of Sound here is 189% of a walk (361 units a second) and
+    replaces the song while it runs; a Bard's, Skald's or Minstrel's best song is 204% (390).
+    It is the 30 seconds that combat, root and snare do not end, not more speed. The stock
+    number of the server; the owner's whether it should be the top song's.
+  - **Found and not explained:** the owner's own character ran 305 to 320 on the road over
+    two evenings and about 300 under Speed of Sound, where its companions ran 390 and 361;
+    400 with sprint. Not diseased, not rooted, 47 pounds carried. Its speed is read from the
+    positions the client sends; why it is some 15 to 20% under what its buffs say is not
+    known.
+  - **Cures at rest.** The owner: "When resting, druid do not cure desease, nearsight, etc."
+    A resting bot recast what it keeps up and sat down; nearsight was lifted in a fight only,
+    from a healer or caster of bots, and disease between two heals. Built
+    (`BotBrain.TryPvpRestCure`, `PvpHealPlan.RestCure`): before it sits, a member that can
+    takes disease, then poison, then nearsight off every member in its reach, the player
+    first, one healer to a member.
+  - **Two Bards share the songs.** The owner: "we have 2 bards, we should be roaming at speed
+    6: 1 bard has speed up and the other has endurance. During a retreat one could try to play
+    speed has one should already have endurance up. If the endurance bard dies, then the other
+    has to play it if possilbe, high priority". Each of the two played as the Bard of a group
+    with one: in the run of M12.12 both held the speed song (76 of 88 seconds between them)
+    and nobody the endurance. Built (`BotSongTwistPolicy.TwoBards`): with both alive the first
+    by name holds speed and plays nothing in a fight, the second holds endurance all the time;
+    the one left of two holds endurance in a fight, on the run, at rest and with an enemy
+    known, and speed on an empty road. A group with one Bard is as it was.
+
+**Where M12 stands (2026-11-24).** Built and run with bots on the scrim server: the measure, the
+kite, breaking off, no raising with too many on it. A seventh evening on the last build (13
+kites, five groups broke off and four got away, 21 teams wiped, the realm chat of a break-off
+written as meant) took 29% of one core over twelve minutes and 6.1 GB, against 28% and 5.9 GB
+for 36 teams before any of this. For the owner's first playtest of it ("Fighting a zerg at RR1 is
+impossible"): `/8v8 prime ... rank 8`, an evening with the player's group at a picked rank and
+earning nothing. The owner played that evening the same day (M12.8): five fights, the kinds
+met, `/8v8 lead on` used; nothing said yet of how a group that falls back or runs looked. To be
+looked at by the owner: whether a group that falls back and one that turns and runs look like players
+doing it; whether one lost fight in three ending in a run is too many or too few; `/8v8 lead on`
+with the owner's own group.
+
+## M13. The first release (v0.1)
+
+**Goal (owner, 2026-11-24):** "For sure, we will merge everything in master we could create a
+v0.1 release and use that as our first tag to deploy on D:\OfflineDAoC"; "let's close
+everything before v0.1 then I'd play some nights and write down some observations". On the
+play install the game is played, not started by test commands: "I consider the /8v8 as testing
+commands, beside the 8v8 calls. Those need to stay in for sure. Same with the /8v8 to instant
+50 + gear. I do want everyone to start at realm rank 1 level 1 and grind it out. There could
+already be group profile regardeless of level at 'release'."
+
+**Decided by the owner that evening:** the evening begins when the player logs in; `/8v8 ready`
+is typed by hand; `/8v8 rivals` stays, `/8v8 status` does not, `/8v8 ranks` undecided;
+`/8v8 who` is to say "which zone has what kind of group and how many groups" and not line-ups
+or ranks; the tag's name either way (`v0.1`). And of the rules left open: packs of two to
+three; in a fight a click picks nobody, a blow or a call does; `/8v8 lead` on by default and
+kept; a way for a dead player to tell the group "just die".
+
+- [x] **M13.1** (S) The rules left open. *Built 2026-11-24; automated tests only.* Packs of two
+  to three (`PvpTeamPool.PackMost`). `PvpRoam.PlayerPicks`: out of a fight the player's
+  target is the group its own takes on, as before; in a fight with somebody else only a
+  member the player has struck, or called on (`/8v8 call assist`, `control`, which now take a
+  member of a group that stands by), and a player counts as attacking a group of bots only
+  when it has struck one of them. `/8v8 lead` on for a new player and kept in
+  `pvp-players.json` beside the server (`PvpPlayerSettings`). `/8v8 call die`: a dead player
+  gives the fight up, the group counts as wiped and stands up at its start
+  (`PvpRoam.GiveUp`).
+- [ ] **M13.2** (M) The evening begins at login: no `/8v8 prime`. *Built 2026-11-24; automated
+  tests only, and it cannot be tried without a client.* A player with an 8v8 character (level
+  50, a class its realm has a build for) that enters the game while nothing runs is taken,
+  four seconds later, to its realm's start in the zone its last evening began in, with the
+  line-up and the number of groups it had last (Emain Macha, the main line-up and eight the
+  first time), in a real evening (`PvpEveningStart`, `PvpRealWeights.EveningAtLogin`). A new
+  character is told to type `/8v8 ready`, and its evening begins when that is done. While an
+  evening of bots runs on the server the player's does not begin and it is told so. It ends
+  when the player leaves the game, as before.
+- [ ] **M13.3** (S) Everybody at rank 1 level 1. *Built 2026-11-24; automated tests only.* A
+  guild made for a player's evenings begins at realm level 1 whatever its kind
+  (`PvpRealWeights.GuildsBeginAtTheBottom`, `PvpTeamPool.Generate`); the kinds, their
+  line-ups and how they play are there from the first evening. The player's companions begin
+  there already. Guilds that exist keep what they have: the scrim server's pool was made
+  before, with a rank for each kind, and the play install has none yet. An evening of bots
+  started by the tools still has its guilds at the rank of their kind. Standing as it was:
+  no member of an enemy group fights below the average of the player's group
+  (`EnemyKeepsUp`), and a kill is worth five times the game's own (`RealmPointRate`).
+- [ ] **M13.4** (S) The player's group is its guild. *Built 2026-11-24; automated tests only.*
+  `/8v8 guild <name>` (M12.10); `/8v8 guild lineup [name]` says or sets which eight the group
+  is, from the next evening on; line-up, zone and number of groups are kept in
+  `pvp-players.json` (`PvpPlayerSetting`), the companions' names and what they have earned
+  in the roster as before.
+- [ ] **M13.5** (S) The test commands out of a player's way; `/8v8 who` by zone, kind and
+  number. *Built 2026-11-24; automated tests only.* A player has `call`, `calls`, `lead`,
+  `ready`, `guild`, `who`, `rivals`, `ranks`, `go` and `corpse`; every other word of `/8v8`
+  answers with those ten unless the player is a game master or the server has
+  `pvp-test-commands.txt` beside it, which the scrim server has
+  (`Pvp8v8CommandHandler.IsKeptFromAPlayer`). `/8v8 who`: one line for each zone of the
+  evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
+  Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
+  than `/8v8 go`, which stays.
+- [x] **M13.8** (M) The realm ability orders, up to the cap. *In the game 2026-11-25; automated tests only.* The
+  owner wrote an order for each of the 26 classes of the 8v8 groups
+  (`docs/DAoC-1.65-8v8-RA-Progressions-v3.md`), where the orders before were a first reading that stopped at 63 to
+  94 points of the 130 the cap gives (rank 14 level 0). Checked against the server
+  (`source/tools/pvp_ra_check.py`: each class's own ability list, levels, costs, what each step needs, and the
+  list bought as a bot buys it): one step does not exist (the Bard's Ameliorating Melodies has one level, not
+  three), thirteen lists cost more than the cap gives so that their last steps are never bought, eight end short
+  of it and are followed by the kind's build. Shown to the owner with what I would order differently (Raging
+  Power earlier for the healers, Ignore Pain earlier for the Hero that peels, First Aid and Ignore Pain for the
+  Blademaster, Mastery of Arms after Augmented Strength 3, Brilliant Aura after Mastery of Concentration); the
+  owner: "I am not sure what's the most optimal RA progression or msot valuable for 8v8. I mostly only know
+  druid / cleric / healer. I guess, for now, let's go as is, and we can always patch later if needed." So the
+  lists are in the game as written (`source/tools/pvp_ra_orders.py` writes them into `PvpRealmAbilities.cs` and
+  writes `docs/PVP-8V8-REALM-ABILITIES.md`). Asked by the owner: "We need to make sure all the RA, passives and
+  actives, are usable by the bots". Read in the code: every passive of the lists is counted for a bot by the
+  same calculation as for a player, and every ability to press has a rule and lands; one fault found and mended:
+  Perfect Recovery cast by a bot on a dead player went through the client's line-of-sight reply, which lost the
+  ability it was cast from, so its thirty minutes never began (`NpcCastingComponent`).
+- [ ] **M13.6** (S) The fixes of M12.9 to M12.12 and M13.1 on the scrim server, an evening of
+  bots, an evening of the owner's. *On the scrim server since the owner logged off on
+  2026-11-24 (M13.2 to M13.5 an hour later, started and not run); one evening of bots; the
+  owner's evening is to come.* The evening of bots (36 teams, 13 minutes, the build of M12.9
+  to M13.1 and M13.5):
+  - Packs: four of two groups and four of three at the start. Three or four groups of a
+    bad group's realm were still in 18 of its 22 fights: packs meet their realm-mates.
+  - A bad group's members were asleep 16.8% of their time in combat (the others 5.0%) and
+    pressed Purge 14 times (the others 129). Against the owner's Bards it had been 2 to 4%.
+  - A bad group was wiped in 6 of its 14 fights with more groups than the enemy (2 of 75 over
+    the six evenings before, none of 32 on the evening with slow hands alone), and killed 81
+    for 103 lost (429 for 379; 76 for 13). An elite team killed 11 for none, the hunters 29
+    for 2.
+  - Ten teams gave up waiting by a fight: five turned back, five walked on round it. Of
+    those five none fought the groups it had left alone; the nearest they came to one of
+    them was 2,600 to 3,100 units (one had the fight come to it, 1,300), where a team had
+    walked through the owner's group at 160.
+  - A group-wide ability by a second member within its time: none of 34 uses.
+  - Not exercised by bots: a cure at rest (none was cast), sprint on a retreat a player
+    calls, the two Bards' songs, a click in a fight, `/8v8 call die`, `/8v8 guild`, the
+    player's commands, the evening at login.
+  - No tick failed.
+  - **The scrim server's guilds keep their ranks** (the pool "world": 48 guilds at realm
+    level 9 to 95, 23 of them with a record against the owner). To try the start from rank 1
+    level 1 there, that pool has to be set aside; not done without the owner's word.
+- [x] **M13.7** (S) The pull request to main, the tag, and the play install with a backup. On
+  the owner's word. *2026-11-25.* The owner: "On a general note, I am not renewing my Claude
+  subscription. Ideally, we have everything done before the end of my sub and deployed in
+  D:\OfflineDAoC" (it ends on 2026-12-16); asked what to do once the evening of bots on the last
+  build had ended cleanly, picked "Merge, tag, install", and for the guilds "Keep fixed groups"
+  (a guild of more than eight that forms its groups from its members, as players did, was the
+  owner's thought that day and is not built).
+  - **Before it:** the play install compared with the scrim copy, which had run the build for
+    nine days: the same tables and the same number of rows in everything the 8v8 reads (items,
+    spells, abilities, the classes' ability lists, the level-50 loadouts, monsters, zones), the
+    same server properties, the same 103 navigation files; never played (no account, no
+    character), its gamebot population at 0. And an evening of bots on the last build with the
+    owner's realm ability orders (36 teams, ten minutes): 90 fights, 9 wipes, 197 abilities
+    pressed (Mastery of Concentration 14, Raging Power 8, Avoid Pain 6, The Empty Mind 3,
+    Faith Healing 2 among them), no purchase failed, no tick failed.
+  - **Done:** pull request 6 merged to `main`, tagged `v0.1`, the build installed on
+    `D:\OfflineDAoC` by `deploy_scrim.ps1` (six files, with a backup). The play install's server
+    was not started: its server files were compared with the scrim copy's instead.
+  - `docs/PVP-8V8-HANDOVER.md`: for the owner to build, install, undo and change things without
+    an assistant.
 
 ## Scorecard
 

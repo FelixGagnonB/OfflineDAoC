@@ -27,8 +27,9 @@ namespace DOL.GS.RealmAbilities
 		/// <param name="living"></param>
 		public override void Execute(GameLiving living)
 		{
-			GamePlayer player = living as GamePlayer;
-			if (player == null) return;
+			// A player or a bot (an 8v8 bot buys it).
+			if (living is not (GamePlayer or GameBot)) return;
+			GameLiving player = living;
 			if (CheckPreconditions(living, DEAD | SITTING | STUNNED | MEZZED )) return;
 
 			EffectListService.TryCancelFirstEffectOfTypeOnTarget(player, eEffect.AmelioratingMelodies);

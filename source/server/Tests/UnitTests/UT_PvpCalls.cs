@@ -9,12 +9,97 @@ namespace DOL.UnitTests
     public class UT_PvpCalls
     {
         [Test]
+        public void TwoBardsShareTheSongs()
+        {
+            // The owner, 2026-11-24: "1 bard has speed up and the other has endurance ... If the endurance bard dies, then the other has to play it".
+            var speed = BotSongTwistPolicy.PvpBardSong.Speed;
+            var endurance = BotSongTwistPolicy.PvpBardSong.Endurance;
+            // The Bard of a group with one plays as it did.
+            Assert.That(BotSongTwistPolicy.TwoBards(1, 1, 0, false, false, false), Is.EqualTo(BotSongTwistPolicy.PvpBardSong.AsOne));
+            // On the road: one speed, one endurance.
+            Assert.That(BotSongTwistPolicy.TwoBards(2, 2, 0, false, false, false), Is.EqualTo(speed));
+            Assert.That(BotSongTwistPolicy.TwoBards(2, 2, 1, false, false, false), Is.EqualTo(endurance));
+            // In a fight the endurance stays up and the other casts its mez.
+            Assert.That(BotSongTwistPolicy.TwoBards(2, 2, 0, true, false, true), Is.EqualTo(BotSongTwistPolicy.PvpBardSong.Nothing));
+            Assert.That(BotSongTwistPolicy.TwoBards(2, 2, 1, true, false, true), Is.EqualTo(endurance));
+            // On a retreat: one tries the speed, the other keeps the endurance up.
+            Assert.That(BotSongTwistPolicy.TwoBards(2, 2, 0, false, true, true), Is.EqualTo(speed));
+            Assert.That(BotSongTwistPolicy.TwoBards(2, 2, 1, false, true, true), Is.EqualTo(endurance));
+            // The one left of two: endurance in a fight, on the run and with an enemy in sight; speed on an empty road.
+            Assert.That(BotSongTwistPolicy.TwoBards(2, 1, 0, true, false, true), Is.EqualTo(endurance));
+            Assert.That(BotSongTwistPolicy.TwoBards(2, 1, 0, false, true, true), Is.EqualTo(endurance));
+            Assert.That(BotSongTwistPolicy.TwoBards(2, 1, 0, false, false, true), Is.EqualTo(endurance));
+            Assert.That(BotSongTwistPolicy.TwoBards(2, 1, 0, false, false, false), Is.EqualTo(speed));
+        }
+
+        [Test]
+        public void ADeadPlayerGivesALostFightUp()
+        {
+            // The owner, 2026-11-24: "i'd need a wait to tell them 'just die'".
+            Assert.That(PvpCalls.IsDieCall("die"), Is.True);
+            Assert.That(PvpCalls.IsDieCall(" Wipe "), Is.True);
+            Assert.That(PvpCalls.IsDieCall("retreat"), Is.False);
+            Assert.That(PvpCalls.CannotGiveUp(leadsAGroupInARoam: true, callerAlive: false, groupIsDownAlready: false), Is.Null);
+            Assert.That(PvpCalls.CannotGiveUp(true, true, false), Does.Contain("/8v8 call retreat"));
+            Assert.That(PvpCalls.CannotGiveUp(false, false, false), Does.Contain("roam"));
+            Assert.That(PvpCalls.CannotGiveUp(true, false, true), Does.Contain("down already"));
+            // A new player has the lead on, and what it says is kept.
+            Assert.That(new PvpPlayerSetting().Lead, Is.True);
+            string folder = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "pvp-players-" + System.Guid.NewGuid().ToString("N"));
+            System.IO.Directory.CreateDirectory(folder);
+            try
+            {
+                Assert.That(PvpPlayerSettings.Get(folder, "somebody").Lead, Is.True);
+                PvpPlayerSettings.Set(folder, "somebody", setting => setting with { Lead = false });
+                Assert.That(PvpPlayerSettings.Get(folder, "somebody").Lead, Is.False);
+                Assert.That(PvpPlayerSettings.Get(folder, "another").Lead, Is.True);
+            }
+            finally
+            {
+                System.IO.Directory.Delete(folder, true);
+            }
+            // At rest: disease first, then poison, then nearsight.
+            Assert.That(PvpHealPlan.RestCure(true, true, true), Is.EqualTo(eSpellType.CureDisease));
+            Assert.That(PvpHealPlan.RestCure(false, true, true), Is.EqualTo(eSpellType.CurePoison));
+            Assert.That(PvpHealPlan.RestCure(false, false, true), Is.EqualTo(eSpellType.CureNearsightCustom));
+            Assert.That(PvpHealPlan.RestCure(false, false, false), Is.Null);
+        }
+
+        [Test]
         public void EveryOrderHasItsOwnCall()
         {
             string[] calls = [.. System.Enum.GetValues<PvpOrder>().Select(PvpCalls.Order)];
             Assert.That(calls, Is.Unique);
             Assert.That(calls, Has.None.Empty);
             Assert.That(PvpCalls.Order(PvpOrder.Regroup), Does.Contain("healers"));
+            Assert.That(PvpCalls.CannotRetreat("Talveh"), Does.Contain("You are down, Talveh"));
+            // What the player's group sees coming, and what adds on its fight.
+            Assert.That(PvpCalls.Sighted(2, "mids", "north-west", 4_380), Is.EqualTo($"INC! 2FG MIDS NORTH-WEST, {4_500:N0}!"));
+            Assert.That(PvpCalls.Sighted(0, "albs", "south", 900), Is.EqualTo($"INC! 1FG ALBS SOUTH, {1_000:N0}!"));
+            Assert.That(PvpCalls.SaysSighting(-1, 0, 1), Is.True, "never said");
+            Assert.That(PvpCalls.SaysSighting(20, 1, 1), Is.False, "the same group still in sight");
+            Assert.That(PvpCalls.SaysSighting(5, 1, 2), Is.False, "another has come, but it has only just spoken");
+            Assert.That(PvpCalls.SaysSighting(10, 1, 2), Is.True, "another has come");
+            Assert.That(PvpCalls.SaysSighting(45, 2, 2), Is.True, "still there after three quarters of a minute");
+            Assert.That(PvpCalls.Add(8, "mids", "north"), Is.EqualTo("ADD! 8 MORE MIDS FROM THE NORTH!"));
+            Assert.That(PvpCalls.Lost(3, 14), Is.EqualTo("THIS ONE IS LOST! 3 OF US LEFT, 14 OF THEM! RETREAT?"));
+            // A player's group without the lead says what it counts, and what the player can call.
+            Assert.That(PvpCalls.TooMany(13, 8), Is.EqualTo("TOO MANY! 13 ON OUR 8! CALL IT: KITE OR RETREAT!"));
+            Assert.That(PvpCalls.Due(100_000, 80_000, PvpCalls.TooManyEveryMilliseconds), Is.False);
+            Assert.That(PvpCalls.Due(106_000, 80_000, PvpCalls.TooManyEveryMilliseconds), Is.True);
+            // An order that moves the group is shouted, in capitals; engage and hold are not.
+            foreach (PvpOrder moves in new[] { PvpOrder.Push, PvpOrder.Extend, PvpOrder.Regroup })
+            {
+                Assert.That(PvpCalls.LoudOrder(moves), Is.Not.Null, moves.ToString());
+                Assert.That(PvpCalls.LoudOrder(moves), Is.EqualTo(PvpCalls.LoudOrder(moves).ToUpperInvariant()), moves.ToString());
+            }
+            Assert.That(PvpCalls.LoudOrder(PvpOrder.Engage), Is.Null);
+            Assert.That(PvpCalls.LoudOrder(PvpOrder.Hold), Is.Null);
+            Assert.That(PvpCalls.ShoutsOrder(PvpOrder.Push, false, 100_000, 0), Is.True, "the first of a fight");
+            Assert.That(PvpCalls.ShoutsOrder(PvpOrder.Push, true, 100_000, 0), Is.False, "the player called it: the group answers, it does not shout it back");
+            Assert.That(PvpCalls.ShoutsOrder(PvpOrder.Extend, false, 100_000, 90_000), Is.False, "one shout in twenty seconds");
+            Assert.That(PvpCalls.ShoutsOrder(PvpOrder.Extend, false, 110_000, 90_000), Is.True);
+            Assert.That(PvpCalls.ShoutsOrder(PvpOrder.Engage, false, 100_000, 0), Is.False);
         }
 
         [Test]
@@ -97,6 +182,27 @@ namespace DOL.UnitTests
             Assert.That(PvpCalls.KiteStepWanted(900, 1_000), Is.False, "between two steps there is time for a cast");
             Assert.That(PvpCalls.KiteStepWanted(2_500, 10_000), Is.False, "far enough: it stands and works");
             Assert.That(PvpCalls.CalledKiteStep, Is.InRange(300, 800));
+        }
+
+        [Test]
+        public void RestIsACallThatEndsWhenThePlayerWalksOnOrIsAttacked()
+        {
+            // "to tell the bot to redo their self-timed buffs, druid resists, sit to regen endurance/mana"
+            Assert.That(PvpCalls.IsRestCall("rest"), Is.True);
+            Assert.That(PvpCalls.IsRestCall(" Sit "), Is.True);
+            Assert.That(PvpCalls.IsRestCall("retreat"), Is.False);
+            Assert.That(PvpCalls.OrderFor("rest"), Is.Null);
+            Assert.That(PvpCalls.RestStands(10_000, 130_000, false, 0), Is.True);
+            Assert.That(PvpCalls.RestStands(131_000, 130_000, false, 0), Is.False, "two minutes are up");
+            Assert.That(PvpCalls.RestStands(10_000, 130_000, true, 0), Is.False, "somebody is in combat: everybody gets up");
+            Assert.That(PvpCalls.RestStands(10_000, 130_000, false, 2_000), Is.False, "the player has walked on");
+            Assert.That(PvpCalls.RestStands(10_000, 0, false, 0), Is.False, "nobody called it");
+            // An 8v8 bot regains a twentieth a second where a companion of the other modes regains a tenth.
+            Assert.That(BotRestRecovery.RecoveryAmount(3, 1_000, 5), Is.EqualTo(50));
+            Assert.That(BotRestRecovery.RecoveryAmount(80, 1_000, 5), Is.EqualTo(80), "a stronger native regeneration is kept");
+            var real = new PvpRealWeights();
+            Assert.That(PvpRealWeights.TeamRests(40, real), Is.True, "a team of bots with a member at 40% rests before it walks on");
+            Assert.That(PvpRealWeights.TeamRests(80, real), Is.False);
         }
 
         [Test]

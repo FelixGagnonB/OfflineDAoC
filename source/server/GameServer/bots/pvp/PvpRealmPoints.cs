@@ -21,6 +21,23 @@ namespace DOL.GS
         /// </summary>
         public bool EnemyKeepsUp { get; set; } = true;
 
+        /// <summary>
+        /// The evening begins when a player with an 8v8 character enters the game
+        /// (bots/pvp/PvpEveningStart.cs), with this many groups of each realm the first time.
+        /// </summary>
+        public bool EveningAtLogin { get; set; } = true;
+        public int EveningGroups { get; set; } = 8;
+
+        /// <summary>
+        /// The guilds a player's evenings are made with begin at realm rank 1 level 1, whatever
+        /// their kind, and earn what they come to. The owner, 2026-11-24: "I do want everyone to
+        /// start at realm rank 1 level 1 and grind it out. There could already be group profile
+        /// regardeless of level at 'release'." Off: a guild begins at the rank of its kind (a
+        /// bad group at 1 to 3, an elite team at 8 to 10), as the guilds made before that day
+        /// did and as an evening of bots still has them.
+        /// </summary>
+        public bool GuildsBeginAtTheBottom { get; set; } = true;
+
         /// <summary>A member of the killing group this far from the one that died has no share.</summary>
         public int ShareWithin { get; set; } = 6_000;
 
@@ -73,6 +90,37 @@ namespace DOL.GS
         /// <summary>Whether a team out of a fight, with dead it has had for this long, gives up on them and goes back to its start.</summary>
         public static bool Reforms(bool someoneCanRaise, double secondsWithItsDead, PvpRealWeights real) =>
             secondsWithItsDead >= (someoneCanRaise ? real.RaisesItsDeadForSeconds : real.ReformsAfterSeconds);
+
+        /// <summary>
+        /// Resting (the player's call, and a team of bots between two fights): a bot regains this
+        /// share of its health, power and endurance a second, where a companion of the other
+        /// game modes regains a tenth. At 5 an empty caster is full in twenty seconds.
+        /// </summary>
+        public int RestRegainsPercentPerSecond { get; set; } = 5;
+
+        /// <summary>
+        /// A roam: after a fight a team of bots with a member below this share of its health or
+        /// power rests before it walks on, for at most the seconds below. It walked on as it
+        /// was, and met its next enemy with what it had left.
+        /// </summary>
+        public int TeamRestsBelowPercent { get; set; } = 60;
+        public int TeamRestsAtMostSeconds { get; set; } = 40;
+
+        /// <summary>
+        /// Before it rests a team of bots walks off the road it is on, to one side, as far as the
+        /// first of these that the ground allows (a place that is there and that it can walk to
+        /// without a long way round), and comes back to its road afterwards. The owner,
+        /// 2026-11-22: "it would be nice a team decides to go hide somewhere off, or out of the
+        /// route the teams make to meet each other and rest." A group sees another from 6,500
+        /// units. With no such place it rests where it is. Empty: it always does.
+        /// </summary>
+        public int[] RestsOffTheRoadBy { get; set; } = [7_500, 5_500];
+        /// <summary>A team that rests gets up when an enemy team is within this of it.</summary>
+        public int RestEndsWithEnemyWithin { get; set; } = 5_000;
+
+        /// <summary>Whether a team of bots rests now: a member is low, and nobody is near to fight.</summary>
+        public static bool TeamRests(int lowestPercent, PvpRealWeights real) =>
+            real.TeamRestsBelowPercent > 0 && lowestPercent < real.TeamRestsBelowPercent;
 
         /// <summary>A roam: a team with nobody left alive stands up at its start point after this many seconds.</summary>
         public int WipeStandsUpAfterSeconds { get; set; } = 30;
@@ -142,6 +190,10 @@ namespace DOL.GS
         /// points at all make in the game's own table).
         /// </summary>
         public static int LevelFor(long points) => Math.Max(1, AutonomousBotRealmPointRewards.RealmLevelFor(points));
+
+        /// <summary>The realm points a realm level begins at: what a team of a prime-time evening starts with (PvpGuildTeam.SeedLevel).</summary>
+        public static long PointsFor(int realmLevel) =>
+            GamePlayer.REALMPOINTS_FOR_LEVEL[Math.Clamp(realmLevel, 0, GamePlayer.REALMPOINTS_FOR_LEVEL.Length - 1)];
 
         /// <summary>The name under which a player's own earned realm points are kept in the roster, beside the companions' builds.</summary>
         public const string PlayerBuild = "player";

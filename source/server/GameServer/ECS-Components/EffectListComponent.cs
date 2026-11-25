@@ -367,6 +367,13 @@ namespace DOL.GS
                 effect.End();
         }
 
+        /// <summary>Ends the songs and chants this living has running (the pulses themselves, which <see cref="CancelAll"/> leaves).</summary>
+        public void CancelPulses()
+        {
+            foreach (ECSPulseEffect pulse in GetPulseEffects())
+                pulse.End();
+        }
+
         public void CancelIncompatiblePulseEffects(ISpellHandler spellHandler)
         {
             if (!PulseSpellGroupsIgnoringOtherPulseSpells.Contains(spellHandler.Spell.Group))
