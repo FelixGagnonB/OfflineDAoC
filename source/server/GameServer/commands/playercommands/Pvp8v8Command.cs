@@ -17,7 +17,7 @@ namespace DOL.GS.Commands
         "/8v8 prime ... rank <1-13>     the same evening to try things: your group at that realm rank for the evening, and it earns nothing (your next real fight puts you back at what you have earned)",
         "/8v8 go <zone>                 on a prime-time evening: your group ports to your realm's start in another zone of the evening (/8v8 who names them); not out of a fight",
         "/8v8 guild [name]              forms a guild with you as its guildmaster, at no cost and wherever you stand: your seven companions wear its name, and on a prime-time evening your group goes by it; alone it says what guild you have",
-        "/8v8 who                       on a prime-time evening: the guilds of your realm that are out, their rank and who is in them, and how many groups the other realms have out",
+        "/8v8 who                       on a prime-time evening: each zone of the evening, how many groups every realm has in it and of what kinds (bad, casual, decent, strong, elite)",
         "/8v8 rivals                    the enemy guilds you have wiped or been wiped by on prime-time evenings, and how often",
         "/8v8 status                    in a roam: what every team is doing (buffing at its start, roaming, fighting whom, resting, waiting by a fight, wiped), how many of it are alive and how far it is",
         "/8v8 ranks                     the realm ranks of your companions, and of the enemy groups you have fought for real",
@@ -80,12 +80,51 @@ namespace DOL.GS.Commands
             : aTeamOfBotsHasIt ? $"{name} is one of the guilds of bots that are out on a prime-time evening. Pick another name."
             : null;
 
+        /// <summary>
+        /// What a player has of this command where the game is played and not tried
+        /// (docs/PVP-8V8-ROADMAP.md, M13). The owner, 2026-11-24: "I consider the /8v8 as testing
+        /// commands, beside the 8v8 calls. Those need to stay in for sure. Same with the /8v8 to
+        /// instant 50 + gear"; and of the rest: "I would keep /8v8 rivals. Not sure about ranks.
+        /// I don't think I would keep status. I would probably change /8v8 who." Everything else
+        /// (prime, roam, play, setup, group, skill, status, stop, clear and the GM's three) is
+        /// for a game master, or for a server with <see cref="TestMarker"/> beside it, which the
+        /// scrim server has and the play install has not.
+        /// </summary>
+        public static readonly string[] PlayerWords = ["call", "calls", "lead", "ready", "guild", "who", "rivals", "ranks", "go", "corpse"];
+
+        public const string TestMarker = "pvp-test-commands.txt";
+
+        public static readonly string[] PlayerHelp =
+        [
+            "/8v8 ready [build]   your character becomes level 50 with that build's class, spec and gear (lists the builds without one)",
+            "/8v8 guild [name]    forms your guild: your seven companions wear its name and your group goes by it",
+            "/8v8 call <push|regroup|hold|engage|extend|assist|control|retreat|rest|die>   your call to the group",
+            "/8v8 calls <on|off>  your companions' calls in group chat",
+            "/8v8 lead <on|off>   your companions fall back as one by themselves when the group has too many on it",
+            "/8v8 who             each zone of the evening: how many groups every realm has in it, and of what kinds",
+            "/8v8 go <zone>       your group ports to your realm's start in another zone of the evening",
+            "/8v8 rivals          the enemy guilds you have wiped or been wiped by, and how often",
+            "/8v8 ranks           the realm ranks of your companions",
+            "/8v8 corpse <player|body|fall|ghost|off>   how a dead 8v8 bot is shown",
+        ];
+
+        /// <summary>Whether a word of the command is one a player may not use here.</summary>
+        public static bool IsKeptFromAPlayer(string word, bool testServer, bool gameMaster) =>
+            !testServer && !gameMaster && !PlayerWords.Contains((word ?? string.Empty).ToLowerInvariant());
+
         public void OnCommand(GameClient client, string[] args)
         {
             GamePlayer player = client?.Player;
             if (player == null)
                 return;
             void Say(string text) => client.Out.SendMessage(text, eChatType.CT_System, eChatLoc.CL_SystemWindow);
+            if (IsKeptFromAPlayer(args.Length > 1 ? args[1] : string.Empty,
+                    System.IO.File.Exists(System.IO.Path.Combine(System.AppContext.BaseDirectory, TestMarker)), client.Account.PrivLevel > (uint)ePrivLevel.Player))
+            {
+                foreach (string line in PlayerHelp)
+                    Say(line);
+                return;
+            }
 
             switch (args.Length > 1 ? args[1].ToLowerInvariant() : string.Empty)
             {
@@ -346,7 +385,7 @@ namespace DOL.GS.Commands
                 {
                     System.Collections.Generic.List<string> who = PvpRoam.WhoLines(player);
                     if (who.Count == 0)
-                        Say("Nobody is out. /8v8 prime starts an evening.");
+                        Say("Nobody is out.");
                     foreach (string line in who)
                         Say(line);
                     return;

@@ -1017,21 +1017,41 @@ namespace DOL.GS
         public static List<string> WhoLines(GamePlayer viewer)
         {
             List<PvpRoamTeam> teams = _teams;
-            var lines = new List<string>();
-            foreach (PvpRoamTeam team in teams.Where(team => team.State != "Away" && (viewer == null || team.Realm == viewer.Realm)))
-            {
-                string classes = string.Join(", ", team.Team.Bots.GroupBy(bot => PvpMember.ClassOf(bot)).OrderByDescending(group => group.Count())
-                    .Select(group => group.Count() > 1 ? $"{group.Count()} {group.Key}" : group.Key.ToString()));
-                string rank = PvpRealmPoints.RankName((int)Math.Round(team.Team.Bots.Select(bot => bot.RealmLevel).DefaultIfEmpty(1).Average()));
-                lines.Add($"{team.Name}{(team.Leader != null ? " (yours)" : string.Empty)}, rank {rank}{(_maps.Count > 1 ? ", " + team.Map.Tag : string.Empty)}: {classes}" +
-                          (team.Company != null ? $"; walks with {team.Company.Name}" : string.Empty));
-            }
-            if (viewer != null && lines.Count > 0)
-                lines.Add(OutAgainst(teams.Where(team => team.Realm != viewer.Realm && team.State != "Away").GroupBy(team => team.Realm).Select(realm => (realm.Key, realm.Count())).ToList()));
             List<PvpRoamMap> zones = _maps;
-            if (zones.Count > 1 && lines.Count > 0)
-                lines.Insert(0, ZonesLine(zones, viewer == null ? null : teams.FirstOrDefault(team => team.Leader == viewer)?.Map));
+            if (teams.Count == 0)
+                return [];
+            PvpRoamMap here = viewer == null ? null : teams.FirstOrDefault(team => team.Leader == viewer)?.Map;
+            List<string> lines = zones.Select(zone => WhoLine(zone.Name, zone == here,
+                teams.Where(team => team.Map == zone && team.State != "Away")
+                    .Select(team => (team.Realm, KindWord(team.Profile?.Kind), team.Leader != null && team.Leader == viewer)).ToList())).ToList();
+            if (zones.Count > 1 && here != null)
+                lines.Add("/8v8 go " + string.Join(", ", zones.Where(zone => zone != here).Select(zone => zone.Id)) + " takes your group there.");
             return lines;
+        }
+
+        /// <summary>A kind of group as <c>/8v8 who</c> names it.</summary>
+        public static string KindWord(PvpTeamKind? kind) => kind switch
+        {
+            PvpTeamKind.Bad => "bad", PvpTeamKind.Clingy => "casual", PvpTeamKind.Adder => "casual 8v8", PvpTeamKind.Decent => "decent",
+            PvpTeamKind.Strong => "strong", PvpTeamKind.Elite => "elite", PvpTeamKind.Hunter => "zerg hunters", _ => "other",
+        };
+
+        /// <summary>
+        /// One zone of <c>/8v8 who</c>: how many groups each realm has in it and of what kinds.
+        /// The owner, 2026-11-24, of what the command said until then (every guild of the
+        /// player's realm with its rank and its eight classes, and a count of the others): "I
+        /// would probably change /8v8 who. I don't really need group setup and RR. I guess the
+        /// idea would be to know which zone has what kind of group and how many groups."
+        /// </summary>
+        public static string WhoLine(string zone, bool youAreHere, IReadOnlyList<(eRealm Realm, string Kind, bool Yours)> groups)
+        {
+            string head = zone + (youAreHere ? " (you are here)" : string.Empty) + ": ";
+            if (groups.Count == 0)
+                return head + "nobody.";
+            return head + string.Join(". ", groups.GroupBy(group => group.Realm).OrderBy(realm => realm.Key).Select(realm =>
+                $"{NameOf(realm.Key)} {realm.Count()}: " + string.Join(", ", (realm.Any(group => group.Yours) ? new[] { "yours" } : [])
+                    .Concat(realm.Where(group => !group.Yours).GroupBy(group => group.Kind).OrderByDescending(kind => kind.Count()).ThenBy(kind => kind.Key, StringComparer.Ordinal)
+                        .Select(kind => $"{kind.Count()} {kind.Key}"))))) + ".";
         }
 
         /// <summary>

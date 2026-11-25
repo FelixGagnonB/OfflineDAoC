@@ -14,6 +14,30 @@ namespace DOL.UnitTests
     public class UT_PvpPrimeTime
     {
         [Test]
+        public void WhoSaysWhichZoneHasWhatKindOfGroupAndHowMany()
+        {
+            // The owner, 2026-11-24: "the idea would be to know which zone has what kind of group and how many groups."
+            Assert.That(PvpRoam.WhoLine("Emain Macha", true,
+                [
+                    (eRealm.Albion, "bad", false), (eRealm.Albion, "bad", false), (eRealm.Albion, "decent", false),
+                    (eRealm.Midgard, "casual", false), (eRealm.Hibernia, "elite", false), (eRealm.Hibernia, "yours", true),
+                ]),
+                Is.EqualTo("Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual. Hibernia 2: yours, 1 elite."));
+            Assert.That(PvpRoam.WhoLine("Odin's Gate", false, []), Is.EqualTo("Odin's Gate: nobody."));
+            Assert.That(PvpRoam.KindWord(PvpTeamKind.Hunter), Is.EqualTo("zerg hunters"));
+            Assert.That(PvpRoam.KindWord(null), Is.EqualTo("other"));
+            // What a player has of the command on the play install, and what is kept for a test server or a game master.
+            foreach (string word in new[] { "call", "calls", "lead", "ready", "guild", "who", "rivals", "ranks", "go", "corpse" })
+                Assert.That(DOL.GS.Commands.Pvp8v8CommandHandler.IsKeptFromAPlayer(word, false, false), Is.False, word);
+            foreach (string word in new[] { "prime", "roam", "play", "setup", "group", "skill", "status", "stop", "clear", "lanes", "watch", "feed", "" })
+            {
+                Assert.That(DOL.GS.Commands.Pvp8v8CommandHandler.IsKeptFromAPlayer(word, false, false), Is.True, word);
+                Assert.That(DOL.GS.Commands.Pvp8v8CommandHandler.IsKeptFromAPlayer(word, true, false), Is.False, word + " on a test server");
+                Assert.That(DOL.GS.Commands.Pvp8v8CommandHandler.IsKeptFromAPlayer(word, false, true), Is.False, word + " for a game master");
+            }
+        }
+
+        [Test]
         public void InAFightAClickPicksNobody()
         {
             // The owner, 2026-11-24: "say we are in a fight and I click on a member of an idle team, does that trigger them to add on the fight?"
