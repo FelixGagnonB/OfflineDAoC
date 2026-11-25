@@ -592,6 +592,12 @@ namespace DOL.AI.Brain
             // In the middle of a cast only an instant can be added, as a player does (owner, 2026-11-17:
             // a Bard fires its amnesia while it casts its mez).
             bool midCast = Body.IsCasting;
+            // A bot of a slow level that is waiting before its next cast chooses nothing meanwhile (PvpHands).
+            if (!midCast && PvpHands.Hesitates(BotBody))
+            {
+                RecordPvpTurnTaken("slow hands");
+                return false;
+            }
             var characterClass = (eCharacterClass)BotBody.CharacterClass.ID;
             PvpWeights weights = PvpWeights.Of(BotBody);
             // The target of the mez, stun or root it is casting has been dealt with or is immune now: stop, and choose again.

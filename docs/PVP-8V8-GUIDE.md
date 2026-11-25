@@ -133,6 +133,12 @@ has played it yet.**
   The five levels: bad answers in 1.5 to 4 seconds and is looking elsewhere almost half the
   time; casual in 0.9 to 2.5; seasoned in 0.4 to 1.2; sharp in 0.15 to 0.45; elite in 0.1 to
   0.3. An elite team leaves a fight a second enemy group has come into.
+
+  A bad group also has slow hands (since the evening of 2026-11-24, after the owner found the
+  bad groups "not that bad"; run with bots only): in a fight its casters and healers wait one
+  to three seconds before half their casts, and four swings in ten of its fighters are without
+  a style. Until then a bad group's member did as much damage a minute as an elite team's. It
+  still walks in a pack of two to five, and three or four of them are in most of its fights.
 - **Where they go.** Nobody walks a fixed round. At each point a guild picks where to go next,
   not back the way it came. One that does not add stands by a fight it comes on for 45 seconds
   for it to end, then turns back or walks on past. One that does not count heads (the bad

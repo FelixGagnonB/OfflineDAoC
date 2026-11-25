@@ -81,6 +81,17 @@ namespace DOL.GS
         public int KiteCalledAfterMinMilliseconds { get; set; } = 2_000;
         public int KiteCalledAfterMaxMilliseconds { get; set; } = 5_000;
 
+        /// <summary>
+        /// Slow hands (bots/pvp/PvpHands.cs): in a fight, this often, in percent, a bot waits a
+        /// moment drawn between the two before a cast that takes time; and this share of a
+        /// fighter's swings is without a style. All 0: its hands are as quick as they were,
+        /// which is every level but the bad one.
+        /// </summary>
+        public int HesitatesPercent { get; set; }
+        public int HesitatesMinMilliseconds { get; set; } = 1_000;
+        public int HesitatesMaxMilliseconds { get; set; } = 3_000;
+        public int PlainSwingPercent { get; set; }
+
         /// <summary>The settings of a named level (docs/PVP-8V8-ROADMAP.md, M10.2).</summary>
         public static PvpHumanWeights For(PvpSkill skill) => skill switch
         {
@@ -93,6 +104,8 @@ namespace DOL.GS
                 AssistSwitchMinMilliseconds = 3_000, AssistSwitchMaxMilliseconds = 7_000, KeepsOldTargetPercent = 40, KeepsOldTargetMilliseconds = 10_000,
                 HurtNoticedBelowPercent = 75,
                 KiteCalledAfterMinMilliseconds = 10_000, KiteCalledAfterMaxMilliseconds = 20_000,
+                // Slow hands (M12.9): before half its casts it waits one to three seconds, and four swings in ten are without a style.
+                HesitatesPercent = 50, HesitatesMinMilliseconds = 1_000, HesitatesMaxMilliseconds = 3_000, PlainSwingPercent = 40,
             },
             // An elite team is a little quicker again than a sharp one: near to what the bots were before they were given limits.
             PvpSkill.Elite => new PvpHumanWeights
@@ -175,7 +188,7 @@ namespace DOL.GS
 
         public static string Describe(PvpSkill skill) => skill switch
         {
-            PvpSkill.Bad => "Bad: answers in one and a half to four seconds, distracted almost half the time, very often takes a lesser choice; its members come to a new kill target three to seven seconds late, four in ten much later",
+            PvpSkill.Bad => "Bad: answers in one and a half to four seconds, distracted almost half the time, very often takes a lesser choice; its members come to a new kill target three to seven seconds late, four in ten much later; before half its casts it waits one to three seconds, and four of its swings in ten are without a style",
             PvpSkill.Elite => "Elite: answers in a tenth to a third of a second, never distracted, always takes its best choice; the whole group is on a new kill target at once",
             PvpSkill.Sharp => "Sharp: answers in a quarter to half a second, never distracted, always takes its best choice; the whole group is on a new kill target at once and its healers see a health bar move at once",
             PvpSkill.Casual => "Casual: answers in one to two and a half seconds, distracted three times in ten, often takes a lesser choice; its members come to a new kill target two to four seconds late, one in four much later, and its healers are slow to see who is hurt",

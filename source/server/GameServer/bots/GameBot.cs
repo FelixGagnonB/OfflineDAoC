@@ -2787,6 +2787,9 @@ namespace DOL.GS
         {
             if (CompanionFollowPolicy.DeferBuff(this, spell)) return false;
             if (AutonomousGroupFormationFollow.DeferBuff(this, spell)) return false;
+            // An 8v8 bot of a slow level waits a moment before a cast that takes time (PvpHands); a song it keeps up is not one.
+            if (IsPvpBot && spell is { IsInstantCast: false } && !BotSongTwistPolicy.IsMobileSong(this, spell) && PvpHands.Hesitates(this))
+                return false;
             // Final boundary as well as selection filtering: no rank of the
             // disabled shield can keep a Cabalist/Enchanter bot channeling.
             if (AutonomousPetSupport.IsDisabledBotDamageShield(this, spell) ||
@@ -2828,6 +2831,8 @@ namespace DOL.GS
                 !BotSongTwistPolicy.IsMobileSong(this, spell))
                 WakeRecoveryRest();
             bool started = base.CastSpell(spell, line, spellCastingAbilityHandler, checkLos);
+            if (started && IsPvpBot && !spell.IsInstantCast)
+                PvpHands.CastBegan(this);
             CabalistRestDiagnostics.Attempt(this, spell, started);
             if (started && CharacterClass?.ID == (int)eCharacterClass.Animist)
                 AnimistSingleTargetPolicy.CastOwnerSpell(this, spell);

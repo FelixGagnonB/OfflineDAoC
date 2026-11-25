@@ -3662,6 +3662,39 @@ The plan the owner agreed to that day ("Let's proceed and test with bots first")
     calls in capitals: "I like the messages when the bot decide it's time to kite and run
     back, it's nice". Not said: whether "INC" and "ADD" were readable in the moment.
 
+- [ ] **M12.9** (S) A bad group's slow hands. *Built the evening of 2026-11-24 and run with bots
+  once; seen in no client.* The owner, after three evenings against the kinds: "In my opinion,
+  the bad group are not that bad, especially considering they always run with at least an
+  other group".
+  - **Counted first, over the six evenings of bots of that day.** Both halves hold. A bad
+    group's member did 974 damage a minute of fighting, an elite team's 956 and a decent
+    team's 843; class for class, 1.07 times what the same class did in every other kind. The
+    level of play (M12.6) made it late to answer and seldom on the call, and left its hands as
+    quick as anybody's. And in none of a bad group's 130 fights was it without another group of
+    its realm: two in 8, three in 42, four in 69, five in 11. With more groups than the enemy
+    it was wiped in 2 fights of 75, with as many in 16 of 31 (a decent team in 5 of 14, an
+    elite one in 1 of 15), with fewer in 15 of 24. The owner's own eight fights against bad
+    groups say the same: one group alone, beaten with none lost; two or more, wiped in six of
+    seven (the seventh was a brawl of five groups that were fighting each other).
+  - **Built** (`PvpHands.cs`, two settings of a level in `PvpHumanWeights`, both 0 for every
+    level but bad): in a fight a bad group's member waits one to three seconds before half its
+    casts that take time (heals and raises too; not an instant, not a song), and four swings
+    in ten of its fighters are without a style. Nothing of what a bot is worth was touched:
+    the same spells, styles, rank and equipment.
+  - **One evening after** (36 teams, 13 minutes): a bad group's casters cast 3.9 seconds apart
+    where they had cast 2.5 (the others 3.0 before and after); its healers healed 4.4 seconds
+    apart, the middle value, where it was 2.7; 49% of its fighters' one- and two-handed hits
+    were without a style where 18% were (the others 8%). No caster went into melee while it
+    waited, and no tick failed. **What it did not show:** whether a pack is easier to beat. In
+    all 32 of the bad groups' fights that evening they were three to five groups against
+    fewer, none was wiped, and they killed 76 for 13. The pack decides those fights, not the
+    hands.
+  - **Open, the owner's:** the pack. "Bad groups in packs of up to 5-6" is the owner's own
+    picture of the evening (M11), and it is what puts three or four groups of one realm in
+    most of a bad group's fights. Smaller packs (two or three) would change the evening more
+    than anything in how a member plays. Not touched. Also not known: how slow hands look from
+    the other side of a fight.
+
 **Where M12 stands (2026-11-24).** Built and run with bots on the scrim server: the measure, the
 kite, breaking off, no raising with too many on it. A seventh evening on the last build (13
 kites, five groups broke off and four got away, 21 teams wiped, the realm chat of a break-off
