@@ -14,6 +14,22 @@ namespace DOL.UnitTests
     public class UT_PvpPrimeTime
     {
         [Test]
+        public void ABotOnGroundItCannotLeaveIsFreedAndAColdFightIsOver()
+        {
+            // The owner, 2026-11-25: "2 druids are stuck in a tree and my alb team still consider being in fight".
+            // Asked to walk 600 units eight ways, the two got 0 to 90: trapped. One that gets somewhere one way is not.
+            Assert.That(PvpTrapped.IsTrapped([0, 90, 53, 74, 0, 74, 0, 12]), Is.True);
+            Assert.That(PvpTrapped.IsTrapped([0, 90, 53, 600, 0, 74, 0, 12]), Is.False);
+            Assert.That(PvpTrapped.IsTrapped([]), Is.False, "nothing asked, nothing said");
+            Assert.That(PvpTrapped.IsNear(48), Is.True, "the way in ended 29 to 48 units short of them");
+            Assert.That(PvpTrapped.IsNear(PvpTrapped.WayOutWithin + 1), Is.False, "a bot is not carried across a zone");
+            // A fight in which nobody has been in combat for half a minute is over, whoever still stands near.
+            Assert.That(PvpRoam.HasGoneCold(31_000), Is.True);
+            Assert.That(PvpRoam.HasGoneCold(12_000), Is.False);
+            Assert.That(PvpRoam.ColdAfterSeconds * 1_000, Is.GreaterThan(PvpRoam.FightOverAfterMilliseconds));
+        }
+
+        [Test]
         public void AHillHidesACastersTarget()
         {
             // The owner, 2026-11-25: "Eld killed a warrior by casting through a hill".

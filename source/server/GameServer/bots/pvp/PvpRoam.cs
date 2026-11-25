@@ -117,6 +117,8 @@ namespace DOL.GS
         public bool Rested;
         /// <summary>When its last fight was over (0: it has had none since it stood up).</summary>
         public long FoughtUntil;
+        /// <summary>When one of its members was last in combat (PvpRoam.HasGoneCold).</summary>
+        public long LastCombatTick;
         /// <summary>In the 8v8 zone: the enemy group it has picked to fight, which is then nobody else's (PvpRoam.MayPick).</summary>
         public PvpRoamTeam Claim;
         /// <summary>In the 8v8 zone: the enemy groups it is leaving to rest after their fight.</summary>
@@ -457,6 +459,18 @@ namespace DOL.GS
         /// <summary>In the 8v8 zone a group that waits for a rested group starts no fight while it, or the other, is getting over one.</summary>
         public static bool HoldsOff(bool waitsForARestedGroup, bool itIsRecovering, bool theOtherIsRecovering) =>
             waitsForARestedGroup && (itIsRecovering || theOtherIsRecovering);
+
+        /// <summary>
+        /// A fight in which nobody has been in combat for this long is over, whoever still stands
+        /// near. The owner, 2026-11-25: "2 druids are stuck in a tree and my alb team still
+        /// consider being in fight". Its group stood two and a half minutes "fighting" a group
+        /// whose last two it could not see or reach, and no blow was struck: a fight ended only
+        /// when no enemy had been near for twelve seconds, and they were 1,200 units away.
+        /// </summary>
+        public const int ColdAfterSeconds = 30;
+
+        /// <summary>See <see cref="ColdAfterSeconds"/>.</summary>
+        public static bool HasGoneCold(long millisecondsSinceAnyoneWasInCombat) => millisecondsSinceAnyoneWasInCombat > ColdAfterSeconds * 1_000L;
 
         /// <summary>
         /// In the 8v8 zone no fight begins beside another: a group starts on nobody while a third
@@ -1903,6 +1917,12 @@ namespace DOL.GS
                         if (team.Absent || !inTheWorld)
                             continue;
                     }
+                    // A member on ground it cannot leave (a patch of the navmesh round a tree) is put beside it (PvpTrapped).
+                    foreach (GameBot bot in team.Team.Bots)
+                    {
+                        if (PvpTrapped.Free(bot, team.Start.Point, now))
+                            Say($"{bot.Name} of {team.Name} is put off ground it could not leave", new { what = "freed", team = team.Name, n = bot.Name, x = bot.X, y = bot.Y });
+                    }
                     // Just stood up, and nobody met yet: whole while the buffs go on (TopsUp).
                     if (team.SpawnedAt != 0 && now - team.SpawnedAt < WholeAfterStandingUpSeconds * 1_000L)
                     {
@@ -2091,6 +2111,8 @@ namespace DOL.GS
             List<PvpRoamTeam> others = teams.Where(other => other.Realm != team.Realm && other.Alive > 0 && !other.Reforming && Near(team, other, 9_000)).ToList();
             team.Quiet = others.Count == 0 && team.ContactTick == 0;
             bool inCombat = team.Team.Members.Any(member => member.IsAlive && member.InCombat);
+            if (inCombat)
+                team.LastCombatTick = now;
             // The 8v8 zone (EightZone): nobody adds, a group picks one enemy group, and a group that has just fought is left to rest.
             // (And the clean zones of an evening, PvpRealWeights.CleanZonesHaveNoAdds.)
             bool eightOnly = _eight != null && team.Map == _eight || Prime && real.CleanZonesHaveNoAdds && team.Map.Crowd == PvpZoneCrowd.Clean;
@@ -2109,7 +2131,9 @@ namespace DOL.GS
                 teams.Any(third => third != one && third != but && third.Claim == one && third.Alive > 0 && !third.Reforming && third.Map == one.Map);
             if (team.LetsRest.Count > 0)
                 team.LetsRest.RemoveWhere(other => !eightOnly || !others.Contains(other) || !Recovering(other));
-            team.Fighting.RemoveWhere(other => other.Alive == 0 || !Near(team, other, 6_000));
+            // (Or the fight has gone cold: neither side has had a member in combat for half a minute. HasGoneCold.)
+            team.Fighting.RemoveWhere(other => other.Alive == 0 || !Near(team, other, 6_000) ||
+                                               HasGoneCold(now - Math.Max(team.LastCombatTick, other.LastCombatTick)));
             team.ComingSeen.RemoveWhere(other => other.Alive == 0 || team.Fighting.Count == 0 || !Near(team, other, 9_000));
             foreach (PvpRoamTeam other in others)
             {
@@ -2336,7 +2360,7 @@ namespace DOL.GS
                 }
             }
             // The fight is over when no enemy has been near for a while: a fresh squad for the next one.
-            else if (team.ContactTick != 0 && !inCombat && FightIsOver(now - team.LastEnemyNearTick))
+            else if (team.ContactTick != 0 && !inCombat && (FightIsOver(now - team.LastEnemyNearTick) || HasGoneCold(now - team.LastCombatTick)))
             {
                 team.ContactTick = 0;
                 team.FoughtUntil = now;

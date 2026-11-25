@@ -3873,6 +3873,27 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [x] **M13.22** (S) A player that has left the game since is known by its training. *Built 2026-11-25; automated
+  tests only: it shows at a login.* The owner, of its Albion group: "The bot cleric, which heals is it using ?". Two
+  single heals, and it was the wrong Cleric: the owner's own is trained as the Enhancement build, and its companion
+  was a second Enhancement Cleric, the group without its Rejuvenation Cleric. The build a player was made ready as
+  is remembered until it leaves the game; after that the first build of its class was left out of its companions,
+  whichever the player was. Now the build its own training is nearest to (`PvpPlayerReady.BuildOf`). Open: that
+  companion cast no group heal and no spread heal in forty minutes, which the owner cast 113 times with the same
+  training.
+- [x] **M13.21** (S) A bot on ground it cannot leave is put beside it, and a fight nobody strikes in is over. *Built
+  and run on the scrim copy 2026-11-25; the case itself did not come up in the evening of bots.* The owner, in
+  Thidranki: "I think I found a bug. My latest fight vs hibs. 2 druids are stuck in a tree and my alb team still
+  consider being in fight". The recording: a Druid and a Warden of a bad Hibernian group stood on one spot (18979,
+  30483) for the whole fight; the owner's seven stood 1,100 to 1,600 units off for two and a half minutes with no
+  enemy known to them and no blow struck, while the two raised three of their dead. Probed on the scrim copy: from
+  that spot one gets 0 to 74 units in each of eight directions (a patch of the navmesh round a tree), the way to
+  it from outside ends 29 units short, and the navmesh's line of sight does not cross the gap. Of 2,297 points of a
+  grid of 700 over Thidranki two were on such ground. Built: every five seconds a bot that has not moved is asked
+  whether it can walk anywhere; one that cannot is put where the way from its team's start toward it ends, when
+  that is within 400 units (`PvpTrapped`; here 29 and 51); and a fight in which neither side has had a member in
+  combat for 30 seconds is over, whoever stands near (`PvpRoam.HasGoneCold`). In the scrim evening no bot was put
+  anywhere (none was trapped, and none that was not was taken for it). Not known: how the two got onto the patch.
 - [x] **M13.20** (S) A bot does not cast through a hill. *Built and run on the scrim copy 2026-11-25; not seen in
   a client.* The owner, in Thidranki: "Could there be something to do for bot to have Line of Sight issue? Eld
   killed a warrior by casting through a hill". A bot's spell on a player is checked by that player's client; a

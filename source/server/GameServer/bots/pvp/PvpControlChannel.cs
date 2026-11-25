@@ -277,6 +277,30 @@ namespace DOL.GS
                     };
                 }
 
+                // way-out Region= X= Y= [FromX= FromY=]: whether one standing at the point can walk off it, and where it would
+                // be put if not (PvpTrapped). Changes nothing.
+                case "way-out":
+                {
+                    ushort regionId = ushort.Parse(Arg("Region") ?? "200");
+                    int x = int.Parse(Arg("X")), y = int.Parse(Arg("Y"));
+                    var nav = PathfindingProvider.Instance;
+                    Zone zone = WorldMgr.GetRegion(regionId)?.GetZone(x, y);
+                    float z = zone == null ? float.NaN : PvpSight.HeightAt(zone, x, y);
+                    if (float.IsNaN(z))
+                        return new { Standing = false };
+                    var at = new System.Numerics.Vector3(x, y, z);
+                    List<int> walks = PvpTrapped.Walks(zone, at);
+                    System.Numerics.Vector3? open = Arg("FromX") == null ? null
+                        : nav.GetFloorBeneath(zone, new System.Numerics.Vector3(int.Parse(Arg("FromX")), int.Parse(Arg("FromY")), 20_000), 20_000, nav.DefaultFilters);
+                    System.Numerics.Vector3? beside = open == null ? null : PvpTrapped.WayOut(zone, at, open.Value);
+                    return new
+                    {
+                        Standing = true, Z = (int)z, Walks = walks, Trapped = PvpTrapped.IsTrapped(walks),
+                        Beside = beside is { } found ? $"{(int)found.X},{(int)found.Y},{(int)found.Z}" : null,
+                        Away = beside is { } near ? (int?)(int)System.Numerics.Vector3.Distance(near, at) : null,
+                    };
+                }
+
                 case "scrim-status":
                     return PvpScrim.Status();
 
