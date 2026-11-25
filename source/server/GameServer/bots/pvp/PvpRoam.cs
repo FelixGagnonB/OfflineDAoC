@@ -147,6 +147,8 @@ namespace DOL.GS
         /// in another zone or region, so it counts nobody alive and is near nobody.
         /// </summary>
         public bool Absent;
+        /// <summary>When its eight were last made: at its start, after a wipe, on coming back to the field (PvpRoam.TopsUp).</summary>
+        public long SpawnedAt;
         public int Alive => Absent ? 0 : Team.Members.Count(member => member.IsAlive);
         public (double X, double Y) Centre()
         {
@@ -1218,6 +1220,21 @@ namespace DOL.GS
         /// </summary>
         public static bool HasLeftTheGame(bool characterIsDeleted, bool clientIsPlaying) => characterIsDeleted || !clientIsPlaying;
 
+        /// <summary>For how long a group that has just stood up is kept whole while its buffs go on: the time it buffs, and a little.</summary>
+        public const int WholeAfterStandingUpSeconds = 60;
+
+        /// <summary>
+        /// A group that has just stood up is whole when its buffs are on. Its members are made
+        /// with full health, then the buffs raise what full is, and nobody is hurt enough for a
+        /// healer to look at: the owner, 2026-11-25, "When the bot are done buffing, after we
+        /// release, we are 'low' on hp and neither druids or bards heals. We have to wait at the
+        /// keep for full hp." So for its first minute, while it has met nobody, every member that
+        /// is not in combat has its health, power and endurance full: what a group that sat down
+        /// to buff at its keep had when it got up.
+        /// </summary>
+        public static bool TopsUp(long millisecondsSinceItStoodUp, bool hasMetAnEnemy, bool memberIsInCombat) =>
+            millisecondsSinceItStoodUp >= 0 && millisecondsSinceItStoodUp < WholeAfterStandingUpSeconds * 1_000L && !hasMetAnEnemy && !memberIsInCombat;
+
         public enum Presence
         {
             Stays,
@@ -1673,7 +1690,7 @@ namespace DOL.GS
             team.Draws.Clear();
             team.Waiting = false;
             (team.Hide, team.Rested) = (null, false);
-            (team.DeadSince, team.Reforming, team.GivenUp, team.BrokeOffAt, team.Absent) = (0, false, false, 0, false);
+            (team.DeadSince, team.Reforming, team.GivenUp, team.BrokeOffAt, team.Absent, team.SpawnedAt) = (0, false, false, 0, false, now);
             (team.State, team.StateSince, team.ContactTick, team.LastEnemyNearTick) = (leader != null ? "Roaming" : "Buffing", now, 0, now);
         }
 
@@ -1761,6 +1778,22 @@ namespace DOL.GS
                         }
                         if (team.Absent || !inTheWorld)
                             continue;
+                    }
+                    // Just stood up, and nobody met yet: whole while the buffs go on (TopsUp).
+                    if (team.SpawnedAt != 0 && now - team.SpawnedAt < WholeAfterStandingUpSeconds * 1_000L)
+                    {
+                        bool met = team.ContactTick != 0 || team.Fighting.Count > 0;
+                        foreach (GameLiving member in team.Team.Members)
+                        {
+                            if (!member.IsAlive || !TopsUp(now - team.SpawnedAt, met, member.InCombat))
+                                continue;
+                            if (member.Health < member.MaxHealth)
+                                member.Health = member.MaxHealth;
+                            if (member.Mana < member.MaxMana)
+                                member.Mana = member.MaxMana;
+                            if (member.Endurance < member.MaxEndurance)
+                                member.Endurance = member.MaxEndurance;
+                        }
                     }
                     // The player has walked into another zone of the evening (the zones of a frontier lie side by side; the
                     // bots do not cross, their ground ends at the border): its group is of that zone now.

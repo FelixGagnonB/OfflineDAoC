@@ -3873,6 +3873,14 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [x] **M13.13** (S) A group that has just stood up is whole. *Built 2026-11-25; automated tests only.* The
+  owner, playing the play install: "When the bot are done buffing, after we release, we are 'low' on hp and
+  neither druids or bards heals. We have to wait at the keep for full hp." A group's members are made with full
+  health and the buffbot's buffs then raise what full is (Constitution), so everybody stood at four fifths with
+  nobody hurt enough for a healer to look at. Built (`PvpRoam.TopsUp`): for the first minute after its eight
+  are made (at its start, after a wipe, on coming back to the field), while the group has met nobody, each
+  member that is not in combat has its health, power and endurance full, the player too; every team of the
+  evening alike.
 - [x] **M13.12** (S) Every guild wears an emblem. *Built 2026-11-25; automated tests only (an emblem is drawn
   by a client, and an evening of bots sends no equipment to one).* The owner, after the first evening on the play
   install: "Can I still visite the capital city to change the guild embleem? We all wear the default all green,

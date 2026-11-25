@@ -78,6 +78,11 @@ namespace DOL.UnitTests
             Assert.That(PvpRoam.PresenceOf(true, true, false), Is.EqualTo(PvpRoam.Presence.Stays));
             Assert.That(PvpRoam.PresenceOf(false, false, false), Is.EqualTo(PvpRoam.Presence.Stays), "while its client loads a zone nothing is decided");
             Assert.That(PvpRoam.PresenceOf(false, true, true), Is.EqualTo(PvpRoam.Presence.Stays));
+            // "When the bot are done buffing, after we release, we are 'low' on hp ... We have to wait at the keep for full hp."
+            Assert.That(PvpRoam.TopsUp(millisecondsSinceItStoodUp: 20_000, hasMetAnEnemy: false, memberIsInCombat: false), Is.True);
+            Assert.That(PvpRoam.TopsUp(20_000, true, false), Is.False, "not once it has met somebody");
+            Assert.That(PvpRoam.TopsUp(20_000, false, true), Is.False, "nor a member that is being hit");
+            Assert.That(PvpRoam.TopsUp(PvpRoam.WholeAfterStandingUpSeconds * 1_000L, false, false), Is.False, "its first minute only");
             Assert.That(PvpEveningStart.Is8v8Character(50, true), Is.True);
             Assert.That(PvpEveningStart.Is8v8Character(49, true), Is.False);
             Assert.That(PvpEveningStart.Is8v8Character(50, false), Is.False);

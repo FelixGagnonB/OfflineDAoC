@@ -87,6 +87,9 @@ Repeating a call only renews it. A retreat is ended by any other call.
   near. With lead on, your group already falls back by itself when ten or more are on it.
 - **After a fight.** `/8v8 call rest`: disease, poison and nearsight are taken off everybody,
   buffs are recast, the group sits.
+- **After you stand up at your start.** Your group is whole (health, power, endurance) while
+  its buffs go on, for its first minute and as long as it has met nobody: no waiting at the
+  keep.
 - **When you die.** A healer raises you if the fight allows. If the whole group goes down, it
   stands up at your realm's start about half a minute later; `/release` takes you there at
   once. If you are dead and the fight is lost, `/8v8 call die` ends it without waiting.
