@@ -309,6 +309,10 @@ public static class AutonomousBotRealmAbilities
         return gained;
     }
 
+    /// <summary>The active abilities a bot has bought and uses, in the order it looks at them ("/8v8 call abilities" says them).</summary>
+    public static IReadOnlyList<TimedRealmAbility> ActivesOf(GameBot bot) =>
+        bot != null && States.TryGetValue(bot, out State state) ? state.Actives : Array.Empty<TimedRealmAbility>();
+
     /// <summary>Uses a bought active when the situation calls for it. Checked at most once a second.</summary>
     public static void UseActives(GameBot bot)
     {

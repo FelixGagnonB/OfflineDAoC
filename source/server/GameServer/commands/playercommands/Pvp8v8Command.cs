@@ -17,7 +17,7 @@ namespace DOL.GS.Commands
         "/8v8 prime ... rank <1-13>     the same evening to try things: your group at that realm rank for the evening, and it earns nothing (your next real fight puts you back at what you have earned)",
         "/8v8 go <zone>                 on a prime-time evening: your group ports to your realm's start in another zone of the evening (/8v8 who names them); not out of a fight",
         "/8v8 guild [name]              forms a guild with you as its guildmaster, at no cost and wherever you stand: your seven companions wear its name, and on a prime-time evening your group goes by it; alone it says what guild you have",
-        "/8v8 evening                   begins your evening when none is running: it begins by itself when you log in with an 8v8 character, and ends when you leave the frontier",
+        "/8v8 evening                   begins your evening when none is running: it begins by itself when you log in with an 8v8 character, and ends when you leave the game",
         "/8v8 who                       on a prime-time evening: each zone of the evening, how many groups every realm has in it and of what kinds (bad, casual, decent, strong, elite)",
         "/8v8 rivals                    the enemy guilds you have wiped or been wiped by on prime-time evenings, and how often",
         "/8v8 status                    in a roam: what every team is doing (buffing at its start, roaming, fighting whom, resting, waiting by a fight, wiped), how many of it are alive and how far it is",
@@ -106,6 +106,7 @@ namespace DOL.GS.Commands
             "/8v8 guild lineup [name]   which eight your group is, from your next evening on",
             "/8v8 guild emblem    opens the emblem window: your guild's emblem, free, worn by you and your companions",
             "/8v8 call <push|regroup|hold|engage|extend|assist|control|retreat|rest|die>   your call to the group",
+            "/8v8 call abilities   each companion says which active realm abilities it has up, which are down and for how long",
             "/8v8 calls <on|off>  your companions' calls in group chat",
             "/8v8 lead <on|off>   your companions fall back as one by themselves when the group has too many on it",
             "/8v8 evening         begins your evening when none is running (it begins by itself when you log in; it ends when you leave the frontier)",
@@ -211,6 +212,12 @@ namespace DOL.GS.Commands
                         Say(PvpRoam.GiveUp(player));
                         return;
                     }
+                    if (PvpCalls.IsAbilitiesCall(word))
+                    {
+                        if (squad.SayAbilities(player) == 0)
+                            Say("Your companions have no active realm ability yet: they buy them as they gain rank.");
+                        return;
+                    }
                     if (PvpCalls.IsControlCall(word))
                     {
                         if (!squad.CallControl(player, player.TargetObject as GameLiving, PvpRoam.StandsBy(player, player.TargetObject as GameLiving)))
@@ -219,7 +226,7 @@ namespace DOL.GS.Commands
                     }
                     if (PvpCalls.OrderFor(word) is not { } called)
                     {
-                        Say("/8v8 call push, regroup, hold, engage, extend, assist, control, retreat, rest or die.");
+                        Say("/8v8 call push, regroup, hold, engage, extend, assist, control, retreat, rest, die or abilities.");
                         return;
                     }
                     squad.CallOrder(player, called);

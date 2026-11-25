@@ -36,6 +36,18 @@ namespace DOL.UnitTests
         public void ADeadPlayerGivesALostFightUp()
         {
             // The owner, 2026-11-24: "i'd need a wait to tell them 'just die'".
+            // "Could there be another /8v8 command, for my group to /g which active are available / down and how long until it's up"
+            Assert.That(PvpCalls.IsAbilitiesCall("abilities"), Is.True);
+            Assert.That(PvpCalls.IsAbilitiesCall(" RA "), Is.True);
+            Assert.That(PvpCalls.IsAbilitiesCall("rest"), Is.False);
+            Assert.That(PvpCalls.TimeLeft(760_000), Is.EqualTo("12:40"));
+            Assert.That(PvpCalls.TimeLeft(44_200), Is.EqualTo("45s"));
+            Assert.That(PvpCalls.TimeLeft(65_000), Is.EqualTo("1:05"));
+            Assert.That(PvpCalls.AbilitiesLine([("Purge", 0), ("Group Purge", 760_000), ("Battery of Life", 0), ("Mastery of Concentration", 30_000)]),
+                Is.EqualTo("up: Purge, Battery of Life | down: Mastery of Concentration 30s, Group Purge 12:40"));
+            Assert.That(PvpCalls.AbilitiesLine([("Purge", 0)]), Is.EqualTo("up: Purge"));
+            Assert.That(PvpCalls.AbilitiesLine([("Purge", 1)]), Is.EqualTo("down: Purge 1s"));
+            Assert.That(PvpCalls.AbilitiesLine([]), Is.Null, "a companion with none says nothing");
             Assert.That(PvpCalls.IsDieCall("die"), Is.True);
             Assert.That(PvpCalls.IsDieCall(" Wipe "), Is.True);
             Assert.That(PvpCalls.IsDieCall("retreat"), Is.False);

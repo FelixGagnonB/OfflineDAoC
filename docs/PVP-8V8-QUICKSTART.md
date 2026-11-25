@@ -69,6 +69,7 @@ Put the ones you use on quickbar buttons with `/macro <name> /8v8 call <word>`.
 | `/8v8 call retreat` | Everybody drops everything and runs with you, sprinting. Also `run`, `follow`. | 30 s; call again to keep running |
 | `/8v8 call rest` | After a fight: cures, buffs, then sitting until full. Also `sit`, `buff`. | 2 minutes, or until you move or are attacked |
 | `/8v8 call die` | You are dead and the fight is lost: the group gives it up and stands up at its start. Also `wipe`, `giveup`. | at once |
+| `/8v8 call abilities` | Each companion says in group chat which of its active realm abilities are up, which are down and for how long ("up: Purge | down: Group Purge 12:40"). Also `ra`, `timers`, `cd`. | at once |
 
 Repeating a call only renews it. A retreat is ended by any other call.
 
