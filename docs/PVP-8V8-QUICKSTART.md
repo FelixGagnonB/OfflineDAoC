@@ -33,6 +33,7 @@ Everybody started at realm rank 1 level 1. Ranks only move while you are in the 
 | `/8v8 ready` | Lists your realm's builds. `/8v8 ready <build> confirm` makes this character level 50 with that build. |
 | `/8v8 guild` | Says what guild you have. `/8v8 guild <name>` forms one, free, wherever you stand (letters and spaces, 30 at most). |
 | `/8v8 guild lineup` | Says your line-up and lists your realm's. `/8v8 guild lineup <name>` sets it from your next evening on. |
+| `/8v8 evening` | Begins your evening when none is running. It begins by itself when you log in; it ends when you leave the frontier (to your trainer in the capital, say), and this begins it again. |
 | `/8v8 who` | Each zone of the evening: how many groups every realm has in it, and of what kinds. |
 | `/8v8 go <zone>` | Your group ports to your realm's start in another zone of the evening. Not in a fight. |
 | `/8v8 rivals` | The enemy guilds you have wiped or been wiped by, and how often. |
@@ -83,7 +84,9 @@ Repeating a call only renews it. A retreat is ended by any other call.
 - **When you die.** A healer raises you if the fight allows. If the whole group goes down, it
   stands up at your realm's start about half a minute later; `/release` takes you there at
   once. If you are dead and the fight is lost, `/8v8 call die` ends it without waiting.
-- **Spend your realm points.** At your class trainer, as in the game. Your companions spend
+- **Spend your realm points.** At your class trainer, as in the game. Leaving the frontier ends
+  the evening; when you are done, `/8v8 evening` takes you back and begins a new one (or log in
+  again). Your companions spend
   theirs by themselves, in the orders of
   [PVP-8V8-REALM-ABILITIES.md](PVP-8V8-REALM-ABILITIES.md).
 - **Change your group.** `/8v8 guild lineup <name>`, from the next evening. Your own class
@@ -185,8 +188,9 @@ fight, 45 seconds in.
 
 ## If something is wrong
 
-- **The evening does not begin.** Your character must be level 50 from `/8v8 ready`. If you are
-  told a fight or an evening is already running, leave the game and come in again.
+- **The evening does not begin.** Your character must be level 50 from `/8v8 ready`. Type
+  `/8v8 evening`. If you are told a fight or an evening is already running, leave the game and
+  come in again.
 - **You want the test commands** (`/8v8 prime`, `/8v8 stop`, `/8v8 status`, a trial at a picked
   rank): put an empty file `pvp-test-commands.txt` in `D:\OfflineDAoC\runtime\server` and
   restart the server.

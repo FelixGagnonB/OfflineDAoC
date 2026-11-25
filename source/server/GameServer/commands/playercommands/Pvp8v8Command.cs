@@ -17,6 +17,7 @@ namespace DOL.GS.Commands
         "/8v8 prime ... rank <1-13>     the same evening to try things: your group at that realm rank for the evening, and it earns nothing (your next real fight puts you back at what you have earned)",
         "/8v8 go <zone>                 on a prime-time evening: your group ports to your realm's start in another zone of the evening (/8v8 who names them); not out of a fight",
         "/8v8 guild [name]              forms a guild with you as its guildmaster, at no cost and wherever you stand: your seven companions wear its name, and on a prime-time evening your group goes by it; alone it says what guild you have",
+        "/8v8 evening                   begins your evening when none is running: it begins by itself when you log in with an 8v8 character, and ends when you leave the frontier",
         "/8v8 who                       on a prime-time evening: each zone of the evening, how many groups every realm has in it and of what kinds (bad, casual, decent, strong, elite)",
         "/8v8 rivals                    the enemy guilds you have wiped or been wiped by on prime-time evenings, and how often",
         "/8v8 status                    in a roam: what every team is doing (buffing at its start, roaming, fighting whom, resting, waiting by a fight, wiped), how many of it are alive and how far it is",
@@ -90,7 +91,7 @@ namespace DOL.GS.Commands
         /// for a game master, or for a server with <see cref="TestMarker"/> beside it, which the
         /// scrim server has and the play install has not.
         /// </summary>
-        public static readonly string[] PlayerWords = ["call", "calls", "lead", "ready", "guild", "who", "rivals", "ranks", "go", "corpse"];
+        public static readonly string[] PlayerWords = ["call", "calls", "lead", "ready", "guild", "evening", "who", "rivals", "ranks", "go", "corpse"];
 
         public const string TestMarker = "pvp-test-commands.txt";
 
@@ -102,6 +103,7 @@ namespace DOL.GS.Commands
             "/8v8 call <push|regroup|hold|engage|extend|assist|control|retreat|rest|die>   your call to the group",
             "/8v8 calls <on|off>  your companions' calls in group chat",
             "/8v8 lead <on|off>   your companions fall back as one by themselves when the group has too many on it",
+            "/8v8 evening         begins your evening when none is running (it begins by itself when you log in; it ends when you leave the frontier)",
             "/8v8 who             each zone of the evening: how many groups every realm has in it, and of what kinds",
             "/8v8 go <zone>       your group ports to your realm's start in another zone of the evening",
             "/8v8 rivals          the enemy guilds you have wiped or been wiped by, and how often",
@@ -249,6 +251,14 @@ namespace DOL.GS.Commands
                     Say(off ? "Your companions' calls are off." : "Your companions call in group chat: assist, incoming, orders, out of power.");
                     return;
                 }
+
+                case "evening":
+                    // The evening begins at login. It ends when its player is gone from the frontier (to a trainer, say): this begins it again.
+                    if (PvpScrim.IsPlaying(player) || PvpRoam.Leads(player))
+                        Say("Your evening is running. /8v8 who says where everybody is.");
+                    else
+                        PvpEveningStart.BeginFor(player, true);
+                    return;
 
                 case "guild":
                 {
