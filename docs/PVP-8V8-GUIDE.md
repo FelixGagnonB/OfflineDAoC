@@ -139,6 +139,11 @@ has played it yet.**
   to three seconds before half their casts, and four swings in ten of its fighters are without
   a style. Until then a bad group's member did as much damage a minute as an elite team's. It
   still walks in a pack of two to five, and three or four of them are in most of its fights.
+
+  And one member in four of a bad group has Purge on its bar (the same ones all evening); the
+  others sleep a mez out until it ends, they are hit or somebody cures them. Until then every
+  one of them purged a mez within seconds, and a pack under two Bards was asleep 2 to 4% of
+  the time. **Automated tests only; not yet run with bots or seen in a client.**
 - **Where they go.** Nobody walks a fixed round. At each point a guild picks where to go next,
   not back the way it came. One that does not add stands by a fight it comes on for 45 seconds
   for it to end, then turns back or walks on past. One that does not count heads (the bad

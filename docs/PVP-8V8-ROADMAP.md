@@ -3689,6 +3689,26 @@ The plan the owner agreed to that day ("Let's proceed and test with bots first")
     all 32 of the bad groups' fights that evening they were three to five groups against
     fewer, none was wiped, and they killed 76 for 13. The pack decides those fights, not the
     hands.
+  - **The owner's evening on that build** (two sessions, four fights, rank 8, two Bards): two
+    bad groups and two casual ones of another realm held for six and a half minutes with 12
+    killed and 4 lost; two bad groups beaten with none lost, two bad groups of its own realm
+    beside it; then five of the eight lost in 66 seconds to two bad groups with nobody killed.
+    A pair of bad Midgard groups did 5,600 to 6,000 damage in ten seconds to the owner's eight
+    at their worst on the build before, and 2,700 to 3,000 on this one. The owner: "the bad
+    still seems too good to me, but maybe i'm just that bad now /shrug. The rest seems to be
+    working right".
+  - **What the recordings said of it: Purge.** In those fights, and in three of the day
+    before, the bad groups' members were asleep 2 to 4% of the time they were alive, with two
+    Bards casting 11 to 65 mezzes a fight. The largest share of their sleeps ended after four
+    to seven seconds with no hit and no cure: the sleeper's own Purge, 8 times in the first 70
+    seconds of one fight, 15 in two minutes of another, 23 in six and a half of a third. Every
+    bot buys Purge with its first realm points (`AutonomousBotRealmAbilities.PvpFirst`), a
+    group that has been wiped stands up with its timers reset, and a bad member's hand is on
+    the key four to seven seconds after the mez. So the one thing a group of eight has against
+    sixteen did nothing. Built: `PvpPurgeWeights.HeldByPercent`, 100 for every kind and 25
+    for the bad one (`PvpStyles`): one member in four has Purge on its bar, the same ones all
+    evening by their names, and the others sleep a mez out. *Automated tests only: the owner
+    was on the server; to be deployed and run with bots once the owner is off.*
   - **Open, the owner's:** the pack. "Bad groups in packs of up to 5-6" is the owner's own
     picture of the evening (M11), and it is what puts three or four groups of one realm in
     most of a bad group's fights. Smaller packs (two or three) would change the evening more

@@ -77,6 +77,8 @@ namespace DOL.GS
                     // Control: the mezzer mostly does damage; nobody roots a fighter that is on its healers.
                     Lean(w, 0.5, 0.6, 40);
                     (w.RootOnPursuer, w.RootOnPursuerWhileExtending) = (0, 0);
+                    // Purge: one member in four has it on its bar; the others sleep a mez out (PvpPurgeWeights.HeldByPercent).
+                    w.Purge.HeldByPercent = 25;
                     // Peel and interrupt: none. A shield fighter is one more fighter.
                     w.Peel.Enabled = false;
                     (w.Interrupt.MinScore, w.InterruptsACast, w.InstantOnCastingTarget) = (10_000, 0, 0);
