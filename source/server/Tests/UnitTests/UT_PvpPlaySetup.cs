@@ -40,6 +40,15 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void An8v8BotDoesNotMakeItselfAMonsterToCharm()
+        {
+            // The owner, 2026-11-25: "sorc seems to have issue with it's controlled pet and losing speed".
+            Assert.That(AutonomousPetSupport.MakesItsOwnCharmPet(isABot: true, isAn8v8Bot: true), Is.False);
+            Assert.That(AutonomousPetSupport.MakesItsOwnCharmPet(true, false), Is.True, "a gamebot, and a companion of the game as it was, as before");
+            Assert.That(AutonomousPetSupport.MakesItsOwnCharmPet(false, false), Is.False, "never a player");
+        }
+
+        [Test]
         public void WithoutABuildTheFirstOfThePlayersClassIsLeftOut()
         {
             Assert.That(PvpPlayerReady.SlotOf(AlbMain, eCharacterClass.Cleric, null), Is.EqualTo(0));

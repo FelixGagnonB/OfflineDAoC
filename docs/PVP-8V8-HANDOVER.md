@@ -115,7 +115,8 @@ built. The ones you are most likely to want, with what is built in:
       }
     }
 
-`EveningGroups`: groups of each realm (16 at most; eight was the number until 2026-11-25).
+`EveningGroups`: groups of each realm (20 at most: with 24 the server stalled for seconds at a
+time in a test; eight was the number until 2026-11-25).
 `CleanZonesHaveNoAdds`: the nine clean frontier zones are played as the 8v8 zone is. `RealmPointRate`: how many times the game's
 realm points a kill is worth. `EnemyKeepsUp`: no enemy fights below your group's average rank.
 `EightZone`: the zone where nobody adds, by the word `/8v8 go` takes (`""`: none); `EightZoneGroups`:

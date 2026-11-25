@@ -992,6 +992,9 @@ namespace DOL.GS
             return spoke;
         }
 
+        /// <summary>A member says a line in group chat to the group's players, no sooner than <paramref name="every"/> milliseconds after the last of its kind (the driver's "Stick, moving out").</summary>
+        public void Tell(GameLiving speaker, string kind, string text, int every = 0) => Call(speaker, kind, text, every);
+
         /// <summary>A player of the group calls a rest (PvpCalls.PlayerRestSeconds).</summary>
         public void CallRest(GameLiving caller)
         {

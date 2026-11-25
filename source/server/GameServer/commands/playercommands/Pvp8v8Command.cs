@@ -95,7 +95,7 @@ namespace DOL.GS.Commands
         /// /8v8 stop ?", and of having it: "I want it on scrim, it makes testing easy, but not on the real server". So
         /// "/8v8 ready" on a character whose evening runs, which used to answer "/8v8 stop first", ends and begins that
         /// evening by itself.)
-        public static readonly string[] PlayerWords = ["call", "calls", "lead", "ready", "guild", "evening", "who", "rivals", "ranks", "go", "corpse"];
+        public static readonly string[] PlayerWords = ["call", "calls", "lead", "drive", "ready", "guild", "evening", "who", "rivals", "ranks", "go", "corpse"];
 
         public const string TestMarker = "pvp-test-commands.txt";
 
@@ -107,6 +107,7 @@ namespace DOL.GS.Commands
             "/8v8 guild emblem    opens the emblem window: your guild's emblem, free, worn by you and your companions",
             "/8v8 call <push|regroup|hold|engage|extend|assist|control|retreat|rest|die>   your call to the group",
             "/8v8 call abilities   each companion says which active realm abilities it has up, which are down and for how long",
+            "/8v8 drive [on|off]  one of your companions drives the group and you stick to it (on unless you play a Bard, Sorcerer, Minstrel, Skald or Pacification Healer)",
             "/8v8 calls <on|off>  your companions' calls in group chat",
             "/8v8 lead <on|off>   your companions fall back as one by themselves when the group has too many on it",
             "/8v8 evening         begins your evening when none is running (it begins by itself when you log in; it ends when you leave the frontier)",
@@ -321,6 +322,19 @@ namespace DOL.GS.Commands
                     return;
                 }
 
+                case "drive":
+                {
+                    // Alone it says who drives; on or off is kept from one login to the next. Unsaid: a companion drives unless the
+                    // player's own character is one that drove a group (PvpDriver).
+                    string driveWord = args.Length > 2 ? args[2].ToLowerInvariant() : string.Empty;
+                    if (driveWord is "on" or "off")
+                        PvpDriver.Set(player, driveWord == "on");
+                    bool isADriver = PvpDriver.PlayerIsADriver(player);
+                    Say(PvpDriver.Answer(PvpDriver.BotDrives(PvpDriver.Said(player), isADriver, player.Group?.GetMembersInTheGroup().OfType<GameBot>().Any(bot => bot.IsPvpBot && bot.IsAlive) == true),
+                        PvpDriver.Said(player), isADriver));
+                    return;
+                }
+
                 case "lead":
                 {
                     // Alone it says what is set; on or off is kept from one login to the next (on for a new player).
@@ -410,7 +424,7 @@ namespace DOL.GS.Commands
                         }
                         int groups = rest.Select(word => int.TryParse(word, out int number) ? number : 0).FirstOrDefault(number => number > 0);
                         PvpRoam.StartFor(player, Say, rest.Select(PvpBuildCatalog.FindGroup).FirstOrDefault(group => group != null),
-                            rest.Select(PvpRoam.MapFor).FirstOrDefault(map => map != null), System.Math.Clamp(groups == 0 ? 8 : groups, 1, 16),
+                            rest.Select(PvpRoam.MapFor).FirstOrDefault(map => map != null), System.Math.Clamp(groups == 0 ? 8 : groups, 1, PvpTeamPool.MostGroups),
                             rest.Any(word => word.Equals("one", System.StringComparison.OrdinalIgnoreCase)),
                             rest.Any(word => word.Equals("all", System.StringComparison.OrdinalIgnoreCase)), trialRank);
                     }

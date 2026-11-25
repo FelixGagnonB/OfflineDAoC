@@ -479,7 +479,16 @@ namespace DOL.UnitTests
             List<PvpGuildTeam> more = PvpTeamPool.Generate(6, new Random(8), pool);
             Assert.That(more, Has.Count.EqualTo(18));
             Assert.That(more.Select(team => team.Guild).Intersect(pool.Select(team => team.Guild)), Is.Empty);
-            Assert.That(PvpTeamPool.MostPerRealm, Is.GreaterThanOrEqualTo(24));
+            Assert.That(PvpTeamPool.MostPerRealm, Is.GreaterThanOrEqualTo(48));
+            // "We could stress test and add more guilds and have a bigger pool": three evenings' worth, and no more than there are names.
+            Assert.That(PvpTeamPool.PoolFor(12), Is.EqualTo(36));
+            Assert.That(PvpTeamPool.PoolFor(4), Is.EqualTo(16));
+            Assert.That(PvpTeamPool.PoolFor(PvpTeamPool.MostGroups), Is.EqualTo(PvpTeamPool.MostPerRealm));
+            List<PvpGuildTeam> all = PvpTeamPool.Generate(PvpTeamPool.MostPerRealm, new Random(2));
+            Assert.That(all, Has.Count.EqualTo(3 * PvpTeamPool.MostPerRealm));
+            Assert.That(all.Select(team => team.Guild).Distinct(StringComparer.OrdinalIgnoreCase).Count(), Is.EqualTo(all.Count), "no name twice, in any realm");
+            Assert.That(all.Select(team => team.Id).Distinct().Count(), Is.EqualTo(all.Count));
+            Assert.That(all.Max(team => team.Guild.Length), Is.LessThanOrEqualTo(30));
         }
 
         [Test]
@@ -694,6 +703,17 @@ namespace DOL.UnitTests
                 Assert.That(taken, Does.Not.Contain(other.Id));
             }
             Assert.That(PvpTeamPool.NextOut(pool, eRealm.Midgard, PvpTeamKind.Bad, midgard.Select(team => team.Id).ToHashSet(), new Random(1)), Is.Null, "nobody is left");
+            // An evening that outlasts its pool (the owner, an hour and a half in: "Emain : 4 albion, 1 midgard, Odin's : 0"):
+            // a guild that logged off long enough ago comes out again, of the kind when there is one, the longest gone first.
+            var everybody = midgard.Select(team => team.Id).ToHashSet();
+            List<string> gone = [midgard.First(team => team.ToProfile().Kind == PvpTeamKind.Decent).Id, bad[1].Id, bad[0].Id];
+            Assert.That(PvpTeamPool.NextOut(pool, eRealm.Midgard, PvpTeamKind.Bad, everybody, new Random(1), gone).Id, Is.EqualTo(bad[1].Id));
+            Assert.That(PvpTeamPool.NextOut(pool, eRealm.Midgard, PvpTeamKind.Elite, everybody, new Random(1), gone).Id, Is.EqualTo(gone[0]), "none of its kind: the longest gone");
+            Assert.That(PvpTeamPool.NextOut(pool, eRealm.Albion, PvpTeamKind.Bad, pool.Select(team => team.Id).ToHashSet(), new Random(1), gone), Is.Null, "not another realm's");
+            // (One that has not been out comes before one that comes back.)
+            Assert.That(PvpTeamPool.NextOut(pool, eRealm.Midgard, PvpTeamKind.Bad, taken, new Random(1), gone).Id, Is.Not.AnyOf(gone.ToArray<object>()).And.Not.AnyOf(taken.ToArray<object>()));
+            Assert.That(PvpTeamPool.ComesBack(PvpTeamPool.ComesBackAfterSeconds), Is.True);
+            Assert.That(PvpTeamPool.ComesBack(120), Is.False, "not the moment it has logged off");
         }
 
         [Test]

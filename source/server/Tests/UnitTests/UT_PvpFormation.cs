@@ -38,6 +38,34 @@ namespace DOL.UnitTests
         [Test]
         public void TheSpeedSongDrives()
         {
+            // The owner, 2026-11-25: "Ideally, the driver would be: bard; sorc or minstrel; pac healer or skald".
+            Assert.That(PvpDriver.Rank(eCharacterClass.Bard, "bard"), Is.EqualTo(0));
+            Assert.That(PvpDriver.Rank(eCharacterClass.Sorcerer, "sorcerer-mind"), Is.LessThan(PvpDriver.Rank(eCharacterClass.Minstrel, "minstrel")));
+            Assert.That(PvpDriver.Rank(eCharacterClass.Healer, "healer-pac"), Is.LessThan(PvpDriver.Rank(eCharacterClass.Skald, "skald")));
+            Assert.That(PvpDriver.Rank(eCharacterClass.Healer, "healer-mend"), Is.EqualTo(-1), "the Mending Healer does not");
+            Assert.That(PvpDriver.Rank(eCharacterClass.Hero, "hero"), Is.EqualTo(-1));
+            // "when I do not play bard/sorc/minstrel/skald, 1 of the bot drive": asked when, "Automatic, with an off switch".
+            Assert.That(PvpDriver.IsADriver(eCharacterClass.Cleric, false), Is.False);
+            Assert.That(PvpDriver.IsADriver(eCharacterClass.Minstrel, false), Is.True);
+            Assert.That(PvpDriver.IsADriver(eCharacterClass.Healer, pacification: true), Is.True);
+            Assert.That(PvpDriver.IsADriver(eCharacterClass.Healer, false), Is.False);
+            Assert.That(PvpDriver.BotDrives(said: null, playerIsADriver: false, aCompanionIsUp: true), Is.True);
+            Assert.That(PvpDriver.BotDrives(null, true, true), Is.False, "a player that drives its own");
+            Assert.That(PvpDriver.BotDrives(false, false, true), Is.False, "/8v8 drive off");
+            Assert.That(PvpDriver.BotDrives(true, true, true), Is.True, "/8v8 drive on");
+            Assert.That(PvpDriver.BotDrives(true, false, false), Is.False, "nobody up to do it");
+            // The driver stands for a player that has fallen behind, until it has come up; not for one that is down (it stays by it).
+            Assert.That(PvpDriver.Waits(waitingAlready: false, playerFromTheDriver: 1_600, playerIsUp: true), Is.True);
+            Assert.That(PvpDriver.Waits(false, 1_200, true), Is.False);
+            Assert.That(PvpDriver.Waits(true, 1_200, true), Is.True, "until it has come up");
+            Assert.That(PvpDriver.Waits(true, 700, true), Is.False);
+            Assert.That(PvpDriver.Waits(false, 5_000, false), Is.False);
+            Assert.That(PvpDriver.HoldsAtStart(10_000), Is.True, "not before the buffs are on");
+            Assert.That(PvpDriver.HoldsAtStart(31_000), Is.False);
+            Assert.That(PvpDriver.MovingOut("mid road"), Is.EqualTo("Stick, moving out: mid road."));
+            Assert.That(PvpDriver.MovingOut(null), Is.EqualTo("Stick, moving out."));
+            Assert.That(PvpDriver.Answer(true, null, false), Does.Contain("/8v8 drive off"));
+            Assert.That(PvpDriver.Answer(false, false, false), Does.Contain("/8v8 drive on"));
             Assert.That(PvpFormation.DrivesByClass(eCharacterClass.Bard), Is.True);
             Assert.That(PvpFormation.DrivesByClass(eCharacterClass.Skald), Is.True);
             Assert.That(PvpFormation.DrivesByClass(eCharacterClass.Minstrel), Is.True);

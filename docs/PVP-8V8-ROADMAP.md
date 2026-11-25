@@ -3873,6 +3873,58 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [x] **M13.26** (S) The heal for several, by the owner's rule. *Built 2026-11-25; an evening of bots on the scrim
+  copy.* Asked which heals its companion Cleric uses, the recording said: two single heals, and no group or spread
+  heal in forty minutes; over all groups the bot Clerics cast one for 29 of their 1,422 heals, the owner for 139 of
+  its 387. The rule had been three members under 80% and nobody trained. Asked when it reaches for them, the owner:
+  "I usually use either when 4+ members are damage or I am not having LoS to heal as either group or spreadheal
+  requires LoS". Now (`PvpHealWeights.SpreadHealMinHurt` 4, `SpreadHealWhenTrained`, `AreaHealWhenOutOfSight`,
+  `PvpHealPlan.AreaHealIsRight`): four or more members in reach hurt, whether or not somebody is trained; or a
+  member that needs a heal is out of the healer's sight (the navmesh's ray and the ground, as for a cast). Between
+  the group heal and the spread heal it is still the one that restores more for its power. For a Rejuvenation
+  Cleric of this server (group heal 283 each for 97 power, spread heal a pool of 2,360 with 590 a member at the
+  most for 110): with two to seven hurt the spread heal restores nearly twice as much for its power, with all
+  eight the two are level.
+- [x] **M13.25** (S) An 8v8 bot does not make itself a monster to charm. *Built and run on the scrim copy
+  2026-11-25.* The owner, of its Albion group: "sorc seems to have issue with it's controlled pet and losing speed.
+  I need to go back to regroup with her from time to time". The recording of that evening: the companion Sorcerer
+  began the charm 419 times in 96 minutes, every ten seconds, never in a fight and each time on another monster; it
+  travelled at 381 units a second where the six others ran 502 to 505, and was more than 1,500 units behind the
+  player for 44% of the way. A pet class of the game as it was makes itself a monster to charm when it has no pet
+  (`AutonomousPetSupport`): right for a gamebot, wrong on the road of an 8v8 group. Not for an 8v8 bot any more
+  (`MakesItsOwnCharmPet`); gamebots and the companions of the game as it was are as before. In the scrim evening
+  after it no 8v8 bot began a charm. Not found: why the pet was lost each time.
+- [x] **M13.24** (M) A companion at the wheel of the player's group. *Built 2026-11-25; automated tests only: an
+  evening of bots has no player to drive for.* The owner: "Would there be a way that when I do not play
+  bard/sorc/minstrel/skald, 1 of the bot drive? It could say in group chat 'Stick moving out' so we when we are
+  moving. Ideally, the driver would be: bard; sorc or minstrel; pac healer or skald". Asked how far the driving
+  goes: "Roam and engage"; asked when: "Automatic, with an off switch". Built (`PvpDriver`, `PvpRoam.Drives`):
+  unless the player's own character is one of those (a Healer: with Pacification its most trained line) or it has
+  said `/8v8 drive off` (kept, `PvpPlayerSetting.Drive`), its group goes from point to point of its zone as a
+  guild does (`Wander`), follows its driver on the road as a group of bots does (`PvpFormation.DriverOf`, now in
+  the owner's order for every group), and takes on what it meets by the rules a team of bots has and never adds;
+  what the player strikes or calls is the group's all the same, and every call holds. The driver says "Stick,
+  moving out: <place>.", stands for a player more than 1,500 units behind until it is within 800 ("Waiting for
+  you"), stays by one that is down, rests the group after a fight ("Resting here."), and waits thirty seconds
+  after the group has stood up. The player's group is never sent back to its start by itself.
+- [x] **M13.23** (M) An evening lasts as long as its player plays: guilds come back, the pool is bigger, and up to
+  twenty groups a realm. *Built and run on the scrim copy 2026-11-25.* The owner, an hour and a half into an
+  evening of twelve groups a realm: "/8v8 who shows: Emain : 4 albion, 1 midgard, Odin's : 0, Pennine : 0, Thid:
+  1 albion". In that evening 67 guilds had logged off (38 at the end of their 25 to 50 minutes, 29 after three
+  wipes) and 37 had come out in their place: a guild came out only if it had not been out that evening, and the
+  pool had 24 a realm. Then: "We could stress test and add more guilds and have a bigger pool". Built: a guild
+  that logged off ten minutes ago or more comes out again when no fresh one is left (`PvpTeamPool.NextOut`,
+  `ComesBack`), and a place nobody could be found for waits and is filled when somebody can come (`Vacant`);
+  22 more guild names a realm (48); a pool of three evenings' worth (`PoolFor`: 36 a realm for twelve groups);
+  the most groups a realm 20 (`MostGroups`; 16 before). Stress on the scrim copy, eight minutes each at low
+  priority: 16 groups a realm (48 teams) game loop at 91% of its rate, 20 (60 teams) 90%, 24 (72 teams) 84% and
+  once at 8% for ten seconds; no fault in any; memory 2 GB in all three. `scrim_test.py` now tells the load and
+  the coming and going, and takes `--pool` and `--pool-size`. An evening of sixty minutes with a pool of sixteen a
+  realm: 38 guilds logged off and 38 came out in their place, 26 of them for a second time; 36 of 36 teams out at
+  the end, 229 fights, no fault. That evening had one team of the 8v8 zone with two groups on it for 78 seconds
+  (89 of 9,622 team-samples): a group that stood by a fight was caught by a spell for an area of that fight, and
+  the two took each other on. Since then, in a zone where nobody adds, a bot attacks a group only once it has
+  struck one of its members, as a player does.
 - [x] **M13.22** (S) A player that has left the game since is known by its training. *Built 2026-11-25; automated
   tests only: it shows at a login.* The owner, of its Albion group: "The bot cleric, which heals is it using ?". Two
   single heals, and it was the wrong Cleric: the owner's own is trained as the Enhancement build, and its companion

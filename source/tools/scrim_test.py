@@ -4,6 +4,7 @@
     python scrim_test.py --minutes 15        a longer evening
     python scrim_test.py --groups 8          fewer groups of each realm
     python scrim_test.py --skip-build        install and run what is built already
+    python scrim_test.py --minutes 50 --pool small --pool-size 16    a small pool of guilds of its own: they log off and must come back
     python scrim_test.py --game <folder>     another scrim copy (its name must have "scrim" in it)
 
 It does by itself what was done by hand before every install: `dotnet build`, `deploy_scrim.ps1
@@ -26,6 +27,7 @@ import glob
 import json
 import math
 import os
+import re
 import subprocess
 import sys
 import time
@@ -118,7 +120,11 @@ def read_recording(path):
                    not set(other["fighting"]) & set(row["fighting"]) and
                    math.dist((row["x"], row["y"]), (other["x"], other["y"])) < 4500 for other in there):
                 beside[zone] += 1
-    return dict(teams=len(head.get("teams", [])), kinds=dict(kinds), events=dict(events),
+    # Who is out at the end (a team the recording still writes of, not away), and who came out a second time.
+    end = max((int(float(row.get("t", 0))) for row in rows), default=0)
+    out = {row["name"] for row in rows if row.get("k") == "team" and int(float(row.get("t", 0))) >= end - 20000 and row.get("state") != "Away"}
+    again = sum(1 for row in rows if row.get("k") == "ev" and isinstance(row.get("ev"), dict) and row["ev"].get("what") == "join" and row["ev"].get("again"))
+    return dict(teams=len(head.get("teams", [])), kinds=dict(kinds), events=dict(events), out=len(out), again=again,
                 zones=dict(collections.Counter(zones.values())), one=dict(one), more=dict(more), beside=dict(beside))
 
 
@@ -201,7 +207,9 @@ def main(argv):
     offset = os.path.getsize(log) if os.path.isfile(log) else 0
     passed = False
     try:
-        answer = request(runtime, "roam-start", f"Prime={groups}", "Pool=kite1", "Listener=hibernia", "Zones=tonight", "Map=emain")
+        # (--pool and --pool-size: a pool of its own with that many guilds a realm, to see an evening outlast its pool.)
+        pool = [f"Pool={option('--pool', 'kite1')}"] + ([f"PoolSize={option('--pool-size', '')}"] if "--pool-size" in argv else [])
+        answer = request(runtime, "roam-start", f"Prime={groups}", *pool, "Listener=hibernia", "Zones=tonight", "Map=emain")
         if not answer or not answer.get("Ok"):
             say(f"FAILED: the evening did not begin: {json.dumps(answer)[:400]}")
             return finish(1)
@@ -222,6 +230,22 @@ def main(argv):
         recordings = [path for path in glob.glob(os.path.join(runtime, "server", "logs", "roams", "*.jsonl")) if os.path.getmtime(path) >= began]
         read = read_recording(max(recordings, key=os.path.getmtime)) if recordings else None
         say(f"Server: {'up' if alive else 'DOWN'} at the end, the evening {'still running' if still else 'NOT running'}.")
+        # The server's own figures, twice a minute: how fast its game loop ran (100% is its full rate), its processor and its memory.
+        loops, cpus, memory = [], [], []
+        for line in text:
+            found = re.search(r"Game loop TPS \(10/30/60\)s:\s+([\d.]+)%", line)
+            if found:
+                loops.append(float(found.group(1)))
+            found = re.search(r"CPU \(process/system\):\s+([\d.]+)% / ([\d.]+)%", line)
+            if found:
+                cpus.append((float(found.group(1)), float(found.group(2))))
+            found = re.search(r"Memory \(used/commit\):\s+(\d+) MB", line)
+            if found:
+                memory.append(int(found.group(1)))
+        if loops and cpus:
+            say(f"Load: game loop {sum(loops) / len(loops):.1f}% of its rate on average, {min(loops):.1f}% at the lowest ({len(loops)} samples); "
+                f"server processor {sum(cpu for cpu, _ in cpus) / len(cpus):.1f}% of the machine, the whole machine {sum(whole for _, whole in cpus) / len(cpus):.0f}%; "
+                f"memory up to {max(memory) if memory else 0} MB.")
         say(f"Log: {len(ticks)} failed ticks, {len(abilities)} failed abilities, {len(faults)} other faults, {used} realm abilities used.")
         for line in (ticks + abilities + faults)[:8]:
             say("  " + line[:300])
@@ -232,6 +256,8 @@ def main(argv):
             fights = read["events"].get("fight", 0) // 2
             say(f"Recording: {read['teams']} teams ({', '.join(f'{count} {kind}' for kind, count in sorted(read['kinds'].items()))}); "
                 f"{fights} fights, {read['events'].get('wipe', 0)} wipes.")
+            say(f"Coming and going: {read['events'].get('logoff', 0)} guilds logged off, {read['events'].get('join', 0)} came out in their place "
+                f"({read['again']} of them for a second time); {read['out']} of {read['teams']} teams are out at the end.")
             say("Zones: " + ", ".join(f"{zone} {count}" for zone, count in sorted(read["zones"].items())))
             for zone in sorted(set(read["one"]) | set(read["more"])):
                 one, more = read["one"].get(zone, 0), read["more"].get(zone, 0)

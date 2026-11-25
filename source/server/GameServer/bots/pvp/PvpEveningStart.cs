@@ -110,7 +110,7 @@ namespace DOL.GS
                 PvpRoam.StartFor(player, Say, kept.Lineup == null ? null : PvpBuildCatalog.FindGroup(kept.Lineup), zone ?? PvpRoam.Emain,
                     // (As many groups as the settings say: what was kept from the last evening was only ever that number,
                     // and held it fast when the setting was changed.)
-                    Math.Clamp(real.EveningGroups, 1, 16), stay: true);
+                    Math.Clamp(real.EveningGroups, 1, PvpTeamPool.MostGroups), stay: true);
             }
             catch (Exception exception)
             {

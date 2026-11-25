@@ -446,7 +446,13 @@ namespace DOL.AI.Brain
             if (BotBody?.IsPvpBot != true || BotBody.PvpAreaHeals is not { Count: > 0 } heals || Body.Group == null)
                 return null;
             List<GameLiving> members = Body.Group.GetMembersInTheGroup().Where(member => member.IsAlive && InSupportReach(member)).ToList();
-            if (!PvpHealPlan.SeveralHurt(members.Select(member => (int)member.HealthPercent), PvpSquad?.Trained != null, PvpWeights.Of(BotBody).Heal))
+            // (The owner's rule: four or more damaged, or the one in need is out of sight. PvpHealWeights.SpreadHealMinHurt.)
+            PvpWeights its = PvpWeights.Of(BotBody);
+            var nav = PathfindingProvider.Instance;
+            var here = new Vector3(Body.X, Body.Y, Body.Z);
+            bool hidden = its.Heal.AreaHealWhenOutOfSight && members.Any(member => member != Body && member.HealthPercent < its.Heal.HealBelowPercent &&
+                !(nav.HasLineOfSight(Body.CurrentZone, here, new Vector3(member.X, member.Y, member.Z), nav.DefaultFilters) && PvpSight.ClearForACast(Body, member, its)));
+            if (!PvpHealPlan.AreaHealIsRight(PvpHealPlan.SeveralHurt(members.Select(member => (int)member.HealthPercent), PvpSquad?.Trained != null, its.Heal), hidden, its.Heal))
                 return null;
             List<Spell> ready = heals.Where(CheckHealSpell).ToList();
             int best = PvpHealPlan.BestAreaHeal(members.Select(member => member.MaxHealth - member.Health).ToList(),

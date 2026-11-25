@@ -222,7 +222,7 @@ namespace DOL.GS
                     // Listener=hibernia: that realm's chat is written to the recording, as a player of it would read it.
                     PvpRoam.ListenTo(Enum.TryParse(Arg("Listener"), true, out eRealm listener) ? listener : eRealm.None);
                     if (int.TryParse(Arg("Prime"), out int prime) && prime > 0)
-                        guilds = PvpTeamPool.Tonight(PvpTeamPool.LoadOrCreate(AppContext.BaseDirectory, pool, Math.Max(16, prime * 2), Random.Shared), prime, Random.Shared);
+                        guilds = PvpTeamPool.Tonight(PvpTeamPool.LoadOrCreate(AppContext.BaseDirectory, pool, int.TryParse(Arg("PoolSize"), out int poolSize) && poolSize > 0 ? poolSize : PvpTeamPool.PoolFor(prime), Random.Shared), prime, Random.Shared);
                     // Hunters=2: for a test, that many teams of each realm hunt packs this evening (PvpTeamPool.WithHunters).
                     if (guilds != null && int.TryParse(Arg("Hunters"), out int hunters) && hunters > 0)
                         guilds = PvpTeamPool.WithHunters(guilds, hunters);

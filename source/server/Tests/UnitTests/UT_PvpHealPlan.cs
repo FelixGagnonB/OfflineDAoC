@@ -86,9 +86,17 @@ namespace DOL.UnitTests
         public void AHealForSeveralIsForSeveralHurtAtOnce()
         {
             var weights = new PvpHealWeights();
-            Assert.That(PvpHealPlan.SeveralHurt([60, 70, 75, 100, 100], false, weights), Is.True, "three hurt");
-            Assert.That(PvpHealPlan.SeveralHurt([40, 70, 100, 100], false, weights), Is.False, "two hurt: single heals");
-            Assert.That(PvpHealPlan.SeveralHurt([60, 70, 75], true, weights), Is.False, "a trained member gets the single heals");
+            // The owner, 2026-11-25: "I usually use either when 4+ members are damage or I am not having LoS to heal as either
+            // group or spreadheal requires LoS".
+            Assert.That(PvpHealPlan.SeveralHurt([60, 70, 75, 50, 100], false, weights), Is.True, "four hurt");
+            Assert.That(PvpHealPlan.SeveralHurt([60, 70, 75, 100, 100], false, weights), Is.False, "three hurt: single heals");
+            Assert.That(PvpHealPlan.SeveralHurt([60, 70, 75, 50], true, weights), Is.True, "with somebody trained too");
+            Assert.That(PvpHealPlan.SeveralHurt([60, 70, 75, 50], true, new PvpHealWeights { SpreadHealWhenTrained = false }), Is.False, "as it was");
+            Assert.That(PvpHealPlan.AreaHealIsRight(severalHurt: false, aPatientIsOutOfSight: true, weights), Is.True, "it needs no line of sight");
+            Assert.That(PvpHealPlan.AreaHealIsRight(false, false, weights), Is.False);
+            Assert.That(PvpHealPlan.AreaHealIsRight(true, false, weights), Is.True);
+            Assert.That(PvpHealPlan.AreaHealIsRight(false, true, new PvpHealWeights { AreaHealWhenOutOfSight = false }), Is.False);
+            Assert.That(PvpHealPlan.AreaHealIsRight(true, true, new PvpHealWeights { SpreadHealMinHurt = 0 }), Is.False, "turned off");
             Assert.That(PvpHealPlan.SeveralHurt([10, 10, 10], false, new PvpHealWeights { SpreadHealMinHurt = 0 }), Is.False, "turned off");
         }
 

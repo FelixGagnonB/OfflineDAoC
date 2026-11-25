@@ -99,7 +99,7 @@ def main():
     ox, oy, size = ox * 8192, oy * 8192, width * 8192
     keeps = [(keep, (x, y), level) for keep, x, y, level in
              db.execute("select Name, X, Y, BaseLevel from Keep where Region = ?", (region,)) if ox <= x < ox + size and oy <= y < oy + size]
-    home = HOME[region]
+    home = HOME.get(region)   # None: a zone that is no realm's (Agramon): three camps, no keep
 
     def good(a, b, most):
         length = route(runtime, region, a, b)
@@ -176,23 +176,34 @@ def main():
 
     camps = camps_off(6000) if len(camps_off(6000)) >= 6 else camps_off(4500)
     best = None
-    for (keep, door), (a, b) in itertools.product(homes, itertools.combinations(camps, 2)):
+    if home is None:
+        # No realm's zone: the three camps that are farthest from one another. Midgard has the northern one, Hibernia the
+        # western of the two others, Albion the eastern (as the three realms lie round the island).
+        triple = max(itertools.combinations(camps, 3), key=lambda three: min(math.dist(a, b) for a, b in itertools.combinations(three, 2)), default=None)
+        if triple is None:
+            raise SystemExit(f"{name}: no three places to start from ({len(camps)} places off the legs)")
+        north = min(triple, key=lambda p: p[1])
+        west, east = sorted(p for p in triple if p != north)
+        starts = [dict(realm="Midgard", at=north, keep=None, first=firsts(north)), dict(realm="Hibernia", at=west, keep=None, first=firsts(west)),
+                  dict(realm="Albion", at=east, keep=None, first=firsts(east))]
+        best = (min(math.dist(a, b) for a, b in itertools.combinations(triple, 2)), None, None, None, None)
+    for (keep, door), (a, b) in itertools.product(homes if home is not None else [], itertools.combinations(camps, 2)):
         apart = min(math.dist(door, a), math.dist(door, b), math.dist(a, b))
         if best is None or apart > best[0]:
             best = (apart, keep, door, a, b)
     if best is None:
         raise SystemExit(f"{name}: no three places to start from ({len(homes)} keeps with a way out, {len(camps)} places off the legs)")
     _, home_keep, door, a, b = best
-    # Which of the two others is whose: Hibernia the western one in Albion, the northern one in Midgard; Midgard north of Albion in Hibernia.
-    others = [realm for realm in ("Albion", "Midgard", "Hibernia") if realm != home]
-    if home == "Albion":
+    if home is not None:
+      # Which of the two others is whose: Hibernia the western one in Albion, the northern one in Midgard; Midgard north of Albion in Hibernia.
+      if home == "Albion":
         first, second = ("Hibernia", "Midgard")
         a, b = sorted((a, b))
-    else:
+      else:
         first, second = ("Hibernia", "Albion") if home == "Midgard" else ("Midgard", "Albion")
         a, b = sorted((a, b), key=lambda p: p[1])
-    starts = [dict(realm=home, at=door, keep=home_keep, first=firsts(door)),
-              dict(realm=first, at=a, keep=None, first=firsts(a)), dict(realm=second, at=b, keep=None, first=firsts(b))]
+      starts = [dict(realm=home, at=door, keep=home_keep, first=firsts(door)),
+                dict(realm=first, at=a, keep=None, first=firsts(a)), dict(realm=second, at=b, keep=None, first=firsts(b))]
 
     # The names, and the quiet point: the one farthest from where anybody comes in.
     names, used = {}, set()
