@@ -197,4 +197,4 @@ fight, 45 seconds in.
 - **You want a fresh world.** With the server closed, delete `pvp-teams.json` in
   `D:\OfflineDAoC\runtime\server`: new guilds at rank 1 level 1 next evening, rivals forgotten.
 - **You want the game as it was before v0.1.** The undo line is in the handover page; the backup
-  of 2026-11-25 is `D:\OfflineDAoC\deployment-backups\scrim-20261125-082823`.
+  that puts the 0.37b server back is `D:\OfflineDAoC\deployment-backups\scrim-20261125-082823`.
