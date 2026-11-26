@@ -2058,7 +2058,8 @@ namespace DOL.GS
                 {
                     foreach (PvpRoamTeam team in teams)
                     {
-                        if (team.Quiet && (now - _started) / 1000 % 5 != 0)
+                        // (The player's own team every second: what its player asks about is mostly its way on the road.)
+                        if (team.Quiet && team.Leader == null && (now - _started) / 1000 % 5 != 0)
                             continue;
                         (double x, double y) = team.Centre();
                         recording.Line(new
@@ -2067,7 +2068,7 @@ namespace DOL.GS
                             wp = team.Team.Waypoint, fighting = team.Fighting.Select(other => other.Name).ToList(), zone = team.Map.Id,
                         });
                     }
-                    recording.Snapshot(name => teams.FirstOrDefault(team => team.Name == name)?.Quiet != false);
+                    recording.Snapshot(name => teams.FirstOrDefault(team => team.Name == name) is not { } one || one.Quiet && one.Leader == null);
                 }
             }
             catch (Exception exception)
