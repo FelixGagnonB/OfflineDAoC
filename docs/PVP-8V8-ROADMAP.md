@@ -3873,15 +3873,22 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
-- [ ] **M13.35** (M) The server stops for a second: walking in Emain Macha. *Open; found 2026-11-26.* The owner, of
-  the fight below: "I dont know if it's the client but lots of lag. I was on top of caster and it took like 5-6
-  secondes beore I was able to swing at him". It is the server. Its log has two stalls in the minutes of that fight
-  (`SERVER_STALL`, worst tick 1.1 and 1.6 seconds), and in its last 75 seconds two Midgard groups on one road of
-  Emain Macha took 40 to 120 ms a member for one movement turn, every four seconds. Of the 1,631 slow movement turns
-  of two days of play that could be placed, 1,460 were groups in Emain Macha (most between its Midgard start and the
-  north end of the road), 154 in Odin's Gate, 4 in Thidranki, none on Agramon; so it is neither v0.1.7 nor Agramon.
-  The cause is not found. A slow movement turn now writes what it asked of the navigation mesh and where it was
-  going (`MovementService`), so that the next evening of bots names it.
+- [x] **M13.35** (M) The server stops for half a second when a group comes out. *Built 2026-11-26; measured in
+  evenings of bots; installed; not yet seen by the owner.* The owner: "I dont know if it's the client but lots of
+  lag", "we just had some lag", "That same 2-3 sec befor eI could swing". Two things. (1) The swings were on time:
+  each came 2.4 seconds after a one-handed swing and 4.2 after a two-handed one, so a Slam after a two-handed swing
+  waits 4.2 seconds. (2) The server did stop. Its own numbers (`SERVER_WORK stage=NpcService`, a line a minute) had
+  a worst turn of 420 to 560 ms in the middle minute of every evening of two days, 1.6 seconds in the minute of a
+  fight. The evening's turn runs between the turns of the bots, once a second, and the game waits for it; it now
+  writes a turn of 100 ms or more with its slowest team (`PvpRoam.SlowTurnMilliseconds`). That named it: a group
+  coming out or standing up after a wipe, 350 to 700 ms, of which all but ten in the equipment generator
+  (`BotEquipment`), which read its item lists from the database again for every piece of every bot. The lists are
+  kept now: a group costs about 8 ms, and the worst turn of a minute is 50 to 175 ms after the first. Found on the
+  way and changed: an 8v8 bot does not use the road route (26 of 31 slow movement turns of an evening, forty path
+  queries each, for two or three nodes; nine in ten of the slow movement turns of two days of play were groups in
+  Emain Macha, none on Agramon, which has no roads); the monsters that are back are looked for one zone a second
+  and not all zones in one turn. Open: turns of 140 to 260 ms of a group in a fight; the first group of an evening
+  still costs half a second (the lists are read then).
 - [x] **M13.34** (S) What the second fight on Agramon found. *Built 2026-11-26; unit tests; an evening of bots; not
   yet seen by the owner.* The owner, of a fight of 4:19 against Midgard that was lost two kills to eight: (1) "Druid
   had their pets on fighter". Nothing sent a healer's pet anywhere (only a Cabalist's, an Enchanter's and a
@@ -3897,7 +3904,13 @@ kept; a way for a dead player to tell the group "just die".
   of the group and the player asleep or stunned within two seconds. Nothing changed. (4) "the bot call that we lost
   then bit after another bot call for extend": a group with a player in it says it has lost and goes on, and its
   orders went on being said, with three up against six and then two. Now no order is said while it finds its fight
-  lost (`PvpCalls.OrderAfterLost`).
+  lost (`PvpCalls.OrderAfterLost`). The same morning, of the next fight: "the druid casted a root on the warrior (I
+  think) but had his pet on that warrrior too and broke the root". The pet had its order (a Healer, the Shaman, the
+  Runemaster) and lost it again every second: in the owner's own group the companion rule for a Druid's pet
+  (`BotBrain.TryCommandCompanionDruidPet`) sent it back at whoever was on the group. It hit the Warrior, the Savage
+  and the Skald 18 times and a healer or caster five times. That rule no longer speaks for an 8v8 Druid, and a
+  healer's pet with nobody to keep from casting leaves a fighter alone. In an evening of bots after it: 12 hits, all
+  on healers and casters.
 - [x] **M13.33** (S) Speed of Sound for members that are held. *Built 2026-11-26; unit tests; not yet seen by the
   owner.* The owner, of a fight on Agramon against one Midgard group, won with nobody lost: "Could you review that
   last fight please. Both bard used SoS, at different time, but not sure why". Both for the same rule, "two members
