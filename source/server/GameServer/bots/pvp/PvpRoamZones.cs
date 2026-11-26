@@ -107,17 +107,21 @@ namespace DOL.GS
             6,
             [(eRealm.Albion, 548926, 338435, true, 5, 4), (eRealm.Hibernia, 504480, 356872, false, 1, 0), (eRealm.Midgard, 518480, 307872, false, 2, 0)]);
 
-        // Agramon (region 163, zone 163), the island in the middle of the New Frontiers that no realm holds: 3 points, 3 legs
-        // of 14,972 to 17,181 units; Midgard comes in from the north (21,620 to its first point), Hibernia from the south-west
-        // (23,328), Albion from the south-east (23,524), the three starts 42,000 apart at the least. No keep, no monster.
+        // Agramon (region 163, zone 163), the island in the middle of the New Frontiers that no realm holds: 10 points, 17
+        // legs of 9,899 to 15,718 units, seven of them at its middle; Midgard comes in from the north (17,603 to its first
+        // point), Hibernia from the south-west (16,337), Albion from the south-east (16,774), the three starts 42,000 apart
+        // at the least. No keep, no monster. (Three points and three legs at first: the owner, on it with two other groups
+        // of its realm, 2026-11-25, "it looks like we are running the same triangle ... Could we add more routes ?".)
         // It is no zone of an evening by itself: it is ground for the 8v8 zone (PvpRealWeights.EightZone "agramon"). The
         // game as shipped has no navmesh for it: source/development-tools/OpenDAoC-BuildNav makes zone163.nav from the
         // client's files (two and a half minutes), and the map was laid out on that, 2026-11-25 (pvp_map_pick.py).
         public static readonly PvpRoamMap Agramon = Zone("agramon", "Agramon", "Agramon", 163, 163,
-            [(517288, 458752, "west field"), (524288, 472752, "south field"), (531288, 458752, "east field")],
-            [(0, 1), (0, 2), (2, 1)],
-            2,
-            [(eRealm.Midgard, 531288, 437752, false, 2, 0), (eRealm.Hibernia, 503288, 479752, false, 1, 0), (eRealm.Albion, 545288, 479752, false, 1, 2)]);
+            [(510288, 451752, "far north-west"), (510288, 465752, "west field"), (517288, 458752, "north-west field"), (517288, 472752, "south-west field"),
+             (524288, 465752, "middle"), (524288, 479752, "south field"), (531288, 458752, "north-east field"), (531288, 472752, "south-east field"),
+             (538288, 451752, "far north-east"), (538288, 465752, "east field")],
+            [(0, 1), (1, 2), (1, 4), (2, 4), (2, 6), (3, 4), (3, 5), (3, 7), (4, 5), (4, 6), (4, 7), (4, 9), (5, 7), (6, 7), (6, 8), (6, 9), (8, 9)],
+            0,
+            [(eRealm.Midgard, 531288, 437752, false, 8, 6), (eRealm.Hibernia, 503288, 479752, false, 1, 3), (eRealm.Albion, 545288, 479752, false, 7, 9)]);
 
         /// <summary>The nine, by frontier: Hibernia's, Midgard's, Albion's.</summary>
         public static readonly IReadOnlyList<PvpRoamMap> All = [Breifine, CruachanGorge, MountCollory, Jamtland, Uppland, YggdraForest, Pennine, ForestSauvage, Snowdonia];

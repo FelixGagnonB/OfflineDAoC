@@ -88,7 +88,12 @@ namespace DOL.UnitTests
             Assert.That(PvpRoam.MapFor("agramon"), Is.SameAs(PvpRoamZones.Agramon));
             Assert.That(PvpRoam.Frontiers, Does.Not.Contain(PvpRoamZones.Agramon));
             Assert.That(PvpRoamZones.Agramon.Starts.Select(start => start.Realm), Is.EquivalentTo(new[] { eRealm.Albion, eRealm.Midgard, eRealm.Hibernia }));
-            Assert.That(PvpRoamZones.Agramon.Ways, Has.Count.EqualTo(3));
+            // "it looks like we are running the same triangle ... Could we add more routes ?": ten points, and from each a way on.
+            Assert.That(PvpRoamZones.Agramon.Places, Has.Count.EqualTo(10));
+            Assert.That(PvpRoamZones.Agramon.Ways, Has.Count.EqualTo(17));
+            foreach (((int X, int Y) point, string name) in PvpRoamZones.Agramon.Places)
+                Assert.That(PvpRoamZones.Agramon.From(point), Is.Not.Empty, name);
+            Assert.That(PvpRoamZones.Agramon.Places.Select(place => place.Name), Is.Unique);
             Assert.That(PvpRoam.EveningZones(PvpRoam.Emain, 12, new Random(1), PvpRoamZones.Agramon)[^1], Is.SameAs(PvpRoamZones.Agramon));
             Assert.That(PvpRoam.CanBeWalked(null), Is.False);
             // An evening is in its frontier zones as ever, and in the 8v8 zone.

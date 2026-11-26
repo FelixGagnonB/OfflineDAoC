@@ -3917,7 +3917,12 @@ kept; a way for a dead player to tell the group "just die".
   and no 8v8 zone at all where its navmesh is missing (`CanBeWalked`). On the scrim copy with `"EightZone":
   "agramon"`: six groups of bots walked 14,000 to 46,000 units there in six minutes and fought one against one;
   the owner's port (`/8v8 go agramon`) set it down where the map says, and an Albion group picked its group. It
-  is not the 8v8 zone of the game that is played: that takes the navmesh file there and the setting.
+  is not the 8v8 zone of the game that is played: that takes the navmesh file there and the setting. The same
+  evening, on it with two other groups of its realm: "it looks like we are running the same triangle. Are there
+  more than just this triangle in the navmesh ? Could we add more routes ?" The walkable ground is some thirty
+  cells of a grid of 7,000; laid out again with points 9,800 apart: ten points and seventeen legs of 9,899 to
+  15,718 units, seven of them at the middle, each realm's start 16,300 to 17,600 from its first point. In six
+  minutes of an evening of bots the six groups there took legs to five different points and fought four fights.
 - [x] **M13.26** (S) The heal for several, by the owner's rule. *Built 2026-11-25; an evening of bots on the scrim
   copy.* Asked which heals its companion Cleric uses, the recording said: two single heals, and no group or spread
   heal in forty minutes; over all groups the bot Clerics cast one for 29 of their 1,422 heals, the owner for 139 of
