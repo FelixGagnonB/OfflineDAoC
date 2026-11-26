@@ -10,6 +10,18 @@ namespace DOL.UnitTests
     public class UT_PvpPositioning
     {
         [Test]
+        public void AGroupThatRestsSitsDownTogether()
+        {
+            // "When we rest, the group is too spread out. Would it be possible to make each member closer?"
+            var weights = new PvpPositionWeights();
+            Assert.That(weights.RestWithin, Is.LessThanOrEqualTo(150));
+            Assert.That(weights.WalksInToRest(fromThePlace: 400, millisecondsSinceTheRestBegan: 2_000), Is.True);
+            Assert.That(weights.WalksInToRest(100, 2_000), Is.False, "it is there: it sits");
+            Assert.That(weights.WalksInToRest(400, 16_000), Is.False, "it cannot get there: it sits where it is");
+            Assert.That(new PvpPositionWeights { RestWithin = 0 }.WalksInToRest(400, 2_000), Is.False, "as before");
+        }
+
+        [Test]
         public void OnTheRoad_ACompanionSprintsWithItsPlayerWhenItCostsNothing()
         {
             // "with hibernia, as we run 2 bards, wen bard driving, could we also be sprinting?"

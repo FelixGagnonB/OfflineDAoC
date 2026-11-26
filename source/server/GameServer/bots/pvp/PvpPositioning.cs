@@ -272,6 +272,21 @@ namespace DOL.GS
         public int FighterKeepsEndurancePercent { get; set; } = 40;
 
         /// <summary>
+        /// A group that rests sits down together: each member within this of the place it rests at. The owner,
+        /// 2026-11-25: "When we rest, the group is too spread out. Would it be possible to make each member closer?" A
+        /// group rested where each member stood when the fight ended, or within 500 units of a place off its road. 0: as
+        /// before.
+        /// </summary>
+        public int RestWithin { get; set; } = 120;
+
+        /// <summary>A member walks in to the resting place for this long at the most; one that cannot get there sits where it is.</summary>
+        public int RestWalkInSeconds { get; set; } = 15;
+
+        /// <summary>Whether a member of a group that rests still walks in to its place (<see cref="RestWithin"/>) before it sits.</summary>
+        public bool WalksInToRest(double fromThePlace, long millisecondsSinceTheRestBegan) =>
+            RestWithin > 0 && fromThePlace > RestWithin && millisecondsSinceTheRestBegan < RestWalkInSeconds * 1_000L;
+
+        /// <summary>
         /// On the road a player's companions sprint when their player does and it costs them nothing. The owner,
         /// 2026-11-25: "with hibernia, as we run 2 bards, wen bard driving, could we also be sprinting?" On the road
         /// nobody sprints (the owner, 2026-11-20: paid for there, the companions reached a fight at 2 to 20% endurance).

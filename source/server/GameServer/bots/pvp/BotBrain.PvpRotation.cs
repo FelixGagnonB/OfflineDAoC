@@ -108,6 +108,15 @@ namespace DOL.AI.Brain
                 _pvpRestLocked = false;
                 return true;
             }
+            // It sits down with the others: while it is still on its way to the group's place it does not sit (the group
+            // is walked in by PvpTeam.GatherAt).
+            if (PvpSquad.WalksInToRest(BotBody))
+            {
+                if (BotBody.IsRecoveryResting)
+                    BotBody.WakeRecoveryRest();
+                _pvpRestLocked = false;
+                return true;
+            }
             if (!BotBody.IsRecoveryResting)
                 BotBody.BeginRecoveryRest();
             _pvpRestLocked = true;

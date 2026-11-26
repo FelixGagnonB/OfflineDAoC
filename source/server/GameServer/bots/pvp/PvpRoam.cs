@@ -2698,6 +2698,8 @@ namespace DOL.GS
                 team.Team.GatherAt(body, 500);
             else if (team.Hide is { } hide && enemies.Count == 0)
                 team.Team.GatherAt(hide, 500);
+            else if (resting && team.Team.Squad.GathersToRest is { } together)
+                team.Team.GatherAt(together, PvpWeights.Current.Position.RestWithin);   // it sits down together
             else if (resting)
                 team.Team.Halt();
             else if (waits)

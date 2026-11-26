@@ -1000,6 +1000,7 @@ namespace DOL.GS
         {
             _caller = caller;
             _restCalledAt = new Point3D(caller.X, caller.Y, caller.Z);
+            RestsAt = null;   // (its companions are about their player as they follow it)
             _restUntilFull = false;
             _restSince = GameLoop.GameLoopTime;
             _restUntil = GameLoop.GameLoopTime + PvpCalls.PlayerRestSeconds * 1_000L;
@@ -1017,11 +1018,44 @@ namespace DOL.GS
         /// <summary>The rest is over (an enemy has come near, or the player's group has other things to do).</summary>
         public void EndRest() => _restUntil = 0;
 
+        /// <summary>
+        /// Where a team that rests sits down together (PvpPositionWeights.RestWithin): beside one of its own that is down
+        /// (its player first), so that it is in reach to be raised; else where its driver stands, which is where its
+        /// player is; else where the member in its middle stands.
+        /// </summary>
+        public Vector3? RestsAt { get; private set; }
+
+        /// <summary>The place its members still walk in to, in the first seconds of a rest; null once they sit where they are.</summary>
+        public Vector3? GathersToRest =>
+            RestsAt is { } place && Resting && GameLoop.GameLoopTime - _restSince < PvpWeights.Of(_members.FirstOrDefault()).Position.RestWalkInSeconds * 1_000L
+                ? place : null;
+
+        /// <summary>Whether this member still walks in to the group's resting place before it sits (PvpPositionWeights.WalksInToRest).</summary>
+        public bool WalksInToRest(GameBot bot) =>
+            bot != null && RestsAt is { } place && PvpWeights.Of(bot).Position.WalksInToRest(
+                Vector3.Distance(place, new Vector3(bot.X, bot.Y, bot.Z)), GameLoop.GameLoopTime - _restSince);
+
+        private Vector3? RestPlace()
+        {
+            GameLiving down = _allies.FirstOrDefault(member => member is GamePlayer { IsAlive: false, ObjectState: GameObject.eObjectState.Active });
+            List<GameBot> up = _members.Where(member => member.IsAlive).ToList();
+            if (up.Count == 0)
+                return null;
+            var middle = new Vector2((float)up.Average(member => member.X), (float)up.Average(member => member.Y));
+            GameLiving at = down
+                ?? _members.Where(member => !member.IsAlive && member.ObjectState == GameObject.eObjectState.Active)
+                    .OrderBy(member => Vector2.Distance(middle, new Vector2(member.X, member.Y))).FirstOrDefault()
+                ?? (GameLiving)PvpFormation.DriverOf(up)
+                ?? up.OrderBy(member => Vector2.Distance(middle, new Vector2(member.X, member.Y))).First();
+            return new Vector3(at.X, at.Y, at.Z);
+        }
+
         /// <summary>A team of bots rests between two fights, until everybody is full or the time is up.</summary>
         public void RestAsATeam(int seconds)
         {
             if (_restUntil != 0)
                 return;
+            RestsAt = RestPlace();
             _restCalledAt = null;
             _restUntilFull = true;
             _restSince = GameLoop.GameLoopTime;
