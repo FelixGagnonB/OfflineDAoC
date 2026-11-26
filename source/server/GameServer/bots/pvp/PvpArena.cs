@@ -209,10 +209,9 @@ namespace DOL.GS
             buffbot.Brain?.Stop();   // it only ever buffs, and that happens right here
 
             SpellLine line = SkillBase.GetSpellLine(GlobalSpellsLines.Mob_Spells);
-            List<Spell> buffs = BotBrain.PvpBuffSpells(buffbot).Select(pair => pair.Value)
-                .Concat((buffbot.MiscSpells ?? []).Where(spell => spell.SpellType == eSpellType.EnduranceRegenBuff &&
-                    spell.Target == eSpellTarget.REALM && spell.Concentration > 0).OrderByDescending(spell => spell.Value).Take(1))
-                .ToList();
+            // (Not Midgard's endurance buff, which it gave until 2026-11-25: that is the group's own Shaman's, and ends
+            // with it (PvpEnduranceBuff).)
+            List<Spell> buffs = BotBrain.PvpBuffSpells(buffbot).Select(pair => pair.Value).ToList();
             foreach (GameLiving member in group)
             {
                 // Owner's rule: every member gets every buff, acuity on fighters included.
