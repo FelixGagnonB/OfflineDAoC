@@ -840,6 +840,8 @@ namespace DOL.GS
                     return;
                 }
 
+                PvpEnduranceBuff.Keep(_a.Squad?.Allies, GameLoop.GameLoopTime);
+                PvpEnduranceBuff.Keep(_b.Squad?.Allies, GameLoop.GameLoopTime);
                 _a.Squad?.Decide(_b.Bots);
                 _b.Squad?.Decide(SideA);
                 _a.Engage(_b.Bots);

@@ -2012,6 +2012,8 @@ namespace DOL.GS
                         if (team.Absent || !inTheWorld)
                             continue;
                     }
+                    // Midgard's endurance buff is its Shaman's, and ends with it (PvpEnduranceBuff).
+                    PvpEnduranceBuff.Keep(team.Team.Squad?.Allies, now);
                     // A member on ground it cannot leave (a patch of the navmesh round a tree) is put beside it (PvpTrapped).
                     foreach (GameBot bot in team.Team.Bots)
                     {

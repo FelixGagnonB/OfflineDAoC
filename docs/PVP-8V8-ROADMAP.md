@@ -127,7 +127,7 @@ match of 11:44; what the owner has seen of it in play is noted per row.
 | "Warrior would be alone. We kill him, then 5-10 seconds later we see the 7 other Mids" | the road follow of that morning was broken twice. A follow ends when its leader is farther than the distance it is given: given 210 to 455, the seven stood still while the driver (the Skald) went on alone, 8,500 to 10,300 units ahead in two sessions of four. Given 60,000, the mover's int square overflowed, every follow ended at once, and with the driver now waiting the whole group stood at its start (session of 11:36) | 40,000, with a test that its square fits; the driver waits when a living member is more than 700 behind and goes on at 400. In the bots-only basin match: every member within 500 of its driver four and eight seconds before the first blow, both groups |
 | "Bard should be aware when we are chasing someone and sing speed" | a Healer was chased for a minute across the basin, nobody with speed | a group out of contact for three seconds in a fight is chasing (`PvpSquad.Chasing`): speed song until it is in contact again |
 | "If they have no endurance, they can't sprint." | a bot's sprint was free; the fleeing Healer stayed at 100 | sprinting on the move takes five endurance a second, as it takes a player (`SprintCostPerSecond`) |
-| "Mids have an endurance buff which differs from Hib and Alb" | Midgard's buffbot gives every member the Shaman's endurance buff, five a second: exactly what sprint takes, so Midgard can sprint without end; Hibernia needs the Bard's song (five) and Albion the Paladin's chant (five) | nothing changed; recorded here |
+| "Mids have an endurance buff which differs from Hib and Alb" | Midgard's buffbot gives every member the Shaman's endurance buff, five a second: exactly what sprint takes, so Midgard can sprint without end; Hibernia needs the Bard's song (five) and Albion the Paladin's chant (five) | nothing changed then; since 2026-11-25 the buff is the group's own Shaman's (M13.31) |
 | "No sprint when roaming, just speed... Sprint during fight when needed." | with sprint paid for on the road the companions reached a fight at 2 to 20% endurance (one session, 11:10) | no sprint before the first blow; after it, when pressed (a fighter on it, falling back, a chase) or with more than 400 units to cover (`SprintNeeded`) |
 | "General rule for all 3 realms, do not cast damage shield." | 52 casts by Healers, 46 by Eldritches, 11 by Druids, 63 by Cabalists' simulacra in the last sixty recordings | no 8v8 bot casts one, and no pet of one (`PvpBuffPlan.NeverCast`) |
 
@@ -3873,6 +3873,24 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [x] **M13.31** (S) Midgard's endurance is its Shaman's. *Built 2026-11-25; measured in a bot evening; not yet seen
+  by the owner.* The owner: "can we make sure, enemies without endurance (for example, killing the albion Paladin)
+  should not out run or keep the same distance with a chanser than sprint or has speed? I feel like sometime, 2-3
+  enemies are running away and we can't keep up. With midgard, it might be a shaman, which would explain they can
+  keep sprinting". The rules were already a player's: a sprint takes five endurance a second, Albion gets five back
+  from its Paladin's chant and Hibernia from its Bard's song (gone five seconds after the singer), and a speed song
+  is lost at a blow given or taken and comes back ten seconds after the last. Midgard was the exception, recorded
+  on 2026-11-20 and left: its buffbot gave every member the Shaman's concentration buff (five a second), and a
+  buffbot neither dies nor has a range. In the owner's evening every living Midgard bot had it in 98% of its
+  seconds; a Runemaster sprinted 27 seconds with its endurance at 95 and no Shaman alive in its group. Now the
+  buffbot does not give it; the group's own Shaman does, to one member a second within the spell's range that has
+  none, the game ends it beyond 1,500 units of the Shaman as it does for a player's, and it is taken from the
+  group when the Shaman dies (`PvpEnduranceBuff`). A Midgard group with no Shaman has none. In a ten-minute
+  evening of bots, Midgard members with the buff: 94% of samples with their Shaman alive within 1,500, 2% with it
+  dead, none in a group without one (99 to 100% in all three before); Midgard bots under 20% endurance 2.1% of
+  the time (0.5% before; Albion 4.7%, Hibernia 1.5%). Of the 35 runs of twelve seconds or more that enemies made
+  against the owner's group in sixteen recorded sessions, 24 were faster than a sprint, on a speed song: by the
+  rule above, which is the player's too. Left as it is.
 - [x] **M13.30** (S) Stutter behind the driver. *Built 2026-11-25; measured in a bot evening; not yet seen by the
   owner.* The owner, on Agramon behind its Bard: "stutter at various places on the island", and of Agramon itself
   "back in the days, Agramon was laggy ... try to figure out why it lags". What was looked at and put aside: the
