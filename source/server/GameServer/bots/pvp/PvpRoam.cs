@@ -1975,10 +1975,16 @@ namespace DOL.GS
             }
         }
 
+        /// <summary>A turn of the evening that takes this long is written to the log, with its slowest team.</summary>
+        public const int SlowTurnMilliseconds = 100;
+
         private static void Tick(int _)
         {
             if (Interlocked.Exchange(ref _ticking, 1) != 0)
                 return;
+            // What a turn of the evening costs: it runs between the turns of the bots, and the game waits for it.
+            long turnBegan = System.Diagnostics.Stopwatch.GetTimestamp();
+            (string Team, string State, double Milliseconds) slowest = (null, null, 0);
             try
             {
                 List<PvpRoamTeam> teams = _teams;
@@ -2051,16 +2057,28 @@ namespace DOL.GS
                         Say($"{team.Name} walks into {entered.Name}", new { what = "port", team = team.Name, zone = entered.Name });
                         Tell(team, $"You are in {entered.Name}. A wipe or /release puts you at your realm's start here.");
                     }
+                    long stepBegan = System.Diagnostics.Stopwatch.GetTimestamp();
+                    string stateBefore = team.State;
                     Step(team, teams, now, real);
+                    double stepTook = System.Diagnostics.Stopwatch.GetElapsedTime(stepBegan).TotalMilliseconds;
+                    if (stepTook > slowest.Milliseconds)
+                        slowest = (team.Name, stateBefore == team.State ? stateBefore : $"{stateBefore} to {team.State}", stepTook);
                 }
                 CallOut(teams, now);
                 if (Prime)
                     Rotate(teams, now);
-                // A monster that was dead when the roam began has come back: once a minute.
-                if ((now - _started) / 1000 % 60 == 59)
+                // A monster that was dead when the roam began has come back: once a minute, one zone a second. (Each
+                // is a pass over every creature of its region, a realm's mainland. All the zones in one turn was the
+                // half second for which the server stopped once in every minute of every evening; the owner,
+                // 2026-11-26: "we just had some lag".)
+                int swept = (int)(59 - (now - _started) / 1000 % 60);
+                if (swept < _maps.Count)
                 {
-                    foreach (PvpRoamMap zone in _maps)
-                        PvpArena.ClearMonsters(zone.Region, zone.Starts.Select(start => start.Point));
+                    long sweepBegan = System.Diagnostics.Stopwatch.GetTimestamp();
+                    int back = PvpArena.ClearMonsters(_maps[swept].Region, _maps[swept].Starts.Select(start => start.Point));
+                    double sweepTook = System.Diagnostics.Stopwatch.GetElapsedTime(sweepBegan).TotalMilliseconds;
+                    if (sweepTook >= SlowTurnMilliseconds / 2)
+                        Log.Warn($"8v8 roam: looking for monsters that are back in {_maps[swept].Name} took {sweepTook:F0} ms ({back} taken out)");
                 }
                 if (_recording is { } recording)
                 {
@@ -2092,6 +2110,10 @@ namespace DOL.GS
             }
             finally
             {
+                double turnTook = System.Diagnostics.Stopwatch.GetElapsedTime(turnBegan).TotalMilliseconds;
+                string bringingOut = PvpSpawnProfile.Take();
+                if (turnTook >= SlowTurnMilliseconds)
+                    Log.Warn($"8v8 roam: a turn of the evening took {turnTook:F0} ms; its slowest team {slowest.Team} ({slowest.State}) {slowest.Milliseconds:F0} ms{bringingOut}");
                 Volatile.Write(ref _ticking, 0);
             }
         }

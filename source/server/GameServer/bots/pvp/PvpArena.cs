@@ -54,6 +54,7 @@ namespace DOL.GS
                 PvpRosterEntry kept = roster == null ? null : PvpRoster.Find(roster, template.BuildIds[i], place);
                 GameBot bot = CreateBot(build, template.Realm, i, template.BuildIds.Count, zone, regionId, centre, 140,
                     roster == null ? realmLevel : Math.Max(atLeast, PvpRealmPoints.LevelFor(kept?.RealmPoints ?? seedPoints)), kept);
+                long began = PvpSpawnProfile.Start();
                 bot.PvpGuild = guild;
                 if (roster != null)
                 {
@@ -78,6 +79,7 @@ namespace DOL.GS
                     GroupMgr.AddGroup(group);
                 }
                 group.AddMember(bot);
+                PvpSpawnProfile.Stop("world", began);
                 spawned.Add(bot);
                 all?.Add(bot);
                 lock (Bots) Bots.Add(bot);
@@ -195,6 +197,7 @@ namespace DOL.GS
         private static GameBot SpawnBuffbot(eRealm realm, IReadOnlyList<GameLiving> group, ushort regionId, Vector3 centre)
         {
             var buffbot = new GameBot(PvpBuildCatalog.BuffbotFor(realm), "Buffbot") { IsPvpBuffbot = true };
+            long began = PvpSpawnProfile.Start();
             buffbot.X = (int)Math.Round(centre.X);
             buffbot.Y = (int)Math.Round(centre.Y);
             buffbot.Z = (int)Math.Round(centre.Z);
@@ -218,6 +221,7 @@ namespace DOL.GS
                 foreach (Spell spell in buffs)
                     ScriptMgr.CreateSpellHandler(buffbot, spell, line)?.StartSpell(member);
             }
+            PvpSpawnProfile.Stop("buffs", began);
             return buffbot;
         }
 
@@ -301,11 +305,14 @@ namespace DOL.GS
                 return 0;
             HashSet<Zone> zones = points.Select(point => region.GetZone(point.X, point.Y)).Where(zone => zone != null).ToHashSet();
             int removed = 0;
-            foreach (GameNPC npc in WorldMgr.GetNPCsFromRegion(regionId))
+            // Over the region's own list, and what costs least first: a region is a realm's whole mainland, and this
+            // is asked again every minute of an evening (PvpRoam).
+            foreach (GameObject thing in region.Objects)
             {
-                if (npc == null || npc.ObjectState != GameObject.eObjectState.Active || !zones.Contains(npc.CurrentZone) ||
+                if (thing is not GameNPC npc || npc.ObjectState != GameObject.eObjectState.Active ||
                     !IsMonster(npc is GameBot, npc is Keeps.GameKeepGuard, npc.Brain is IControlledBrain, npc.Realm != eRealm.None,
-                        (npc.Flags & GameNPC.eFlags.PEACE) != 0))
+                        (npc.Flags & GameNPC.eFlags.PEACE) != 0) ||
+                    !zones.Contains(npc.CurrentZone))
                     continue;
                 try
                 {
@@ -322,6 +329,13 @@ namespace DOL.GS
         }
 
         public static int Remove(IEnumerable<GameBot> bots)
+        {
+            long began = PvpSpawnProfile.Start();
+            try { return RemoveNow(bots); }
+            finally { PvpSpawnProfile.Stop("remove", began); }
+        }
+
+        private static int RemoveNow(IEnumerable<GameBot> bots)
         {
             List<GameBot> all = bots.ToList();
             lock (Bots)
@@ -389,6 +403,36 @@ namespace DOL.GS
                         .OrderBy(text => text).ToList(),
                 }).ToList(),
             };
+        }
+    }
+
+    /// <summary>
+    /// What bringing a group of 8v8 bots into the world spends its time on, summed for the turn
+    /// of the evening that did it (PvpRoam writes it with a slow turn): a group that came out or
+    /// stood up cost that turn 370 to 675 ms, and the game waits for a turn (2026-11-26).
+    /// </summary>
+    public static class PvpSpawnProfile
+    {
+        [ThreadStatic] private static Dictionary<string, double> _milliseconds;
+
+        public static long Start() => System.Diagnostics.Stopwatch.GetTimestamp();
+
+        /// <summary>Adds the time since <paramref name="began"/> to that step; returns the moment, to go on with.</summary>
+        public static long Stop(string step, long began)
+        {
+            _milliseconds ??= new();
+            _milliseconds[step] = _milliseconds.GetValueOrDefault(step) + System.Diagnostics.Stopwatch.GetElapsedTime(began).TotalMilliseconds;
+            return System.Diagnostics.Stopwatch.GetTimestamp();
+        }
+
+        /// <summary>The steps of this turn, the costliest first, and forgets them; empty when no group came into the world.</summary>
+        public static string Take()
+        {
+            if (_milliseconds == null || _milliseconds.Count == 0)
+                return string.Empty;
+            string text = "; bringing groups out: " + string.Join(", ", _milliseconds.OrderByDescending(step => step.Value).Select(step => $"{step.Key} {step.Value:F0}"));
+            _milliseconds.Clear();
+            return text;
         }
     }
 }

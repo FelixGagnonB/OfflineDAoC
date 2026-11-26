@@ -3774,6 +3774,13 @@ namespace DOL.AI.Brain
 
         private void TryCommandCompanionDruidPet(GameLiving target)
         {
+            // An 8v8 Druid's pet has its orders from its group (PvpInterruptWeights.HealersPetsInterrupt). In the
+            // owner's own group this order took the pet back every second: sent at a Healer, the Shaman or the
+            // Runemaster again and again in one fight, it hit the Warrior, the Savage and the Skald 18 times and a healer
+            // or caster five times, and broke its own Druid's root on the Warrior (the owner, 2026-11-26: "the druid casted a root on the warrior
+            // but had his pet on that warrrior too and broke the root").
+            if (BotBody?.IsPvpBot == true && PvpWeights.Of(BotBody).Interrupt.HealersPetsInterrupt)
+                return;
             if (!CompanionFollowPolicy.SendsDruidPet(BotBody) || target?.IsAlive != true ||
                 !CanAggroTarget(target) || !CompanionEngagementMode.Allows(Body, target) ||
                 !Body.IsWithinRadius(target, GROUP_DEFENSE_ASSIST_RADIUS) ||

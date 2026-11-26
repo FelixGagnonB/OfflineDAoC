@@ -1558,7 +1558,10 @@ namespace DOL.GS
                         petsOn.Add(petAim);
                     if (petAim == null)
                     {
-                        if (pet.OrderedAttackTarget is { IsMezzed: true })
+                        // (And a healer's pet with nobody to keep from casting is not left on a fighter: there it
+                        // breaks the roots of its own Druid.)
+                        if (pet.OrderedAttackTarget is { IsMezzed: true } ||
+                            healersPet && pet.OrderedAttackTarget is { } fighter && PvpMember.ArchetypeOf(fighter) == PvpBuffArchetype.Melee)
                             pet.Disengage();
                     }
                     else if (pet.OrderedAttackTarget != petAim)
