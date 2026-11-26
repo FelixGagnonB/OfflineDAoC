@@ -7,6 +7,23 @@ namespace DOL.UnitTests
 {
     public class UT_AutonomousGroundTravelMotion
     {
+        [Test]
+        public void An8v8BotKeepsItsSpeedOverTheGroundOnAHill()
+        {
+            // "stutter at various places on the island"; alone, "It was smoother": the driver was slower on every hill.
+            Assert.That(AutonomousGroundTravelMotion.AppliesTo(travelsTheWorldOnItsOwn: false, isAn8v8Bot: true, attacking: false, follows: false), Is.True);
+            Assert.That(AutonomousGroundTravelMotion.AppliesTo(false, true, attacking: true, follows: false), Is.True, "in a fight as on the road");
+            Assert.That(AutonomousGroundTravelMotion.AppliesTo(false, true, false, follows: true), Is.True, "behind its driver: or it drops back on every hill");
+            Assert.That(AutonomousGroundTravelMotion.AppliesTo(true, false, false, false), Is.True, "a gamebot on its way, as before");
+            Assert.That(AutonomousGroundTravelMotion.AppliesTo(true, false, attacking: true, follows: false), Is.False, "as before");
+            Assert.That(AutonomousGroundTravelMotion.AppliesTo(true, false, false, follows: true), Is.False, "as before");
+            Assert.That(AutonomousGroundTravelMotion.AppliesTo(false, false, false, false), Is.False, "a monster, a guard, a companion of the old game: as before");
+            // A hill of one in one at the Bard's 385: 385 over the ground, not 272.
+            Assert.That(AutonomousGroundTravelMotion.TryCalculate(new Vector3(300, 0, 300), 385, out var hill), Is.True);
+            Assert.That(hill.HorizontalSpeed, Is.EqualTo(385).Within(0.5));
+            Assert.That(hill.Velocity.Z, Is.EqualTo(385).Within(0.5));
+        }
+
         [TestCase(191)]
         [TestCase(252)]
         [TestCase(298)]

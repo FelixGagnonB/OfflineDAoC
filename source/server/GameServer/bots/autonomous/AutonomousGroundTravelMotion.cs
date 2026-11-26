@@ -13,10 +13,23 @@ namespace DOL.GS
         public readonly record struct Motion(Vector3 Velocity, double HorizontalSpeed, int ArrivalMilliseconds);
 
         public static bool Applies(GameNPC owner, bool fixedSpeed, GameObject followTarget) =>
-            owner is GameBot { IsAutonomousWorldBot: true, IsTemporaryGroupHelper: false, IsPlayerLedGroup: false,
-                IsOnStableMasterRoute: false, IsAttacking: false } &&
-            !fixedSpeed && followTarget == null &&
+            owner is GameBot { IsOnStableMasterRoute: false } bot &&
+            AppliesTo(bot.IsAutonomousWorldBot && !bot.IsTemporaryGroupHelper && !bot.IsPlayerLedGroup, bot.PvpBuild != null, bot.IsAttacking,
+                followTarget != null) &&
+            !fixedSpeed &&
             (owner.Flags & (GameNPC.eFlags.FLYING | GameNPC.eFlags.SWIMMING)) == 0;
+
+        /// <summary>
+        /// Which bots keep their speed over the ground on a slope, as a player's character does: a gamebot that travels the
+        /// world on its own and neither attacks nor follows, and every 8v8 bot whatever it does (a group's members follow
+        /// their driver: with the driver alone as fast as a player on a hill, they would drop behind it). Any other walker keeps its speed along the slope, so it
+        /// is slower over the ground the steeper the hill. For the 8v8 bots since 2026-11-25: the owner, on Agramon behind
+        /// the Bard that drove its group, "stutter at various places on the island", and alone "It was smoother". The Bard
+        /// ran 385 units a second on the flat and 250 to 300 on the hills (385 along the slope each time); its player, on
+        /// /stick and as fast as ever over the ground, ran up to it and was held back, hill after hill.
+        /// </summary>
+        public static bool AppliesTo(bool travelsTheWorldOnItsOwn, bool isAn8v8Bot, bool attacking, bool follows) =>
+            isAn8v8Bot || travelsTheWorldOnItsOwn && !attacking && !follows;
 
         public static bool TryCalculate(Vector3 direction, short speed, out Motion motion)
         {
