@@ -197,7 +197,9 @@ namespace DOL.GS
                     SameZone = zone == zoneEnd, ZoneA = zone.Description, ZoneB = zoneEnd.Description };
             Vector3 at = start.Value;
             double length = 0;
-            int hops = 0;
+            int hops = 0, corners = 0, sharp = 0;
+            double shortest = double.MaxValue;
+            Vector3? last = null, lastButOne = null;
             string status = null;
             Span<WrappedPathfindingNode> nodes = stackalloc WrappedPathfindingNode[256];
             for (; hops < 80 && Vector3.Distance(at, end.Value) > 150; hops++)
@@ -210,7 +212,22 @@ namespace DOL.GS
                 Vector3 from = at;
                 for (int i = 0; i < Math.Min(result.NodeCount, nodes.Length); i++)
                 {
-                    length += Vector3.Distance(from, nodes[i].Position);
+                    double step = Vector3.Distance(from, nodes[i].Position);
+                    length += step;
+                    // (How the way turns: a walker is given a new heading at every corner. For looking at a road that stutters.)
+                    if (step > 1)
+                    {
+                        corners++;
+                        shortest = Math.Min(shortest, step);
+                        if (last is { } b && lastButOne is { } a)
+                        {
+                            var one = Vector2.Normalize(new Vector2(b.X - a.X, b.Y - a.Y));
+                            var two = Vector2.Normalize(new Vector2(nodes[i].Position.X - b.X, nodes[i].Position.Y - b.Y));
+                            if (Vector2.Dot(one, two) < 0.87f)   // more than thirty degrees
+                                sharp++;
+                        }
+                        (lastButOne, last) = (last ?? from, nodes[i].Position);
+                    }
                     from = nodes[i].Position;
                 }
                 at = from;
@@ -223,6 +240,9 @@ namespace DOL.GS
                 Length = (int)length,
                 Straight = (int)Vector3.Distance(start.Value, end.Value),
                 Hops = hops,
+                Corners = corners,
+                SharpTurns = sharp,
+                ShortestStep = shortest == double.MaxValue ? 0 : (int)shortest,
                 LastStatus = status,
                 Short = (int)Vector3.Distance(at, end.Value),
                 StartZ = (int)start.Value.Z,

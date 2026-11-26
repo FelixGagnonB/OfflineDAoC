@@ -3873,6 +3873,41 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [x] **M13.30** (S) Stutter behind the driver. *Built 2026-11-25; measured in a bot evening; not yet seen by the
+  owner.* The owner, on Agramon behind its Bard: "stutter at various places on the island", and of Agramon itself
+  "back in the days, Agramon was laggy ... try to figure out why it lags". What was looked at and put aside: the
+  zone's content (495 placed objects, as Emain; its terrain blend patches are 128 x 128 where every other frontier
+  zone has 64 x 64, and a copy of the archive with 64 x 64 patches, tried on the scrim copy's client, changed
+  nothing the owner felt: the stock file is back); the server (no slow step in those minutes); the roads (40 corners
+  and no sharp turn for every 10,000 units, as Emain and Thidranki). What the recording showed, the player's own
+  team now sampled every second: the driver ran evenly and its player fell behind, eight times in three minutes.
+  Run alone over the same ground (`/8v8 drive off`): "It was smoother". Two causes found. (1) A bot kept its speed
+  along the slope, so the Bard did 385 units a second on the flat and 250 to 300 over the ground on the hills,
+  while a player's character does 385 over the ground everywhere: on /stick its player ran up to it and was held
+  back, hill after hill. Every 8v8 bot now keeps its speed over the ground, as the gamebots that travel the world
+  already did (`AutonomousGroundTravelMotion.AppliesTo`), whether it walks a road or follows its driver (with the
+  driver alone, the first try, nothing changed: seven of eight follow); which also means an enemy on a hill is no
+  longer slower than a player. In evenings of bots, the speed over the ground of bots on a slope of 120 units a
+  second or more, up or down: 324 to 341 at the median before, 381 after (380 on the flat, both). (2) Agramon's far north-west point had one leg, and the group turned round on the spot there, its
+  player 540 units behind: an eighteenth leg. Also measured, and left: the owner's client goes silent for half a
+  second to a second some seconds into a fight (six times in two fights; the recording keeps the longest silence
+  between two position packets of its player's client each second, `gap`), and about once in a minute on the road.
+- [x] **M13.29** (S) The driver, by what the owner saw of it. *Built 2026-11-25 and played by the owner on the scrim
+  copy: "Bard driving feel better".* Three things, each from the owner behind its Bard on Agramon. (1) "when it
+  reach the end of it's current section, he will stop for a sec or a bit less, pick the new section then move
+  again ... Could there be some 'see ahead'": the group picks its next point when its middle is within 900 units of
+  the one it walks to, but a moving member was given a new order only one second in four, so the driver walked on
+  to the old point, stood, and waited for its turn. Whoever leads is now sent to a new point at once
+  (`PvpTeam.March`, for every group). (2) "we are idle ... I assume there's no enemy groups available to fight ?":
+  its group stood half a minute by a fight of two other groups, as a guild that does not add does. Offered a line of
+  chat that says why, the owner: "In that case, the group and still run around, while waiting. We are not suppose
+  to know there are no available fight". With a companion at the wheel the group does not stand by a fight at all:
+  it turns away or goes round, and says nothing (`PvpDriver.GoesOnPastAFight`). (3) "it took some time before we
+  regroup and bard move": after its fight the group stood twelve seconds, walked 22 to a quiet place and rested 25.
+  The owner likes the walk ("I like that we stick to driver and go 'hide' to rest"); "It's the time we were standing
+  before moving away from the fighting spot". A fight is now over three seconds after nobody is left to fight (no
+  living enemy in sight, no group still in it), whatever is left of the members' time in combat
+  (`PvpRoam.NobodyLeftToFight`); twelve seconds is for a lull with the enemy still about.
 - [x] **M13.28** (S) What the first session with a player found. *Built 2026-11-25; the rescue tried directly on
   the scrim copy, the driver not yet tried again by a player.* The owner on the scrim copy, a Hero with seven
   companions, on Agramon. (1) "The bard driving is pretty bad": in the recording the Bard was never more than 75
@@ -3901,7 +3936,12 @@ kept; a way for a dead player to tell the group "just die".
   and no 8v8 zone at all where its navmesh is missing (`CanBeWalked`). On the scrim copy with `"EightZone":
   "agramon"`: six groups of bots walked 14,000 to 46,000 units there in six minutes and fought one against one;
   the owner's port (`/8v8 go agramon`) set it down where the map says, and an Albion group picked its group. It
-  is not the 8v8 zone of the game that is played: that takes the navmesh file there and the setting.
+  is not the 8v8 zone of the game that is played: that takes the navmesh file there and the setting. The same
+  evening, on it with two other groups of its realm: "it looks like we are running the same triangle. Are there
+  more than just this triangle in the navmesh ? Could we add more routes ?" The walkable ground is some thirty
+  cells of a grid of 7,000; laid out again with points 9,800 apart: ten points and seventeen legs (eighteen since M13.30) of 9,899 to
+  15,718 units, seven of them at the middle, each realm's start 16,300 to 17,600 from its first point. In six
+  minutes of an evening of bots the six groups there took legs to five different points and fought four fights.
 - [x] **M13.26** (S) The heal for several, by the owner's rule. *Built 2026-11-25; an evening of bots on the scrim
   copy.* Asked which heals its companion Cleric uses, the recording said: two single heals, and no group or spread
   heal in forty minutes; over all groups the bot Clerics cast one for 29 of their 1,422 heals, the owner for 139 of

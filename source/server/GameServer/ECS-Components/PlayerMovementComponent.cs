@@ -27,7 +27,23 @@ namespace DOL.GS
 
         public new GamePlayer Owner { get; }
         public int MaxSpeedPercent => MaxSpeed * 100 / GamePlayer.PLAYER_BASE_SPEED;
-        public long LastPositionUpdatePacketReceivedTime { get; set; }
+        public long LastPositionUpdatePacketReceivedTime
+        {
+            get;
+            set
+            {
+                if (field != 0 && value - field > LongestPositionPacketGap)
+                    LongestPositionPacketGap = value - field;
+                field = value;
+            }
+        }
+
+        /// <summary>
+        /// The longest time between two position packets of this player's client since this was last set to zero, in
+        /// milliseconds. A moving client sends its position several times a second; a long silence is a client that stood
+        /// still on its player's screen (or a server that did not read). Only measured, for the 8v8 recording.
+        /// </summary>
+        public long LongestPositionPacketGap { get; set; }
         public bool UseSafePosition { get; set; }
 
         public PlayerMovementComponent(GameLiving owner) : base(owner)

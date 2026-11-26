@@ -470,6 +470,16 @@ namespace DOL.GS
         public static int EightZoneGroups(int guildsOfTheRealm, int atTheMost) =>
             guildsOfTheRealm <= 0 ? 0 : Math.Clamp(guildsOfTheRealm / 3, 1, Math.Max(1, atTheMost));
 
+        /// <summary>
+        /// How many guilds of bots of a realm are in the 8v8 zone: as many groups as every realm has there
+        /// (<see cref="EightZoneGroups"/>), less one for the realm of the player, whose own group is one of them. The owner,
+        /// 2026-11-25, on Agramon: "Would there be a way to keep the 8v8 zone number of teams balance between the 3 realms?
+        /// ... earlier, there was 3 hibs group and 1 mid group". Its realm had its two guilds there and its own group besides.
+        /// (While the player is in another zone its realm is one group short in the 8v8 zone.)
+        /// </summary>
+        public static int EightZoneGuilds(int guildsOfTheRealm, int atTheMost, bool thePlayersGroupIsOfThisRealm) =>
+            Math.Max(0, EightZoneGroups(guildsOfTheRealm + (thePlayersGroupIsOfThisRealm ? 1 : 0), atTheMost) - (thePlayersGroupIsOfThisRealm ? 1 : 0));
+
         /// <summary>The kinds of group that leave a group to rest after its fight, in the 8v8 zone: the ones that play 8v8. (A team that is no guild does too.)</summary>
         public static bool WaitsForARestedGroup(PvpTeamKind? kind) => kind is null or PvpTeamKind.Decent or PvpTeamKind.Strong or PvpTeamKind.Elite;
 
@@ -527,6 +537,22 @@ namespace DOL.GS
         /// when no enemy had been near for twelve seconds, and they were 1,200 units away.
         /// </summary>
         public const int ColdAfterSeconds = 30;
+
+        /// <summary>
+        /// A fight is over as soon as nobody is left to fight: no living enemy of it in sight and
+        /// no group still in it, for this long. Twelve seconds with no enemy near, and nobody of
+        /// the group in combat any more, is for a lull with the enemy still about. The owner,
+        /// 2026-11-25, of its group with a companion at the wheel: "It's the time we were
+        /// standing before moving away from the fighting spot, at the end of the fight"; in the
+        /// recording twelve seconds, before the group walked off to rest. For a group that picks
+        /// its fights as bots do; the player's group with the player at the wheel sees who the
+        /// player picks, and that changes from one second to the next.
+        /// </summary>
+        public const int NobodyLeftAfterMilliseconds = 3_000;
+
+        /// <summary>See <see cref="NobodyLeftAfterMilliseconds"/>.</summary>
+        public static bool NobodyLeftToFight(bool picksItsFightsAsBotsDo, int enemiesInSight, int groupsInItsFight, long millisecondsWithNoEnemy) =>
+            picksItsFightsAsBotsDo && enemiesInSight == 0 && groupsInItsFight == 0 && millisecondsWithNoEnemy > NobodyLeftAfterMilliseconds;
 
         /// <summary>See <see cref="ColdAfterSeconds"/>.</summary>
         public static bool HasGoneCold(long millisecondsSinceAnyoneWasInCombat) => millisecondsSinceAnyoneWasInCombat > ColdAfterSeconds * 1_000L;
@@ -1734,7 +1760,8 @@ namespace DOL.GS
                 // Who of the realm is in the 8v8 zone: guilds of every kind but those that hunt packs, each by itself.
                 // (An evening that is in the 8v8 zone only: all of them.)
                 List<PvpRoamTeam> alone = eight == null ? [] : open.Count == 0 ? realm.ToList()
-                    : realm.Where(team => !team.Profile.HuntsPacks).OrderBy(_ => Random.Shared.Next()).Take(EightZoneGroups(realm.Count(), real.EightZoneGroups)).ToList();
+                    : realm.Where(team => !team.Profile.HuntsPacks).OrderBy(_ => Random.Shared.Next())
+                        .Take(EightZoneGuilds(realm.Count(), real.EightZoneGroups, leader != null && leader.Realm == realm.Key)).ToList();
                 foreach ((PvpRoamTeam follower, PvpRoamTeam head) in PvpTeamPool.Packs(realm.Where(team => team.Profile.Company == PvpCompany.Zerg && !alone.Contains(team)).ToList(), Random.Shared))
                 {
                     places[head] = places.GetValueOrDefault(head) + 1;
@@ -2031,16 +2058,22 @@ namespace DOL.GS
                 {
                     foreach (PvpRoamTeam team in teams)
                     {
-                        if (team.Quiet && (now - _started) / 1000 % 5 != 0)
+                        // (The player's own team every second: what its player asks about is mostly its way on the road.)
+                        if (team.Quiet && team.Leader == null && (now - _started) / 1000 % 5 != 0)
                             continue;
                         (double x, double y) = team.Centre();
                         recording.Line(new
                         {
                             k = "team", t = recording.Now, name = team.Name, state = team.State, x = (int)x, y = (int)y, alive = team.Alive,
                             wp = team.Team.Waypoint, fighting = team.Fighting.Select(other => other.Name).ToList(), zone = team.Map.Id,
+                            // Its player's client: the longest silence between two position packets in this second, where
+                            // the player is and whether it moves. (The owner, on Agramon behind its Bard, 2026-11-25:
+                            // "stutter at various places on the island"; the driver ran evenly, its player fell behind.)
+                            gap = team.Leader?.TakeLongestPositionPacketGap(), px = team.Leader?.X, py = team.Leader?.Y,
+                            pmoving = team.Leader?.IsMoving,
                         });
                     }
-                    recording.Snapshot(name => teams.FirstOrDefault(team => team.Name == name)?.Quiet != false);
+                    recording.Snapshot(name => teams.FirstOrDefault(team => team.Name == name) is not { } one || one.Quiet && one.Leader == null);
                 }
             }
             catch (Exception exception)
@@ -2437,7 +2470,9 @@ namespace DOL.GS
                 }
             }
             // The fight is over when no enemy has been near for a while: a fresh squad for the next one.
-            else if (team.ContactTick != 0 && !inCombat && (FightIsOver(now - team.LastEnemyNearTick) || HasGoneCold(now - team.LastCombatTick)))
+            // (Or nobody is left to fight: NobodyLeftToFight, whatever is left of a member's time in combat.)
+            else if (team.ContactTick != 0 && (!inCombat && (FightIsOver(now - team.LastEnemyNearTick) || HasGoneCold(now - team.LastCombatTick)) ||
+                                               NobodyLeftToFight(wheel == null, enemies.Count, team.Fighting.Count, now - team.LastEnemyNearTick)))
             {
                 team.ContactTick = 0;
                 team.FoughtUntil = now;
@@ -2562,6 +2597,13 @@ namespace DOL.GS
             bool leftAFightNear = team.Draws.Any(draw => !draw.Value && draw.Key.Alive > 0 && Near(team, draw.Key, team.Waiting ? 12_000 : 9_000));
             if (!leftAFightNear)
                 (team.GaveUpWaiting, team.AroundSide) = (false, 0);
+            // (The player's group with a companion at the wheel does not stand by it at all: PvpDriver.GoesOnPastAFight.)
+            if (PvpDriver.GoesOnPastAFight(driven, leftAFightNear, team.GaveUpWaiting))
+            {
+                (team.GaveUpWaiting, team.GaveUpAt, team.AroundSide) = (true, now, 0);
+                bool back = TurnsAway(team);
+                Say($"{team.Name} {(back ? "turns away" : "walks on, round the fight")}", new { what = "turn", team = team.Name, turned = back, driven = true });
+            }
             bool waits = WaitsOutAFight(leftAFightNear, enemies.Count, wheel != null || team.Entry != null && (team.GaveUpWaiting || LeadOf(team, teams) != null));
             if (waits && team.Waiting && team.Entry != null && GivesUpWaiting((now - team.WaitingSince) / 1000.0))
             {
@@ -2611,6 +2653,7 @@ namespace DOL.GS
                     team.Team.Squad.Tell(atTheWheel, "driver-waits", PvpDriver.WaitingFor(follower.Name), PvpDriver.SaysAgainAfterSeconds * 1_000);
                 if (resting && !team.DriverRests)
                     team.Team.Squad.Tell(atTheWheel, "driver-rests", PvpDriver.Resting);
+
                 team.DriverRests = resting;
                 bool moves = !holds && body == null && team.Hide == null && !resting && !waits;
                 if (moves && !team.DriverMoves && team.Team.Route is { Length: > 0 } way)

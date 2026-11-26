@@ -24,6 +24,13 @@ namespace DOL.UnitTests
             Assert.That(PvpTrapped.IsNear(48), Is.True, "the way in ended 29 to 48 units short of them");
             Assert.That(PvpTrapped.IsNear(PvpTrapped.WayOutWithin + 1), Is.False, "a bot is not carried across a zone");
             // A fight in which nobody has been in combat for half a minute is over, whoever still stands near.
+            // "It's the time we were standing before moving away from the fighting spot, at the end of the fight": with
+            // nobody left to fight a fight is over in three seconds, not twelve.
+            Assert.That(PvpRoam.NobodyLeftToFight(picksItsFightsAsBotsDo: true, enemiesInSight: 0, groupsInItsFight: 0, millisecondsWithNoEnemy: 3_500), Is.True);
+            Assert.That(PvpRoam.NobodyLeftToFight(true, 0, 0, 2_000), Is.False);
+            Assert.That(PvpRoam.NobodyLeftToFight(true, 2, 0, 9_000), Is.False, "an enemy is still there");
+            Assert.That(PvpRoam.NobodyLeftToFight(true, 0, 1, 9_000), Is.False, "a group is still in the fight, out of sight for a moment");
+            Assert.That(PvpRoam.NobodyLeftToFight(false, 0, 0, 9_000), Is.False, "with the player at the wheel a lull is not the end");
             Assert.That(PvpRoam.HasGoneCold(31_000), Is.True);
             Assert.That(PvpRoam.HasGoneCold(12_000), Is.False);
             Assert.That(PvpRoam.ColdAfterSeconds * 1_000, Is.GreaterThan(PvpRoam.FightOverAfterMilliseconds));
@@ -81,7 +88,13 @@ namespace DOL.UnitTests
             Assert.That(PvpRoam.MapFor("agramon"), Is.SameAs(PvpRoamZones.Agramon));
             Assert.That(PvpRoam.Frontiers, Does.Not.Contain(PvpRoamZones.Agramon));
             Assert.That(PvpRoamZones.Agramon.Starts.Select(start => start.Realm), Is.EquivalentTo(new[] { eRealm.Albion, eRealm.Midgard, eRealm.Hibernia }));
-            Assert.That(PvpRoamZones.Agramon.Ways, Has.Count.EqualTo(3));
+            // "it looks like we are running the same triangle ... Could we add more routes ?": ten points, and from each a way on.
+            Assert.That(PvpRoamZones.Agramon.Places, Has.Count.EqualTo(10));
+            Assert.That(PvpRoamZones.Agramon.Ways, Has.Count.EqualTo(18));
+            // No dead end: a team picks any leg but the one it came by, and at a point with one leg it turned round on the spot.
+            foreach (((int X, int Y) point, string name) in PvpRoamZones.Agramon.Places)
+                Assert.That(PvpRoamZones.Agramon.From(point), Has.Count.GreaterThanOrEqualTo(2), name);
+            Assert.That(PvpRoamZones.Agramon.Places.Select(place => place.Name), Is.Unique);
             Assert.That(PvpRoam.EveningZones(PvpRoam.Emain, 12, new Random(1), PvpRoamZones.Agramon)[^1], Is.SameAs(PvpRoamZones.Agramon));
             Assert.That(PvpRoam.CanBeWalked(null), Is.False);
             // An evening is in its frontier zones as ever, and in the 8v8 zone.
@@ -110,6 +123,12 @@ namespace DOL.UnitTests
             Assert.That(PvpRoam.EightZoneGroups(2, 2), Is.EqualTo(1));
             Assert.That(PvpRoam.EightZoneGroups(12, 4), Is.EqualTo(4));
             Assert.That(PvpRoam.EightZoneGroups(0, 2), Is.Zero);
+            // "keep the 8v8 zone number of teams balance between the 3 realms ... there was 3 hibs group and 1 mid group":
+            // the player's own group is one of its realm's two.
+            Assert.That(PvpRoam.EightZoneGuilds(guildsOfTheRealm: 12, atTheMost: 2, thePlayersGroupIsOfThisRealm: false), Is.EqualTo(2));
+            Assert.That(PvpRoam.EightZoneGuilds(11, 2, true), Is.EqualTo(1), "eleven guilds and the player's group: one guild there, and the player's");
+            Assert.That(PvpRoam.EightZoneGuilds(3, 2, true), Is.Zero, "a small evening: the player's group is its realm's one");
+            Assert.That(PvpRoam.EightZoneGuilds(4, 2, false), Is.EqualTo(1));
             // The kinds that play 8v8 leave a group to rest after its fight; a bad or a casual group takes it as it finds it.
             foreach (PvpTeamKind kind in new[] { PvpTeamKind.Decent, PvpTeamKind.Strong, PvpTeamKind.Elite })
                 Assert.That(PvpRoam.WaitsForARestedGroup(kind), Is.True, kind.ToString());

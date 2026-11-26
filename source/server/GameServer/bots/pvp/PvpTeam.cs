@@ -166,6 +166,9 @@ namespace DOL.GS
         /// <param name="roam">Set in the open basin: the group goes from point to point by this draw.</param>
         /// <param name="contactTick">When the first blow of the fight fell; 0 before it.</param>
         /// <param name="toward">Where it goes while it sees no enemy, instead of on along its route: the fight it has said it joins (PvpRoam.FightItJoined).</param>
+        // Where the group was last marched to with no enemy in sight (null: it had one in sight, or has not marched yet).
+        private Vector3? _marchedTo;
+
         public void March(IReadOnlyList<GameLiving> enemies, (int X, int Y) far, PvpArenaBox arena, Random roam, long contactTick, (int X, int Y)? toward = null)
         {
             List<GameBot> members = Bots.Where(bot => bot.IsAlive).ToList();
@@ -224,6 +227,12 @@ namespace DOL.GS
             // rectangle", and with the driver stopping for its songs the driver was the one left behind.)
             bool onTheRoad = basin && seen.Count == 0;
             GameBot driver = onTheRoad ? PvpFormation.DriverOf(members) : null;
+            // The group has a new point to walk to: whoever leads is sent there at once, and does not walk on to the old
+            // one, stand there and wait for its next order (a moving member is given one only one second in four). The
+            // owner, driven by its Bard for the first time, 2026-11-25: "when it reach the end of it's current section, he
+            // will stop for a sec or a bit less, pick the new section then move again ... Could there be some 'see ahead'".
+            bool turned = seen.Count == 0 && (_marchedTo is not { } before || Vector3.Distance(before, goal) > 200);
+            _marchedTo = seen.Count == 0 ? goal : null;
             places = onTheRoad ? null : SpreadPlaces(members, goal);
             bool sawBefore = SawEnemy;
             bool sighted = seen.Count > 0 && !sawBefore;
@@ -310,7 +319,7 @@ namespace DOL.GS
                     }
                 }
                 // The moment the enemy comes into sight the order to take the rows goes out at once.
-                if (!sighted && bot.IsMoving && GameLoop.GameLoopTime % 4_000 >= 1_000)
+                if (!sighted && !turned && bot.IsMoving && GameLoop.GameLoopTime % 4_000 >= 1_000)
                     continue;
                 bot.PathTo(places != null && places.TryGetValue(bot, out Vector3 place) ? place : goal, bot.MaxSpeed);
             }
