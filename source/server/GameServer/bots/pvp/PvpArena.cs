@@ -430,7 +430,7 @@ namespace DOL.GS
         {
             if (_milliseconds == null || _milliseconds.Count == 0)
                 return string.Empty;
-            string text = "; bringing groups out: " + string.Join(", ", _milliseconds.OrderByDescending(step => step.Value).Select(step => $"{step.Key} {step.Value:F0}"));
+            string text = "; of it: " + string.Join(", ", _milliseconds.OrderByDescending(step => step.Value).Select(step => $"{step.Key} {step.Value:F0}"));
             _milliseconds.Clear();
             return text;
         }

@@ -3873,6 +3873,24 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [x] **M13.36** (S) Behind the driver, again. *Built 2026-11-26; unit-tested; an evening of bots passed (it has no
+  player: the rule does nothing there); installed; not yet seen by the owner.* The owner: "make sticking to the
+  driving bot a smoother experience. I feel like there are still skme stutter and issues with hills". What its last
+  session shows, second by second (`source/tools/pvp_behind_driver.py`; 322 seconds with driver and player both
+  on the move): the driver ran evenly (2 slow seconds in 369, one of them a drop of 494 units a second, where the
+  packet's limit for the speed downwards slows it), on the flat as on the hills; its player was under three
+  quarters of the driver's speed in 9 seconds. Two things in them. (1) After a fight the group set off to rest at
+  490 units a second while the speed song was not on its player again (190, then 260 to 300, for three seconds):
+  1,300 units behind at once. (2) A player 500 units behind a driver exactly as fast as itself stayed 500 behind,
+  second after second: on /stick it never comes up. So a group one of its own drives keeps to the pace of its
+  player: no faster than its player can run right now, and at 85% of that while its player is more than 300 units
+  behind the driver, until it is within 150 (`PvpDriver.Pace`, `PvpDriver.EasesOff`, `GameBot.PvpPace`). Not in a
+  fight; not a group its player drives (there a bot has to catch up); not for a player that is held. Also in that
+  session: the owner's client was silent for two seconds twice, in the seconds in which three groups were wiped and
+  one stood up (M13.35, installed after it). What a second cannot show is a stutter shorter than one: the row of
+  the player's team now has what its client said of its speed in that second (`pn` packets, `pslow`, `pfast`, and
+  `pmax`, `pace`), so the next session behind the driver can be read for stops and starts, and where they are.
+  Open: the hills, until that is read.
 - [x] **M13.35** (M) The server stops for half a second when a group comes out. *Built 2026-11-26; measured in
   evenings of bots; installed; not yet seen by the owner.* The owner: "I dont know if it's the client but lots of
   lag", "we just had some lag", "That same 2-3 sec befor eI could swing". Two things. (1) The swings were on time:
@@ -3887,8 +3905,19 @@ kept; a way for a dead player to tell the group "just die".
   way and changed: an 8v8 bot does not use the road route (26 of 31 slow movement turns of an evening, forty path
   queries each, for two or three nodes; nine in ten of the slow movement turns of two days of play were groups in
   Emain Macha, none on Agramon, which has no roads); the monsters that are back are looked for one zone a second
-  and not all zones in one turn. Open: turns of 140 to 260 ms of a group in a fight; the first group of an evening
-  still costs half a second (the lists are read then).
+  and not all zones in one turn. The same afternoon, the turns of 140 to 260 ms in the minutes of the fights: the
+  turn now says where it went (before the steps of the teams, the steps, the calls, the sweep, the recording, and
+  within a step). Two more causes. (1) Every five seconds 100 to 230 ms "before the steps": the look for a bot on
+  ground it cannot leave (`PvpTrapped`, M13.21) asked every standing bot of every group to walk in eight
+  directions, up to 32 paths each, all in the same turn. It now stops at the first direction in which the bot gets
+  away (one path on open ground), asks for the floor under the team's start only of a bot that is trapped, and
+  each bot has its own second of the five. (2) Whether a group sees another coming for its fight
+  (`PvpRoam.Sees`, up to 64 lines of sight) was asked for every enemy group near every group in every second,
+  before the cheap questions that mostly answer it; it is asked last now. In an evening of bots of seven minutes
+  after it (27 fights, 5 wipes): four turns of 100 ms or more in the minutes of the fights where the evening
+  before it had 38, the worst turn of a minute 117 to 136 ms where it was 160 to 297. Open: a step of a group in a
+  fight still takes 60 to 120 ms now and then, most of it between picking its enemies and deciding (the calls of
+  what comes, the pay); the first group of an evening still costs half a second (the lists are read then).
 - [x] **M13.34** (S) What the second fight on Agramon found. *Built 2026-11-26; unit tests; an evening of bots; not
   yet seen by the owner.* The owner, of a fight of 4:19 against Midgard that was lost two kills to eight: (1) "Druid
   had their pets on fighter". Nothing sent a healer's pet anywhere (only a Cabalist's, an Enchanter's and a

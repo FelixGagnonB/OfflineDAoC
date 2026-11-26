@@ -74,6 +74,24 @@ namespace DOL.GS
         /// </summary>
         public static bool GoesForAFight(bool playerIsUp, double playerFromTheDriver) => playerIsUp && playerFromTheDriver <= WaitsBeyond;
 
+        /// <summary>
+        /// The pace of a group one of its own drives: no faster than its player can run right now, and a little slower
+        /// while its player is behind, so that it comes up. 0: its own speed. The owner, 2026-11-26: "make sticking to the
+        /// driving bot a smoother experience". In its last session the group set off to rest after a fight at 490 units a
+        /// second while the speed song was not on its player yet (190, then 260 to 300, for three seconds): it was 1,300
+        /// units behind at once. And a player 500 units behind a driver as fast as itself stayed 500 behind, second after
+        /// second: on /stick it never came up. Not in a fight, and not for a player that cannot move at all.
+        /// </summary>
+        public const int EasesOffBeyond = 300, EasesOffUntilWithin = 150, NoPaceUnder = 150;
+        public const double EasedShare = 0.85;
+
+        public static int Pace(bool aCompanionDrives, bool playerIsUp, int playerCanRun, bool inAFight, bool eased) =>
+            !aCompanionDrives || !playerIsUp || inAFight || playerCanRun < NoPaceUnder ? 0 : eased ? (int)(playerCanRun * EasedShare) : playerCanRun;
+
+        /// <summary>Whether the driver eases off (<see cref="Pace"/>): its player is behind it by more than the first, until it is within the second.</summary>
+        public static bool EasesOff(bool easedAlready, double playerFromTheDriver, bool playerIsBehindIt) =>
+            playerIsBehindIt && playerFromTheDriver > (easedAlready ? EasesOffUntilWithin : EasesOffBeyond);
+
         public static string ComingFor(string player) => $"Coming to you, {player}.";
 
         /// <summary>

@@ -35,6 +35,11 @@ namespace DOL.GS
                 if (field != 0 && value - field > LongestPositionPacketGap)
                     LongestPositionPacketGap = value - field;
                 field = value;
+                if (Owner != null)
+                {
+                    int speed = System.Math.Abs((int) Owner.CurrentSpeed);
+                    ReportedSpeeds = (ReportedSpeeds.Packets + 1, ReportedSpeeds.Packets == 0 ? speed : System.Math.Min(ReportedSpeeds.Slowest, speed), System.Math.Max(ReportedSpeeds.Fastest, speed));
+                }
             }
         }
 
@@ -44,6 +49,9 @@ namespace DOL.GS
         /// still on its player's screen (or a server that did not read). Only measured, for the 8v8 recording.
         /// </summary>
         public long LongestPositionPacketGap { get; set; }
+
+        /// <summary>The position packets of this player's client since this was last emptied: how many, and the slowest and the fastest speed in them. Only measured, for the 8v8 recording.</summary>
+        public (int Packets, int Slowest, int Fastest) ReportedSpeeds { get; set; }
         public bool UseSafePosition { get; set; }
 
         public PlayerMovementComponent(GameLiving owner) : base(owner)

@@ -90,6 +90,19 @@ namespace DOL.UnitTests
             Assert.That(PvpWater.IsOn(3040, 2960), Is.False, "a bridge: the deck is the nearer floor");
             Assert.That(PvpWater.IsOn(null, null), Is.False);
             Assert.That(PvpDriver.Waits(false, 5_000, false), Is.False);
+            // "make sticking to the driving bot a smoother experience": the group keeps to what its player can run right
+            // now (after a fight, before the speed song is on it again: 191), and eases off while it is behind.
+            Assert.That(PvpDriver.Pace(aCompanionDrives: true, playerIsUp: true, playerCanRun: 191, inAFight: false, eased: false), Is.EqualTo(191));
+            Assert.That(PvpDriver.Pace(true, true, 500, false, eased: true), Is.EqualTo(425), "a little slower, so that its player comes up");
+            Assert.That(PvpDriver.Pace(true, true, 500, inAFight: true, false), Is.EqualTo(0), "in a fight every bot runs as it can");
+            Assert.That(PvpDriver.Pace(aCompanionDrives: false, true, 191, false, false), Is.EqualTo(0), "behind a player that drives, a bot has to catch up");
+            Assert.That(PvpDriver.Pace(true, playerIsUp: false, 191, false, false), Is.EqualTo(0));
+            Assert.That(PvpDriver.Pace(true, true, playerCanRun: 0, false, false), Is.EqualTo(0), "a player that is held: not a group that stands");
+            Assert.That(PvpDriver.EasesOff(easedAlready: false, playerFromTheDriver: 500, playerIsBehindIt: true), Is.True);
+            Assert.That(PvpDriver.EasesOff(false, 200, true), Is.False, "on /stick it is this close");
+            Assert.That(PvpDriver.EasesOff(true, 200, true), Is.True, "until it has come up");
+            Assert.That(PvpDriver.EasesOff(true, 100, true), Is.False);
+            Assert.That(PvpDriver.EasesOff(false, 500, playerIsBehindIt: false), Is.False, "ahead of the driver, it is not waited for");
             Assert.That(PvpDriver.HoldsAtStart(10_000), Is.True, "not before the buffs are on");
             Assert.That(PvpDriver.HoldsAtStart(31_000), Is.False);
             Assert.That(PvpDriver.MovingOut("mid road"), Is.EqualTo("Stick, moving out: mid road."));

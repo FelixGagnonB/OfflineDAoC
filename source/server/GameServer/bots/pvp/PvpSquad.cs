@@ -1813,6 +1813,35 @@ namespace DOL.GS
             }
         }
 
+        private bool _eased;
+
+        /// <summary>
+        /// Once a second: a group one of its own drives keeps to the pace of its player (<see cref="PvpDriver.Pace"/>);
+        /// any other group, and this one in a fight, runs at its own speed.
+        /// </summary>
+        public void KeepPace(GamePlayer itsPlayer, GameBot driver)
+        {
+            bool up = itsPlayer is { IsAlive: true, ObjectState: GameObject.eObjectState.Active };
+            bool fight = FightStarted || Leaving || RetreatsTo != null;
+            if (driver != null && up && !fight)
+            {
+                // Behind it: on the side of the driver that it does not face.
+                double heading = driver.Heading * Point2D.HEADING_TO_RADIAN;
+                bool behind = (itsPlayer.X - driver.X) * -Math.Sin(heading) + (itsPlayer.Y - driver.Y) * Math.Cos(heading) < 0;
+                _eased = driver.IsMoving && PvpDriver.EasesOff(_eased, itsPlayer.GetDistanceTo(driver), behind);
+            }
+            else
+                _eased = false;
+            int pace = PvpDriver.Pace(driver != null, up, up ? itsPlayer.MaxSpeed : 0, fight, _eased);
+            foreach (GameBot bot in _members)
+            {
+                if (bot.PvpPace == pace)
+                    continue;
+                bot.PvpPace = pace;
+                bot.OnMaxSpeedChange();   // it is on its way already: at its new speed from here
+            }
+        }
+
         private void EndGather()
         {
             _gatherOn = null;

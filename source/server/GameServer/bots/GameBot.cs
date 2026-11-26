@@ -61,6 +61,9 @@ namespace DOL.GS
         /// </summary>
         public bool PvpSprinting { get; set; }
 
+        /// <summary>An 8v8 bot of a group one of its own drives runs no faster than this: the pace of its player (PvpDriver.Pace). 0: its own speed.</summary>
+        public int PvpPace { get; set; }
+
         /// <summary>An 8v8 bot on the water's surface: it swims, at half its speed, as a player's character does (PvpWater).</summary>
         public bool PvpInWater { get; set; }
 
