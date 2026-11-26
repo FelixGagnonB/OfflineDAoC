@@ -107,6 +107,18 @@ namespace DOL.GS
             6,
             [(eRealm.Albion, 548926, 338435, true, 5, 4), (eRealm.Hibernia, 504480, 356872, false, 1, 0), (eRealm.Midgard, 518480, 307872, false, 2, 0)]);
 
+        // Agramon (region 163, zone 163), the island in the middle of the New Frontiers that no realm holds: 3 points, 3 legs
+        // of 14,972 to 17,181 units; Midgard comes in from the north (21,620 to its first point), Hibernia from the south-west
+        // (23,328), Albion from the south-east (23,524), the three starts 42,000 apart at the least. No keep, no monster.
+        // It is no zone of an evening by itself: it is ground for the 8v8 zone (PvpRealWeights.EightZone "agramon"). The
+        // game as shipped has no navmesh for it: source/development-tools/OpenDAoC-BuildNav makes zone163.nav from the
+        // client's files (two and a half minutes), and the map was laid out on that, 2026-11-25 (pvp_map_pick.py).
+        public static readonly PvpRoamMap Agramon = Zone("agramon", "Agramon", "Agramon", 163, 163,
+            [(517288, 458752, "west field"), (524288, 472752, "south field"), (531288, 458752, "east field")],
+            [(0, 1), (0, 2), (2, 1)],
+            2,
+            [(eRealm.Midgard, 531288, 437752, false, 2, 0), (eRealm.Hibernia, 503288, 479752, false, 1, 0), (eRealm.Albion, 545288, 479752, false, 1, 2)]);
+
         /// <summary>The nine, by frontier: Hibernia's, Midgard's, Albion's.</summary>
         public static readonly IReadOnlyList<PvpRoamMap> All = [Breifine, CruachanGorge, MountCollory, Jamtland, Uppland, YggdraForest, Pennine, ForestSauvage, Snowdonia];
     }

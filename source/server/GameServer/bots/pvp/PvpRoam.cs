@@ -340,6 +340,7 @@ namespace DOL.GS
             return key switch
             {
                 "thid" or "thidranki" => Thidranki,
+                "agramon" or "agra" => PvpRoamZones.Agramon,
                 "emain" or "emainmacha" => Emain,
                 "odin" or "odins" or "odin's" or "og" or "odinsgate" => OdinsGate,
                 "hadrian" or "hadrians" or "hadrian's" or "hw" or "hadrianswall" => HadriansWall,
@@ -440,7 +441,27 @@ namespace DOL.GS
         /// what the player attacks or calls, there as everywhere.
         /// </para>
         /// </summary>
-        public static PvpRoamMap EightZone => MapFor(PvpWeights.Current.Real.EightZone);
+        public static PvpRoamMap EightZone => MapFor(PvpWeights.Current.Real.EightZone) is { } named && CanBeWalked(named) ? named : null;
+
+        /// <summary>
+        /// Whether the server has a navmesh for a map's ground (Agramon has none as the game is
+        /// shipped). Where that cannot be told (no server running: a test), it can.
+        /// </summary>
+        public static bool CanBeWalked(PvpRoamMap map)
+        {
+            try
+            {
+                var nav = PathfindingProvider.Instance;
+                if (map == null || nav == null || !nav.IsAvailable || map.Starts.Count == 0)
+                    return map != null;
+                Zone zone = WorldMgr.GetRegion(map.Region)?.GetZone(map.Starts[0].Point.X, map.Starts[0].Point.Y);
+                return zone != null && nav.HasNavmesh(zone);
+            }
+            catch (Exception)
+            {
+                return true;
+            }
+        }
 
         // The 8v8 zone of the evening that is on; null when it has none.
         private static volatile PvpRoamMap _eight;
@@ -575,7 +596,7 @@ namespace DOL.GS
         }
 
         /// <summary>Every map, as the tools read them (<c>roam-maps</c> on the control channel; source/tools/pvp_map_draw.py draws them).</summary>
-        public static object Maps() => Frontiers.Append(Thidranki).Select(map =>
+        public static object Maps() => Frontiers.Append(Thidranki).Append(PvpRoamZones.Agramon).Select(map =>
         {
             List<(int X, int Y)> points = (map.Places ?? []).Select(place => place.Point).ToList();
             Zone zone = map.Zone == 0 ? null : WorldMgr.GetZone(map.Zone);
@@ -1430,7 +1451,7 @@ namespace DOL.GS
         /// <summary>The frontier zone a player stands in: one of this evening's first, then any of the twelve (or the battleground); null anywhere else.</summary>
         public static PvpRoamMap FrontierUnder(GamePlayer player) =>
             player?.CurrentZone is { } under
-                ? _maps.Concat(Frontiers).Append(Thidranki).FirstOrDefault(map => map.Region == player.CurrentRegionID && GroundOf(map).Contains(under.ID))
+                ? _maps.Concat(Frontiers).Append(Thidranki).Append(PvpRoamZones.Agramon).FirstOrDefault(map => map.Region == player.CurrentRegionID && GroundOf(map).Contains(under.ID))
                 : null;
 
         private static void LeaveTheField(PvpRoamTeam team, long now)
@@ -1567,6 +1588,9 @@ namespace DOL.GS
                             PvpWeights.Current.Real.GuildsBeginAtTheBottom);
                         // What the player's next evening begins with by itself (PvpEveningStart): this zone, this many groups, this line-up.
                         // (An evening its player came into standing in the 8v8 zone is not one that begins there the next time.)
+                        // (The settings are read again here, before the zones are chosen: read only as the evening started, a
+                        // zone named for the 8v8 zone in pvp-weights.json was not in the evening's zones.)
+                        PvpWeights.Reload(AppContext.BaseDirectory);
                         PvpRoamMap eight = EightZone;
                         PvpPlayerSettings.Set(AppContext.BaseDirectory, player.InternalID,
                             kept => kept with { Lineup = own?.Id, Zone = map == eight && !oneZone ? kept.Zone : map.Id, Groups = prime });
@@ -2558,6 +2582,26 @@ namespace DOL.GS
             // behind, does not set off before the buffs are on, and says when it moves out and when it rests.
             bool holds = false;
             GameBot atTheWheel = driven ? PvpFormation.DriverOf(team.Team.Bots) : null;
+            if (driven)
+            {
+                // A companion's own brain goes after its player while it is in its following state, whatever it is told
+                // here: the driver was pulled back to the player at every step, and the group went nowhere. The first
+                // session with a player, 2026-11-25, on Agramon: "The bard driving is pretty bad"; in its recording the
+                // Bard was never more than 75 units from the player and moved at 25 to 190 units a second. Out of that
+                // state while a companion drives (a group of bots is never in it); TravelWithLeader puts it back.
+                // (PvpSpreadOut is the brain's own switch for it: with it a companion that is idle more than 650 units from its
+                // player does not go back to following it, and a healer does not walk back to its side between casts.)
+                foreach (GameBot bot in team.Team.Bots)
+                {
+                    if (!bot.IsAlive || bot.Brain is not BotBrain itsBrain)
+                        continue;
+                    itsBrain.PvpSpreadOut = true;
+                    if (itsBrain.FSM.GetCurrentState()?.StateType == eFSMStateType.FOLLOW)
+                        itsBrain.FSM.SetCurrentState(eFSMStateType.IDLE);
+                    if (bot.FollowTarget == team.Leader)
+                        bot.StopFollowing();
+                }
+            }
             if (driven && enemies.Count == 0 && team.Leader is { } follower && atTheWheel != null)
             {
                 bool up = follower.IsAlive && follower.ObjectState == GameObject.eObjectState.Active;

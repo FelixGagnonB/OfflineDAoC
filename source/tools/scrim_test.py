@@ -37,7 +37,7 @@ import scrim_server
 HERE = os.path.dirname(os.path.abspath(__file__))
 SERVER_SOURCE = os.path.normpath(os.path.join(HERE, "..", "server"))
 # The zones where nobody adds (PvpRoam.EightZone, PvpRealWeights.CleanZonesHaveNoAdds).
-NO_ADDS = {"thid", "breifine", "cruachan", "collory", "jamtland", "uppland", "yggdra", "pennine", "sauvage", "snowdonia"}
+NO_ADDS = {"thid", "agramon", "breifine", "cruachan", "collory", "jamtland", "uppland", "yggdra", "pennine", "sauvage", "snowdonia"}
 # Written at every start of the server, by the game's own code: not a fault of a build.
 KNOWN = ("An item with the same key has already been added. Key: &tc",)
 

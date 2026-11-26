@@ -77,6 +77,13 @@ namespace DOL.UnitTests
             // and 2, based on what kind of group is waiting".
             Assert.That(PvpRoam.EightZone, Is.SameAs(PvpRoam.Thidranki), "the one ground no evening used");
             Assert.That(PvpRoam.Frontiers, Does.Not.Contain(PvpRoam.Thidranki));
+            // Agramon, the island no realm holds: ground for the 8v8 zone when the settings name it, and no zone of an evening otherwise.
+            Assert.That(PvpRoam.MapFor("agramon"), Is.SameAs(PvpRoamZones.Agramon));
+            Assert.That(PvpRoam.Frontiers, Does.Not.Contain(PvpRoamZones.Agramon));
+            Assert.That(PvpRoamZones.Agramon.Starts.Select(start => start.Realm), Is.EquivalentTo(new[] { eRealm.Albion, eRealm.Midgard, eRealm.Hibernia }));
+            Assert.That(PvpRoamZones.Agramon.Ways, Has.Count.EqualTo(3));
+            Assert.That(PvpRoam.EveningZones(PvpRoam.Emain, 12, new Random(1), PvpRoamZones.Agramon)[^1], Is.SameAs(PvpRoamZones.Agramon));
+            Assert.That(PvpRoam.CanBeWalked(null), Is.False);
             // An evening is in its frontier zones as ever, and in the 8v8 zone.
             for (int seed = 1; seed <= 20; seed++)
             {
