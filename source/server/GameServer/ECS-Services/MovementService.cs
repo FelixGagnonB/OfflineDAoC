@@ -52,11 +52,16 @@ namespace DOL.GS
                     Interlocked.Increment(ref Instance.EntityCount);
 
                 long startTick = MonotonicTime.NowMs;
+                NavQueryProfile.Reset();
                 movementComponent.Tick();
                 long stopTick = MonotonicTime.NowMs;
 
+                // With what it asked of the navigation mesh and where it was going: nine in ten of the slow
+                // turns of two days of play (1,460 of 1,631) were groups walking in Emain Macha, and the line named nobody's reason.
                 if (stopTick - startTick > Diagnostics.LongTickThreshold)
-                    log.Warn($"Long {Instance.ServiceName}.{nameof(Tick)} for {movementComponent.Owner.Name}({movementComponent.Owner.ObjectID}) Time: {stopTick - startTick}ms");
+                    log.Warn($"Long {Instance.ServiceName}.{nameof(Tick)} for {movementComponent.Owner.Name}({movementComponent.Owner.ObjectID}) Time: {stopTick - startTick}ms{NavQueryProfile.Summary()}" +
+                             $" region={movementComponent.Owner.CurrentRegionID} at={movementComponent.Owner.X},{movementComponent.Owner.Y},{movementComponent.Owner.Z}" +
+                             $"{(movementComponent is NpcMovementComponent mover ? " " + mover.DescribeRouteState() : string.Empty)}");
             }
             catch (Exception e)
             {

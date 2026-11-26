@@ -61,6 +61,14 @@ namespace DOL.GS
         public int MinScore { get; set; } = 20;
         /// <summary>Enemies farther than this from an interrupter are not given to it.</summary>
         public int Range { get; set; } = 2_500;
+        /// <summary>
+        /// A healer's pet (a Druid's) is sent at an enemy healer or caster (PvpInterruptDuty.PetOfAHealer).
+        /// Until 2026-11-26 nothing sent it anywhere and it defended its owner. The owner, of a
+        /// fight against Midgard: "Druid had their pets on fighter". The two pets hit the
+        /// Berserker, the Savage, the Warrior and the Skald 57 times for 130 damage, and a
+        /// caster or a healer twice. False: as it was.
+        /// </summary>
+        public bool HealersPetsInterrupt { get; set; } = true;
     }
 
     /// <summary>
@@ -74,6 +82,17 @@ namespace DOL.GS
         public static PvpInterruptMeans MeansOf(eCharacterClass characterClass, PvpInterruptWeights weights) =>
             weights.Means.TryGetValue(characterClass.ToString(), out string means) &&
             System.Enum.TryParse(means, true, out PvpInterruptMeans parsed) ? parsed : PvpInterruptMeans.None;
+
+        /// <summary>
+        /// Where a healer's pet goes: the enemy healer or caster an interrupter would be given
+        /// (in range, scoring enough), one that has no interrupter yet before one that has, and
+        /// the best score among those. The caller leaves out fighters, the kill target and
+        /// whoever is asleep or being put to sleep. -1: none, and the pet stays with its owner.
+        /// </summary>
+        public static int PetOfAHealer(IEnumerable<(PvpDutyPair Pair, bool HasAnInterrupter)> open, PvpInterruptWeights weights) =>
+            open.Where(one => one.Pair.Distance <= weights.Range && Score(one.Pair, weights) >= weights.MinScore)
+                .OrderBy(one => one.HasAnInterrupter ? 1 : 0).ThenByDescending(one => Score(one.Pair, weights)).ThenBy(one => one.Pair.Enemy)
+                .Select(one => one.Pair.Enemy).DefaultIfEmpty(-1).First();
 
         public static double Score(PvpDutyPair pair, PvpInterruptWeights weights) =>
             (pair.Archetype == PvpBuffArchetype.Healer ? weights.OnHealer : weights.OnCaster)

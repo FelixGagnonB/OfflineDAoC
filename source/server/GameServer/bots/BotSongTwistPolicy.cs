@@ -62,17 +62,25 @@ namespace DOL.GS
         /// and on a retreat, both endurance in a fight.
         ///
         /// With both alive, the first (by name) holds speed, on the road, on the way in and on
-        /// the run, and plays nothing in a fight, where speed does not take hold and it has its
-        /// mez to cast; the second holds endurance all the time. The one left of two holds
+        /// the run; the second holds endurance all the time. The one left of two holds
         /// endurance whenever an enemy is known, in a fight, on the run and at rest, and speed
         /// only on an empty road.
+        ///
+        /// In a fight the first holds endurance too, begun as the Bard of a group with one
+        /// begins it (between its mezzes, PvpWeights.SongInFightEverySeconds). Until 2026-11-26
+        /// it played nothing there and its speed song ran on, which does nothing for anybody
+        /// who gives or takes blows. The owner, of a fight of four minutes that was lost: "We
+        /// had no endurance song up, we were out of endurance most of the fight". The song
+        /// reaches about 2,000 units and the fight was 3,000 wide: the player was without it
+        /// for 115 of 250 seconds, 53 of them within 1,500 of the Bard that held the speed, and
+        /// 16 more went by between the death of the one and the song of the other.
         /// </summary>
         /// <param name="placeAmongTheAlive">0 for the first of the group's living Bards by name.</param>
         /// <param name="fightingAndNotOnTheRun">It is in combat and its group neither chases, retreats nor has broken off.</param>
         /// <param name="onTheRun">Its group chases, retreats behind its player or has broken off.</param>
         public static PvpBardSong TwoBards(int bardsOfTheGroup, int bardsAlive, int placeAmongTheAlive, bool fightingAndNotOnTheRun, bool onTheRun, bool enemyKnownOrResting) =>
             bardsOfTheGroup < 2 ? PvpBardSong.AsOne
-            : bardsAlive >= 2 ? placeAmongTheAlive > 0 ? PvpBardSong.Endurance : fightingAndNotOnTheRun ? PvpBardSong.Nothing : PvpBardSong.Speed
+            : bardsAlive >= 2 ? placeAmongTheAlive > 0 || fightingAndNotOnTheRun ? PvpBardSong.Endurance : PvpBardSong.Speed
             : fightingAndNotOnTheRun || onTheRun || enemyKnownOrResting ? PvpBardSong.Endurance : PvpBardSong.Speed;
 
         public static bool IsCompanionTravelSong(eCharacterClass characterClass, eSpellType type) =>

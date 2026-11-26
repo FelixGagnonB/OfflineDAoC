@@ -9,6 +9,14 @@ namespace DOL.UnitTests
     public class UT_PvpCalls
     {
         [Test]
+        public void NoOrderIsSaidWhileTheGroupFindsItsFightLost()
+        {
+            Assert.That(PvpCalls.OrderAfterLost(100_000, 0), Is.True, "it has never been lost");
+            Assert.That(PvpCalls.OrderAfterLost(100_000, 99_000), Is.False, "lost a second ago: 'extend' is not said on top of it");
+            Assert.That(PvpCalls.OrderAfterLost(100_000, 80_000), Is.True, "a fight of long ago");
+        }
+
+        [Test]
         public void TwoBardsShareTheSongs()
         {
             // The owner, 2026-11-24: "1 bard has speed up and the other has endurance ... If the endurance bard dies, then the other has to play it".
@@ -19,8 +27,8 @@ namespace DOL.UnitTests
             // On the road: one speed, one endurance.
             Assert.That(BotSongTwistPolicy.TwoBards(2, 2, 0, false, false, false), Is.EqualTo(speed));
             Assert.That(BotSongTwistPolicy.TwoBards(2, 2, 1, false, false, false), Is.EqualTo(endurance));
-            // In a fight the endurance stays up and the other casts its mez.
-            Assert.That(BotSongTwistPolicy.TwoBards(2, 2, 0, true, false, true), Is.EqualTo(BotSongTwistPolicy.PvpBardSong.Nothing));
+            // In a fight both hold endurance (the owner, 2026-11-26: "We had no endurance song up"): the fight is wider than one song.
+            Assert.That(BotSongTwistPolicy.TwoBards(2, 2, 0, true, false, true), Is.EqualTo(endurance));
             Assert.That(BotSongTwistPolicy.TwoBards(2, 2, 1, true, false, true), Is.EqualTo(endurance));
             // On a retreat: one tries the speed, the other keeps the endurance up.
             Assert.That(BotSongTwistPolicy.TwoBards(2, 2, 0, false, true, true), Is.EqualTo(speed));

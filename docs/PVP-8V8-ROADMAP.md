@@ -3873,6 +3873,43 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [ ] **M13.35** (M) The server stops for a second: walking in Emain Macha. *Open; found 2026-11-26.* The owner, of
+  the fight below: "I dont know if it's the client but lots of lag. I was on top of caster and it took like 5-6
+  secondes beore I was able to swing at him". It is the server. Its log has two stalls in the minutes of that fight
+  (`SERVER_STALL`, worst tick 1.1 and 1.6 seconds), and in its last 75 seconds two Midgard groups on one road of
+  Emain Macha took 40 to 120 ms a member for one movement turn, every four seconds. Of the 1,631 slow movement turns
+  of two days of play that could be placed, 1,460 were groups in Emain Macha (most between its Midgard start and the
+  north end of the road), 154 in Odin's Gate, 4 in Thidranki, none on Agramon; so it is neither v0.1.7 nor Agramon.
+  The cause is not found. A slow movement turn now writes what it asked of the navigation mesh and where it was
+  going (`MovementService`), so that the next evening of bots names it.
+- [x] **M13.34** (S) What the second fight on Agramon found. *Built 2026-11-26; unit tests; an evening of bots; not
+  yet seen by the owner.* The owner, of a fight of 4:19 against Midgard that was lost two kills to eight: (1) "Druid
+  had their pets on fighter". Nothing sent a healer's pet anywhere (only a Cabalist's, an Enchanter's and a
+  Spiritmaster's had orders) and it defended its owner: 57 hits on the Berserker, the Savage, the Warrior and the
+  Skald for 130 damage, two on a caster or healer. Now it is sent at an enemy healer or caster, one nobody
+  interrupts first (`PvpInterruptWeights.HealersPetsInterrupt`, `PvpInterruptDuty.PetOfAHealer`). (2) "We had no
+  endurance song up, we were out of endurance most of the fight". One Bard held it all the fight; the song reaches
+  about 2,000 units and the fight was 3,000 wide. The player was without it for 115 of 250 seconds (53 of them
+  within 1,500 of the Bard that held the speed song, which does nothing in a fight), and 16 seconds went by between
+  the death of the one Bard and the song of the other. Now both hold endurance in a fight
+  (`BotSongTwistPolicy.TwoBards`); on the road and on the run as before. (3) "They got the mezz on us on contact
+  while we didn't see them": seen at 1,200 units, one second before the first spell (3,000 the fight before); three
+  of the group and the player asleep or stunned within two seconds. Nothing changed. (4) "the bot call that we lost
+  then bit after another bot call for extend": a group with a player in it says it has lost and goes on, and its
+  orders went on being said, with three up against six and then two. Now no order is said while it finds its fight
+  lost (`PvpCalls.OrderAfterLost`).
+- [x] **M13.33** (S) Speed of Sound for members that are held. *Built 2026-11-26; unit tests; not yet seen by the
+  owner.* The owner, of a fight on Agramon against one Midgard group, won with nobody lost: "Could you review that
+  last fight please. Both bard used SoS, at different time, but not sure why". Both for the same rule, "two members
+  rooted or snared", which counted whoever was held. The first, 31 seconds in, eight against eight (the other Bard
+  asleep): the Druid rooted where it stood and healed, and one fighter snared 450 units from the kill target. The
+  second, 61 seconds later, eight against six: one companion fighter snared 860 units from the next target and the
+  player snared on its way to it. Speed of Sound (thirty seconds, roots and snares off, gone for thirty minutes)
+  did what it says both times; neither was worth it. Now a held member counts only when it needs its legs: a
+  fighter more than 350 units from the enemy it is on, a healer or caster with an enemy fighter on it
+  (`PvpRealmAbilityWeights.SpeedOfSoundHeldFighterBeyond`, `PvpRealmAbilities.NeedsItsLegs`); and, as for getting
+  in, not against fewer enemies than the group has members alive. A called retreat and a jumped backline are as
+  before. In the three last sessions that were played, three of four uses came from this rule.
 - [x] **M13.32** (S) What a quarter of an hour on v0.1.6 found. *Built 2026-11-25; the water measured in a bot
   evening; the rest not yet seen by the owner.* The owner played Hibernia with two Bards in Thidranki, a Bard at
   the wheel. (1) "with hibernia, as we run 2 bards, wen bard driving, could we also be sprinting?" On the road

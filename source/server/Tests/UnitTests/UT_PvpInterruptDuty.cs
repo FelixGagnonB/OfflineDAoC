@@ -9,6 +9,20 @@ namespace DOL.UnitTests
     {
         private static readonly PvpInterruptWeights Weights = new();
 
+        [Test]
+        public void AHealersPetGoesForAnEnemyHealerOrCasterThatNobodyInterrupts()
+        {
+            // The owner, 2026-11-26: "Druid had their pets on fighter". (The caller leaves the fighters out.)
+            var healer = new PvpDutyPair(0, 0, PvpBuffArchetype.Healer, false, true, false, 900);
+            var caster = new PvpDutyPair(0, 1, PvpBuffArchetype.Caster, false, true, false, 900);
+            Assert.That(PvpInterruptDuty.PetOfAHealer([(healer, false), (caster, false)], Weights), Is.EqualTo(0), "the healer scores more");
+            Assert.That(PvpInterruptDuty.PetOfAHealer([(healer, true), (caster, false)], Weights), Is.EqualTo(1), "the healer has an interrupter already");
+            Assert.That(PvpInterruptDuty.PetOfAHealer([(healer, true)], Weights), Is.EqualTo(0), "two on one rather than none");
+            Assert.That(PvpInterruptDuty.PetOfAHealer([(healer with { Distance = 3_000 }, false)], Weights), Is.EqualTo(-1), "out of reach: it stays with its owner");
+            Assert.That(PvpInterruptDuty.PetOfAHealer([], Weights), Is.EqualTo(-1));
+            Assert.That(new PvpInterruptWeights().HealersPetsInterrupt, Is.True);
+        }
+
         private static PvpDutyPair Pair(int interrupter, int enemy, PvpBuffArchetype archetype = PvpBuffArchetype.Caster,
             bool casting = false, bool free = true, bool current = false, int distance = 1_000) =>
             new(interrupter, enemy, archetype, casting, free, current, distance);

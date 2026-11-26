@@ -47,6 +47,17 @@ namespace DOL.GS
         public static string Lost(int alive, int enemies) => $"THIS ONE IS LOST! {alive} OF US LEFT, {enemies} OF THEM! RETREAT?";
 
         /// <summary>
+        /// Whether an order is still said after the group has said its fight is lost: not while
+        /// it finds it lost (it is found again every second). The owner, 2026-11-26: "Near the
+        /// end, the bot call that we lost then bit after another bot call for extend. Not sure
+        /// if that make sense." Three of the group were up against six, then two; a group with
+        /// a player in it does not break off by itself, so its orders went on changing.
+        /// </summary>
+        public const int LostStandsMilliseconds = 5_000;
+
+        public static bool OrderAfterLost(long now, long lostFoundAt) => lostFoundAt <= 0 || now - lostFoundAt > LostStandsMilliseconds;
+
+        /// <summary>
         /// What the player's group says in a roam when it sees enemy groups it is not fighting:
         /// how many groups, of which realm, on which side of the player and how far (to the
         /// nearest 500). Until 2026-11-24 it said nothing of what it saw: the realm's other
