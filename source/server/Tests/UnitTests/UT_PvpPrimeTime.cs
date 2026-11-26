@@ -122,6 +122,12 @@ namespace DOL.UnitTests
             Assert.That(PvpRoam.EightZoneGroups(2, 2), Is.EqualTo(1));
             Assert.That(PvpRoam.EightZoneGroups(12, 4), Is.EqualTo(4));
             Assert.That(PvpRoam.EightZoneGroups(0, 2), Is.Zero);
+            // "keep the 8v8 zone number of teams balance between the 3 realms ... there was 3 hibs group and 1 mid group":
+            // the player's own group is one of its realm's two.
+            Assert.That(PvpRoam.EightZoneGuilds(guildsOfTheRealm: 12, atTheMost: 2, thePlayersGroupIsOfThisRealm: false), Is.EqualTo(2));
+            Assert.That(PvpRoam.EightZoneGuilds(11, 2, true), Is.EqualTo(1), "eleven guilds and the player's group: one guild there, and the player's");
+            Assert.That(PvpRoam.EightZoneGuilds(3, 2, true), Is.Zero, "a small evening: the player's group is its realm's one");
+            Assert.That(PvpRoam.EightZoneGuilds(4, 2, false), Is.EqualTo(1));
             // The kinds that play 8v8 leave a group to rest after its fight; a bad or a casual group takes it as it finds it.
             foreach (PvpTeamKind kind in new[] { PvpTeamKind.Decent, PvpTeamKind.Strong, PvpTeamKind.Elite })
                 Assert.That(PvpRoam.WaitsForARestedGroup(kind), Is.True, kind.ToString());

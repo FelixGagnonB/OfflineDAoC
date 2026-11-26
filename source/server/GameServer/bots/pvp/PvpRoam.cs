@@ -470,6 +470,16 @@ namespace DOL.GS
         public static int EightZoneGroups(int guildsOfTheRealm, int atTheMost) =>
             guildsOfTheRealm <= 0 ? 0 : Math.Clamp(guildsOfTheRealm / 3, 1, Math.Max(1, atTheMost));
 
+        /// <summary>
+        /// How many guilds of bots of a realm are in the 8v8 zone: as many groups as every realm has there
+        /// (<see cref="EightZoneGroups"/>), less one for the realm of the player, whose own group is one of them. The owner,
+        /// 2026-11-25, on Agramon: "Would there be a way to keep the 8v8 zone number of teams balance between the 3 realms?
+        /// ... earlier, there was 3 hibs group and 1 mid group". Its realm had its two guilds there and its own group besides.
+        /// (While the player is in another zone its realm is one group short in the 8v8 zone.)
+        /// </summary>
+        public static int EightZoneGuilds(int guildsOfTheRealm, int atTheMost, bool thePlayersGroupIsOfThisRealm) =>
+            Math.Max(0, EightZoneGroups(guildsOfTheRealm + (thePlayersGroupIsOfThisRealm ? 1 : 0), atTheMost) - (thePlayersGroupIsOfThisRealm ? 1 : 0));
+
         /// <summary>The kinds of group that leave a group to rest after its fight, in the 8v8 zone: the ones that play 8v8. (A team that is no guild does too.)</summary>
         public static bool WaitsForARestedGroup(PvpTeamKind? kind) => kind is null or PvpTeamKind.Decent or PvpTeamKind.Strong or PvpTeamKind.Elite;
 
@@ -1750,7 +1760,8 @@ namespace DOL.GS
                 // Who of the realm is in the 8v8 zone: guilds of every kind but those that hunt packs, each by itself.
                 // (An evening that is in the 8v8 zone only: all of them.)
                 List<PvpRoamTeam> alone = eight == null ? [] : open.Count == 0 ? realm.ToList()
-                    : realm.Where(team => !team.Profile.HuntsPacks).OrderBy(_ => Random.Shared.Next()).Take(EightZoneGroups(realm.Count(), real.EightZoneGroups)).ToList();
+                    : realm.Where(team => !team.Profile.HuntsPacks).OrderBy(_ => Random.Shared.Next())
+                        .Take(EightZoneGuilds(realm.Count(), real.EightZoneGroups, leader != null && leader.Realm == realm.Key)).ToList();
                 foreach ((PvpRoamTeam follower, PvpRoamTeam head) in PvpTeamPool.Packs(realm.Where(team => team.Profile.Company == PvpCompany.Zerg && !alone.Contains(team)).ToList(), Random.Shared))
                 {
                     places[head] = places.GetValueOrDefault(head) + 1;
