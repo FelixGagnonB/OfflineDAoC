@@ -3873,6 +3873,39 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [x] **M13.32** (S) What a quarter of an hour on v0.1.6 found. *Built 2026-11-25; the water measured in a bot
+  evening; the rest not yet seen by the owner.* The owner played Hibernia with two Bards in Thidranki, a Bard at
+  the wheel. (1) "with hibernia, as we run 2 bards, wen bard driving, could we also be sprinting?" On the road
+  nobody sprints (2026-11-20). With two Bards the second holds endurance all the way, five a second, which is what
+  a sprint takes: a player's companions now sprint on the road when their player does and their songs and buffs
+  give back what it costs (`PvpPositionWeights.SprintsOnTheRoad`, `PvpSquad.SprintOnTheRoad`); a group of bots
+  alone does not. (2) "So we are 3 dead after the fight... I released. I'm at our spawn point ... and bard is
+  waiting for me ?" The fight was won at 6:30 with the owner and two companions dead; the group stood by them, its
+  Druids at 74 and 42 points of power; it sat down at 7:22, after 45 seconds of meaning to walk to a quiet place it
+  could not leave its dead for; the two companions were raised at 7:39 and 7:41; the owner had released at 7:00
+  and stood 20,000 units away, the driver saying "Waiting for you". Now: after the fight a raiser needs the power
+  the spell takes (a quarter of its pool), not half, each raiser takes a body, and its player comes first
+  (`PvpHealWeights.RaisesAfterTheFight`, `RaisedInTurn`); a group with dead of its own rests where it is, at once;
+  a companion that can raise says "Stay there, <name>: we will raise you."; and a driver whose player is more than
+  4,000 units behind brings the group to it ("Coming to you", `PvpDriver.ComesForItsPlayer`). (3) "Bots are
+  running on water like on ground but not me", then "they just flew and abandonned me". The group crossed the
+  river at 382 to 386 units a second; the owner's Hero swam it at 190 with the song and 87 without, half of what
+  it runs. And at 11:34 the group picked an enemy 8,000 units on and went for it, its player 1,849 behind and
+  7,700 when the fight began: the driver waited for its player only while no enemy was picked. Now a bot on water
+  the navigation mesh marks as water has half its speed (`PvpWater`, asked once a second; the mesh told four
+  places in the river from two on land), and with a companion at the wheel a fight the group is not in is not gone
+  for while its player is more than 1,500 behind or down (`PvpDriver.GoesForAFight`). In an eight-minute evening
+  of bots with Thidranki as the 8v8 zone: bots on its water 194 units a second at the median (188 to 195), on land
+  379. Left: the driver still takes the shortest way, through a river if it is; and the owner's own answer to the
+  river ("That's why I do not like this as the 8v8 bcause we do not have water breathing buff") is Agramon as the
+  8v8 zone, or the nereid potion's effect with the buffs (the item is in the data, its spell is not). The owner,
+  logging off: "let's switch to Agramon": the game that is played has the navigation file and the setting since
+  v0.1.7 (not started there since; the same file and build walk it on the scrim copy). (4) "When we rest, the group
+  is too spread out. Would it be possible to make each member closer?" A group rested where each member stood, or
+  within 500 units of a place off its road. Now it sits down together: beside one of its own that is down, else
+  where its driver stands, each member within 120 units, walking in for fifteen seconds at the most
+  (`PvpPositionWeights.RestWithin`, `PvpSquad.RestsAt`). In an evening of bots, the one group that rested: all
+  eight within 75 units of its middle (30 to 330 on the march a moment before).
 - [x] **M13.31** (S) Midgard's endurance is its Shaman's. *Built 2026-11-25; measured in a bot evening; not yet seen
   by the owner.* The owner: "can we make sure, enemies without endurance (for example, killing the albion Paladin)
   should not out run or keep the same distance with a chanser than sprint or has speed? I feel like sometime, 2-3

@@ -271,6 +271,38 @@ namespace DOL.GS
         /// </summary>
         public int FighterKeepsEndurancePercent { get; set; } = 40;
 
+        /// <summary>
+        /// A group that rests sits down together: each member within this of the place it rests at. The owner,
+        /// 2026-11-25: "When we rest, the group is too spread out. Would it be possible to make each member closer?" A
+        /// group rested where each member stood when the fight ended, or within 500 units of a place off its road. 0: as
+        /// before.
+        /// </summary>
+        public int RestWithin { get; set; } = 120;
+
+        /// <summary>A member walks in to the resting place for this long at the most; one that cannot get there sits where it is.</summary>
+        public int RestWalkInSeconds { get; set; } = 15;
+
+        /// <summary>Whether a member of a group that rests still walks in to its place (<see cref="RestWithin"/>) before it sits.</summary>
+        public bool WalksInToRest(double fromThePlace, long millisecondsSinceTheRestBegan) =>
+            RestWithin > 0 && fromThePlace > RestWithin && millisecondsSinceTheRestBegan < RestWalkInSeconds * 1_000L;
+
+        /// <summary>
+        /// On the road a player's companions sprint when their player does and it costs them nothing. The owner,
+        /// 2026-11-25: "with hibernia, as we run 2 bards, wen bard driving, could we also be sprinting?" On the road
+        /// nobody sprints (the owner, 2026-11-20: paid for there, the companions reached a fight at 2 to 20% endurance).
+        /// With two Bards one holds speed and the other endurance all the way, and the song gives back the five a second
+        /// a sprint takes: so behind a player who sprints, a companion with that much endurance coming back sprints too,
+        /// the one at the wheel as well. The same holds under a Paladin's chant or a Shaman's buff. A group of bots alone
+        /// does not sprint on the road. False: nobody sprints on the road, as before.
+        /// </summary>
+        public bool SprintOnTheRoadWithItsPlayer { get; set; } = true;
+
+        /// <summary>Whether a bot sprints on the road (<see cref="SprintOnTheRoadWithItsPlayer"/>).</summary>
+        /// <param name="enduranceBackPerSecond">What its songs and buffs give back to it each second on the move.</param>
+        /// <param name="costPerSecond">What a second of sprint takes from it (less with Long Wind).</param>
+        public bool SprintsOnTheRoad(bool itsPlayerSprints, int enduranceBackPerSecond, int costPerSecond, int endurancePercent, bool sprinting) =>
+            SprintOnTheRoadWithItsPlayer && itsPlayerSprints && enduranceBackPerSecond >= costPerSecond && CanSprint(endurancePercent, sprinting);
+
         /// <summary>Whether a bot that wants to sprint can: not on its last breath, and once out of it, not until it has some back.</summary>
         /// <param name="keeps">The share of its endurance it does not sprint away (<see cref="FighterKeepsEndurancePercent"/>); 0 for none.</param>
         public bool CanSprint(int endurancePercent, bool sprinting, int keeps = 0) =>

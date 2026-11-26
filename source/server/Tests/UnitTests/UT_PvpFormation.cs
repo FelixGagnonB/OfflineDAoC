@@ -59,6 +59,36 @@ namespace DOL.UnitTests
             Assert.That(PvpDriver.Waits(false, 1_200, true), Is.False);
             Assert.That(PvpDriver.Waits(true, 1_200, true), Is.True, "until it has come up");
             Assert.That(PvpDriver.Waits(true, 700, true), Is.False);
+            // "I released. I'm at our spawn point ... and bard is waiting for me ?": 20,000 units off, it comes for its player.
+            Assert.That(PvpDriver.ComesForItsPlayer(comingAlready: false, playerFromTheDriver: 20_000, playerIsUp: true), Is.True);
+            Assert.That(PvpDriver.ComesForItsPlayer(false, 3_000, true), Is.False, "a little behind: it is on its way, and is waited for");
+            Assert.That(PvpDriver.ComesForItsPlayer(true, 3_000, true), Is.True, "until the group has come up to it");
+            Assert.That(PvpDriver.ComesForItsPlayer(true, 700, true), Is.False);
+            Assert.That(PvpDriver.ComesForItsPlayer(false, 20_000, playerIsUp: false), Is.False, "down, it is stood by where it lies");
+            Assert.That(PvpDriver.ComingFor("Jade"), Is.EqualTo("Coming to you, Jade."));
+            // "So we are 3 dead after the fight... I released": after the fight a raiser needs the spell's power, not half
+            // its pool, and its player comes first.
+            var heal = new PvpHealWeights();
+            Assert.That(heal.RaisesAfterTheFight(distance: 400, range: 1500, hasThePowerForIt: true), Is.True);
+            Assert.That(heal.RaisesAfterTheFight(400, 1500, hasThePowerForIt: false), Is.False);
+            Assert.That(heal.RaisesAfterTheFight(1600, 1500, true), Is.False);
+            Assert.That(heal.Raises(400, 1500, powerPercent: 30, beingHit: false, lowestHealthInReach: 100, freeFightersAtCorpse: 0, anotherHealerIsRaising: false),
+                Is.False, "in a fight it keeps half its power for its heals");
+            Assert.That(PvpHealWeights.RaisedInTurn(fightIsOver: true, isThePlayer: true, isAHealer: false),
+                Is.LessThan(PvpHealWeights.RaisedInTurn(true, false, isAHealer: true)));
+            Assert.That(PvpHealWeights.RaisedInTurn(fightIsOver: false, isThePlayer: true, isAHealer: false),
+                Is.GreaterThan(PvpHealWeights.RaisedInTurn(false, false, isAHealer: true)), "in a fight a healer first");
+            Assert.That(PvpDriver.WillRaise("Jade"), Is.EqualTo("Stay there, Jade: we will raise you."));
+            // "they just flew and abandonned me": no fight is gone for with its player 1,849 units behind, or down.
+            Assert.That(PvpDriver.GoesForAFight(playerIsUp: true, playerFromTheDriver: 400), Is.True);
+            Assert.That(PvpDriver.GoesForAFight(true, 1_849), Is.False);
+            Assert.That(PvpDriver.GoesForAFight(playerIsUp: false, 100), Is.False);
+            // "Bots are running on water like on ground but not me": on the water a bot has half its speed.
+            Assert.That(PvpWater.SwimShare, Is.EqualTo(0.5));
+            Assert.That(PvpWater.IsOn(floorUnderIt: 2960, waterUnderIt: 2960), Is.True);
+            Assert.That(PvpWater.IsOn(3443, null), Is.False, "ground");
+            Assert.That(PvpWater.IsOn(3040, 2960), Is.False, "a bridge: the deck is the nearer floor");
+            Assert.That(PvpWater.IsOn(null, null), Is.False);
             Assert.That(PvpDriver.Waits(false, 5_000, false), Is.False);
             Assert.That(PvpDriver.HoldsAtStart(10_000), Is.True, "not before the buffs are on");
             Assert.That(PvpDriver.HoldsAtStart(31_000), Is.False);

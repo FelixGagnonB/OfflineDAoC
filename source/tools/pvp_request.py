@@ -57,6 +57,14 @@ def main(argv):
         if not result["Ok"]:
             print(result.get("Error") or "", file=sys.stderr)
         return 0 if result["Ok"] else 1
+    # A request nobody took is not left behind: a server started later would carry it out (a "stop-server" asked of a
+    # game that was not running stopped it as soon as it came up).
+    try:
+        with open(request_path, encoding="utf-8") as handle:
+            if json.load(handle).get("Id") == request["Id"]:
+                os.remove(request_path)
+    except (OSError, ValueError):
+        pass
     print("No answer within 120 seconds. Is the server running, and is it this build?", file=sys.stderr)
     return 1
 

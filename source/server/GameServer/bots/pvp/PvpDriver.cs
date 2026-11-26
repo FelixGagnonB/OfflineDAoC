@@ -54,6 +54,34 @@ namespace DOL.GS
         public static bool Waits(bool waitingAlready, double playerFromTheDriver, bool playerIsUp) =>
             playerIsUp && playerFromTheDriver > (waitingAlready ? GoesOnWithin : WaitsBeyond);
 
+        /// <summary>
+        /// Beyond this the driver does not stand and wait: it brings the group to its player. The owner, 2026-11-25, in
+        /// Thidranki: "we are 3 dead after the fight... I released. I'm at our spawn point ... and bard is waiting for me ?"
+        /// It stood 20,000 units away with the other six and said "Waiting for you". A player a little behind is on its
+        /// way and is waited for; one this far has released, or is lost.
+        /// </summary>
+        public const int ComesBackBeyond = 4_000;
+
+        /// <summary>The driver brings the group to its player: when it is this far behind (<see cref="ComesBackBeyond"/>), until the group has come up to it.</summary>
+        public static bool ComesForItsPlayer(bool comingAlready, double playerFromTheDriver, bool playerIsUp) =>
+            playerIsUp && playerFromTheDriver > (comingAlready ? GoesOnWithin : ComesBackBeyond);
+
+        /// <summary>
+        /// Whether a group with a companion at the wheel goes for a fight it is not in yet: with its player up and no
+        /// farther behind than the driver waits for (<see cref="WaitsBeyond"/>). The owner, 2026-11-25, swimming a river in
+        /// Thidranki that its group had run across: the group picked an enemy 8,000 units on and went for it, and the fight
+        /// began with its player 7,700 behind ("they just flew and abandonned me").
+        /// </summary>
+        public static bool GoesForAFight(bool playerIsUp, double playerFromTheDriver) => playerIsUp && playerFromTheDriver <= WaitsBeyond;
+
+        public static string ComingFor(string player) => $"Coming to you, {player}.";
+
+        /// <summary>
+        /// Said to a player that lies dead with nobody left to fight, by a companion that can raise: the owner lay a minute
+        /// beside a silent group that was getting its power back to raise it, and released.
+        /// </summary>
+        public static string WillRaise(string player) => $"Stay there, {player}: we will raise you.";
+
         /// <summary>See <see cref="HoldsAtStartSeconds"/>.</summary>
         public static bool HoldsAtStart(long millisecondsSinceItStoodUp) => millisecondsSinceItStoodUp < HoldsAtStartSeconds * 1_000L;
 

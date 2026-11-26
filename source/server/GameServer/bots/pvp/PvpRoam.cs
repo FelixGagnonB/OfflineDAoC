@@ -123,6 +123,8 @@ namespace DOL.GS
         public bool Driven;
         /// <summary>The driver stands for its player; it has said it moves out; it has said it rests; and the zone and the standing-up it was last set on its way in.</summary>
         public bool DriverWaits, DriverMoves, DriverRests;
+        /// <summary>The driver is bringing the group to its player, who is far behind (<see cref="PvpDriver.ComesForItsPlayer"/>).</summary>
+        public bool DriverComes;
         public PvpRoamMap DrivenMap;
         public long DrivenSince;
         /// <summary>When one of its members was last in combat (PvpRoam.HasGoneCold).</summary>
@@ -2014,9 +2016,13 @@ namespace DOL.GS
                     }
                     // Midgard's endurance buff is its Shaman's, and ends with it (PvpEnduranceBuff).
                     PvpEnduranceBuff.Keep(team.Team.Squad?.Allies, now);
+                    // On the road a player's companions sprint with their player when it costs them nothing.
+                    team.Team.Squad?.SprintOnTheRoad();
                     // A member on ground it cannot leave (a patch of the navmesh round a tree) is put beside it (PvpTrapped).
                     foreach (GameBot bot in team.Team.Bots)
                     {
+                        // In water it swims, at half its speed, as its player does (PvpWater).
+                        PvpWater.Note(bot);
                         if (PvpTrapped.Free(bot, team.Start.Point, now))
                             Say($"{bot.Name} of {team.Name} is put off ground it could not leave", new { what = "freed", team = team.Name, n = bot.Name, x = bot.X, y = bot.Y });
                     }
@@ -2310,6 +2316,9 @@ namespace DOL.GS
                 (double x, double y) = other.Centre();
                 return Math.Sqrt(Math.Pow(x - other.Start.Point.X, 2) + Math.Pow(y - other.Start.Point.Y, 2));
             }
+            // (With a companion at the wheel: whether its player is up and with the group. PvpDriver.GoesForAFight.)
+            bool playerIsWithIt = !driven || team.Leader is not { } itsPlayer || PvpFormation.DriverOf(team.Team.Bots) is not { } theDriver ||
+                PvpDriver.GoesForAFight(itsPlayer.IsAlive && itsPlayer.ObjectState == GameObject.eObjectState.Active, itsPlayer.GetDistanceTo(theDriver));
             List<PvpRoamTeam> foes = others.Where(other =>
             {
                 // A team that has broken off is let go: a team of bots follows it only so far from where it broke off.
@@ -2345,6 +2354,10 @@ namespace DOL.GS
                 // (With a companion at the wheel what the player strikes or calls is the group's all the same; the rest is the driver's.)
                 if (team.Leader != null && (wheel != null || Picks(other)))
                     return PlayerTakesItOn(team.Fighting.Contains(other), attacks, Picks(other));
+                // With a companion at the wheel the group does not go for a fight without its player: one it is not in, and
+                // that is not on it, is left while its player is behind or down (PvpDriver.GoesForAFight).
+                if (driven && !team.Fighting.Contains(other) && !attacks && !playerIsWithIt)
+                    return false;
                 if (PvpRealWeights.LeftAtItsStart(FromItsStart(other), team.Fighting.Contains(other), attacks, real))
                     return false;
                 if (!eightOnly)
@@ -2555,7 +2568,10 @@ namespace DOL.GS
                     if (PvpRealWeights.TeamRests(lowest, real))
                     {
                         team.Rested = true;
-                        team.Hide = PickHide(team, real);
+                        // (With one of its own down, or its player, it rests where it is: the power it gets back sitting is
+                        // what raises them. Walking off first, the owner's group stood 45 seconds by its dead before it sat.)
+                        bool hasDead = team.Leader is { IsAlive: false } || team.Team.Bots.Any(bot => !bot.IsAlive);
+                        team.Hide = hasDead ? null : PickHide(team, real);
                         team.HideSince = now;
                         if (team.Hide == null)
                         {
@@ -2589,6 +2605,10 @@ namespace DOL.GS
             }
             else
                 team.DeadSince = 0;
+            // Its player lies dead and nobody is left to fight: one that can raise says so, so that the player does not release.
+            if (team.Leader is { IsAlive: false, ObjectState: GameObject.eObjectState.Active } lying && enemies.Count == 0 &&
+                team.Team.Bots.FirstOrDefault(bot => bot.IsAlive && bot.ResurrectionSpell != null) is { } raiser)
+                team.Team.Squad.Tell(raiser, "raise-player", PvpDriver.WillRaise(lying.Name), PvpDriver.SaysAgainAfterSeconds * 1_000);
             // The player's seven go where the player goes; a team of bots walks its route, or waits out a fight it has left alone.
             // (Once it waits it goes on waiting while that fight is within 12,000: at 9,000 it would walk and stop by turns.)
             // (A guild that goes from point to point does not wait: it has turned back, or it walks with its company, or, before
@@ -2650,8 +2670,12 @@ namespace DOL.GS
             {
                 bool up = follower.IsAlive && follower.ObjectState == GameObject.eObjectState.Active;
                 team.DriverWaits = PvpDriver.Waits(team.DriverWaits, follower.GetDistanceTo(atTheWheel), up);
+                // Far behind (it has released, or is lost): the group goes to it. A member that is down is raised first.
+                team.DriverComes = body == null && PvpDriver.ComesForItsPlayer(team.DriverComes, follower.GetDistanceTo(atTheWheel), up);
                 holds = !up || team.DriverWaits || PvpDriver.HoldsAtStart(now - team.SpawnedAt);
-                if (team.DriverWaits)
+                if (team.DriverComes)
+                    team.Team.Squad.Tell(atTheWheel, "driver-comes", PvpDriver.ComingFor(follower.Name), PvpDriver.SaysAgainAfterSeconds * 1_000);
+                else if (team.DriverWaits)
                     team.Team.Squad.Tell(atTheWheel, "driver-waits", PvpDriver.WaitingFor(follower.Name), PvpDriver.SaysAgainAfterSeconds * 1_000);
                 if (resting && !team.DriverRests)
                     team.Team.Squad.Tell(atTheWheel, "driver-rests", PvpDriver.Resting);
@@ -2666,12 +2690,16 @@ namespace DOL.GS
                 team.Team.TravelWithLeader(enemies);
             else if (driven && team.Leader is { IsAlive: false } down && enemies.Count == 0)
                 team.Team.GatherAt(down, 500);
+            else if (driven && team.DriverComes && enemies.Count == 0 && team.Leader is { IsAlive: true } farBehind)
+                team.Team.GatherAt(farBehind, 500);
             else if (holds)
                 team.Team.Halt();
             else if (body != null)
                 team.Team.GatherAt(body, 500);
             else if (team.Hide is { } hide && enemies.Count == 0)
                 team.Team.GatherAt(hide, 500);
+            else if (resting && team.Team.Squad.GathersToRest is { } together)
+                team.Team.GatherAt(together, PvpWeights.Current.Position.RestWithin);   // it sits down together
             else if (resting)
                 team.Team.Halt();
             else if (waits)
