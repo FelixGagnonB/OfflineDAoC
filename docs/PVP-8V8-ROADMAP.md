@@ -3873,6 +3873,35 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [x] **M13.28** (S) What the first session with a player found. *Built 2026-11-25; the rescue tried directly on
+  the scrim copy, the driver not yet tried again by a player.* The owner on the scrim copy, a Hero with seven
+  companions, on Agramon. (1) "The bard driving is pretty bad": in the recording the Bard was never more than 75
+  units from the player and moved at 25 to 190 units a second. A companion's own brain goes after its player while
+  it is in its following state, and goes back to that state when it is idle more than 650 units from the player;
+  the driver was told to walk the group on and pulled back at every step. While a companion drives, the seven are
+  out of that state and have the brain's own switch for it set (`PvpSpreadOut`, as a companion in its place in a
+  fight has); a group of bots never was in it. (2) "There's a blademaster that keep falling off, Braninric": the
+  one bot `PvpTrapped` had put off a patch at the port. It was put there with `MoveTo`, which takes a bot out of the
+  world and puts it back and stops its brain: in the recording its seven fellows are in their following state all
+  session, it is in that state before the rescue and in none after, and was up to 5,400 units behind. Now
+  `MoveInRegion`, which moves it where it is. Tried on the scrim copy (`place-bot` on the control channel): a bot
+  stood on the patch round the tree in Thidranki was put on open ground 28 units away six seconds later and went
+  back to its team. (3) The zone named for the 8v8 zone in `pvp-weights.json` was not in the evening: the
+  settings were read as the evening started, after its zones had been chosen; they are read before now.
+- [x] **M13.27** (M) Agramon as ground for the 8v8 zone. *Built 2026-11-25; an evening of bots on the scrim copy,
+  and the owner ported there and walked it.* The owner had asked for "an unuse zone" for 8v8 only and, of
+  Thidranki, "I am not sure about the battleground, because there is water"; then "Does this build has Agramon
+  Island map?". The client has it (zone 163) and the database has its region; the game as shipped has no navmesh
+  for it. `source/development-tools/OpenDAoC-BuildNav` makes one from the client's files in two and a half
+  minutes (`zone163.nav`, 34 MB; its `RecastDemo.exe` must also lie beside the builder, or the builder does not
+  find it). Laid out with `pvp_map_pick.py`, which now takes a zone that is no realm's: three points in the
+  middle of the island, three legs of 14,972 to 17,181 units; Midgard comes in from the north, Albion from the
+  south-east, Hibernia from the south-west (moved by hand: the start the tool picked was 10,555 from its first
+  point where the two others have 21,620 and 23,524; it has 23,328 now). `PvpRoamZones.Agramon`, `MapFor("agramon")`,
+  and no 8v8 zone at all where its navmesh is missing (`CanBeWalked`). On the scrim copy with `"EightZone":
+  "agramon"`: six groups of bots walked 14,000 to 46,000 units there in six minutes and fought one against one;
+  the owner's port (`/8v8 go agramon`) set it down where the map says, and an Albion group picked its group. It
+  is not the 8v8 zone of the game that is played: that takes the navmesh file there and the setting.
 - [x] **M13.26** (S) The heal for several, by the owner's rule. *Built 2026-11-25; an evening of bots on the scrim
   copy.* Asked which heals its companion Cleric uses, the recording said: two single heals, and no group or spread
   heal in forty minutes; over all groups the bot Clerics cast one for 29 of their 1,422 heals, the owner for 139 of

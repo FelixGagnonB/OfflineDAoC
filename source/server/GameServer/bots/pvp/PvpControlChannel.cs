@@ -229,6 +229,8 @@ namespace DOL.GS
                     // Elites=2: the same for the elite teams.
                     if (guilds != null && int.TryParse(Arg("Elites"), out int elites) && elites > 0)
                         guilds = PvpTeamPool.With(guilds, PvpTeamKind.Elite, elites);
+                    // (The settings first: the 8v8 zone is one of them.)
+                    PvpWeights.Reload(AppContext.BaseDirectory);
                     // Zones=all: the evening is in every frontier zone; Zones=tonight: in as many as its groups are for, drawn
                     // (PvpRoam.ZonesTonight, M11.8); Zones=odin,hadrian: in those and the map it begins in.
                     List<PvpRoamMap> zones = string.Equals(Arg("Zones"), "all", StringComparison.OrdinalIgnoreCase) ? PvpRoam.Frontiers.ToList()
@@ -275,6 +277,23 @@ namespace DOL.GS
                         }).ToList(),
                         Line = Enumerable.Range(0, points).Select(index => (int)PvpSight.LineAt(z1 + PvpSight.EyeHeight, z2 + PvpSight.EyeHeight, index, points)).ToList(),
                     };
+                }
+
+                // place-bot Name= X= Y=: puts one 8v8 bot at a point, without taking it out of the world (a test of
+                // PvpTrapped: a bot put on a patch of ground it cannot leave must be walked off it and go on as before).
+                case "place-bot":
+                {
+                    GameBot placed = PvpArena.Members.FirstOrDefault(bot => string.Equals(bot.Name, Arg("Name"), StringComparison.OrdinalIgnoreCase));
+                    if (placed == null)
+                        return new { Placed = false };
+                    int px = int.Parse(Arg("X")), py = int.Parse(Arg("Y"));
+                    float pz = PvpSight.HeightAt(placed.CurrentZone, px, py);
+                    if (placed.FollowTarget != null)
+                        placed.StopFollowing();
+                    placed.StopMovingOnPath();
+                    placed.StopMoving();
+                    placed.MoveInRegion(placed.CurrentRegionID, px, py, float.IsNaN(pz) ? placed.Z : (int)pz, placed.Heading, true);
+                    return new { Placed = true, placed.X, placed.Y, placed.Z, State = (placed.Brain as DOL.AI.Brain.BotBrain)?.FSM.GetCurrentState()?.StateType.ToString() };
                 }
 
                 // way-out Region= X= Y= [FromX= FromY=]: whether one standing at the point can walk off it, and where it would

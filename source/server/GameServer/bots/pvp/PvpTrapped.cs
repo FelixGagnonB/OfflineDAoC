@@ -21,7 +21,7 @@ namespace DOL.GS
     /// Every few seconds a bot that has not moved since the last look is asked whether it can
     /// walk anywhere: some distance in any of eight directions. One that cannot is trapped. The
     /// way from open ground (its team's start) toward it ends beside the patch; when that end
-    /// is near, the bot is put there. The move is of a few dozen units.
+    /// is near, the bot is put there, without leaving the world. The move is of a few dozen units.
     /// </summary>
     public static class PvpTrapped
     {
@@ -116,7 +116,11 @@ namespace DOL.GS
                     return false;
                 if (WayOut(zone, here, open) is not { } beside)
                     return false;
-                return bot.MoveTo(bot.CurrentRegionID, (int)beside.X, (int)beside.Y, (int)beside.Z, bot.Heading);
+                // It is put there where it stands in the world (MoveInRegion), in a fight too. Not MoveTo: that takes a bot
+                // out of the world and puts it back, which stops its brain. On the first evening with a player (Agramon,
+                // 2026-11-25) a Blademaster that had been put off its patch that way followed nobody afterwards, and the
+                // owner saw it: "There's a blademaster that keep falling off".
+                return bot.MoveInRegion(bot.CurrentRegionID, (int)beside.X, (int)beside.Y, (int)beside.Z, bot.Heading, true);
             }
             catch (Exception)
             {
