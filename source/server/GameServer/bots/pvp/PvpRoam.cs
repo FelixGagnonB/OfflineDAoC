@@ -153,6 +153,8 @@ namespace DOL.GS
         public long AddCalledAt;
         /// <summary>A team of bots in a fight: the enemy teams it has seen coming for it (PvpRoam.SeesItComing).</summary>
         public readonly HashSet<PvpRoamTeam> ComingSeen = [];
+        /// <summary>The player's group with one of its own at the wheel: when it last saw each enemy group (PvpDriver.KnowsOf).</summary>
+        public readonly Dictionary<PvpRoamTeam, long> LastSeen = [];
         public readonly HashSet<GameLiving> Paid = [];
         public int Wipes, Kills, Deaths, Fights, Joined, LeftAlone;
         public long Earned;
@@ -1017,7 +1019,9 @@ namespace DOL.GS
         /// walked to the end of its road and stood there until the other came into sight or went
         /// away. The owner, behind its Bard on Agramon, 2026-11-26: "At some point while roaming,
         /// we stopped. Not sure why": ten seconds at a point, its pick 7,000 to 9,000 units off
-        /// and walking past. With a pick it goes on toward it (<see cref="PointToward"/>).
+        /// and walking past. It goes on as it would with nobody about, not toward its pick: it
+        /// does not know where a group is that it does not see (the owner, the same hour: "9000+
+        /// units away with no LoS feels a bit cheating").
         /// </summary>
         public static bool GoesOnFromItsPoint(int enemiesToFight, bool inAFight, bool seesOneOfThem) =>
             enemiesToFight == 0 || !inAFight && !seesOneOfThem;
@@ -1504,6 +1508,7 @@ namespace DOL.GS
             team.Fighting.Clear();
             team.Draws.Clear();
             team.ComingSeen.Clear();
+            team.LastSeen.Clear();
             team.Waiting = false;
             (team.Absent, team.State, team.StateSince, team.ContactTick, team.DeadSince) = (true, "Absent", now, 0, 0);
             PvpRecorder.Regroup(_recording, team.Name, [team.Leader]);
@@ -2422,6 +2427,17 @@ namespace DOL.GS
                 // that is not on it, is left while its player is behind or down (PvpDriver.GoesForAFight).
                 if (driven && !team.Fighting.Contains(other) && !attacks && !playerIsWithIt)
                     return false;
+                // And it goes only for a group one of its seven sees, or has seen a moment ago (PvpDriver.KnowsOf): the line
+                // of sight is asked for last, and only of a group it is not fighting and that does not attack it.
+                if (driven && !team.Fighting.Contains(other) && !attacks)
+                {
+                    double? ago = team.LastSeen.TryGetValue(other, out long seenAt) ? (now - seenAt) / 1000.0 : null;
+                    // (Looked for again every third second, not every second: up to 64 lines of sight a group.)
+                    if (ago is not <= 3.0 && Sees(team, other, SightingWithin))
+                        (team.LastSeen[other], ago) = (now, 0);
+                    if (!PvpDriver.KnowsOf(false, false, ago))
+                        return false;
+                }
                 if (PvpRealWeights.LeftAtItsStart(FromItsStart(other), team.Fighting.Contains(other), attacks, real))
                     return false;
                 if (!eightOnly)
@@ -3084,12 +3100,8 @@ namespace DOL.GS
             bool looking = hunted != null && ComesLooking(team.WipedByPlayer, team.AddedOnByPlayer);
             if (looking)
                 next = PointToward(team.Map, at, hunted.Centre());
-            // A group that has picked a group it does not see yet goes toward that one (GoesOnFromItsPoint).
-            PvpRoamTeam picked = team.Claim is { Alive: > 0, Reforming: false } claim && claim.Map == team.Map ? claim : null;
-            if (picked != null)
-                next = PointToward(team.Map, at, picked.Centre());
-            Say($"{team.Name} goes on{(picked != null ? $", toward {picked.Name}" : looking ? ", looking for the player's group" : prey != null ? $", after {prey.Name} and those with it" : string.Empty)}",
-                new { what = "leg", team = team.Name, from = new[] { at.X, at.Y }, to = new[] { next.X, next.Y }, looking, prey = prey?.Name, picked = picked?.Name });
+            Say($"{team.Name} goes on{(looking ? ", looking for the player's group" : prey != null ? $", after {prey.Name} and those with it" : string.Empty)}",
+                new { what = "leg", team = team.Name, from = new[] { at.X, at.Y }, to = new[] { next.X, next.Y }, looking, prey = prey?.Name });
             (team.CameFrom, team.Team.Route, team.Team.Waypoint, team.ArrivedAt) = (at, [next], 0, 0);
             return false;
         }

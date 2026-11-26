@@ -86,10 +86,37 @@ namespace DOL.GS
             _totalElapsedTime += elapsedTime;
             _stopwatch.Restart();
 
-            // In case the game loop is running faster than the tick rate. We don't want things to run faster than intended.
-            _gameLoopTime += elapsedTime < _tickDuration ? elapsedTime : _tickDuration;
+            _gameLoopTime += Advance(elapsedTime, _tickDuration, ref _owed);
             Stats.RecordTick(_totalElapsedTime);
             return (long) _gameLoopTime;
+        }
+
+        /// <summary>The most time the game's clock may be behind after a tick that ran long; what is beyond it is let go.</summary>
+        public const double MostOwedMilliseconds = 250;
+        private double _owed;
+
+        /// <summary>
+        /// By how much the game's clock goes on after a tick that took <paramref name="elapsed"/>
+        /// milliseconds. The wait for the next tick ends when a tick's time is up or later, never
+        /// before, and the clock went on by one tick's time whatever the tick had taken: every
+        /// tick that ran long (the turn of an 8v8 evening once a second, a collection of memory)
+        /// put the game's clock behind the wall's for good, and with it whatever is timed by it,
+        /// the walk of every bot and monster among it. A player's character is moved by its own
+        /// client, by the wall's clock. Seen 2026-11-26: bots with the speed song ran 383 units a
+        /// second over the ground where their speed says 390, and the owner, on /stick behind the
+        /// Bard that drove its group and as fast as it by the numbers, ran up to it and was
+        /// braked about every fifth second. Now a tick that ran long is made up for in the ticks
+        /// after it: the clock goes on by what the tick took and what is still owed, by two
+        /// ticks' time at the most in one tick, and it owes <see cref="MostOwedMilliseconds"/> at
+        /// the most (a server that stood for seconds does not then run at twice its speed for as
+        /// long: that time is let go, as all of it was before).
+        /// </summary>
+        public static double Advance(double elapsed, double tickDuration, ref double owed)
+        {
+            double due = elapsed + owed;
+            double step = Math.Min(due, 2 * tickDuration);
+            owed = Math.Min(due - step, MostOwedMilliseconds);
+            return step;
         }
 
         private void UpdateBusyWaitThreshold()

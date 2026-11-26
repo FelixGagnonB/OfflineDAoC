@@ -211,8 +211,18 @@ namespace DOL.GS
             {
                 if (GameServiceUtils.ShouldTick(_walkingToEstimatedArrivalTime))
                 {
+                    long late = GameLoop.GameLoopTime - _walkingToEstimatedArrivalTime;
                     UnsetFlag(MovementState.WalkTo);
                     OnArrival();
+                    // An 8v8 bot that goes on from a point of its path to the next keeps the time by which this tick came
+                    // after its arrival at the point: it stood at the point for that time (half a tick on average, at every
+                    // point), which a player's character, moved by its own client, does not (LateAtAPathPoint).
+                    if (IsFlagSet(MovementState.WalkTo) && IsFlagSet(MovementState.Pathfinding) && Owner is GameBot { IsPvpBot: true } &&
+                        LateAtAPathPoint(late, GameLoop.TickDuration) is > 0 and var made)
+                    {
+                        _lastPositionUpdateTick -= made;
+                        _walkingToEstimatedArrivalTime -= made;
+                    }
                 }
             }
 
@@ -227,6 +237,15 @@ namespace DOL.GS
 
             FinalizeTick();
         }
+
+        /// <summary>
+        /// The time a walker that goes on along its path is given back at a point of it: the time
+        /// by which the tick came after its arrival there, two ticks' time at the most (a walker
+        /// that was held for longer is not thrown forward). Nothing for one that is on time or
+        /// early.
+        /// </summary>
+        public static long LateAtAPathPoint(long lateMilliseconds, double tickDuration) =>
+            lateMilliseconds <= 0 ? 0 : Math.Min(lateMilliseconds, (long) (2 * tickDuration));
 
         private void FinalizeTick()
         {

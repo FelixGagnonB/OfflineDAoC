@@ -3873,6 +3873,62 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [ ] **M13.41** (S) Timers at a rest. *Written 2026-11-26; see RESULT below.* The owner: "when we use the /8v8 call
+  rest or the bot call for a rest, could we make sure druid and caster cast their timers? Like druid cast all 3
+  resists, caster their self bubble and buffs". A resting bot cast a buff only where it was missing
+  (`BotBrain.TryPvpRest`, `TryMaintainTravelAndClassBuffs`), so a timer (20 minutes for a Druid's three
+  resistances, an Eldritch's two barriers, a damage add) was cast again only after it had run out, and it runs out
+  when it pleases: in the owner's session of that day the resistances were cast as the group stood up (480 s)
+  and again at the rest at 1,785 s; by their timer they had run out some 85 seconds before, in the middle of
+  the fight that began at 1,582 s. Now at a rest a bot's own buff that runs for two minutes or more by itself
+  (no concentration, no pulse) and of which half has run is cast again (`BotBrain.CastsTimerAgainAtRest`,
+  `PvpTimerRunsLow`): on itself, or on its group for a group buff; not under a stronger one of somebody else.
+  For every 8v8 bot, the player's seven and the groups of bots alike: both rest the same way.
+- [ ] **M13.40** (S) The server's clock falls behind; a bot is slower than a player. *Written 2026-11-26; NOT built,
+  NOT tested: the owner was playing, and a build or an evening of bots beside its session costs it (below).* The
+  owner on /stick behind its Bard: "still skme stutter and issues with hills" (M13.36). Read from its session with
+  the new figures of its client (`pvp_behind_driver.py`): in one second in five its client said a speed of 0 or of
+  half in one of its five packets, on the flat (18%) as on slopes (18%) and steep ground (25%), while over the
+  second it ran as far as ever. And the Bard ran 484 to 499 units a second over the ground with song and sprint
+  (383 with the song) where its speed and its player's say 507 (390): the player is 2 to 4% faster than its
+  driver, comes up to it and is braked, about every fifth second. All bots, in evenings of bots too: 382.6 to 383
+  where their speed says 390, on any ground. Two causes found in the code, neither measured yet. (1) The game's
+  clock went on by one tick's time a tick whatever the tick had taken (`GameLoopTickPacer`): every tick that ran
+  long (the turn of the evening, once a second) put it behind the wall's clock for good, and all that is timed by
+  it: the walk of every bot, and every swing and cast. The server's own figure for it ("Game loop TPS") was 99 to
+  99.5% in the owner's session, and 52% over ten seconds once. Now a long tick is made up for in the ticks after
+  it (`GameLoopTickPacer.Advance`: two ticks' time in a tick at the most, 250 ms owed at the most). For the whole
+  server, not only 8v8. (2) A walker noticed that it had reached a point of its path up to a tick late, and went
+  on from the point as if it had just got there: half a tick lost at every point on average. An 8v8 bot now keeps
+  that time (`NpcMovementComponent.LateAtAPathPoint`). To do: build, unit tests, an evening of bots with
+  `botspeed.py` (the session's scratchpad) before and after: the bots' speed over the ground should come to 389 or
+  390; then the owner behind its driver. If the driver is then as fast as its player and the brakes are still
+  there, the cause is another.
+  Also found: at 16:11 the played server ran at 52% of its rate for ten seconds (the machine at 89% of its
+  processors, 1,900 page faults a second) in the minute in which `scrim_test.py` ran the unit tests and started the
+  scrim server beside it, all at below-normal priority; and one write of its recording took 104 ms at 16:08:48
+  while a build and scripts reading that recording ran. Not proved to be the cause; until it is known, no build
+  and no evening of bots while the owner is in a fight.
+- [ ] **M13.39** (S) Who killed whom, and where. *Written 2026-11-26; NOT built, NOT tested.* The owner: "on real
+  server, when someone die, there's a message broadcasted. Who killed who and region (like: Jade killed BotA in
+  pennine). I just saw there's no indication in-game". The game says it of a player's character that dies
+  (`GamePlayer.Die`); an 8v8 bot is not one. Now the players of an evening read of a bot's death as a frontier
+  did: "Arngenmund was just killed by Jade in Agramon.", in the colour of the realm that killed, in the system
+  window; the realm of the dead and the realm of the killer read it, in the same region (the game's rule for a
+  server of three realms), a pet's kill is its owner's (`PvpDeathNews`, from the recorder's hook on a death). To
+  do: build, unit tests, and the owner's eye (an evening of bots has no player to read it).
+- [ ] **M13.38** (S) The player's group goes only for what it sees. *Written 2026-11-26; NOT built, NOT tested.* The
+  owner: "Maybe we should reduce the distance my group see bot? In real life, we have no clue where enemies are,
+  beside checking realm chat and asking people dying. 9000+ units away with no LoS feels a bit cheating." A group
+  with one of its own at the wheel picked any enemy group within 9,000 units, as a group of bots does, seen or
+  not; from that second it had somebody to fight (its driver no longer waited for its player, it did not rest),
+  and in M13.37 it stood at the end of its road for it. Now it knows only of a group it is fighting, one that
+  attacks it, and one that one of its seven sees (within 5,500 and not through a hill: where they call "INC!")
+  or has seen in the last 20 seconds (`PvpDriver.KnowsOf`, `PvpRoamTeam.LastSeen`; looked for every third
+  second). Its player's own target and calls pick as before. Groups of bots among themselves pick at 9,000 as
+  before: that is who is whose in the 8v8 zone, and it moves nobody: a group walks to another only once it sees
+  it (`PvpTeam.March`, 6,500 and not through a hill). To do: build, unit tests; an evening of bots cannot show
+  it (no player), so the owner's next session.
 - [x] **M13.37** (S) A group stands at the end of its road. *Built 2026-11-26; unit-tested; one evening of bots of six
   minutes; not installed (the owner was playing); not seen by the owner.* The owner, behind its Bard on Agramon:
   "At some point while roaming, we stopped. Not sure why". In its recording: its group and a Midgard group picked
@@ -3882,8 +3938,9 @@ kept; a way for a dead player to tell the group "just die".
   seconds later. A team that goes from point to point took its next point only with nobody to fight
   (`PvpRoam.Wander`), and a group it has picked is somebody to fight from the moment of the pick. Now it takes
   its next point also with a group to fight that it does not see and is not fighting
-  (`PvpRoam.GoesOnFromItsPoint`), and with a pick that point is the one toward its pick (`PointToward`; the event
-  "goes on, toward ..."). For every team, bots as the player's with one of its own at the wheel; the same held in
+  (`PvpRoam.GoesOnFromItsPoint`). (For an hour that point was the one toward its pick; taken out again after the
+  owner's "9000+ units away with no LoS feels a bit cheating", M13.38: the evening of bots below ran with it.)
+  For every team, bots as the player's with one of its own at the wheel; the same held in
   the zones with adds for an enemy group within 9,000 that is not in sight. Counted roughly
   (`stood.py` in the session's scratchpad: seconds of a team on the road with a pick, its centre not moving): 22
   and 53 seconds in the two evenings of bots before it (stands of 5 to 21 seconds), none in the evening after it
