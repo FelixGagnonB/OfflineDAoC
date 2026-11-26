@@ -228,8 +228,9 @@ one (decent, strong, elite, hunters).
 
 ## The 8v8 zone
 
-One zone of every evening is for one group against one: **Thidranki**. `/8v8 go thid` takes you
-and your group to your realm's start there; `/8v8 who` lists it as "8v8 only".
+One zone of every evening is for one group against one: **Agramon** in the game you play
+(Thidranki where no other is set). `/8v8 go agramon` takes you and your group to your realm's
+start there; `/8v8 who` lists it as "8v8 only".
 
 - Two guilds of each realm are in it, of every kind, each by itself: no packs.
 - Nobody joins a fight that is on. A group that comes on one waits, or walks round it.

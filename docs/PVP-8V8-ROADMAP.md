@@ -3898,7 +3898,14 @@ kept; a way for a dead player to tell the group "just die".
   of bots with Thidranki as the 8v8 zone: bots on its water 194 units a second at the median (188 to 195), on land
   379. Left: the driver still takes the shortest way, through a river if it is; and the owner's own answer to the
   river ("That's why I do not like this as the 8v8 bcause we do not have water breathing buff") is Agramon as the
-  8v8 zone, or the nereid potion's effect with the buffs (the item is in the data, its spell is not).
+  8v8 zone, or the nereid potion's effect with the buffs (the item is in the data, its spell is not). The owner,
+  logging off: "let's switch to Agramon": the game that is played has the navigation file and the setting since
+  v0.1.7 (not started there since; the same file and build walk it on the scrim copy). (4) "When we rest, the group
+  is too spread out. Would it be possible to make each member closer?" A group rested where each member stood, or
+  within 500 units of a place off its road. Now it sits down together: beside one of its own that is down, else
+  where its driver stands, each member within 120 units, walking in for fifteen seconds at the most
+  (`PvpPositionWeights.RestWithin`, `PvpSquad.RestsAt`). In an evening of bots, the one group that rested: all
+  eight within 75 units of its middle (30 to 330 on the march a moment before).
 - [x] **M13.31** (S) Midgard's endurance is its Shaman's. *Built 2026-11-25; measured in a bot evening; not yet seen
   by the owner.* The owner: "can we make sure, enemies without endurance (for example, killing the albion Paladin)
   should not out run or keep the same distance with a chanser than sprint or has speed? I feel like sometime, 2-3
