@@ -90,9 +90,10 @@ namespace DOL.UnitTests
             Assert.That(PvpRoamZones.Agramon.Starts.Select(start => start.Realm), Is.EquivalentTo(new[] { eRealm.Albion, eRealm.Midgard, eRealm.Hibernia }));
             // "it looks like we are running the same triangle ... Could we add more routes ?": ten points, and from each a way on.
             Assert.That(PvpRoamZones.Agramon.Places, Has.Count.EqualTo(10));
-            Assert.That(PvpRoamZones.Agramon.Ways, Has.Count.EqualTo(17));
+            Assert.That(PvpRoamZones.Agramon.Ways, Has.Count.EqualTo(18));
+            // No dead end: a team picks any leg but the one it came by, and at a point with one leg it turned round on the spot.
             foreach (((int X, int Y) point, string name) in PvpRoamZones.Agramon.Places)
-                Assert.That(PvpRoamZones.Agramon.From(point), Is.Not.Empty, name);
+                Assert.That(PvpRoamZones.Agramon.From(point), Has.Count.GreaterThanOrEqualTo(2), name);
             Assert.That(PvpRoamZones.Agramon.Places.Select(place => place.Name), Is.Unique);
             Assert.That(PvpRoam.EveningZones(PvpRoam.Emain, 12, new Random(1), PvpRoamZones.Agramon)[^1], Is.SameAs(PvpRoamZones.Agramon));
             Assert.That(PvpRoam.CanBeWalked(null), Is.False);

@@ -2066,6 +2066,11 @@ namespace DOL.GS
                         {
                             k = "team", t = recording.Now, name = team.Name, state = team.State, x = (int)x, y = (int)y, alive = team.Alive,
                             wp = team.Team.Waypoint, fighting = team.Fighting.Select(other => other.Name).ToList(), zone = team.Map.Id,
+                            // Its player's client: the longest silence between two position packets in this second, where
+                            // the player is and whether it moves. (The owner, on Agramon behind its Bard, 2026-11-25:
+                            // "stutter at various places on the island"; the driver ran evenly, its player fell behind.)
+                            gap = team.Leader?.TakeLongestPositionPacketGap(), px = team.Leader?.X, py = team.Leader?.Y,
+                            pmoving = team.Leader?.IsMoving,
                         });
                     }
                     recording.Snapshot(name => teams.FirstOrDefault(team => team.Name == name) is not { } one || one.Quiet && one.Leader == null);

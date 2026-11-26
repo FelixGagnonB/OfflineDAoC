@@ -854,6 +854,14 @@ namespace DOL.GS
             set => movementComponent.LastPositionUpdatePacketReceivedTime = value;
         }
 
+        /// <summary>The longest silence between two of its client's position packets since this was last asked, in milliseconds.</summary>
+        public long TakeLongestPositionPacketGap()
+        {
+            long gap = movementComponent.LongestPositionPacketGap;
+            movementComponent.LongestPositionPacketGap = 0;
+            return gap;
+        }
+
         public bool IsPositionUpdateFromPacketAllowed()
         {
             if (_linkDeathTimer == null)
