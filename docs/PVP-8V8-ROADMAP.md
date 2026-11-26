@@ -3905,7 +3905,9 @@ kept; a way for a dead player to tell the group "just die".
   within 500 units of a place off its road. Now it sits down together: beside one of its own that is down, else
   where its driver stands, each member within 120 units, walking in for fifteen seconds at the most
   (`PvpPositionWeights.RestWithin`, `PvpSquad.RestsAt`). In an evening of bots, the one group that rested: all
-  eight within 75 units of its middle (30 to 330 on the march a moment before).
+  eight within 75 units of its middle (30 to 330 on the march a moment before). The owner on v0.1.7, the morning
+  after (2026-11-26): "Nice, after a fight, we are leaving much faster". That session's recording has the group
+  taken to Agramon at Hibernia's start (503288, 479752), so Agramon as the 8v8 zone works in the game that is played.
 - [x] **M13.31** (S) Midgard's endurance is its Shaman's. *Built 2026-11-25; measured in a bot evening; not yet seen
   by the owner.* The owner: "can we make sure, enemies without endurance (for example, killing the albion Paladin)
   should not out run or keep the same distance with a chanser than sprint or has speed? I feel like sometime, 2-3
