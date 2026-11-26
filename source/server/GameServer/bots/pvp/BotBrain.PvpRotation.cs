@@ -136,7 +136,11 @@ namespace DOL.AI.Brain
 
         private bool _pvpRefreshesTimers;
 
-        /// <summary>A timer is a buff that runs out by itself after two minutes or more; at a rest it is cast again once half of it has run.</summary>
+        /// <summary>
+        /// A timer is a buff that runs out by itself after two minutes or more; at a rest it is cast again once half
+        /// of it has run. The owner, 2026-11-26, having rested six times in a session and seen it at two of them (at
+        /// the others the timers had 15 to 18 minutes left), and offered a quarter: "that's fine to keep the 50% then".
+        /// </summary>
         public const int TimerAtLeastSeconds = 120;
         public const double TimerCastAgainBelowShare = 0.5;
 
@@ -178,6 +182,59 @@ namespace DOL.AI.Brain
         }
 
         private readonly Dictionary<int, long> _pvpTimerCastAgainAt = [];
+
+        /// <summary>On the road a group stops to cast a timer again once only this share of it is left: five minutes of a Druid's twenty.</summary>
+        public const double TimerStopsTheGroupBelowShare = 0.25;
+        /// <summary>A rest is held for timers that are still to be cast again for this long from its beginning, full or not.</summary>
+        public const int TimersHoldARestMilliseconds = 40_000;
+        /// <summary>A group stops on the road for its timers no more often than this.</summary>
+        public const int TimerStopEveryMilliseconds = 300_000;
+
+        /// <summary>
+        /// Whether a group rests for its timers, hurt or not: after a fight, and until it has
+        /// rested since, when one of them is half run; later on the road, when only a quarter of
+        /// one is left. At the rest they are cast again (<see cref="CastsTimerAgainAtRest"/>).
+        /// The owner, 2026-11-26: "I just want to avoid that we get in a fight and the resist
+        /// wear off or the caster shield / buble wear off". Cast again only at a rest that was
+        /// taken for somebody low, a timer with a little over half left was passed over, and the
+        /// group could be on the road and in two fights before the next rest.
+        /// </summary>
+        public static bool RestsForItsTimers(double leastShareLeft, bool hasRestedSinceItsFight) =>
+            leastShareLeft < (hasRestedSinceItsFight ? TimerStopsTheGroupBelowShare : TimerCastAgainBelowShare);
+
+        /// <summary>
+        /// What is left of the timer of this bot's own that has the least left, as a share of its
+        /// time: of the buffs with a timer it has cast on itself or its group and would cast
+        /// again. 1 with none. Never throws: it is asked from the evening's turn.
+        /// </summary>
+        public double PvpLeastTimerShare()
+        {
+            try
+            {
+                if (BotBody is not { IsPvpBot: true, IsAlive: true } bot)
+                    return 1;
+                HashSet<int> own = (bot.MiscSpells ?? []).Concat(bot.InstantMiscSpells ?? [])
+                    .Where(spell => spell != null && !spell.IsHarmful && spell.Level <= bot.Level && !spell.IsConcentration && !spell.IsPulsing &&
+                                    IsMaintainableClassBuff(spell) && !IsShortCombatShield(spell) && !HoldsBackPvpBuff(spell))
+                    .Select(spell => spell.ID).ToHashSet();
+                if (own.Count == 0)
+                    return 1;
+                long now = GameLoop.GameLoopTime;
+                double least = 1;
+                foreach (ECSGameSpellEffect running in bot.effectListComponent.GetSpellEffects())
+                {
+                    if (running?.SpellHandler?.Spell is not { } spell || running.IsDisabled || running.SpellHandler.Caster != bot ||
+                        !own.Contains(spell.ID) || running.Duration < TimerAtLeastSeconds * 1_000L)
+                        continue;
+                    least = Math.Min(least, (running.ExpireTick - now) / (double)running.Duration);
+                }
+                return least;
+            }
+            catch (Exception)
+            {
+                return 1;
+            }
+        }
 
         private long _pvpRestCureAt;
 

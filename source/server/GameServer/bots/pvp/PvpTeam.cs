@@ -349,6 +349,66 @@ namespace DOL.GS
             }
         }
 
+        /// <summary>
+        /// Out of a fight, the group goes to a point of the ground as it goes on the road, behind
+        /// its driver, and stops there (a place off the road, to rest). With <see cref="GatherAt(Vector3, int)"/>
+        /// each member set out for the place by itself, at its own speed, as soon as it had
+        /// nothing to cast. The owner, 2026-11-26, after a fight on Agramon: "Looks like have
+        /// team are moving somewhere and a bard was waiting for me (I was stuck to him) then he
+        /// started moving as druid started timers". Its Blademaster and its Eldritch ran to the
+        /// place at once and were 2,300 units from it within four seconds, while its two Druids
+        /// and two Bards stood casting the buffs of those that had been raised, and it stood by
+        /// the Bard it was stuck to; fourteen seconds later the group was together again. Now
+        /// the driver leads, waits for whoever has dropped back (a member that is casting), and
+        /// the others follow it. A group with no driver alive goes as before.
+        /// </summary>
+        public void WalkTo(Vector3 at, int within)
+        {
+            List<GameBot> members = Bots.Where(bot => bot.IsAlive).ToList();
+            GameBot driver = PvpFormation.DriverOf(members);
+            if (driver == null)
+            {
+                GatherAt(at, within);
+                return;
+            }
+            var place = new Point3D((int)at.X, (int)at.Y, (int)at.Z);
+            // (Once its driver is there, each comes in by itself and stops.)
+            if (driver.IsWithinRadius(place, within))
+            {
+                GatherAt(at, within);
+                return;
+            }
+            foreach (GameBot bot in members)
+            {
+                if (bot.IsCasting || bot.IsIncapacitated)
+                    continue;
+                if (bot != driver)
+                {
+                    if (bot.FollowTarget != driver)
+                        bot.Follow(driver, PvpFormation.FollowDistance(members.IndexOf(bot)), PvpFormation.FollowGivesUpBeyond);
+                    continue;
+                }
+                if (bot.FollowTarget != null)
+                    bot.StopFollowing();
+                int farthest = members.Where(member => member != bot).Select(member => bot.GetDistanceTo(member)).DefaultIfEmpty(0).Max();
+                bool waits = PvpFormation.DriverWaits(farthest, DriversWaiting.Contains(bot));
+                if (waits ? DriversWaiting.Add(bot) : DriversWaiting.Remove(bot))
+                    PvpRecorder.Decision(bot, new { kind = waits ? "DriverWaits" : "DriverGoesOn", score = farthest }, [], null);
+                if (waits)
+                {
+                    if (bot.IsMoving)
+                    {
+                        bot.StopMovingOnPath();
+                        bot.StopMoving();
+                    }
+                    continue;
+                }
+                if (bot.IsMoving && GameLoop.GameLoopTime % 4_000 >= 1_000)
+                    continue;
+                bot.PathTo(at, bot.MaxSpeed);
+            }
+        }
+
         /// <summary>Out of a fight, everybody goes to a place and stops there: a dead groupmate, so that it is in reach to be raised.</summary>
         public void GatherAt(GameObject at, int within)
         {

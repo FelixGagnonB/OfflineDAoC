@@ -3873,6 +3873,65 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [x] **M13.48** (S) To its resting place as one. *Built 2026-11-26; unit tests pass; an evening of bots of 22 minutes; installed (`v0.1.10`); not seen by the owner.* The owner, after a
+  fight on Agramon: "Looks like have team are moving somewhere and a bard was waiting for me (I was stuck to him)
+  then he started moving as druid started timers". In its recording: eight seconds after the fight its group
+  "walks off its road to rest" (its lowest member at 10%), and every member was sent to the place by itself
+  (`PvpTeam.GatherAt`): the Blademaster and the Eldritch, with nothing to cast, ran there at 506 units a second and
+  were 2,300 units from their player four seconds later; the two Druids and the two Bards stood casting the buffs
+  of those that had been raised, the driver among them with its player stuck to it; at 13 seconds the driver set
+  off, at 26 the group was together at the place, at 27 it rested, and at 35 to 38 the timers were cast again.
+  Now a group walks to its resting place as it walks on the road (`PvpTeam.WalkTo`): behind its driver, which
+  waits for whoever has dropped back. For every team; one with no driver alive goes as before.
+  Measured (`evening22.py`, the session's scratchpad: between a team's "walks off its road to rest" and its
+  "rests", the two living members farthest apart, second by second): a median of 1,888 and 1,781 units in the two
+  evenings before, 691 after; nine tenths within 2,848 and 3,385 before, 2,588 after; the most 6,022 and 6,894
+  before, 3,179 after. The middle is much closer; one walk in ten still has two members 2,600 units apart (one
+  that was far off when the walk began, or is casting).
+- [x] **M13.47** (S) The lake of Agramon. *The point moved 2026-11-26, see DONE; built; unit tests pass; installed (`v0.1.10`); not seen by the owner. In the evening of bots of ten minutes on that build no group went to the point: that it is dry and can be walked to is the mesh's answer, not yet a bot's walk.* The owner: "could we change the navmesh to
+  not make us run into the lake ? It's kind pointless". The mesh need not be changed: it marks water
+  (`EDtPolyFlags.Swim`, which is how a bot is known to swim, `PvpWater`). From the day's recordings (`water.py`
+  in the session's scratchpad: seconds on the road at half the song's speed) bots swim on both legs of the point
+  "far north-west" (510288, 451752), the point that was added on 2026-11-25 for more routes and never looked at
+  for water; the recordings are too thin for the lake's shape, and that point itself was never walked at full
+  speed. To do, with the scrim server up (so not while the owner plays): ask the mesh for water at the ten points
+  and along the eighteen legs; move that point to dry ground or take it out; and for a bot on the road a way that
+  leaves water out where there is one (a filter without `Swim` in `Pathfinder`, the usual one when that finds no
+  way), not in a fight, where a way round a pond to an enemy 300 units off is worse than a swim.
+  DONE (the scrim server's mesh asked with `water` and `nav-route`, `lake*.py` in the session's scratchpad): of the
+  ten points only "far north-west" (510288, 451752) stood in water, and of the eighteen legs only its two, at
+  their ends; the lake is a strip some 2,000 units wide and 7,000 long, from 510500-512750, 448000 to 508250,
+  454750. The point is now at 514288, 451752 (`PvpRoamZones.Agramon`): dry, 2,300 units and more from the water,
+  its legs 14,560 and 7,616 units with no water on them and the way on foot within 8% of each. With that no leg of
+  Agramon crosses water, and the way that leaves water out was not built: it is for a zone whose legs do cross it
+  (Thidranki's river), if that is wanted.
+- [x] **M13.46** (S) Not back to a point it has just been at. *Built 2026-11-26; unit-tested; an evening of bots of
+  22 minutes; installed (`v0.1.10`); not seen by the owner.* The owner: "could we make sure when the bot pick next leg, it's not the one he just came from ? If you
+  look at our location, we just did a yoyo between 2 locations (the agramon lake to middle to lake)" and, a
+  minute later, "we are going back to the lake again". Not the point it came from was the rule already
+  (`PvpRoam.NextPoint`). In four and a half minutes its group, with fights of others to the east, had turned away
+  from a fight ahead of it three times (`TurnsAway`: back to the point it left), and from that point the one
+  before it was a way like any other: far north-west, west field and north-west field four times each. Now a
+  team keeps the last three points it was at (`PvpRoamTeam.Lately`, `RemembersPoints`) and takes none of them
+  while another way leads on. For every team of an evening. Measured: of the legs of all teams, 49 of 195 and 68
+  of 264 (25 and 26%) led to one of the last three points the team had left in the two evenings before, 19 of 208
+  (9%) after: those where no other way led on.
+- [x] **M13.45** (S) No timer runs out in a fight. *Built 2026-11-26; unit-tested; an evening of bots of 22 minutes; installed (`v0.1.10`); not seen by the owner.* The
+  owner, having seen the timers cast again at two rests of six (M13.41: only under half, by design; offered a
+  quarter, "that's fine to keep the 50% then"): "I just want to avoid that we get in a fight and the resist wear
+  off or the caster shield / buble wear off". Half at a rest does not see to that: a group rested only when
+  somebody was low, and a timer with a little over half left was passed over (614 seconds at one rest of that
+  session). Now (`BotBrain.RestsForItsTimers`, `PvpLeastTimerShare`; `PvpRoam.Step`, the rest of a team): after a
+  fight a team rests also when a timer of one of its bots is half run, hurt or not; later on the road, with
+  nobody about, it stops where it is when only a quarter of one is left (five minutes of twenty), no more often
+  than every five minutes; a rest is held for its first 40 seconds while a timer is still to be cast again, full
+  or not (`PvpSquad.Resting`); the timers are looked at every tenth second, each team in a second of its own.
+  With its player at the wheel the rest is the player's to call: the companion whose timer has a quarter left
+  says "My timers run out soon: a rest, and I cast them again." A self bladeturn that a blow takes off is another
+  matter: it is cast again as soon as it is safe, as before. For every team of 8v8 bots. In the evening of 22
+  minutes: four rests for timers alone (two after a fight with its lowest member at 100%, two stops on the road),
+  beside 57 for somebody low; 31 bots of 8 teams cast 49 timers again, with 289 to 592 seconds left of them, none
+  the same one twice. Whether a timer still ran out in a fight was not counted.
 - [ ] **M13.44** (S) Found in the evenings of 2026-11-26, not looked into. (1) A group that never left its start: in
   the evening of 14 minutes (Jamtland, a Hibernian group) an Eldritch stood on the spot it had come into the world
   on for nine minutes, not held, not casting, on ground it could leave (`PvpTrapped` did not move it), and its
@@ -3883,8 +3942,8 @@ kept; a way for a dead player to tell the group "just die".
   16:11 the played server ran at 52% of its rate for ten seconds in the minute a test run began beside it
   (M13.40); the evening of 25 minutes ran beside the owner's session for 25 minutes and the owner said nothing of
   lag, but its lowest ten seconds (64.8% on the scrim server) were in the minute the played server started.
-- [ ] **M13.43** (M) A fighter that changes its mind every second. *Found 2026-11-26 in the owner's fight; not
-  fixed.* The owner: "Could you look at that last fight vs mids? Something strange was going on with their
+- [x] **M13.43** (M) A fighter that changes its mind every second. *Found 2026-11-26 in the owner's fight; built,
+  unit-tested, evenings of bots of 20 and 22 minutes; installed (`v0.1.10`); not seen by the owner.* The owner: "Could you look at that last fight vs mids? Something strange was going on with their
   fighters". A decent Midgard group, 146 seconds, wiped: its Savage, Berserker and Warrior landed 6, 15 and 9
   blows in all; each had no target for 26 to 30 seconds, a target more than 500 units off for 46 to 72, and
   changed its target 21 to 28 times. Its group was under its own Extend for 95 of the 146 seconds ("fall back and
@@ -3897,7 +3956,21 @@ kept; a way for a dead player to tell the group "just die".
   250. To do: a job once taken is kept for some seconds, and under Extend a fighter does not leave for a kill
   target far beyond its own back line; to be measured in evenings of bots (blows landed by fighters of a group
   under Extend, seconds with no target) so that it does not make them stand.
-- [ ] **M13.42** (S) How far the player's seven see. *Written 2026-11-26; NOT built, NOT tested, not installed.* The
+  DONE (`PvpOrders.ExtendFighterTakes`, `ExtendFighterComesBack`, `ExtendFighterStands`, `PursuerForMilliseconds`;
+  `PvpSquad`, the assignment): the cause was at the edge of `ExtendFightersStayWithin` (1,000 units from the middle
+  of its healers and casters): within it a fighter took the group's kill target wherever that stood and set out,
+  beyond it it was sent back, and a second later it was within it again. Now, under Extend with nobody on its back
+  line, a fighter takes the kill target, or else the nearest enemy that is awake, only within that reach (a
+  quarter more for the one it is on), and otherwise comes back and stands within half of it; and an enemy that was
+  on its healers and casters is still one to turn on for three seconds after it has stepped away. Measured with
+  `extend.py` (the session's scratchpad), fighters of groups under Extend that are not on a leg of a kite, the
+  evening of 25 minutes before against one of 20 minutes after: blows a minute 17.4 to 24.4 (under Engage 19.2
+  and 20.0 in the same two evenings), no target 19.0% to 13.9% of their seconds, a target more than 500 units off
+  34.1% to 29.8%, one within 200 units 33.2% to 40.6%, decisions to fall back 3.0 to 0.9 a minute. One evening
+  each, in different zones: the direction is clear, the sizes are not settled. A second evening after it, of 22
+  minutes: 23.3 blows a minute under Extend (20.9 under Engage), no target 10.9%, a target more than 500 units
+  off 32.1%, one within 200 units 41.5%, decisions to fall back 0.5 a minute.
+- [x] **M13.42** (S) How far the player's seven see. *Built 2026-11-26; unit tests pass; an evening of bots has no player to show it; installed (`v0.1.10`); not seen by the owner.* The
   owner, with M13.38 in play: "The companion in my team just call INC! 1FG mids N-W 5,500 I am not sure we were
   seeing". The call was right by the server's rule (the nearest of them 5,500 units from the player, a line of
   sight from one of the seven), and 5,500 is a speck on a screen at the best. `PvpRealWeights.PlayerGroupSeesWithin`

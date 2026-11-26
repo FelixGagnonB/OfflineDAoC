@@ -258,6 +258,35 @@ namespace DOL.GS
         /// enemy anew every second, so in that match both went Armsman, Minstrel, Armsman,
         /// Minstrel, Paladin... a new target every one to three seconds for forty seconds.
         /// </summary>
+        /// <summary>For how long an enemy that was on the group's healers and casters is still one to turn on, once it no longer is.</summary>
+        public const int PursuerForMilliseconds = 3_000;
+
+        /// <summary>
+        /// Under Extend with nobody on its back line, a fighter takes an enemy only within the
+        /// reach of its own healers and casters (PvpOrderWeights.ExtendFightersStayWithin from
+        /// their middle; a quarter more for the one it is on already). It took the group's kill
+        /// target wherever that stood, was sent back as soon as it was farther from its back
+        /// line than that reach, was within it a second later and set out again. The owner,
+        /// 2026-11-26, of a decent Midgard group it had just wiped: "Something strange was going
+        /// on with their fighters". Its Savage, Berserker and Warrior landed 30 blows between
+        /// them in 146 seconds; their kill target, a Druid at the back, was 1,000 to 2,000 units
+        /// off; each changed its target 21 to 28 times.
+        /// </summary>
+        public static bool ExtendFighterTakes(double enemyFromItsBackLine, bool isOnItAlready, int stayWithin) =>
+            stayWithin <= 0 || enemyFromItsBackLine <= stayWithin * (isOnItAlready ? 1.25 : 1.0);
+
+        /// <summary>
+        /// Under Extend with nobody on its back line: whether a fighter comes back to it. With an
+        /// enemy to take near its back line (<see cref="ExtendFighterTakes"/>) only from far
+        /// beyond the reach; with none, always: it goes to its healers and casters and stands
+        /// there until somebody follows ("fall back and kite, fighters on whoever follows").
+        /// </summary>
+        public static bool ExtendFighterComesBack(bool hasAnEnemyToTake, double fromItsBackLine, int stayWithin) =>
+            stayWithin > 0 && (!hasAnEnemyToTake || fromItsBackLine > stayWithin * 1.5);
+
+        /// <summary>A fighter that has come back stands once it is within half the reach of its back line: it does not walk on to its middle.</summary>
+        public static bool ExtendFighterStands(double fromItsBackLine, int stayWithin) => fromItsBackLine <= stayWithin * 0.5;
+
         public static int ChoosePursuer(IReadOnlyList<int> distances, int current, IReadOnlyCollection<int> taken)
         {
             if (current >= 0 && current < distances.Count)

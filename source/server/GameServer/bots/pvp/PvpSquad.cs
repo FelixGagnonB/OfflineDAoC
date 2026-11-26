@@ -675,6 +675,8 @@ namespace DOL.GS
         private List<GameLiving> _pursuers = [];
         // Since when each enemy fighter has been on the group's healers and casters.
         private readonly Dictionary<GameLiving, long> _onBackLineSince = new();
+        // When each was last on them (PvpOrders.PursuerForMilliseconds).
+        private readonly Dictionary<GameLiving, long> _pursuerAt = new();
         // Enemy fighters running at the group's healers and casters, not yet in melee on them (PvpPeelWeights.InterceptWithin).
         private List<GameLiving> _incoming = [];
         // Replaced whole every second, never changed in place: brains read it from their own threads.
@@ -970,9 +972,13 @@ namespace DOL.GS
                 // A blow given or taken since the rest began: the flag of the fight just over lingers and is no reason.
                 bool combat = _allies.Any(member => member.IsAlive && Math.Max(member.LastAttackTick, member.LastAttackedByEnemyTick) > _restSince + 500);
                 int moved = _restCalledAt != null && _caller is { IsAlive: true } ? (int)_caller.GetDistanceTo(_restCalledAt) : 0;
+                // (A rest of a team of bots lasts while somebody is not full, and for its first half minute while a timer
+                // is still to be cast again: a group that rests for its timers alone is full. BotBrain.RestsForItsTimers.)
                 bool stands = PvpCalls.RestStands(GameLoop.GameLoopTime, _restUntil, combat, moved) &&
                     (!_restUntilFull || _members.Any(member => member.IsAlive &&
-                        (member.HealthPercent < 95 || member.MaxMana > 0 && member.ManaPercent < 95)));
+                        (member.HealthPercent < 95 || member.MaxMana > 0 && member.ManaPercent < 95)) ||
+                     GameLoop.GameLoopTime - _restSince < BotBrain.TimersHoldARestMilliseconds && _members.Any(member => member.IsAlive &&
+                        member.Brain is BotBrain timers && timers.PvpLeastTimerShare() < BotBrain.TimerCastAgainBelowShare));
                 if (!stands)
                     _restUntil = 0;
                 return stands;
@@ -1357,6 +1363,14 @@ namespace DOL.GS
             var guarded = new HashSet<GameLiving>();
             // Under Extend: which of the enemies on the group's healers and casters a fighter has turned on already.
             var turnedOn = new HashSet<int>();
+            // The enemies on the group's healers and casters, and those that were within the last seconds
+            // (PvpOrders.PursuerForMilliseconds): one that steps out of reach of its victim for a second is still on it.
+            long assignedAt = GameLoop.GameLoopTime;
+            foreach (GameLiving pursuer in _pursuers)
+                _pursuerAt[pursuer] = assignedAt;
+            foreach (GameLiving gone in _pursuerAt.Where(seen => !seen.Key.IsAlive || assignedAt - seen.Value > PvpOrders.PursuerForMilliseconds).Select(seen => seen.Key).ToList())
+                _pursuerAt.Remove(gone);
+            List<GameLiving> lately = _pursuers.Concat(_pursuerAt.Keys.Where(enemy => !_pursuers.Contains(enemy) && alive.Contains(enemy) && !enemy.IsMezzed)).ToList();
             Dictionary<GameBot, GameLiving> duty = InterruptDuty(team, alive, target);
             // The enemies a healer's pet has been sent at this turn: two Druids, two enemies.
             var petsOn = new HashSet<GameLiving>();
@@ -1447,23 +1461,39 @@ namespace DOL.GS
                 // The fight is won: every fighter goes for the kill, its guard and its peel too.
                 if (MopsUp && mine != null && bot.IsAlive && IsFighter(bot))
                     aim = mine;
-                if (!calledOnto && Order == PvpOrder.Extend && _pursuers.Count > 0 && role == PvpRole.Assist && onDuty == null && bot.IsAlive &&
+                // (An enemy that was on them a moment ago is still one to turn on: lately.)
+                if (!calledOnto && Order == PvpOrder.Extend && lately.Count > 0 && role == PvpRole.Assist && onDuty == null && bot.IsAlive &&
                     IsFighter(bot) && PvpWeights.Of(bot).Order.ExtendFightersTurnOnPursuers)
                 {
                     // It stays on the one it has, and two fighters take two different ones (PvpOrders.ChoosePursuer).
-                    int chosen = PvpOrders.ChoosePursuer(_pursuers.Select(pursuer => (int)bot.GetDistanceTo(pursuer)).ToList(),
-                        brain.PvpAssignedTarget is { } held ? _pursuers.IndexOf(held) : -1, turnedOn);
+                    int chosen = PvpOrders.ChoosePursuer(lately.Select(pursuer => (int)bot.GetDistanceTo(pursuer)).ToList(),
+                        brain.PvpAssignedTarget is { } held ? lately.IndexOf(held) : -1, turnedOn);
                     turnedOn.Add(chosen);
-                    aim = _pursuers[chosen];
+                    aim = lately[chosen];
                 }
-                // With nobody to turn on, a fighter that is far from its healers and casters comes
-                // back to them: the group falls back as one, and does not leave its fighters behind.
+                // With nobody to turn on, a fighter keeps to the reach of its healers and casters: it takes the kill
+                // target, or else the nearest enemy, only within it, and otherwise comes back to them and stands
+                // (PvpOrders.ExtendFighterTakes, ExtendFighterComesBack): the group falls back as one, and does not
+                // leave its fighters behind. (Not on a leg of its kite: that has its own row, below.)
                 // Under Regroup every fighter that is far comes back, the ones with interrupt duty too.
                 int stayWithin = PvpWeights.Of(bot).Order.ExtendFightersStayWithin;
                 float fromHome = home is { } middle ? Vector2.Distance(new Vector2(bot.X, bot.Y), new Vector2(middle.X, middle.Y)) : 0;
+                bool keepsToItsBackLine = home != null && Order == PvpOrder.Extend && !Kiting && lately.Count == 0 && stayWithin > 0 && onDuty == null &&
+                    role == PvpRole.Assist && bot.IsAlive && IsFighter(bot) && !calledOnto && !MopsUp;
+                if (keepsToItsBackLine)
+                {
+                    Vector3 back = home.Value;
+                    GameLiving had = brain.PvpAssignedTarget is { IsAlive: true } keeps && alive.Contains(keeps) && !FallingBack.Contains(bot) ? keeps : null;
+                    bool Takes(GameLiving enemy) => PvpOrders.ExtendFighterTakes(
+                        Vector2.Distance(new Vector2(enemy.X, enemy.Y), new Vector2(back.X, back.Y)), enemy == had, stayWithin);
+                    if (aim != null && !Takes(aim))
+                        aim = alive.Where(enemy => !enemy.IsMezzed && Takes(enemy)).OrderBy(enemy => enemy == had ? 0 : 1)
+                            .ThenBy(enemy => bot.GetDistanceTo(enemy)).FirstOrDefault();
+                }
                 bool fallsBack = home != null && role == PvpRole.Assist && bot.IsAlive && IsFighter(bot) && !calledOnto &&
-                    (Order == PvpOrder.Extend && _pursuers.Count == 0 && stayWithin > 0 && onDuty == null && fromHome > stayWithin ||
+                    (keepsToItsBackLine && PvpOrders.ExtendFighterComesBack(aim != null, fromHome, stayWithin) ||
                      Order == PvpOrder.Regroup && RegroupsOn == null && FromNearestHealer(bot, team) > PvpWeights.Of(bot).Order.RegroupWithin);
+                bool standsByItsBackLine = fallsBack && keepsToItsBackLine && PvpOrders.ExtendFighterStands(fromHome, stayWithin);
                 // A group that mops up does not fall back from the one or two that are left.
                 if (MopsUp)
                     fallsBack = false;
@@ -1524,7 +1554,7 @@ namespace DOL.GS
                         brain.ClearAggroList();
                         brain.FSM.SetCurrentState(eFSMStateType.IDLE);
                     }
-                    if (!bot.IsCasting && !bot.IsIncapacitated && !inItsRow)
+                    if (!bot.IsCasting && !bot.IsIncapacitated && !inItsRow && !standsByItsBackLine)
                         bot.PathTo(fallBackTo.Value, bot.MaxSpeed);
                 }
                 else
