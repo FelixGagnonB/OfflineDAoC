@@ -1010,6 +1010,19 @@ namespace DOL.GS
             leftAFightNearToIt && enemiesToFight == 0 && !ledByAPlayer;
 
         /// <summary>
+        /// At the point it was walking to, a team that goes from point to point picks its next
+        /// one: with nobody to fight, and also with a group to fight that it does not see yet and
+        /// is not fighting. It picked the next point only with nobody to fight, so a group that
+        /// had picked another 9,000 units off (it sees one at 6,500, and not through a hill)
+        /// walked to the end of its road and stood there until the other came into sight or went
+        /// away. The owner, behind its Bard on Agramon, 2026-11-26: "At some point while roaming,
+        /// we stopped. Not sure why": ten seconds at a point, its pick 7,000 to 9,000 units off
+        /// and walking past. With a pick it goes on toward it (<see cref="PointToward"/>).
+        /// </summary>
+        public static bool GoesOnFromItsPoint(int enemiesToFight, bool inAFight, bool seesOneOfThem) =>
+            enemiesToFight == 0 || !inAFight && !seesOneOfThem;
+
+        /// <summary>
         /// Which enemy teams the player's own group reckons with in a roam: one it is fighting,
         /// one that attacks it, and one the player has picked a member of as a target, within
         /// the range the group forms up at. Any other is passed by: the companions stay in the
@@ -2768,7 +2781,8 @@ namespace DOL.GS
                 PvpRoamTeam lead = LeadOf(team, teams);
                 if (lead?.Team.Route != null)
                     (team.Team.Route, team.Team.Waypoint) = (lead.Team.Route, lead.Team.Waypoint);
-                else if (lead == null && team.Entry != null && enemies.Count == 0 && Wander(team, teams, now))
+                else if (lead == null && team.Entry != null &&
+                         GoesOnFromItsPoint(enemies.Count, team.ContactTick != 0 || inCombat, team.Team.SawEnemy) && Wander(team, teams, now))
                 {
                     team.Team.Halt();
                     return;
@@ -3070,8 +3084,12 @@ namespace DOL.GS
             bool looking = hunted != null && ComesLooking(team.WipedByPlayer, team.AddedOnByPlayer);
             if (looking)
                 next = PointToward(team.Map, at, hunted.Centre());
-            Say($"{team.Name} goes on{(looking ? ", looking for the player's group" : prey != null ? $", after {prey.Name} and those with it" : string.Empty)}",
-                new { what = "leg", team = team.Name, from = new[] { at.X, at.Y }, to = new[] { next.X, next.Y }, looking, prey = prey?.Name });
+            // A group that has picked a group it does not see yet goes toward that one (GoesOnFromItsPoint).
+            PvpRoamTeam picked = team.Claim is { Alive: > 0, Reforming: false } claim && claim.Map == team.Map ? claim : null;
+            if (picked != null)
+                next = PointToward(team.Map, at, picked.Centre());
+            Say($"{team.Name} goes on{(picked != null ? $", toward {picked.Name}" : looking ? ", looking for the player's group" : prey != null ? $", after {prey.Name} and those with it" : string.Empty)}",
+                new { what = "leg", team = team.Name, from = new[] { at.X, at.Y }, to = new[] { next.X, next.Y }, looking, prey = prey?.Name, picked = picked?.Name });
             (team.CameFrom, team.Team.Route, team.Team.Waypoint, team.ArrivedAt) = (at, [next], 0, 0);
             return false;
         }

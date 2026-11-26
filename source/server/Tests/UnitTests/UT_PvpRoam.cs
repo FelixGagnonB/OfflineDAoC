@@ -286,6 +286,16 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void ATeamDoesNotStandAtTheEndOfItsRoadForAGroupItDoesNotSee()
+        {
+            Assert.That(PvpRoam.GoesOnFromItsPoint(0, false, false), Is.True, "nobody about: it picks its next point");
+            Assert.That(PvpRoam.GoesOnFromItsPoint(8, false, false), Is.True, "it has picked a group it does not see yet: it goes on, and does not stand");
+            Assert.That(PvpRoam.GoesOnFromItsPoint(8, false, true), Is.False, "it sees them: it goes for them, not for a point");
+            Assert.That(PvpRoam.GoesOnFromItsPoint(8, true, false), Is.False, "in a fight it does not walk off to its next point");
+            Assert.That(PvpRoam.GoesOnFromItsPoint(0, true, false), Is.True);
+        }
+
+        [Test]
         public void ATeamThatStoodAsideJoinsWhenTheOtherSideAdds()
         {
             Assert.That(PvpRoam.EvensTheOdds(1), Is.False, "one against one is theirs to settle");

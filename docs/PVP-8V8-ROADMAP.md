@@ -3873,6 +3873,22 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [x] **M13.37** (S) A group stands at the end of its road. *Built 2026-11-26; unit-tested; one evening of bots of six
+  minutes; not installed (the owner was playing); not seen by the owner.* The owner, behind its Bard on Agramon:
+  "At some point while roaming, we stopped. Not sure why". In its recording: its group and a Midgard group picked
+  each other 8,600 units apart (a group sees another at 6,500, and not through a hill); eight seconds later its
+  Bard was at the end of its leg and stood there for ten seconds, until the other group had walked out of the
+  9,000 within which a pick is kept; then it took its next leg, which led to that group, and the fight began 22
+  seconds later. A team that goes from point to point took its next point only with nobody to fight
+  (`PvpRoam.Wander`), and a group it has picked is somebody to fight from the moment of the pick. Now it takes
+  its next point also with a group to fight that it does not see and is not fighting
+  (`PvpRoam.GoesOnFromItsPoint`), and with a pick that point is the one toward its pick (`PointToward`; the event
+  "goes on, toward ..."). For every team, bots as the player's with one of its own at the wheel; the same held in
+  the zones with adds for an enemy group within 9,000 that is not in sight. Counted roughly
+  (`stood.py` in the session's scratchpad: seconds of a team on the road with a pick, its centre not moving): 22
+  and 53 seconds in the two evenings of bots before it (stands of 5 to 21 seconds), none in the evening after it
+  (6 picks, one leg toward a pick, the fight four seconds after it); in the owner's sessions of that day groups of
+  bots stood so for up to 46 and 135 seconds. One evening is little: to be looked at again in the next ones.
 - [x] **M13.36** (S) Behind the driver, again. *Built 2026-11-26; unit-tested; an evening of bots passed (it has no
   player: the rule does nothing there); installed; not yet seen by the owner.* The owner: "make sticking to the
   driving bot a smoother experience. I feel like there are still skme stutter and issues with hills". What its last
