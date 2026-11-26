@@ -88,7 +88,11 @@ Repeating a call only renews it. A retreat is ended by any other call.
 - **Get out.** `/8v8 call retreat` and run; your Bard uses Speed of Sound when the enemy is
   near. With lead on, your group already falls back by itself when ten or more are on it.
 - **After a fight.** `/8v8 call rest`: disease, poison and nearsight are taken off everybody,
-  buffs are recast, the group sits.
+  buffs are recast, the group sits. A buff with a timer (a Druid's three resistances, an
+  Eldritch's two barriers: twenty minutes) is cast again once half of it has run, so that it
+  does not run out in the next fight.
+- **Who died.** When somebody of your realm dies or kills in your frontier, the system window
+  says who, by whom and where: "Arngenmund was just killed by Jade in Agramon."
 - **After you stand up at your start.** Your group is whole (health, power, endurance) while
   its buffs go on, for its first minute and as long as it has met nobody: no waiting at the
   keep.
@@ -199,7 +203,8 @@ Healer, then the Skald. `/stick` to it.
 
 - It takes the group from point to point of the zone and at the enemy groups it meets, as a
   decent group does: not into a fight that is on, not into more groups than you are, and by
-  the rules of the zone.
+  the rules of the zone. It goes only for a group one of your seven sees (or has seen in the
+  last twenty seconds): it does not know where a group is that is behind a hill.
 - In group chat it says "Stick, moving out: mid road." when it sets off, "Waiting for you,
   <name>." when you are more than 1,500 units behind (it goes on when you are within 800), and
   "Resting here." after a fight. It waits thirty seconds after the group has stood up.

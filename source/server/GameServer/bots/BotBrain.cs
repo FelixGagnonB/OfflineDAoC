@@ -2507,8 +2507,9 @@ namespace DOL.AI.Brain
                     : null;
             }
 
+            // (At an 8v8 group's rest a timer that is half run is taken as missing: PvpTimerRunsLow.)
             if (spell.Target == eSpellTarget.SELF)
-                return LivingHasEffect(Body, spell) ? null : Body;
+                return LivingHasEffect(Body, spell) && !PvpTimerRunsLow(Body, spell) ? null : Body;
 
             if (spell.Target == eSpellTarget.GROUP)
             {
@@ -2518,6 +2519,8 @@ namespace DOL.AI.Brain
                 if (CompanionFollowPolicy.IsNativeCompanionTravelSpeed(BotBody, spell))
                     return LivingHasEffect(Body, spell) ? null : Body;
                 IEnumerable<GameLiving> members = Body.Group?.GetMembersInTheGroup() ?? [Body];
+                if (PvpTimerRunsLow(Body, spell))
+                    return Body;
                 return members.Any(member => member.IsAlive && Body.IsWithinRadius(member, Math.Max(350, spell.Range)) && !LivingHasEffect(member, spell)) ||
                        FindMissingPartyPetBuffTarget(spell) != null
                     ? Body

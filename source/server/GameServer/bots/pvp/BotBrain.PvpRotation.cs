@@ -95,7 +95,18 @@ namespace DOL.AI.Brain
                 ClearAggroList();
             if (Body.attackComponent.AttackState)
                 Body.StopAttack();
-            if (TryMaintainTravelAndClassBuffs())
+            // At rest it also casts again the timers that are half run (PvpTimerRunsLow).
+            _pvpRefreshesTimers = true;
+            bool buffed;
+            try
+            {
+                buffed = TryMaintainTravelAndClassBuffs();
+            }
+            finally
+            {
+                _pvpRefreshesTimers = false;
+            }
+            if (buffed)
             {
                 _pvpRestLocked = false;
                 return true;
@@ -122,6 +133,51 @@ namespace DOL.AI.Brain
             _pvpRestLocked = true;
             return true;
         }
+
+        private bool _pvpRefreshesTimers;
+
+        /// <summary>A timer is a buff that runs out by itself after two minutes or more; at a rest it is cast again once half of it has run.</summary>
+        public const int TimerAtLeastSeconds = 120;
+        public const double TimerCastAgainBelowShare = 0.5;
+
+        /// <summary>
+        /// Whether a buff with a timer is cast again at a rest: half of its time has run. The
+        /// owner, 2026-11-26: "when we use the /8v8 call rest or the bot call for a rest, could we
+        /// make sure druid and caster cast their timers? Like druid cast all 3 resists, caster
+        /// their self bubble and buffs". A bot cast a buff only where it was missing, so a timer
+        /// (twenty minutes for a Druid's resistances and an Eldritch's two barriers) was cast
+        /// again only after it had run out, and it runs out when it pleases: in the owner's
+        /// session of that day the Druid's three resistances were cast as the group stood up, at
+        /// 480 seconds, and again at the rest at 1,785; by their timer they had run out some 85
+        /// seconds before that, in the middle of the fight that had begun at 1,582.
+        /// </summary>
+        public static bool CastsTimerAgainAtRest(double timerSeconds, double leftSeconds) =>
+            timerSeconds >= TimerAtLeastSeconds && leftSeconds < timerSeconds * TimerCastAgainBelowShare;
+
+        /// <summary>
+        /// At its group's rest: this very spell is on the target and half run
+        /// (<see cref="CastsTimerAgainAtRest"/>). Only the same spell: that one is renewed by a
+        /// cast (EffectListComponent, "the same spell ID"), where a cast under another buff of
+        /// its kind may be for nothing. And not twice within a minute, whatever became of the
+        /// first cast: a resting bot must not cast one buff over and over and never sit down.
+        /// </summary>
+        private bool PvpTimerRunsLow(GameLiving target, Spell spell)
+        {
+            if (!_pvpRefreshesTimers || target == null || spell == null || spell.IsConcentration || spell.IsPulsing)
+                return false;
+            long now = GameLoop.GameLoopTime;
+            if (_pvpTimerCastAgainAt.TryGetValue(spell.ID, out long castAt) && now - castAt < 60_000)
+                return false;
+            ECSGameSpellEffect running = target.effectListComponent.GetSpellEffects()
+                .FirstOrDefault(effect => effect?.SpellHandler?.Spell?.ID == spell.ID && !effect.IsDisabled);
+            if (running == null || !CastsTimerAgainAtRest(running.Duration / 1000.0, (running.ExpireTick - now) / 1000.0))
+                return false;
+            _pvpTimerCastAgainAt[spell.ID] = now;
+            PvpRecorder.Decision(BotBody, new { kind = "TimerAgain", spell = spell.Name, d = target.Name, left = (int)((running.ExpireTick - now) / 1000), rest = true }, [], null);
+            return true;
+        }
+
+        private readonly Dictionary<int, long> _pvpTimerCastAgainAt = [];
 
         private long _pvpRestCureAt;
 

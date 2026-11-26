@@ -74,6 +74,22 @@ namespace DOL.GS
         /// </summary>
         public static bool GoesForAFight(bool playerIsUp, double playerFromTheDriver) => playerIsUp && playerFromTheDriver <= WaitsBeyond;
 
+        /// <summary>For how long a group one of its own drives still knows of a group that has gone out of its sight (behind a hill).</summary>
+        public const int RemembersForSeconds = 20;
+
+        /// <summary>
+        /// Which enemy groups a group with a companion at the wheel knows of, and so may go for:
+        /// one it is fighting, one that attacks it, and one that one of its seven sees (as far as
+        /// they call "INC!", PvpRoam.SightingWithin, and not through a hill) or has seen within
+        /// <see cref="RemembersForSeconds"/>. It picked any group within 9,000 units, seen or
+        /// not. The owner, 2026-11-26: "Maybe we should reduce the distance my group see bot? In
+        /// real life, we have no clue where enemies are, beside checking realm chat and asking
+        /// people dying. 9000+ units away with no LoS feels a bit cheating."
+        /// </summary>
+        /// <param name="secondsSinceItSawIt">Null: it has not seen that group.</param>
+        public static bool KnowsOf(bool fightingIt, bool itAttacks, double? secondsSinceItSawIt) =>
+            fightingIt || itAttacks || secondsSinceItSawIt is { } ago && ago <= RemembersForSeconds;
+
         /// <summary>
         /// The pace of a group one of its own drives: no faster than its player can run right now, and a little slower
         /// while its player is behind, so that it comes up. 0: its own speed. The owner, 2026-11-26: "make sticking to the

@@ -235,6 +235,9 @@ namespace DOL.GS
                 return;
             var (killer, killerTeam, pet) = recording.Who((args as DyingEventArgs)?.Killer as GameLiving);
             recording.Line(new { k = "death", t = recording.Now, n = victim.Name, team, by = killer, byTeam = killerTeam, pet });
+            // The players of the evening read of it as a frontier read of a death (PvpDeathNews).
+            PvpDeathNews.Tell(victim, (args as DyingEventArgs)?.Killer as GameLiving, killer,
+                ByBot.Where(pair => pair.Value == recording).Select(pair => pair.Key).OfType<GamePlayer>().ToList());
             if (victim is GameBot dead)
                 PvpObserver.Say(dead, $"{PvpObserver.Name(dead)} died" + (killer == null ? "" : $", killed by {killer}" + (pet == null ? "" : "'s pet")));
         }

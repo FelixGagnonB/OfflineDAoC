@@ -3873,6 +3873,126 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [ ] **M13.44** (S) Found in the evenings of 2026-11-26, not looked into. (1) A group that never left its start: in
+  the evening of 14 minutes (Jamtland, a Hibernian group) an Eldritch stood on the spot it had come into the world
+  on for nine minutes, not held, not casting, on ground it could leave (`PvpTrapped` did not move it), and its
+  Bard waited for it 890 units off for as long ("DriverWaits"). Not seen in the evening of 25 minutes, nor in the
+  eight evenings before; cause unknown, and not known whether it is new. (2) In a zone where nobody adds (Yggdra
+  Forest, the evening of 25 minutes) a group was in a fight with two enemy groups for 65 seconds: the second had
+  come on the fight and waited for it to end ("it waits for it to end"), and 17 seconds later was in it. (3) At
+  16:11 the played server ran at 52% of its rate for ten seconds in the minute a test run began beside it
+  (M13.40); the evening of 25 minutes ran beside the owner's session for 25 minutes and the owner said nothing of
+  lag, but its lowest ten seconds (64.8% on the scrim server) were in the minute the played server started.
+- [ ] **M13.43** (M) A fighter that changes its mind every second. *Found 2026-11-26 in the owner's fight; not
+  fixed.* The owner: "Could you look at that last fight vs mids? Something strange was going on with their
+  fighters". A decent Midgard group, 146 seconds, wiped: its Savage, Berserker and Warrior landed 6, 15 and 9
+  blows in all; each had no target for 26 to 30 seconds, a target more than 500 units off for 46 to 72, and
+  changed its target 21 to 28 times. Its group was under its own Extend for 95 of the 146 seconds ("fall back and
+  kite, fighters on whoever follows"), and under Extend a fighter has three jobs that were chosen anew every one
+  to four seconds (`PvpSquad`, the assignment of `aim`): the kill target while a call for it is fresh (a Druid
+  1,000 to 2,000 units off at the back of the owner's group), an enemy that is on its healers and casters
+  (`_pursuers`), and back to its own back line when it is farther from it than `ExtendFightersStayWithin` and
+  nobody follows. They set off for the one, were sent back, turned on a pursuer, were sent back again; and they
+  were diseased for 60 to 90% of the time they lived, rooted and held besides, at 160 to 210 units a second for
+  250. To do: a job once taken is kept for some seconds, and under Extend a fighter does not leave for a kill
+  target far beyond its own back line; to be measured in evenings of bots (blows landed by fighters of a group
+  under Extend, seconds with no target) so that it does not make them stand.
+- [ ] **M13.42** (S) How far the player's seven see. *Written 2026-11-26; NOT built, NOT tested, not installed.* The
+  owner, with M13.38 in play: "The companion in my team just call INC! 1FG mids N-W 5,500 I am not sure we were
+  seeing". The call was right by the server's rule (the nearest of them 5,500 units from the player, a line of
+  sight from one of the seven), and 5,500 is a speck on a screen at the best. `PvpRealWeights.PlayerGroupSeesWithin`
+  (4,000; in `pvp-weights.json`, `{"Real": {"PlayerGroupSeesWithin": 4000}}`) in place of `PvpRoam.SightingWithin`
+  (5,500) for what the seven call and for what the group may go for with one of them at the wheel. Two groups
+  that run at each other with the speed song close 780 units a second: five seconds from the call to the fight
+  where it was seven. Not changed: a group of bots sees another at 6,500 (`PvpFormation.FormRange`), so it may
+  see the player's group before that sees it; and the group remembers one it has seen for 20 seconds
+  (`PvpDriver.RemembersForSeconds`): in that session it picked the group it had called 30 seconds earlier when
+  that was 7,200 units off again. Both to be asked of the owner.
+- [x] **M13.41** (S) Timers at a rest. *Built 2026-11-26; unit-tested; an evening of bots of 25 minutes; installed; seen by the owner ("The resting works. Druid just redo the timers and eld recast his bubble").* The owner: "when we use the /8v8 call
+  rest or the bot call for a rest, could we make sure druid and caster cast their timers? Like druid cast all 3
+  resists, caster their self bubble and buffs". A resting bot cast a buff only where it was missing
+  (`BotBrain.TryPvpRest`, `TryMaintainTravelAndClassBuffs`), so a timer (20 minutes for a Druid's three
+  resistances, an Eldritch's two barriers, a damage add) was cast again only after it had run out, and it runs out
+  when it pleases: in the owner's session of that day the resistances were cast as the group stood up (480 s)
+  and again at the rest at 1,785 s; by their timer they had run out some 85 seconds before, in the middle of
+  the fight that began at 1,582 s. Now at a rest a bot's own buff that runs for two minutes or more by itself
+  (no concentration, no pulse) and of which half has run is cast again (`BotBrain.CastsTimerAgainAtRest`,
+  `PvpTimerRunsLow`): on itself, or on its group for a group buff; not under a stronger one of somebody else.
+  For every 8v8 bot, the player's seven and the groups of bots alike: both rest the same way. Only the very
+  spell that is running is cast again (that one is renewed by the cast), and not twice within a minute,
+  whatever became of the first cast: a resting bot must not cast one buff over and over. In the recording a
+  cast for this reason is the decision `TimerAgain`. An evening of bots of 14 minutes showed nothing of it (no
+  group rested with timers half run); in one of 25 minutes 24 bots of 7 groups cast 36 timers again, all at a
+  rest of their group, none of them the same buff twice.
+- [x] **M13.40** (S) The server's clock falls behind; a bot is slower than a player. *Built 2026-11-26; unit-tested;
+  evenings of bots of 14 and 25 minutes; installed; behind its driver not yet reported by the owner.* The
+  owner on /stick behind its Bard: "still skme stutter and issues with hills" (M13.36). Read from its session with
+  the new figures of its client (`pvp_behind_driver.py`): in one second in five its client said a speed of 0 or of
+  half in one of its five packets, on the flat (18%) as on slopes (18%) and steep ground (25%), while over the
+  second it ran as far as ever. And the Bard ran 484 to 499 units a second over the ground with song and sprint
+  (383 with the song) where its speed and its player's say 507 (390): the player is 2 to 4% faster than its
+  driver, comes up to it and is braked, about every fifth second. All bots, in evenings of bots too: 382.6 to 383
+  where their speed says 390, on any ground. Two causes found in the code, neither measured yet. (1) The game's
+  clock went on by one tick's time a tick whatever the tick had taken (`GameLoopTickPacer`): every tick that ran
+  long (the turn of the evening, once a second) put it behind the wall's clock for good, and all that is timed by
+  it: the walk of every bot, and every swing and cast. The server's own figure for it ("Game loop TPS") was 99 to
+  99.5% in the owner's session, and 52% over ten seconds once. Now a long tick is made up for in the ticks after
+  it (`GameLoopTickPacer.Advance`: two ticks' time in a tick at the most, 250 ms owed at the most). For the whole
+  server, not only 8v8. (2) A walker noticed that it had reached a point of its path up to a tick late, and went
+  on from the point as if it had just got there: half a tick lost at every point on average. An 8v8 bot now keeps
+  that time (`NpcMovementComponent.LateAtAPathPoint`). To do: build, unit tests, an evening of bots with
+  `botspeed.py` (the session's scratchpad) before and after: the bots' speed over the ground should come to 389 or
+  390; then the owner behind its driver. If the driver is then as fast as its player and the brakes are still
+  there, the cause is another.
+  RESULT, bots that lead a group (Bard, Skald, Minstrel) with the speed song on straight runs of two seconds
+  (three positions a second apart in a line; nominal 390): before, in two evenings, mean 383.0 and 382.4, median
+  383.7, the fastest tenth from 386; after, in the evening of 14 minutes, mean 385.8, median 388.2, the fastest
+  tenth at 390.0; in the evening of 25 minutes, mean 386.5, median 389.3, the fastest tenth at 390.1. The members
+  that follow the same (median 383 before, 387.5 after). Most of what was missing is back, not all of it: a
+  player behind its driver is still a little faster on average, and will be braked now and then, not every fifth
+  second. To be read from the owner's next session behind its driver (`pvp_behind_driver.py`).
+  Also found: at 16:11 the played server ran at 52% of its rate for ten seconds (the machine at 89% of its
+  processors, 1,900 page faults a second) in the minute in which `scrim_test.py` ran the unit tests and started the
+  scrim server beside it, all at below-normal priority; and one write of its recording took 104 ms at 16:08:48
+  while a build and scripts reading that recording ran. Not proved to be the cause; until it is known, no build
+  and no evening of bots while the owner is in a fight.
+- [x] **M13.39** (S) Who killed whom, and where. *Built 2026-11-26; unit-tested; installed; seen by the owner ("The kill message works.").* The owner: "on real
+  server, when someone die, there's a message broadcasted. Who killed who and region (like: Jade killed BotA in
+  pennine). I just saw there's no indication in-game". The game says it of a player's character that dies
+  (`GamePlayer.Die`); an 8v8 bot is not one. Now the players of an evening read of a bot's death as a frontier
+  did: "Arngenmund was just killed by Jade in Agramon.", in the colour of the realm that killed, in the system
+  window; the realm of the dead and the realm of the killer read it, in the same region (the game's rule for a
+  server of three realms), a pet's kill is its owner's (`PvpDeathNews`, from the recorder's hook on a death). To
+  do: build, unit tests, and the owner's eye (an evening of bots has no player to read it).
+- [x] **M13.38** (S) The player's group goes only for what it sees. *Built 2026-11-26; unit-tested; installed; an evening of bots cannot show it; the owner has played with it and has not said of it either way (M13.42 is what it said of the distance).* The
+  owner: "Maybe we should reduce the distance my group see bot? In real life, we have no clue where enemies are,
+  beside checking realm chat and asking people dying. 9000+ units away with no LoS feels a bit cheating." A group
+  with one of its own at the wheel picked any enemy group within 9,000 units, as a group of bots does, seen or
+  not; from that second it had somebody to fight (its driver no longer waited for its player, it did not rest),
+  and in M13.37 it stood at the end of its road for it. Now it knows only of a group it is fighting, one that
+  attacks it, and one that one of its seven sees (within 5,500 and not through a hill: where they call "INC!")
+  or has seen in the last 20 seconds (`PvpDriver.KnowsOf`, `PvpRoamTeam.LastSeen`; looked for every third
+  second). Its player's own target and calls pick as before. Groups of bots among themselves pick at 9,000 as
+  before: that is who is whose in the 8v8 zone, and it moves nobody: a group walks to another only once it sees
+  it (`PvpTeam.March`, 6,500 and not through a hill). To do: build, unit tests; an evening of bots cannot show
+  it (no player), so the owner's next session.
+- [x] **M13.37** (S) A group stands at the end of its road. *Built 2026-11-26; unit-tested; one evening of bots of six
+  minutes; not installed (the owner was playing); not seen by the owner.* The owner, behind its Bard on Agramon:
+  "At some point while roaming, we stopped. Not sure why". In its recording: its group and a Midgard group picked
+  each other 8,600 units apart (a group sees another at 6,500, and not through a hill); eight seconds later its
+  Bard was at the end of its leg and stood there for ten seconds, until the other group had walked out of the
+  9,000 within which a pick is kept; then it took its next leg, which led to that group, and the fight began 22
+  seconds later. A team that goes from point to point took its next point only with nobody to fight
+  (`PvpRoam.Wander`), and a group it has picked is somebody to fight from the moment of the pick. Now it takes
+  its next point also with a group to fight that it does not see and is not fighting
+  (`PvpRoam.GoesOnFromItsPoint`). (For an hour that point was the one toward its pick; taken out again after the
+  owner's "9000+ units away with no LoS feels a bit cheating", M13.38: the evening of bots below ran with it.)
+  For every team, bots as the player's with one of its own at the wheel; the same held in
+  the zones with adds for an enemy group within 9,000 that is not in sight. Counted roughly
+  (`stood.py` in the session's scratchpad: seconds of a team on the road with a pick, its centre not moving): 22
+  and 53 seconds in the two evenings of bots before it (stands of 5 to 21 seconds), none in the evening after it
+  (6 picks, one leg toward a pick, the fight four seconds after it); in the owner's sessions of that day groups of
+  bots stood so for up to 46 and 135 seconds. One evening is little: to be looked at again in the next ones.
 - [x] **M13.36** (S) Behind the driver, again. *Built 2026-11-26; unit-tested; an evening of bots passed (it has no
   player: the rule does nothing there); installed; not yet seen by the owner.* The owner: "make sticking to the
   driving bot a smoother experience. I feel like there are still skme stutter and issues with hills". What its last
