@@ -249,16 +249,21 @@ namespace DOL.AI.Brain
                 }
             }
             bool anotherRaises = PvpSquad.AnotherHealerIsRaising(BotBody);
+            // After the fight: with the power the spell takes, the player first (PvpHealWeights.RaisesAfterTheFight).
+            bool fightIsOver = !PvpEnemies.Any(enemy => enemy.IsAlive);
+            bool hasThePower = BotBody.Mana >= BotBody.PowerCost(resurrection);
             GameLiving corpse = Body.Group.GetMembersInTheGroup()
                 .Where(member => member != Body && !member.IsAlive && member.ObjectState == GameObject.eObjectState.Active &&
                                  member.CurrentRegionID == Body.CurrentRegionID &&
                                  member.TempProperties.GetProperty<GameLiving>("RESURRECT_CASTER") == null)
-                .OrderBy(member => PvpMember.RoleOf(member) == PvpRole.Heal ? 0 : 1)
+                .OrderBy(member => PvpHealWeights.RaisedInTurn(fightIsOver, member is GamePlayer, PvpMember.RoleOf(member) == PvpRole.Heal))
                 .ThenBy(member => Body.GetDistanceTo(member))
-                .FirstOrDefault(member => all.Heal.Raises((int)Body.GetDistanceTo(member), range, Body.ManaPercent, beingHit, lowest,
-                    PvpEnemies.Count(enemy => enemy.IsAlive && !enemy.IsMezzed && !enemy.IsStunned &&
-                        PvpMember.ArchetypeOf(enemy) == PvpBuffArchetype.Melee &&
-                        enemy.IsWithinRadius(member, all.Heal.ResurrectNoFighterWithin)), anotherRaises) &&
+                .FirstOrDefault(member => (fightIsOver
+                        ? all.Heal.RaisesAfterTheFight((int)Body.GetDistanceTo(member), range, hasThePower)
+                        : all.Heal.Raises((int)Body.GetDistanceTo(member), range, Body.ManaPercent, beingHit, lowest,
+                            PvpEnemies.Count(enemy => enemy.IsAlive && !enemy.IsMezzed && !enemy.IsStunned &&
+                                PvpMember.ArchetypeOf(enemy) == PvpBuffArchetype.Melee &&
+                                enemy.IsWithinRadius(member, all.Heal.ResurrectNoFighterWithin)), anotherRaises)) &&
                     BotGroupSupport.HasCorpseLineOfSight(BotBody, member));
             if (corpse == null || !PvpSquad.ClaimRaise(BotBody, corpse, resurrection.CastTime))
                 return null;

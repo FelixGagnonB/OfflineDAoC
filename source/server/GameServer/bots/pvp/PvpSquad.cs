@@ -1346,12 +1346,16 @@ namespace DOL.GS
                 // group down at 480 to 500 units a second, sprinting on their Skald's song, while the seven ran behind the
                 // player at 350 to 400 with their endurance at 100 from the call to the last death.)
                 bool pressed = Chasing || Kiting || RetreatsTo != null || FallingBack.Contains(bot) || _huntedTick.TryGetValue(bot, out long huntedAt) && GameLoop.GameLoopTime - huntedAt < 2_500;
-                bot.PvpSprinting = bot.IsAlive && FightStarted && legs.SprintInFights &&
-                                   legs.SprintNeeded(pressed, WayLeft(bot), bot.PvpSprinting) &&
-                                   legs.CanSprint(bot.EndurancePercent, bot.PvpSprinting, IsFighter(bot) && !Chasing && role != PvpRole.Peel ? legs.FighterKeepsEndurancePercent : 0);
-                if (bot.PvpSprinting && bot.IsMoving && legs.SprintCostPerSecond > 0)
-                    bot.Endurance = Math.Max(0, bot.Endurance - PvpPositionWeights.SprintCostWith(legs.SprintCostPerSecond,
-                        bot.GetAbility<DOL.GS.RealmAbilities.AtlasOF_LongWindAbility>() is { } longWind ? longWind.GetAmountForLevel(longWind.Level) : 0));
+                // (Before the first blow it is still on the road: SprintOnTheRoad has said whether it sprints, and taken its cost.)
+                if (FightStarted)
+                {
+                    bot.PvpSprinting = bot.IsAlive && legs.SprintInFights &&
+                                       legs.SprintNeeded(pressed, WayLeft(bot), bot.PvpSprinting) &&
+                                       legs.CanSprint(bot.EndurancePercent, bot.PvpSprinting, IsFighter(bot) && !Chasing && role != PvpRole.Peel ? legs.FighterKeepsEndurancePercent : 0);
+                    if (bot.PvpSprinting && bot.IsMoving && legs.SprintCostPerSecond > 0)
+                        bot.Endurance = Math.Max(0, bot.Endurance - PvpPositionWeights.SprintCostWith(legs.SprintCostPerSecond,
+                            bot.GetAbility<DOL.GS.RealmAbilities.AtlasOF_LongWindAbility>() is { } longWind ? longWind.GetAmountForLevel(longWind.Level) : 0));
+                }
                 // For a watcher: a member that has run out of power does nothing, and that cannot be seen from above
                 // (owner, 2026-11-19, of a Theurgist that stood still: "I do not have that information when I observe").
                 if (FightStarted && bot.IsAlive && bot.MaxMana > 0)
@@ -1710,6 +1714,33 @@ namespace DOL.GS
         private GameBot _gatherOn;
         private readonly HashSet<GameBot> Gathering = new();
         private readonly Dictionary<GameBot, long> LastGatherStep = new();
+
+        /// <summary>
+        /// Once a second while no fight is on: who of the group sprints on the road, and what it costs them
+        /// (<see cref="PvpPositionWeights.SprintsOnTheRoad"/>). Nobody, in a group of bots alone; behind a player who
+        /// sprints, whoever gets back from a song or a buff what the sprint takes.
+        /// </summary>
+        public void SprintOnTheRoad()
+        {
+            if (FightStarted || Leaving || RetreatsTo != null)
+                return;
+            bool playerSprints = _allies.OfType<GamePlayer>().Any(player => player.IsAlive && player.IsSprinting);
+            foreach (GameBot bot in _members)
+            {
+                PvpPositionWeights legs = PvpWeights.Of(bot).Position;
+                int cost = PvpPositionWeights.SprintCostWith(legs.SprintCostPerSecond,
+                    bot.GetAbility<DOL.GS.RealmAbilities.AtlasOF_LongWindAbility>() is { } longWind ? longWind.GetAmountForLevel(longWind.Level) : 0);
+                bool sprints = bot.IsAlive && legs.SprintsOnTheRoad(playerSprints, bot.GetModified(eProperty.EnduranceRegenerationAmount), cost,
+                    bot.EndurancePercent, bot.PvpSprinting);
+                if (sprints != bot.PvpSprinting)
+                {
+                    bot.PvpSprinting = sprints;
+                    bot.OnMaxSpeedChange();   // it is on its way already: at its new speed from here
+                }
+                if (sprints && bot.IsMoving && cost > 0)
+                    bot.Endurance = Math.Max(0, bot.Endurance - cost);
+            }
+        }
 
         private void EndGather()
         {

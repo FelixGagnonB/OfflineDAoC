@@ -148,6 +148,10 @@ namespace DOL.GS.PropertyCalc
             if (living is GameBot { PvpSprinting: true })
                 speedIncrease *= SPRINT;
 
+            // An 8v8 bot in water swims, at half its speed whatever song or sprint it has, as a player's character does (PvpWater).
+            if (living is GameBot { PvpInWater: true })
+                speedIncrease *= PvpWater.SwimShare;
+
             if (living is GameBot && GameRelic.IsPlayerCarryingRelic(living))
                 speedIncrease = Math.Min(speedIncrease, 1.0);
             return (int) Math.Round(maxSpeedBase * speedIncrease);

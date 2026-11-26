@@ -10,6 +10,27 @@ namespace DOL.UnitTests
     public class UT_PvpPositioning
     {
         [Test]
+        public void OnTheRoad_ACompanionSprintsWithItsPlayerWhenItCostsNothing()
+        {
+            // "with hibernia, as we run 2 bards, wen bard driving, could we also be sprinting?"
+            var weights = new PvpPositionWeights();
+            int cost = weights.SprintCostPerSecond;
+            // Two Bards: the second holds its endurance song on the road, five a second.
+            Assert.That(weights.SprintsOnTheRoad(itsPlayerSprints: true, enduranceBackPerSecond: 5, cost, endurancePercent: 95, sprinting: false), Is.True);
+            Assert.That(weights.SprintsOnTheRoad(true, 6, cost, 95, true), Is.True);
+            // Its player runs: so does it.
+            Assert.That(weights.SprintsOnTheRoad(itsPlayerSprints: false, 5, cost, 100, true), Is.False);
+            // One Bard, on its speed song: a sprint would be paid for, and the group reached its fights out of breath.
+            Assert.That(weights.SprintsOnTheRoad(true, enduranceBackPerSecond: 0, cost, 100, false), Is.False);
+            Assert.That(weights.SprintsOnTheRoad(true, 4, cost, 100, false), Is.False, "a weaker song does not pay for it");
+            Assert.That(weights.SprintsOnTheRoad(true, 4, PvpPositionWeights.SprintCostWith(cost, 20), 100, false), Is.True, "with Long Wind it does");
+            // Out of breath all the same (it has just fought): not until it has some back.
+            Assert.That(weights.SprintsOnTheRoad(true, 5, cost, endurancePercent: 10, sprinting: false), Is.False);
+            // The switch.
+            Assert.That(new PvpPositionWeights { SprintOnTheRoadWithItsPlayer = false }.SprintsOnTheRoad(true, 5, cost, 95, false), Is.False);
+        }
+
+        [Test]
         public void FallingBack_TheStepGoesAlongTheGroupsLineOfRetreat()
         {
             var weights = new PvpPositionWeights();

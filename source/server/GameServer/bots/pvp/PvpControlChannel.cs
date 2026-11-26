@@ -298,6 +298,28 @@ namespace DOL.GS
 
                 // way-out Region= X= Y= [FromX= FromY=]: whether one standing at the point can walk off it, and where it would
                 // be put if not (PvpTrapped). Changes nothing.
+                // What the navigation mesh has under a place: the nearest floor, and the nearest water (PvpWater). Read-only.
+                case "water":
+                {
+                    ushort regionId = ushort.Parse(Arg("Region") ?? "252");
+                    int x = int.Parse(Arg("X")), y = int.Parse(Arg("Y"));
+                    Zone zone = WorldMgr.GetRegion(regionId)?.GetZone(x, y);
+                    var nav = PathfindingProvider.Instance;
+                    if (zone == null)
+                        return new { Zone = false };
+                    System.Numerics.Vector3? top = nav.GetFloorBeneath(zone, new System.Numerics.Vector3(x, y, 20_000), 20_000, nav.DefaultFilters);
+                    float z = Arg("Z") != null ? float.Parse(Arg("Z")) : top?.Z ?? float.NaN;
+                    if (float.IsNaN(z))
+                        return new { Zone = true, Floor = (int?)null };
+                    (float? floor, float? water) = PvpWater.Under(zone, new System.Numerics.Vector3(x, y, z));
+                    System.Numerics.Vector3? walk = nav.GetFloorBeneath(zone, new System.Numerics.Vector3(x, y, z + PvpWater.Above), 20_000, [EDtPolyFlags.Walk, EDtPolyFlags.Swim]);
+                    return new
+                    {
+                        Zone = true, Top = (int?)top?.Z, Asked = (int)z, Floor = (int?)floor, Water = (int?)water,
+                        GroundThatIsNotWater = (int?)walk?.Z, InWater = PvpWater.IsOn(floor, water),
+                    };
+                }
+
                 case "way-out":
                 {
                     ushort regionId = ushort.Parse(Arg("Region") ?? "200");

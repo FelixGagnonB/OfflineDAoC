@@ -61,6 +61,9 @@ namespace DOL.GS
         /// </summary>
         public bool PvpSprinting { get; set; }
 
+        /// <summary>An 8v8 bot on the water's surface: it swims, at half its speed, as a player's character does (PvpWater).</summary>
+        public bool PvpInWater { get; set; }
+
         /// <summary>In a real 8v8 session: the roster this bot is kept in, which of its build it is, and its realm points (PvpRealmPoints).</summary>
         public string PvpRosterOwner { get; set; }
         public int PvpRosterPlace { get; set; }

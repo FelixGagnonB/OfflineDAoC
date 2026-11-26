@@ -271,6 +271,23 @@ namespace DOL.GS
         /// </summary>
         public int FighterKeepsEndurancePercent { get; set; } = 40;
 
+        /// <summary>
+        /// On the road a player's companions sprint when their player does and it costs them nothing. The owner,
+        /// 2026-11-25: "with hibernia, as we run 2 bards, wen bard driving, could we also be sprinting?" On the road
+        /// nobody sprints (the owner, 2026-11-20: paid for there, the companions reached a fight at 2 to 20% endurance).
+        /// With two Bards one holds speed and the other endurance all the way, and the song gives back the five a second
+        /// a sprint takes: so behind a player who sprints, a companion with that much endurance coming back sprints too,
+        /// the one at the wheel as well. The same holds under a Paladin's chant or a Shaman's buff. A group of bots alone
+        /// does not sprint on the road. False: nobody sprints on the road, as before.
+        /// </summary>
+        public bool SprintOnTheRoadWithItsPlayer { get; set; } = true;
+
+        /// <summary>Whether a bot sprints on the road (<see cref="SprintOnTheRoadWithItsPlayer"/>).</summary>
+        /// <param name="enduranceBackPerSecond">What its songs and buffs give back to it each second on the move.</param>
+        /// <param name="costPerSecond">What a second of sprint takes from it (less with Long Wind).</param>
+        public bool SprintsOnTheRoad(bool itsPlayerSprints, int enduranceBackPerSecond, int costPerSecond, int endurancePercent, bool sprinting) =>
+            SprintOnTheRoadWithItsPlayer && itsPlayerSprints && enduranceBackPerSecond >= costPerSecond && CanSprint(endurancePercent, sprinting);
+
         /// <summary>Whether a bot that wants to sprint can: not on its last breath, and once out of it, not until it has some back.</summary>
         /// <param name="keeps">The share of its endurance it does not sprint away (<see cref="FighterKeepsEndurancePercent"/>); 0 for none.</param>
         public bool CanSprint(int endurancePercent, bool sprinting, int keeps = 0) =>

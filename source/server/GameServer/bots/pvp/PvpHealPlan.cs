@@ -110,6 +110,22 @@ namespace DOL.GS
             ResurrectInFight && distance <= range && powerPercent >= ResurrectPowerPercent && !beingHit && !anotherHealerIsRaising &&
             lowestHealthInReach >= ResurrectIfNobodyBelow && (freeFightersAtCorpse == 0 || RaisesWithFighterAtBody);
 
+        /// <summary>
+        /// After the fight (no enemy left alive that the group knows of) a member raises as soon as it has the power the
+        /// spell takes, a quarter of its pool, and each raiser takes a body of its own. The rule for a fight
+        /// (<see cref="Raises"/>) wants half its power, nobody of the living under half their health, and one raiser at a
+        /// time. The owner's evening of 2026-11-25, three dead after a fight won: the fight was over at 6:30, its Druids
+        /// had 74 and 42 points of power, the two companions were raised at 7:39 and 7:41 after the group had sat down, and
+        /// the owner had released at 7:00 ("So we are 3 dead after the fight... I released").
+        /// </summary>
+        public bool RaisesAfterTheFight(int distance, int range, bool hasThePowerForIt) => distance <= range && hasThePowerForIt;
+
+        /// <summary>
+        /// Whose body is raised first: in a fight a healer's, then the nearest; after it the player's, then a healer's.
+        /// (A player lying dead does not know it is being seen to; a bot does not mind.)
+        /// </summary>
+        public static int RaisedInTurn(bool fightIsOver, bool isThePlayer, bool isAHealer) => fightIsOver && isThePlayer ? -1 : isAHealer ? 0 : 1;
+
         /// <summary>True for a healer that should walk to a corpse now, to raise it.</summary>
         public bool WalksToRaise(int distance, int range, bool hasPower, bool beingHit, int lowestHealthInReach, int freeFightersAtCorpse) =>
             ResurrectWalkWithin > 0 && distance > range && distance <= ResurrectWalkWithin && hasPower && !beingHit &&
