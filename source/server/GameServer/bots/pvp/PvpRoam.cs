@@ -1975,10 +1975,18 @@ namespace DOL.GS
             }
         }
 
+        /// <summary>A turn of the evening that takes this long is written to the log, with its slowest team.</summary>
+        public const int SlowTurnMilliseconds = 100;
+
         private static void Tick(int _)
         {
             if (Interlocked.Exchange(ref _ticking, 1) != 0)
                 return;
+            // What a turn of the evening costs: it runs between the turns of the bots, and the game waits for it.
+            long turnBegan = System.Diagnostics.Stopwatch.GetTimestamp();
+            (string Team, string State, double Milliseconds) slowest = (null, null, 0);
+            // Where the turn went: before the steps of the teams, the steps, the calls, the sweep, the recording.
+            double before = 0, steps = 0, calls = 0, sweep = 0, record = 0;
             try
             {
                 List<PvpRoamTeam> teams = _teams;
@@ -1995,6 +2003,7 @@ namespace DOL.GS
                 }
                 foreach (PvpRoamTeam team in teams)
                 {
+                    long beforeBegan = System.Diagnostics.Stopwatch.GetTimestamp();
                     if (travelling && team.Leader != null)
                         continue;
                     // The player's group is on the field while its player is in the frontier, and off it otherwise (PresenceOf).
@@ -2018,6 +2027,8 @@ namespace DOL.GS
                     PvpEnduranceBuff.Keep(team.Team.Squad?.Allies, now);
                     // On the road a player's companions sprint with their player when it costs them nothing.
                     team.Team.Squad?.SprintOnTheRoad();
+                    // A group one of its own drives keeps to the pace of its player (PvpDriver.Pace).
+                    team.Team.Squad?.KeepPace(team.Leader, team.Driven ? PvpFormation.DriverOf(team.Team.Bots) : null);
                     // A member on ground it cannot leave (a patch of the navmesh round a tree) is put beside it (PvpTrapped).
                     foreach (GameBot bot in team.Team.Bots)
                     {
@@ -2051,17 +2062,35 @@ namespace DOL.GS
                         Say($"{team.Name} walks into {entered.Name}", new { what = "port", team = team.Name, zone = entered.Name });
                         Tell(team, $"You are in {entered.Name}. A wipe or /release puts you at your realm's start here.");
                     }
+                    long stepBegan = System.Diagnostics.Stopwatch.GetTimestamp();
+                    before += System.Diagnostics.Stopwatch.GetElapsedTime(beforeBegan, stepBegan).TotalMilliseconds;
+                    string stateBefore = team.State;
                     Step(team, teams, now, real);
+                    double stepTook = System.Diagnostics.Stopwatch.GetElapsedTime(stepBegan).TotalMilliseconds;
+                    steps += stepTook;
+                    if (stepTook > slowest.Milliseconds)
+                        slowest = (team.Name, stateBefore == team.State ? stateBefore : $"{stateBefore} to {team.State}", stepTook);
                 }
+                long callsBegan = System.Diagnostics.Stopwatch.GetTimestamp();
                 CallOut(teams, now);
                 if (Prime)
                     Rotate(teams, now);
-                // A monster that was dead when the roam began has come back: once a minute.
-                if ((now - _started) / 1000 % 60 == 59)
+                calls = System.Diagnostics.Stopwatch.GetElapsedTime(callsBegan).TotalMilliseconds;
+                // A monster that was dead when the roam began has come back: once a minute, one zone a second. (Each
+                // is a pass over every creature of its region, a realm's mainland. All the zones in one turn was the
+                // half second for which the server stopped once in every minute of every evening; the owner,
+                // 2026-11-26: "we just had some lag".)
+                int swept = (int)(59 - (now - _started) / 1000 % 60);
+                if (swept < _maps.Count)
                 {
-                    foreach (PvpRoamMap zone in _maps)
-                        PvpArena.ClearMonsters(zone.Region, zone.Starts.Select(start => start.Point));
+                    long sweepBegan = System.Diagnostics.Stopwatch.GetTimestamp();
+                    int back = PvpArena.ClearMonsters(_maps[swept].Region, _maps[swept].Starts.Select(start => start.Point));
+                    double sweepTook = System.Diagnostics.Stopwatch.GetElapsedTime(sweepBegan).TotalMilliseconds;
+                    sweep = sweepTook;
+                    if (sweepTook >= SlowTurnMilliseconds / 2)
+                        Log.Warn($"8v8 roam: looking for monsters that are back in {_maps[swept].Name} took {sweepTook:F0} ms ({back} taken out)");
                 }
+                long recordBegan = System.Diagnostics.Stopwatch.GetTimestamp();
                 if (_recording is { } recording)
                 {
                     foreach (PvpRoamTeam team in teams)
@@ -2070,6 +2099,7 @@ namespace DOL.GS
                         if (team.Quiet && team.Leader == null && (now - _started) / 1000 % 5 != 0)
                             continue;
                         (double x, double y) = team.Centre();
+                        (int Packets, int Slowest, int Fastest)? reported = team.Leader?.TakeReportedSpeeds();
                         recording.Line(new
                         {
                             k = "team", t = recording.Now, name = team.Name, state = team.State, x = (int)x, y = (int)y, alive = team.Alive,
@@ -2079,10 +2109,16 @@ namespace DOL.GS
                             // "stutter at various places on the island"; the driver ran evenly, its player fell behind.)
                             gap = team.Leader?.TakeLongestPositionPacketGap(), px = team.Leader?.X, py = team.Leader?.Y,
                             pmoving = team.Leader?.IsMoving,
+                            // What its client said of its speed in this second: how many position packets, the slowest and
+                            // the fastest speed in them, and what it can run. (A stutter behind the driver is shorter than a
+                            // second: a client on /stick that stops and starts says 0, then its full speed.)
+                            pn = reported?.Packets, pslow = reported?.Slowest, pfast = reported?.Fastest, pmax = team.Leader?.MaxSpeed,
+                            pace = team.Leader == null ? null : team.Team.Bots.Select(bot => (int?)bot.PvpPace).FirstOrDefault(),
                         });
                     }
                     recording.Snapshot(name => teams.FirstOrDefault(team => team.Name == name) is not { } one || one.Quiet && one.Leader == null);
                 }
+                record = System.Diagnostics.Stopwatch.GetElapsedTime(recordBegan).TotalMilliseconds;
             }
             catch (Exception exception)
             {
@@ -2092,6 +2128,10 @@ namespace DOL.GS
             }
             finally
             {
+                double turnTook = System.Diagnostics.Stopwatch.GetElapsedTime(turnBegan).TotalMilliseconds;
+                string bringingOut = PvpSpawnProfile.Take();
+                if (turnTook >= SlowTurnMilliseconds)
+                    Log.Warn($"8v8 roam: a turn of the evening took {turnTook:F0} ms; its slowest team {slowest.Team} ({slowest.State}) {slowest.Milliseconds:F0} ms; before the steps {before:F0}, steps {steps:F0}, calls {calls:F0}, sweep {sweep:F0}, recording {record:F0}{bringingOut}");
                 Volatile.Write(ref _ticking, 0);
             }
         }
@@ -2126,6 +2166,14 @@ namespace DOL.GS
             (double ax, double ay) = a.Centre();
             (double bx, double by) = b.Centre();
             return Math.Sqrt((ax - bx) * (ax - bx) + (ay - by) * (ay - by)) <= within;
+        }
+
+        /// <summary>The squad decides; returns when it began, for the timing of a slow turn (PvpSpawnProfile).</summary>
+        private static long Decided(PvpRoamTeam team, List<GameLiving> enemies)
+        {
+            long began = PvpSpawnProfile.Start();
+            team.Team.Squad.Decide(enemies);
+            return began;
         }
 
         private static void Step(PvpRoamTeam team, List<PvpRoamTeam> teams, long now, PvpRealWeights real)
@@ -2219,6 +2267,7 @@ namespace DOL.GS
             // The teams of another realm that are near, and which of them it is fighting.
             // Who is at the wheel: the player, or (PvpDriver) one of its seven; nobody's, for a team of bots. With a companion
             // at the wheel the player's group roams and picks its fights as a group of bots does.
+            long mark = PvpSpawnProfile.Start();
             bool driven = Drives(team);
             GamePlayer wheel = driven ? null : team.Leader;
             List<PvpRoamTeam> others = teams.Where(other => other.Realm != team.Realm && other.Alive > 0 && !other.Reforming && Near(team, other, 9_000)).ToList();
@@ -2330,9 +2379,11 @@ namespace DOL.GS
                 }
                 bool attacks = Attacks(other);
                 // An enemy group that comes for its fight is seen before it lands (SeesItComing), and is an enemy from then.
+                // (Whether it sees them is asked last, and only of a group that comes for its fight: it is up to 64 lines of
+                // sight, and was drawn for every enemy group near every group in every second.)
                 if (wheel == null && !attacks && (team.ComingSeen.Contains(other) ||
-                        SeesItComing(team.Fighting.Count, team.Fighting.Contains(other), other.Draws.TryGetValue(team, out bool comesForIt) && comesForIt,
-                            Near(team, other, AddSeenWithin) && Sees(team, other, AddSeenWithin))))
+                        SeesItComing(team.Fighting.Count, team.Fighting.Contains(other), other.Draws.TryGetValue(team, out bool comesForIt) && comesForIt, true) &&
+                        Near(team, other, AddSeenWithin) && Sees(team, other, AddSeenWithin)))
                 {
                     if (team.ComingSeen.Add(other))
                         Say($"{team.Name} sees {other.Name} coming for its fight", new { what = "addseen", team = team.Name, other = other.Name });
@@ -2396,6 +2447,7 @@ namespace DOL.GS
             else if (eightOnly && team.Claim != null && !foes.Contains(team.Claim))
                 team.Claim = null;
             List<GameLiving> enemies = foes.SelectMany(other => other.Team.Members).Where(member => member.IsAlive).ToList();
+            mark = PvpSpawnProfile.Stop("foes", mark);
             foreach (PvpRoamTeam other in foes)
             {
                 if (AtEachOther(team, other) && Near(team, other, PvpScrim.EngageRange) && team.Fighting.Add(other))
@@ -2466,7 +2518,11 @@ namespace DOL.GS
                     Say($"{team.Name} cannot get away and turns to fight", new { what = "caught", team = team.Name, alive = team.Alive });
                 }
                 else
+                {
+                    long decideBegan = PvpSpawnProfile.Start();
                     team.Team.Squad.Decide(enemies);
+                    PvpSpawnProfile.Stop("decide", decideBegan);
+                }
                 return;
             }
 
@@ -2514,14 +2570,16 @@ namespace DOL.GS
                 }
             }
 
+            PvpSpawnProfile.Stop("between", mark);
             if (enemies.Count > 0)
             {
                 // Who of its realm fights beside it: a group counts them on its side when it weighs what is on it.
                 team.Team.Squad.Beside = teams.Where(own => own != team && own.Realm == team.Realm && own.Alive > 0 && !own.Reforming &&
                         own.Map == team.Map && Near(team, own, PvpSquad.BesideWithin))
                     .SelectMany(own => own.Team.Members).Where(member => member.IsAlive).ToList();
-                team.Team.Squad.Decide(enemies);
+                long engageBegan = PvpSpawnProfile.Stop("decide", Decided(team, enemies));
                 team.Team.Engage(enemies);
+                PvpSpawnProfile.Stop("engage", engageBegan);
             }
             // A lull is not the end of a fight: with nobody to reckon with for a moment (the player between two
             // targets, the enemy dead or asleep) the group's Bard went to its speed song and back, twice in the

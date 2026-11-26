@@ -58,8 +58,14 @@ namespace DOL.GS
             return at;
         }
 
-        /// <summary>How far one gets from a point in each of eight directions.</summary>
-        public static List<int> Walks(Zone zone, Vector3 at)
+        /// <summary>
+        /// How far one gets from a point in each of eight directions; with <paramref name="untilOneGetsAway"/>, only
+        /// as many directions as it takes to find one in which it gets away (it is not trapped then, and the rest
+        /// says nothing more). Every standing bot of every group was asked all eight, up to 32 paths each, in the same
+        /// turn of the evening every five seconds: 100 to 230 ms for which the game stood, in every fight (measured
+        /// 2026-11-26, "before the steps"). A bot on open ground now costs one path.
+        /// </summary>
+        public static List<int> Walks(Zone zone, Vector3 at, bool untilOneGetsAway = false)
         {
             var walked = new List<int>(8);
             for (int direction = 0; direction < 8; direction++)
@@ -68,6 +74,8 @@ namespace DOL.GS
                 var to = new Vector3(at.X + (float)(Reach * Math.Cos(angle)), at.Y + (float)(Reach * Math.Sin(angle)), at.Z);
                 Vector3 end = WalkToward(zone, at, to, 4);
                 walked.Add((int)Vector2.Distance(new Vector2(at.X, at.Y), new Vector2(end.X, end.Y)));
+                if (untilOneGetsAway && walked[^1] >= Least)
+                    break;
             }
             return walked;
         }
@@ -78,11 +86,14 @@ namespace DOL.GS
         /// </summary>
         public static Vector3? WayOut(Zone zone, Vector3 at, Vector3 openGround)
         {
-            if (zone == null || !IsTrapped(Walks(zone, at)))
+            if (zone == null || !IsTrapped(Walks(zone, at, untilOneGetsAway: true)))
                 return null;
             Vector3 beside = WalkToward(zone, openGround, at);
             return IsNear(Vector3.Distance(beside, at)) && Vector3.Distance(beside, at) > 1 ? beside : null;
         }
+
+        /// <summary>How long before its first look a bot is taken to have been looked at: a second of the five of its own, by its number.</summary>
+        public static int FirstLookAfter(int number) => Math.Abs(number % (EveryMilliseconds / 1_000)) * 1_000;
 
         private sealed class Seen
         {
@@ -105,11 +116,18 @@ namespace DOL.GS
                     return false;
                 Seen seen = Looked.GetOrCreateValue(bot);
                 var here = new Vector3(bot.X, bot.Y, bot.Z);
+                if (seen.At == 0)
+                {
+                    // Not all the bots of an evening in the same second: each has its own of the five.
+                    (seen.At, seen.Where) = (now - FirstLookAfter(bot.ObjectID), here);
+                    return false;
+                }
                 if (now - seen.At < EveryMilliseconds)
                     return false;
-                bool stood = seen.At != 0 && Vector3.Distance(seen.Where, here) < HasMoved;
+                bool stood = Vector3.Distance(seen.Where, here) < HasMoved;
                 (seen.At, seen.Where) = (now, here);
-                if (!stood)
+                // (Asked first whether it is trapped at all: the floor under its team's start is only wanted when it is.)
+                if (!stood || !IsTrapped(Walks(zone, here, untilOneGetsAway: true)))
                     return false;
                 var nav = PathfindingProvider.Instance;
                 if (nav.GetFloorBeneath(zone, new Vector3(openGround.X, openGround.Y, 20_000), 20_000, nav.DefaultFilters) is not { } open || open.Z >= 19_999)

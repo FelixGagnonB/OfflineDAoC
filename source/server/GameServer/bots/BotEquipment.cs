@@ -67,6 +67,14 @@ namespace DOL.GS
 
         // Templates marked for this realm but built on another realm's model (a
         // Midgard hat on the Hibernia mesh has no Valkyn or Troll fit). Bots skip them.
+        // The lists the generator picks from, by what was asked of the item table. Each was read from the
+        // database again for every piece of every bot: fifty milliseconds a bot, and a group of 8v8 bots that
+        // came out or stood up stopped the server for 350 to 700 ms (measured 2026-11-26: "equip" 336 to 677 ms
+        // of a turn of 351 to 701). The table does not change while the server runs, and nothing here changes a list.
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, IList<DbItemTemplate>> TemplateLists = new();
+
+        private static IList<DbItemTemplate> Templates(string asked, Func<IList<DbItemTemplate>> read) => TemplateLists.GetOrAdd(asked, _ => read());
+
         private static IList<DbItemTemplate> WithoutCrossRealmLooks(IList<DbItemTemplate> items) =>
             items.Where(item => !BotCrossRealmGear.IsExcluded(item) &&
                                 !DOL.GS.Quests.Hibernia.SluaghbinderEpicArmor.IsSetItem(item)).ToList();
@@ -207,11 +215,11 @@ namespace DOL.GS
             int max = MaximumEquipmentLevel(player, Math.Min(51, player.Level + 4));
 
             IList<DbItemTemplate> itemList;
-            itemList = GameServer.Database.SelectObjects<DbItemTemplate>(DB.Column("Level").IsGreaterOrEqualTo(min).And(
+            itemList = Templates($"weapon|{min}|{max}|{(int)weapType}|{(int)player.Realm}", () => GameServer.Database.SelectObjects<DbItemTemplate>(DB.Column("Level").IsGreaterOrEqualTo(min).And(
                                                                        DB.Column("Level").IsLessOrEqualTo(max).And(
                                                                        DB.Column("Object_Type").IsEqualTo((int)weapType).And(
                                                                        DB.Column("Realm").IsEqualTo((int)player.Realm)).And(
-                                                                       DB.Column("IsPickable").IsEqualTo(1)))));
+                                                                       DB.Column("IsPickable").IsEqualTo(1))))));
             itemList = WithoutCrossRealmLooks(itemList);
 
             if (itemList.Count != 0)
@@ -263,12 +271,12 @@ namespace DOL.GS
             int max = MaximumEquipmentLevel(player, Math.Min(51, player.Level + 3));
 
             IList<DbItemTemplate> itemList;
-            itemList = GameServer.Database.SelectObjects<DbItemTemplate>(DB.Column("Level").IsGreaterOrEqualTo(min).And(
+            itemList = Templates($"ranged|{min}|{max}|{(int)weapType}|{(int)player.Realm}", () => GameServer.Database.SelectObjects<DbItemTemplate>(DB.Column("Level").IsGreaterOrEqualTo(min).And(
                                                                        DB.Column("Level").IsLessOrEqualTo(max).And(
                                                                        DB.Column("Object_Type").IsEqualTo((int)weapType).And(
                                                                        DB.Column("Item_Type").IsEqualTo(13).And(
                                                                        DB.Column("Realm").IsEqualTo((int)player.Realm)).And(
-                                                                       DB.Column("IsPickable").IsEqualTo(1))))));
+                                                                       DB.Column("IsPickable").IsEqualTo(1)))))));
             itemList = WithoutCrossRealmLooks(itemList);
 
             itemList = itemList.Where(BotRangedCombat.IsUsableTemplate).ToList();
@@ -296,12 +304,12 @@ namespace DOL.GS
             int max = MaximumEquipmentLevel(player, Math.Min(51, player.Level + 3));
 
             IList<DbItemTemplate> itemList;
-            itemList = GameServer.Database.SelectObjects<DbItemTemplate>(DB.Column("Level").IsGreaterOrEqualTo(min).And(
+            itemList = Templates($"shield|{min}|{max}|{shieldSize}|{(int)player.Realm}", () => GameServer.Database.SelectObjects<DbItemTemplate>(DB.Column("Level").IsGreaterOrEqualTo(min).And(
                                                                        DB.Column("Level").IsLessOrEqualTo(max).And(
                                                                        DB.Column("Object_Type").IsEqualTo((int)eObjectType.Shield).And(
                                                                        DB.Column("Realm").IsEqualTo((int)player.Realm)).And(
                                                                        DB.Column("Type_Damage").IsEqualTo(shieldSize).And(
-                                                                       DB.Column("IsPickable").IsEqualTo(1))))));
+                                                                       DB.Column("IsPickable").IsEqualTo(1)))))));
             itemList = WithoutCrossRealmLooks(itemList);
 
             if (itemList.Count != 0)
@@ -324,11 +332,11 @@ namespace DOL.GS
             int max = MaximumEquipmentLevel(player, Math.Min(51, player.Level + 3));
 
             IList<DbItemTemplate> itemList;
-            itemList = GameServer.Database.SelectObjects<DbItemTemplate>(DB.Column("Level").IsGreaterOrEqualTo(min).And(
+            itemList = Templates($"armor|{min}|{max}|{(int)armorType}|{(int)player.Realm}", () => GameServer.Database.SelectObjects<DbItemTemplate>(DB.Column("Level").IsGreaterOrEqualTo(min).And(
                                                                        DB.Column("Level").IsLessOrEqualTo(max).And(
                                                                        DB.Column("Object_Type").IsEqualTo((int)armorType).And(
                                                                        DB.Column("Realm").IsEqualTo((int)player.Realm)).And(
-                                                                       DB.Column("IsPickable").IsEqualTo(1)))));
+                                                                       DB.Column("IsPickable").IsEqualTo(1))))));
             itemList = WithoutCrossRealmLooks(itemList);
 
             if (itemList.Count != 0)
@@ -378,12 +386,12 @@ namespace DOL.GS
             int max = MaximumEquipmentLevel(player, Math.Min(51, player.Level + 3));
 
             IList<DbItemTemplate> itemList;
-            itemList = GameServer.Database.SelectObjects<DbItemTemplate>(DB.Column("Level").IsGreaterOrEqualTo(min).And(
+            itemList = Templates($"instrument|{min}|{max}|{(int)weapType}|{(int)instrumentType}|{(int)player.Realm}", () => GameServer.Database.SelectObjects<DbItemTemplate>(DB.Column("Level").IsGreaterOrEqualTo(min).And(
                                                                        DB.Column("Level").IsLessOrEqualTo(max).And(
                                                                        DB.Column("Object_Type").IsEqualTo((int)weapType).And(
                                                                        DB.Column("DPS_AF").IsEqualTo((int)instrumentType).And(
                                                                        DB.Column("Realm").IsEqualTo((int)player.Realm)).And(
-                                                                       DB.Column("IsPickable").IsEqualTo(1))))));
+                                                                       DB.Column("IsPickable").IsEqualTo(1)))))));
             itemList = WithoutCrossRealmLooks(itemList);
 
             if (itemList.Count != 0)
@@ -409,11 +417,11 @@ namespace DOL.GS
             List<DbItemTemplate> neckList = new List<DbItemTemplate>();
             List<DbItemTemplate> waistList = new List<DbItemTemplate>();
 
-            itemList = GameServer.Database.SelectObjects<DbItemTemplate>(DB.Column("Level").IsGreaterOrEqualTo(min).And(
+            itemList = Templates($"magical|{min}|{max}|{(int)player.Realm}", () => GameServer.Database.SelectObjects<DbItemTemplate>(DB.Column("Level").IsGreaterOrEqualTo(min).And(
                                                                        DB.Column("Level").IsLessOrEqualTo(max).And(
                                                                        DB.Column("Object_Type").IsEqualTo((int)eObjectType.Magical).And(
                                                                        DB.Column("Realm").IsEqualTo((int)player.Realm)).And(
-                                                                       DB.Column("IsPickable").IsEqualTo(1)))));
+                                                                       DB.Column("IsPickable").IsEqualTo(1))))));
             itemList = WithoutCrossRealmLooks(itemList);
 
             if (itemList.Count != 0)

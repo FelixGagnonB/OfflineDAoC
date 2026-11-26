@@ -862,6 +862,14 @@ namespace DOL.GS
             return gap;
         }
 
+        /// <summary>What its client's position packets said of its speed since this was last asked (PlayerMovementComponent.ReportedSpeeds).</summary>
+        public (int Packets, int Slowest, int Fastest) TakeReportedSpeeds()
+        {
+            var reported = movementComponent.ReportedSpeeds;
+            movementComponent.ReportedSpeeds = default;
+            return reported;
+        }
+
         public bool IsPositionUpdateFromPacketAllowed()
         {
             if (_linkDeathTimer == null)

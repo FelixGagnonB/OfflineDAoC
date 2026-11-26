@@ -18,7 +18,7 @@ namespace DOL.GS
     /// <param name="LowestOther">The health of the lowest member that is not itself; 100 alone.</param>
     /// <param name="MissingHealthOfOthers">Hit points the other members are short of.</param>
     /// <param name="MembersHitInMelee">Members with an enemy fighter on them.</param>
-    /// <param name="MembersSlowed">Members rooted or snared.</param>
+    /// <param name="MembersSlowed">Members rooted or snared that need their legs (PvpRealmAbilities.NeedsItsLegs).</param>
     /// <param name="EnemyCastersOnUs">Enemy casters, awake, whose target is a member.</param>
     /// <param name="Retreating">The group follows a called retreat.</param>
     /// <param name="Order">What the group is doing (push, extend, regroup).</param>
@@ -56,6 +56,18 @@ namespace DOL.GS
         /// <summary>Speed of Sound: on a called retreat with the enemy near, or with this many members rooted or snared in a fight.</summary>
         public bool SpeedOfSoundOnRetreat { get; set; } = true;
         public int SpeedOfSoundAtSlowed { get; set; } = 2;
+        /// <summary>
+        /// A member that is rooted or snared counts for that only when it needs its legs: a fighter
+        /// farther than this from the enemy it is on (its target, or else the nearest one), a
+        /// healer or caster with an enemy fighter on it. And not on fewer enemies than the group
+        /// has members alive, as for getting in. The owner, 2026-11-26, of a fight against one
+        /// group won with nobody lost: "Both bard used SoS, at different time, but not sure why".
+        /// The first, thirty seconds in, eight against eight: a Druid rooted where it stood and
+        /// healed, and one fighter snared 450 units from its target. The second a minute later,
+        /// eight against six: two fighters snared on their way to the next target. Each is gone
+        /// for thirty minutes. 0: any member that is held counts.
+        /// </summary>
+        public int SpeedOfSoundHeldFighterBeyond { get; set; } = 350;
 
         /// <summary>
         /// Speed of Sound to get in: the group pushes and its fighters are still farther than this
@@ -325,10 +337,9 @@ namespace DOL.GS
             return key switch
             {
                 SpeedOfSound => weights.SpeedOfSoundOnRetreat && view.Retreating ||
-                                weights.SpeedOfSoundAtSlowed > 0 && view.MembersSlowed >= weights.SpeedOfSoundAtSlowed ||
+                                weights.SpeedOfSoundAtSlowed > 0 && view.MembersSlowed >= weights.SpeedOfSoundAtSlowed && !OnFewer(view, weights) ||
                                 weights.SpeedOfSoundToCloseBeyond > 0 && view.Order == PvpOrder.Push &&
-                                view.FightersFromEnemy > weights.SpeedOfSoundToCloseBeyond &&
-                                !(weights.SpeedOfSoundNotToCloseOnFewer && view.MembersAlive > 0 && view.EnemiesAlive < view.MembersAlive) ||
+                                view.FightersFromEnemy > weights.SpeedOfSoundToCloseBeyond && !OnFewer(view, weights) ||
                                 weights.SpeedOfSoundAtSoftMembersJumped > 0 && view.Order is PvpOrder.Extend or PvpOrder.Regroup &&
                                 view.SoftMembersHitInMelee >= weights.SpeedOfSoundAtSoftMembersJumped,
                 Concentration => view.Interrupted && (view.Archetype == PvpBuffArchetype.Healer
@@ -346,6 +357,17 @@ namespace DOL.GS
             };
         }
 
+        /// <summary>The group fights fewer enemies than it has members alive: Speed of Sound is not for that (PvpRealmAbilityWeights.SpeedOfSoundNotToCloseOnFewer).</summary>
+        private static bool OnFewer(PvpAbilityView view, PvpRealmAbilityWeights weights) =>
+            weights.SpeedOfSoundNotToCloseOnFewer && view.MembersAlive > 0 && view.EnemiesAlive < view.MembersAlive;
+
+        /// <summary>
+        /// Whether a member that is rooted or snared needs its legs (PvpRealmAbilityWeights.SpeedOfSoundHeldFighterBeyond):
+        /// a fighter that is not on its enemy, a healer or caster with an enemy fighter on it.
+        /// </summary>
+        public static bool NeedsItsLegs(bool held, bool isFighter, int fromItsEnemy, bool fighterOnIt, PvpRealmAbilityWeights weights) =>
+            held && (weights.SpeedOfSoundHeldFighterBeyond <= 0 || (isFighter ? fromItsEnemy > weights.SpeedOfSoundHeldFighterBeyond : fighterOnIt));
+
         /// <summary>Whom Perfect Recovery raises: the nearest dead healer in reach, or else the nearest dead member; nobody outside a fight.</summary>
         public static T Recovers<T>(bool inFight, IEnumerable<(T Member, bool IsHealer, int Distance)> dead, int range) where T : class =>
             !inFight ? null : dead.Where(one => one.Distance <= range).OrderBy(one => one.IsHealer ? 0 : 1).ThenBy(one => one.Distance)
@@ -357,6 +379,16 @@ namespace DOL.GS
 
         private static bool FighterOn(IReadOnlyList<GameLiving> enemies, GameLiving member) => enemies.Any(enemy =>
             Awake(enemy) && enemy.TargetObject == member && PvpMember.ArchetypeOf(enemy) == PvpBuffArchetype.Melee && enemy.IsWithinRadius(member, 500));
+
+        private static bool Held(GameLiving member) =>
+            member.effectListComponent.ContainsEffectForEffectType(eEffect.MovementSpeedDebuff) ||
+            member.effectListComponent.ContainsEffectForEffectType(eEffect.Snare);
+
+        // How far a member is from the enemy it is on: its target when that is a living enemy, or else the nearest one; 0 without any.
+        private static int FromItsEnemy(IReadOnlyList<GameLiving> enemies, GameLiving member) =>
+            member.TargetObject is GameLiving { IsAlive: true } aim && enemies.Contains(aim)
+                ? (int)member.GetDistanceTo(aim)
+                : enemies.Where(enemy => enemy.IsAlive).Select(enemy => (int)member.GetDistanceTo(enemy)).DefaultIfEmpty(0).Min();
 
         private static IReadOnlyList<GameLiving> EnemiesOf(GameBot bot) => (bot.Brain as AI.Brain.BotBrain)?.PvpEnemies;
 
@@ -377,8 +409,8 @@ namespace DOL.GS
                 others.Select(member => (int)member.HealthPercent).DefaultIfEmpty(100).Min(),
                 others.Sum(member => member.MaxHealth - member.Health),
                 members.Count(member => FighterOn(enemies, member)),
-                members.Count(member => member.effectListComponent.ContainsEffectForEffectType(eEffect.MovementSpeedDebuff) ||
-                                        member.effectListComponent.ContainsEffectForEffectType(eEffect.Snare)),
+                members.Count(member => NeedsItsLegs(Held(member), PvpMember.IsFighter(member), FromItsEnemy(enemies, member),
+                    FighterOn(enemies, member), weights)),
                 enemies.Count(enemy => Awake(enemy) && PvpMember.ArchetypeOf(enemy) == PvpBuffArchetype.Caster &&
                                        enemy.TargetObject is GameLiving aim && members.Contains(aim)),
                 (bot.Brain as AI.Brain.BotBrain)?.PvpSquad is { } runs && (runs.RetreatsTo != null || runs.Leaving),

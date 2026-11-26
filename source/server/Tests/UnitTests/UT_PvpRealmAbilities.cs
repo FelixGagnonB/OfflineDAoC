@@ -169,6 +169,24 @@ namespace DOL.UnitTests
             Assert.That(Wanted(PvpRealmAbilities.SpeedOfSound, View(slowed: 2)), Is.True);
             Assert.That(Wanted(PvpRealmAbilities.SpeedOfSound, View(slowed: 1)), Is.False, "one snared member is not worth thirty minutes");
             Assert.That(Wanted(PvpRealmAbilities.SpeedOfSound, View()), Is.False);
+            // The owner's, 2026-11-26: the second Bard's, with two fighters snared, eight against six.
+            Assert.That(Wanted(PvpRealmAbilities.SpeedOfSound, View(slowed: 2, membersAlive: 8, enemiesAlive: 6)), Is.False, "a fight that is being won");
+            Assert.That(Wanted(PvpRealmAbilities.SpeedOfSound, View(slowed: 2, membersAlive: 8, enemiesAlive: 8)), Is.True);
+            Assert.That(Wanted(PvpRealmAbilities.SpeedOfSound, View(slowed: 2, membersAlive: 6, enemiesAlive: 8)), Is.True);
+        }
+
+        [Test]
+        public void AMemberThatIsHeldCountsForSpeedOfSoundOnlyWhenItNeedsItsLegs()
+        {
+            // The first Bard's, 2026-11-26: a Druid rooted where it healed, one fighter snared 450 units from its target.
+            Assert.That(PvpRealmAbilities.NeedsItsLegs(true, false, 950, false, Weights), Is.False, "a healer that nobody is on casts where it stands");
+            Assert.That(PvpRealmAbilities.NeedsItsLegs(true, true, 450, false, Weights), Is.True, "a fighter kept off its target");
+            Assert.That(PvpRealmAbilities.NeedsItsLegs(true, true, 120, false, Weights), Is.False, "a fighter that is on its target");
+            Assert.That(PvpRealmAbilities.NeedsItsLegs(true, true, 0, false, Weights), Is.False, "no enemy to get to");
+            Assert.That(PvpRealmAbilities.NeedsItsLegs(true, false, 80, true, Weights), Is.True, "a caster that cannot get away from the fighter on it");
+            Assert.That(PvpRealmAbilities.NeedsItsLegs(false, true, 900, false, Weights), Is.False, "nothing holds it");
+            Assert.That(PvpRealmAbilities.NeedsItsLegs(true, false, 950, false, new PvpRealmAbilityWeights { SpeedOfSoundHeldFighterBeyond = 0 }), Is.True,
+                "the rule switched off: whoever is held counts");
         }
 
         [Test]

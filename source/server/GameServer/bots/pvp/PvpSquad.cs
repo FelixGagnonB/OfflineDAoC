@@ -254,9 +254,13 @@ namespace DOL.GS
             int up = _allies.Count(member => member.IsAlive);
             if (!PvpKite.BreaksOff(up, _allies.Count, healersAlive, healers, OwnSide, foes.Count, weights))
                 return false;
+            _lostSaidAt = GameLoop.GameLoopTime;
             Call(alive[0], "lost", PvpCalls.Lost(up, foes.Count), PvpCalls.TooManyEveryMilliseconds, PvpCalls.LoudTimes);
             return true;
         }
+
+        // When the group last found its fight lost (TellIfLost); 0 before the first time.
+        private long _lostSaidAt;
 
         // Who of the group last used each ability that is for the whole group, and when (PvpRealmAbilities.KeptApartSeconds).
         private readonly Dictionary<string, (GameBot By, long When)> _groupAbilities = new();
@@ -779,6 +783,9 @@ namespace DOL.GS
         private void SayOrder(long now)
         {
             if (!(FightStarted || Order == PvpOrder.Hold) || _saidOrder == Order || !PvpCalls.OrderIsSettled(now, _orderSince))
+                return;
+            // "This one is lost" is the last word of a group with a player in it (PvpCalls.OrderAfterLost).
+            if (!PvpCalls.OrderAfterLost(now, _lostSaidAt))
                 return;
             _saidOrder = Order;
             // (Falling back as one, it has said so already, and louder.)
@@ -1351,6 +1358,8 @@ namespace DOL.GS
             // Under Extend: which of the enemies on the group's healers and casters a fighter has turned on already.
             var turnedOn = new HashSet<int>();
             Dictionary<GameBot, GameLiving> duty = InterruptDuty(team, alive, target);
+            // The enemies a healer's pet has been sent at this turn: two Druids, two enemies.
+            var petsOn = new HashSet<GameLiving>();
             // The middle of the group's healers and casters: where its fighters fall back to.
             List<GameLiving> soft = _allies.Where(member => member.IsAlive && !IsFighter(member)).ToList();
             Vector3? home = soft.Count == 0 ? null
@@ -1527,20 +1536,32 @@ namespace DOL.GS
                 // else the kill target. (It was summoned and buffed and then never attacked: the
                 // owner's scored casts take every turn, and the old brain ordered the pet only on
                 // a turn it took itself.) Never left on an enemy that has since been mezzed.
-                if (FightStarted && bot.IsAlive && PvpMember.ClassOf(bot) is eCharacterClass.Cabalist or eCharacterClass.Enchanter or eCharacterClass.Spiritmaster &&
+                // A healer's pet (a Druid's) keeps an enemy healer or caster from casting
+                // (PvpInterruptWeights.HealersPetsInterrupt): it had no orders and defended its owner.
+                bool castersPet = PvpMember.ClassOf(bot) is eCharacterClass.Cabalist or eCharacterClass.Enchanter or eCharacterClass.Spiritmaster;
+                bool healersPet = !castersPet && role == PvpRole.Heal && PvpWeights.Of(bot).Interrupt.HealersPetsInterrupt;
+                if (FightStarted && bot.IsAlive && (castersPet || healersPet) &&
                     bot.ControlledBrain is ControlledMobBrain { Body: { IsAlive: true } } pet)
                 {
                     // Its brain runs with no player near (AutonomousSummonActivity.IsPvpBotSummon); started here if it is not.
                     if (!pet.ServiceObjectId.IsSet)
                         pet.Start();
-                    GameLiving petAim = PvpCalls.PetAim(
-                        petsDuty is { IsAlive: true, IsMezzed: false } ? petsDuty : null,
-                        mine is { IsAlive: true } ? mine : null,
-                        pet.OrderedAttackTarget is { IsAlive: true, IsMezzed: false } has ? has : null,
-                        IsCalledAssist(mine));
+                    GameLiving has = pet.OrderedAttackTarget is { IsAlive: true, IsMezzed: false } keeps ? keeps : null;
+                    GameLiving petAim = healersPet
+                        ? HealersPetAim(bot, pet, alive, target, duty, petsOn, has)
+                        : PvpCalls.PetAim(
+                            petsDuty is { IsAlive: true, IsMezzed: false } ? petsDuty : null,
+                            mine is { IsAlive: true } ? mine : null,
+                            has,
+                            IsCalledAssist(mine));
+                    if (healersPet && petAim != null)
+                        petsOn.Add(petAim);
                     if (petAim == null)
                     {
-                        if (pet.OrderedAttackTarget is { IsMezzed: true })
+                        // (And a healer's pet with nobody to keep from casting is not left on a fighter: there it
+                        // breaks the roots of its own Druid.)
+                        if (pet.OrderedAttackTarget is { IsMezzed: true } ||
+                            healersPet && pet.OrderedAttackTarget is { } fighter && PvpMember.ArchetypeOf(fighter) == PvpBuffArchetype.Melee)
                             pet.Disengage();
                     }
                     else if (pet.OrderedAttackTarget != petAim)
@@ -1582,6 +1603,22 @@ namespace DOL.GS
                 }
             }
             return target;
+        }
+
+        /// <summary>
+        /// The enemy a healer's pet is sent at (PvpInterruptDuty.PetOfAHealer): a healer or caster that is
+        /// neither the kill target nor asleep nor being put to sleep, within reach of the pet.
+        /// </summary>
+        private static GameLiving HealersPetAim(GameBot owner, ControlledMobBrain pet, List<GameLiving> enemies, GameLiving kill,
+            Dictionary<GameBot, GameLiving> duty, HashSet<GameLiving> petsOn, GameLiving has)
+        {
+            List<GameLiving> open = enemies.Where(enemy => enemy.IsAlive && enemy != kill && !enemy.IsMezzed &&
+                !BotPvpCrowdControl.Claimed(owner.Realm, enemy) && PvpMember.ArchetypeOf(enemy) != PvpBuffArchetype.Melee).ToList();
+            int chosen = PvpInterruptDuty.PetOfAHealer(open.Select((enemy, e) =>
+                (new PvpDutyPair(0, e, PvpMember.ArchetypeOf(enemy), enemy.IsCasting, !enemy.IsBeingInterrupted, enemy == has,
+                    (int)pet.Body.GetDistanceTo(enemy), PvpActionChoice.IsController(PvpMember.ClassOf(enemy), PvpWeights.Of(owner))),
+                 duty.ContainsValue(enemy) || petsOn.Contains(enemy))), PvpWeights.Of(owner).Interrupt);
+            return chosen < 0 ? null : open[chosen];
         }
 
         /// <summary>
@@ -1773,6 +1810,35 @@ namespace DOL.GS
                 }
                 if (sprints && bot.IsMoving && cost > 0)
                     bot.Endurance = Math.Max(0, bot.Endurance - cost);
+            }
+        }
+
+        private bool _eased;
+
+        /// <summary>
+        /// Once a second: a group one of its own drives keeps to the pace of its player (<see cref="PvpDriver.Pace"/>);
+        /// any other group, and this one in a fight, runs at its own speed.
+        /// </summary>
+        public void KeepPace(GamePlayer itsPlayer, GameBot driver)
+        {
+            bool up = itsPlayer is { IsAlive: true, ObjectState: GameObject.eObjectState.Active };
+            bool fight = FightStarted || Leaving || RetreatsTo != null;
+            if (driver != null && up && !fight)
+            {
+                // Behind it: on the side of the driver that it does not face.
+                double heading = driver.Heading * Point2D.HEADING_TO_RADIAN;
+                bool behind = (itsPlayer.X - driver.X) * -Math.Sin(heading) + (itsPlayer.Y - driver.Y) * Math.Cos(heading) < 0;
+                _eased = driver.IsMoving && PvpDriver.EasesOff(_eased, itsPlayer.GetDistanceTo(driver), behind);
+            }
+            else
+                _eased = false;
+            int pace = PvpDriver.Pace(driver != null, up, up ? itsPlayer.MaxSpeed : 0, fight, _eased);
+            foreach (GameBot bot in _members)
+            {
+                if (bot.PvpPace == pace)
+                    continue;
+                bot.PvpPace = pace;
+                bot.OnMaxSpeedChange();   // it is on its way already: at its new speed from here
             }
         }
 

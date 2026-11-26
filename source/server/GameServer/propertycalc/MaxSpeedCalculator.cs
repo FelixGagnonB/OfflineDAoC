@@ -154,6 +154,9 @@ namespace DOL.GS.PropertyCalc
 
             if (living is GameBot && GameRelic.IsPlayerCarryingRelic(living))
                 speedIncrease = Math.Min(speedIncrease, 1.0);
+            // An 8v8 bot of a group one of its own drives keeps to the pace of its player (PvpDriver.Pace).
+            if (living is GameBot { PvpPace: > 0 } paced)
+                return Math.Min((int) Math.Round(maxSpeedBase * speedIncrease), paced.PvpPace);
             return (int) Math.Round(maxSpeedBase * speedIncrease);
         }
     }

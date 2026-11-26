@@ -61,6 +61,9 @@ namespace DOL.GS
         /// </summary>
         public bool PvpSprinting { get; set; }
 
+        /// <summary>An 8v8 bot of a group one of its own drives runs no faster than this: the pace of its player (PvpDriver.Pace). 0: its own speed.</summary>
+        public int PvpPace { get; set; }
+
         /// <summary>An 8v8 bot on the water's surface: it swims, at half its speed, as a player's character does (PvpWater).</summary>
         public bool PvpInWater { get; set; }
 
@@ -2523,6 +2526,7 @@ namespace DOL.GS
         public GameBot(PvpBuild build, string name = null, byte raceId = 0, byte genderId = 0)
         {
             PvpBuild = build ?? throw new ArgumentNullException(nameof(build));
+            long began = PvpSpawnProfile.Start();
             ClassId = (byte)build.Class;
             RaceId = raceId;
             GenderId = genderId;
@@ -2539,17 +2543,22 @@ namespace DOL.GS
             MaxSpeedBase = PLAYER_BASE_SPEED;
 
             InitializeBotStats();
+            began = PvpSpawnProfile.Stop("class", began);
             BotSpec = build.ToBotSpec();
             LoadClassSpecializations(false);
             SpendSpecPoints(Level, 0);
             RefreshSpecDependantSkills(false);
+            began = PvpSpawnProfile.Stop("specs", began);
             SetBotSpells();
             SortStyles();
             SortSpells();
+            began = PvpSpawnProfile.Stop("spells", began);
             // The generator picks the kind and look of each piece; the template then makes it
             // level-51 crafted gear with the build's capped bonuses.
             EquipBot(Level);
+            began = PvpSpawnProfile.Stop("equip", began);
             PvpTemplate = PvpTemplateOutfitter.Outfit(this);
+            PvpSpawnProfile.Stop("outfit", began);
 
             Health = MaxHealth;
             Endurance = MaxEndurance;

@@ -93,7 +93,11 @@ namespace DOL.GS
             try
             {
                 PathfindingResult pathfindingResult = PathfindingProvider.Instance.GetPathStraight(zone, position, target, filters, rentedNodeBuffer);
-                if (useRoads && Owner is GameBot &&
+                // Not an 8v8 bot: its legs are short and were walked on the mesh, and the road route cost it a
+                // tenth of a second a time for two or three nodes, again at the next (26 of the 31 slow movement
+                // turns of an evening of bots, 2026-11-26: forty path queries each; whole groups at once in Emain
+                // Macha and at Hadrian's Wall, the server stopping for a second).
+                if (useRoads && Owner is GameBot { IsPvpBot: false } &&
                     TryRoadPath(PathfindingProvider.Instance, zone, position, target, filters, pathfindingResult, rentedNodeBuffer, MAX_PATH_NODES,
                         out PathfindingResult road))
                     pathfindingResult = road;

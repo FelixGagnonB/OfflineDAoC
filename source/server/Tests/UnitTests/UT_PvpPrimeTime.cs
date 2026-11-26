@@ -21,6 +21,9 @@ namespace DOL.UnitTests
             Assert.That(PvpTrapped.IsTrapped([0, 90, 53, 74, 0, 74, 0, 12]), Is.True);
             Assert.That(PvpTrapped.IsTrapped([0, 90, 53, 600, 0, 74, 0, 12]), Is.False);
             Assert.That(PvpTrapped.IsTrapped([]), Is.False, "nothing asked, nothing said");
+            Assert.That(PvpTrapped.IsTrapped([0, 90, 53, 600]), Is.False, "asked until it got away in one direction: the rest is not wanted");
+            // Not every bot of an evening in the same second (100 to 230 ms for which the game stood): each has its own of the five.
+            Assert.That(Enumerable.Range(100, 5).Select(PvpTrapped.FirstLookAfter), Is.EquivalentTo(new[] { 0, 1_000, 2_000, 3_000, 4_000 }));
             Assert.That(PvpTrapped.IsNear(48), Is.True, "the way in ended 29 to 48 units short of them");
             Assert.That(PvpTrapped.IsNear(PvpTrapped.WayOutWithin + 1), Is.False, "a bot is not carried across a zone");
             // A fight in which nobody has been in combat for half a minute is over, whoever still stands near.
