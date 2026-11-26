@@ -90,7 +90,11 @@ Repeating a call only renews it. A retreat is ended by any other call.
 - **After a fight.** `/8v8 call rest`: disease, poison and nearsight are taken off everybody,
   buffs are recast, the group sits. A buff with a timer (a Druid's three resistances, an
   Eldritch's two barriers: twenty minutes) is cast again once half of it has run, so that it
-  does not run out in the next fight.
+  does not run out in the next fight. At a rest with more than ten minutes of it left
+  nothing is cast again. So that none runs out in a fight, a group with a companion at the
+  wheel also rests after a fight for a timer that is half run, hurt or not, and on the road
+  it stops where it is when only five minutes of one are left. When you drive, the companion
+  says "My timers run out soon: a rest, and I cast them again.": the rest is yours to call.
 - **Who died.** When somebody of your realm dies or kills in your frontier, the system window
   says who, by whom and where: "Arngenmund was just killed by Jade in Agramon."
 - **After you stand up at your start.** Your group is whole (health, power, endurance) while
@@ -204,7 +208,11 @@ Healer, then the Skald. `/stick` to it.
 - It takes the group from point to point of the zone and at the enemy groups it meets, as a
   decent group does: not into a fight that is on, not into more groups than you are, and by
   the rules of the zone. It goes only for a group one of your seven sees (or has seen in the
-  last twenty seconds): it does not know where a group is that is behind a hill.
+  last twenty seconds): it does not know where a group is that is behind a hill. They see
+  4,000 units ahead, less behind (`"PlayerGroupSeesWithin"` under `"Real"` in
+  `runtime\server\pvp-weights.json`), and that is where they call "INC!". It does not go
+  back to one of the last three points it was at while another way leads on, and to its
+  resting place the group walks as one, behind it.
 - In group chat it says "Stick, moving out: mid road." when it sets off, "Waiting for you,
   <name>." when you are more than 1,500 units behind (it goes on when you are within 800), and
   "Resting here." after a fight. It waits thirty seconds after the group has stood up.

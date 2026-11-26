@@ -118,6 +118,13 @@ namespace DOL.GS
         public int[] RestsOffTheRoadBy { get; set; } = [7_500, 5_500];
         /// <summary>A team that rests gets up when an enemy team is within this of it.</summary>
         public int RestEndsWithEnemyWithin { get; set; } = 5_000;
+        /// <summary>
+        /// How far the player's seven see an enemy group: what they call ("INC! 1FG MIDS NORTH-WEST, 4,000!") and, with
+        /// one of them at the wheel, what the group may go for (PvpDriver.KnowsOf). Ahead; less behind, and not through a
+        /// hill (PvpSight). It was 5,500 (PvpRoam.SightingWithin). The owner, 2026-11-26, of a call at 5,500: "I am not
+        /// sure we were seeing". In pvp-weights.json: {"Real": {"PlayerGroupSeesWithin": 4000}}.
+        /// </summary>
+        public int PlayerGroupSeesWithin { get; set; } = 4_000;
 
         /// <summary>
         /// The 8v8 zone (PvpRoam.EightZone, M13.15): one zone of every evening where nobody adds.

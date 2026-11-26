@@ -136,6 +136,10 @@ namespace DOL.GS
         /// <summary>The place off its road it is walking to, to rest there; null when it rests where it is or not at all.</summary>
         public System.Numerics.Vector3? Hide;
         public long HideSince;
+        /// <summary>When it last took a rest for its timers alone (BotBrain.RestsForItsTimers).</summary>
+        public long TimersRestAt;
+        /// <summary>The points of its map it was at last, the latest last (PvpRoam.NextPoint).</summary>
+        public readonly List<(int X, int Y)> Lately = [];
         /// <summary>Out of a fight with dead members since this tick (0: none); and gone back to its start to form up again.</summary>
         public long DeadSince;
         public bool Reforming;
@@ -484,6 +488,13 @@ namespace DOL.GS
         public static int EightZoneGuilds(int guildsOfTheRealm, int atTheMost, bool thePlayersGroupIsOfThisRealm) =>
             Math.Max(0, EightZoneGroups(guildsOfTheRealm + (thePlayersGroupIsOfThisRealm ? 1 : 0), atTheMost) - (thePlayersGroupIsOfThisRealm ? 1 : 0));
 
+        /// <summary>A team's timers are looked at every tenth second, each team in a second of its own: the look reads every member's spells and effects.</summary>
+        private static bool LooksAtItsTimers(PvpRoamTeam team, long now) => (now / 1_000 + team.Index) % 10 == 0;
+
+        /// <summary>What is left of the timer with the least left among the bots of a team, as a share of its time (BotBrain.PvpLeastTimerShare).</summary>
+        private static double LeastTimerShare(IEnumerable<GameBot> bots) =>
+            bots.Select(bot => bot.Brain is BotBrain brain ? brain.PvpLeastTimerShare() : 1).DefaultIfEmpty(1).Min();
+
         /// <summary>The kinds of group that leave a group to rest after its fight, in the 8v8 zone: the ones that play 8v8. (A team that is no guild does too.)</summary>
         public static bool WaitsForARestedGroup(PvpTeamKind? kind) => kind is null or PvpTeamKind.Decent or PvpTeamKind.Strong or PvpTeamKind.Elite;
 
@@ -653,13 +664,24 @@ namespace DOL.GS
         /// where, will we jump them or will we get jumped".
         /// </summary>
         /// <param name="roll">Any number that is not negative: the draw.</param>
-        public static (int X, int Y) NextPoint(PvpRoamMap map, (int X, int Y) at, (int X, int Y)? cameFrom, int leaning, int roll)
+        /// <param name="lately">
+        /// The points it was at last (<see cref="RemembersPoints"/>): not one of those either, while another way leads
+        /// on. Not back where it came from was not enough: a group that turns away from a fight ahead of it goes back
+        /// to the point it left, and from there the point before that one was a way like any other. The owner, behind
+        /// its Bard on Agramon, 2026-11-26: "could we make sure when the bot pick next leg, it's not the one he just
+        /// came from ? ... we just did a yoyo between 2 locations". In four and a half minutes it had been at the same
+        /// three points of the north-west four times each, turned away from a fight to the east three times.
+        /// </param>
+        public static (int X, int Y) NextPoint(PvpRoamMap map, (int X, int Y) at, (int X, int Y)? cameFrom, int leaning, int roll,
+            IReadOnlyCollection<(int X, int Y)> lately = null)
         {
             List<(int X, int Y)> choices = map.From(at);
             if (choices.Count == 0)
                 return at;
             if (cameFrom is { } back && choices.Count > 1)
                 choices.Remove(back);
+            if (lately != null && choices.Any(point => !lately.Contains(point)))
+                choices.RemoveAll(lately.Contains);
             List<int> weights = choices.Select(point =>
             {
                 bool quiet = map.Quiet?.Contains(point) == true;
@@ -812,6 +834,9 @@ namespace DOL.GS
         /// </summary>
         public static bool WasAddedOn(bool thePlayersGroupIsNewInItsFight, int othersItWasFighting, bool itJoinedByItsOwnDraw) =>
             thePlayersGroupIsNewInItsFight && othersItWasFighting >= 1 && !itJoinedByItsOwnDraw;
+
+        /// <summary>How many of the points it was at last a team does not go back to while another way leads on (<see cref="NextPoint"/>).</summary>
+        public const int RemembersPoints = 3;
 
         /// <summary>The point a way leads to from <paramref name="at"/> that is nearest to a place: where a team that comes looking goes next.</summary>
         public static (int X, int Y) PointToward(PvpRoamMap map, (int X, int Y) at, (double X, double Y) place)
@@ -2433,7 +2458,7 @@ namespace DOL.GS
                 {
                     double? ago = team.LastSeen.TryGetValue(other, out long seenAt) ? (now - seenAt) / 1000.0 : null;
                     // (Looked for again every third second, not every second: up to 64 lines of sight a group.)
-                    if (ago is not <= 3.0 && Sees(team, other, SightingWithin))
+                    if (ago is not <= 3.0 && Sees(team, other, real.PlayerGroupSeesWithin))
                         (team.LastSeen[other], ago) = (now, 0);
                     if (!PvpDriver.KnowsOf(false, false, ago))
                         return false;
@@ -2652,7 +2677,13 @@ namespace DOL.GS
                 {
                     List<GameBot> up = team.Team.Bots.Where(bot => bot.IsAlive).ToList();
                     int lowest = up.Count == 0 ? 100 : up.Min(bot => Math.Min((int)bot.HealthPercent, bot.MaxMana > 0 ? (int)bot.ManaPercent : 100));
-                    if (PvpRealWeights.TeamRests(lowest, real))
+                    // (Or for its timers, hurt or not: one that is half run is cast again before the next fight. Looked at
+                    // every tenth second, each team in its own: BotBrain.RestsForItsTimers.)
+                    bool forItsTimers = !PvpRealWeights.TeamRests(lowest, real) && LooksAtItsTimers(team, now) &&
+                        BotBrain.RestsForItsTimers(LeastTimerShare(up), false);
+                    if (forItsTimers)
+                        team.TimersRestAt = now;
+                    if (PvpRealWeights.TeamRests(lowest, real) || forItsTimers)
                     {
                         team.Rested = true;
                         // (With one of its own down, or its player, it rests where it is: the power it gets back sitting is
@@ -2663,14 +2694,29 @@ namespace DOL.GS
                         if (team.Hide == null)
                         {
                             team.Team.Squad.RestAsATeam(real.TeamRestsAtMostSeconds);
-                            Say($"{team.Name} rests where it is (its lowest member at {lowest}%)", new { what = "rest", team = team.Name, lowest });
+                            Say($"{team.Name} rests where it is (its lowest member at {lowest}%{(forItsTimers ? ", for its timers" : string.Empty)})", new { what = "rest", team = team.Name, lowest, timers = forItsTimers ? true : (bool?)null });
                         }
                         else
-                            Say($"{team.Name} walks off its road to rest (its lowest member at {lowest}%)", new { what = "hide", team = team.Name, lowest });
+                            Say($"{team.Name} walks off its road to rest (its lowest member at {lowest}%{(forItsTimers ? ", for its timers" : string.Empty)})", new { what = "hide", team = team.Name, lowest, timers = forItsTimers ? true : (bool?)null });
                     }
+                }
+                // Later on the road, with nobody about: it stops where it is to cast again a timer of which only a quarter
+                // is left, so that none runs out in a fight; no more often than every five minutes.
+                else if (team.Rested && enemies.Count == 0 && (eightOnly || others.Count == 0) && !team.Team.Squad.Resting &&
+                         now - team.TimersRestAt > BotBrain.TimerStopEveryMilliseconds && LooksAtItsTimers(team, now) &&
+                         BotBrain.RestsForItsTimers(LeastTimerShare(team.Team.Bots.Where(bot => bot.IsAlive)), true))
+                {
+                    team.TimersRestAt = now;
+                    team.Team.Squad.RestAsATeam(real.TeamRestsAtMostSeconds);
+                    Say($"{team.Name} stops to cast its timers again", new { what = "rest", team = team.Name, timers = true });
                 }
                 resting = team.Hide == null && team.Team.Squad.Resting;
             }
+            // With its player at the wheel the rest is the player's to call: a companion whose timer is nearly out says so.
+            else if (enemies.Count == 0 && team.ContactTick == 0 && LooksAtItsTimers(team, now) &&
+                     team.Team.Bots.Where(bot => bot.IsAlive && bot.Brain is BotBrain).OrderBy(bot => ((BotBrain)bot.Brain).PvpLeastTimerShare()).FirstOrDefault() is { } low &&
+                     BotBrain.RestsForItsTimers(((BotBrain)low.Brain).PvpLeastTimerShare(), true))
+                team.Team.Squad.Tell(low, "timers", PvpCalls.TimersRunLow, BotBrain.TimerStopEveryMilliseconds);
             // After a fight a team of bots sees to its dead before it walks on: it raises them, or goes back to its start.
             GameBot body = null;
             if (wheel == null && !inCombat && enemies.Count == 0 && team.Team.Bots.Any(bot => !bot.IsAlive))
@@ -2784,7 +2830,7 @@ namespace DOL.GS
             else if (body != null)
                 team.Team.GatherAt(body, 500);
             else if (team.Hide is { } hide && enemies.Count == 0)
-                team.Team.GatherAt(hide, 500);
+                team.Team.WalkTo(hide, 500);   // behind its driver, as on the road (PvpTeam.WalkTo)
             else if (resting && team.Team.Squad.GathersToRest is { } together)
                 team.Team.GatherAt(together, PvpWeights.Current.Position.RestWithin);   // it sits down together
             else if (resting)
@@ -2859,8 +2905,9 @@ namespace DOL.GS
                 // (For the team that stands in for a player's in an evening of bots, its first member is where "you" are.)
                 GameLiving player = (GameLiving)team.Leader ?? watchers[0];
                 PvpWeights sight = PvpWeights.Of(watchers[0]);
-                bool Seen(PvpRoamTeam other) => Near(team, other, SightingWithin + 1_500) && other.Team.Members.Any(member =>
-                    member.IsAlive && watchers.Any(bot => PvpSight.Sees(bot, member, SightingWithin, sight)));
+                int sees = PvpWeights.Current.Real.PlayerGroupSeesWithin;
+                bool Seen(PvpRoamTeam other) => Near(team, other, sees + 1_500) && other.Team.Members.Any(member =>
+                    member.IsAlive && watchers.Any(bot => PvpSight.Sees(bot, member, sees, sight)));
                 (string Side, double Away) From(IEnumerable<PvpRoamTeam> them)
                 {
                     GameLiving nearest = them.SelectMany(other => other.Team.Members).Where(member => member.IsAlive)
@@ -3085,7 +3132,12 @@ namespace DOL.GS
                 return true;
             // The head of a pack keeps to the road, where the fights are, and so do those who hunt it; an elite group to the quiet ground.
             int leaning = team.Profile is { KeepsToQuietGround: true } ? 1 : team.Profile is { Company: PvpCompany.Zerg } or { HuntsPacks: true } ? -1 : 0;
-            (int X, int Y) next = NextPoint(team.Map, at, team.CameFrom, leaning, Random.Shared.Next());
+            // (Not back to a point it has just been at, while another way leads on.)
+            team.Lately.Remove(at);
+            team.Lately.Add(at);
+            while (team.Lately.Count > RemembersPoints)
+                team.Lately.RemoveAt(0);
+            (int X, int Y) next = NextPoint(team.Map, at, team.CameFrom, leaning, Random.Shared.Next(), team.Lately);
             // A team that hunts packs goes toward the nearest groups of an enemy realm that walk together in its zone
             // (the realm's chat says where they are), and that nobody is fighting yet.
             PvpRoamTeam prey = team.Profile is { HuntsPacks: true }

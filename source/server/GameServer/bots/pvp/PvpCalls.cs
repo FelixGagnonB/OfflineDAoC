@@ -218,6 +218,8 @@ namespace DOL.GS
         public static bool IsRestCall(string word) => (word ?? string.Empty).Trim().ToLowerInvariant() is "rest" or "sit" or "buff";
 
         public const string Resting = "Resting: buffs first, then sitting down.";
+        /// <summary>A companion, with its player at the wheel, of a timer of which a quarter is left (BotBrain.RestsForItsTimers): the rest is the player's to call.</summary>
+        public const string TimersRunLow = "My timers run out soon: a rest, and I cast them again.";
 
         /// <summary>Whether a rest that was called still stands.</summary>
         public static bool RestStands(long now, long until, bool somebodyInCombat, int callerHasMoved) =>
