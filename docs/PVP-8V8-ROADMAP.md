@@ -3873,6 +3873,22 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [x] **M13.29** (S) The driver, by what the owner saw of it. *Built 2026-11-25 and played by the owner on the scrim
+  copy: "Bard driving feel better".* Three things, each from the owner behind its Bard on Agramon. (1) "when it
+  reach the end of it's current section, he will stop for a sec or a bit less, pick the new section then move
+  again ... Could there be some 'see ahead'": the group picks its next point when its middle is within 900 units of
+  the one it walks to, but a moving member was given a new order only one second in four, so the driver walked on
+  to the old point, stood, and waited for its turn. Whoever leads is now sent to a new point at once
+  (`PvpTeam.March`, for every group). (2) "we are idle ... I assume there's no enemy groups available to fight ?":
+  its group stood half a minute by a fight of two other groups, as a guild that does not add does. Offered a line of
+  chat that says why, the owner: "In that case, the group and still run around, while waiting. We are not suppose
+  to know there are no available fight". With a companion at the wheel the group does not stand by a fight at all:
+  it turns away or goes round, and says nothing (`PvpDriver.GoesOnPastAFight`). (3) "it took some time before we
+  regroup and bard move": after its fight the group stood twelve seconds, walked 22 to a quiet place and rested 25.
+  The owner likes the walk ("I like that we stick to driver and go 'hide' to rest"); "It's the time we were standing
+  before moving away from the fighting spot". A fight is now over three seconds after nobody is left to fight (no
+  living enemy in sight, no group still in it), whatever is left of the members' time in combat
+  (`PvpRoam.NobodyLeftToFight`); twelve seconds is for a lull with the enemy still about.
 - [x] **M13.28** (S) What the first session with a player found. *Built 2026-11-25; the rescue tried directly on
   the scrim copy, the driver not yet tried again by a player.* The owner on the scrim copy, a Hero with seven
   companions, on Agramon. (1) "The bard driving is pretty bad": in the recording the Bard was never more than 75

@@ -64,6 +64,12 @@ namespace DOL.UnitTests
             Assert.That(PvpDriver.HoldsAtStart(31_000), Is.False);
             Assert.That(PvpDriver.MovingOut("mid road"), Is.EqualTo("Stick, moving out: mid road."));
             Assert.That(PvpDriver.MovingOut(null), Is.EqualTo("Stick, moving out."));
+            // "the group and still run around, while waiting. We are not suppose to know there are no available fight":
+            // the driver does not stand by a fight that is not the group's.
+            Assert.That(PvpDriver.GoesOnPastAFight(aCompanionDrives: true, aFightItLeftAloneIsNear: true, goingOnAlready: false), Is.True);
+            Assert.That(PvpDriver.GoesOnPastAFight(true, true, true), Is.False, "once");
+            Assert.That(PvpDriver.GoesOnPastAFight(true, false, false), Is.False);
+            Assert.That(PvpDriver.GoesOnPastAFight(false, true, false), Is.False, "a guild of bots waits a while, as before");
             Assert.That(PvpDriver.Answer(true, null, false), Does.Contain("/8v8 drive off"));
             Assert.That(PvpDriver.Answer(false, false, false), Does.Contain("/8v8 drive on"));
             Assert.That(PvpFormation.DrivesByClass(eCharacterClass.Bard), Is.True);

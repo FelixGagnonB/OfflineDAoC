@@ -61,6 +61,16 @@ namespace DOL.GS
         public static string WaitingFor(string player) => $"Waiting for you, {player}.";
         public const string Resting = "Resting here.";
 
+        /// <summary>
+        /// The driver does not stand by a fight that is not the group's, as a guild of bots does for a while: it goes on,
+        /// back the way it came or round the fight, and says nothing of it. The owner, 2026-11-25, after its group had
+        /// stood half a minute by a fight of a group of its realm ("we are idle ... I assume there's no enemy groups
+        /// available to fight ?"), and offered a line of chat that says why: "In that case, the group and still run
+        /// around, while waiting. We are not suppose to know there are no available fight".
+        /// </summary>
+        public static bool GoesOnPastAFight(bool aCompanionDrives, bool aFightItLeftAloneIsNear, bool goingOnAlready) =>
+            aCompanionDrives && aFightItLeftAloneIsNear && !goingOnAlready;
+
         /// <summary>What a player has said of it (<c>/8v8 drive on|off</c>): this login, else what it keeps; null when it has never said.</summary>
         public static bool? Said(GamePlayer player)
         {

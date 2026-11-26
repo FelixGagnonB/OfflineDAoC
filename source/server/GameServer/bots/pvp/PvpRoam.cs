@@ -528,6 +528,22 @@ namespace DOL.GS
         /// </summary>
         public const int ColdAfterSeconds = 30;
 
+        /// <summary>
+        /// A fight is over as soon as nobody is left to fight: no living enemy of it in sight and
+        /// no group still in it, for this long. Twelve seconds with no enemy near, and nobody of
+        /// the group in combat any more, is for a lull with the enemy still about. The owner,
+        /// 2026-11-25, of its group with a companion at the wheel: "It's the time we were
+        /// standing before moving away from the fighting spot, at the end of the fight"; in the
+        /// recording twelve seconds, before the group walked off to rest. For a group that picks
+        /// its fights as bots do; the player's group with the player at the wheel sees who the
+        /// player picks, and that changes from one second to the next.
+        /// </summary>
+        public const int NobodyLeftAfterMilliseconds = 3_000;
+
+        /// <summary>See <see cref="NobodyLeftAfterMilliseconds"/>.</summary>
+        public static bool NobodyLeftToFight(bool picksItsFightsAsBotsDo, int enemiesInSight, int groupsInItsFight, long millisecondsWithNoEnemy) =>
+            picksItsFightsAsBotsDo && enemiesInSight == 0 && groupsInItsFight == 0 && millisecondsWithNoEnemy > NobodyLeftAfterMilliseconds;
+
         /// <summary>See <see cref="ColdAfterSeconds"/>.</summary>
         public static bool HasGoneCold(long millisecondsSinceAnyoneWasInCombat) => millisecondsSinceAnyoneWasInCombat > ColdAfterSeconds * 1_000L;
 
@@ -2437,7 +2453,9 @@ namespace DOL.GS
                 }
             }
             // The fight is over when no enemy has been near for a while: a fresh squad for the next one.
-            else if (team.ContactTick != 0 && !inCombat && (FightIsOver(now - team.LastEnemyNearTick) || HasGoneCold(now - team.LastCombatTick)))
+            // (Or nobody is left to fight: NobodyLeftToFight, whatever is left of a member's time in combat.)
+            else if (team.ContactTick != 0 && (!inCombat && (FightIsOver(now - team.LastEnemyNearTick) || HasGoneCold(now - team.LastCombatTick)) ||
+                                               NobodyLeftToFight(wheel == null, enemies.Count, team.Fighting.Count, now - team.LastEnemyNearTick)))
             {
                 team.ContactTick = 0;
                 team.FoughtUntil = now;
@@ -2562,6 +2580,13 @@ namespace DOL.GS
             bool leftAFightNear = team.Draws.Any(draw => !draw.Value && draw.Key.Alive > 0 && Near(team, draw.Key, team.Waiting ? 12_000 : 9_000));
             if (!leftAFightNear)
                 (team.GaveUpWaiting, team.AroundSide) = (false, 0);
+            // (The player's group with a companion at the wheel does not stand by it at all: PvpDriver.GoesOnPastAFight.)
+            if (PvpDriver.GoesOnPastAFight(driven, leftAFightNear, team.GaveUpWaiting))
+            {
+                (team.GaveUpWaiting, team.GaveUpAt, team.AroundSide) = (true, now, 0);
+                bool back = TurnsAway(team);
+                Say($"{team.Name} {(back ? "turns away" : "walks on, round the fight")}", new { what = "turn", team = team.Name, turned = back, driven = true });
+            }
             bool waits = WaitsOutAFight(leftAFightNear, enemies.Count, wheel != null || team.Entry != null && (team.GaveUpWaiting || LeadOf(team, teams) != null));
             if (waits && team.Waiting && team.Entry != null && GivesUpWaiting((now - team.WaitingSince) / 1000.0))
             {
@@ -2611,6 +2636,7 @@ namespace DOL.GS
                     team.Team.Squad.Tell(atTheWheel, "driver-waits", PvpDriver.WaitingFor(follower.Name), PvpDriver.SaysAgainAfterSeconds * 1_000);
                 if (resting && !team.DriverRests)
                     team.Team.Squad.Tell(atTheWheel, "driver-rests", PvpDriver.Resting);
+
                 team.DriverRests = resting;
                 bool moves = !holds && body == null && team.Hide == null && !resting && !waits;
                 if (moves && !team.DriverMoves && team.Team.Route is { Length: > 0 } way)

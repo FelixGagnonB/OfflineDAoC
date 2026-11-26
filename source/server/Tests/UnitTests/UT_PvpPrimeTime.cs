@@ -24,6 +24,13 @@ namespace DOL.UnitTests
             Assert.That(PvpTrapped.IsNear(48), Is.True, "the way in ended 29 to 48 units short of them");
             Assert.That(PvpTrapped.IsNear(PvpTrapped.WayOutWithin + 1), Is.False, "a bot is not carried across a zone");
             // A fight in which nobody has been in combat for half a minute is over, whoever still stands near.
+            // "It's the time we were standing before moving away from the fighting spot, at the end of the fight": with
+            // nobody left to fight a fight is over in three seconds, not twelve.
+            Assert.That(PvpRoam.NobodyLeftToFight(picksItsFightsAsBotsDo: true, enemiesInSight: 0, groupsInItsFight: 0, millisecondsWithNoEnemy: 3_500), Is.True);
+            Assert.That(PvpRoam.NobodyLeftToFight(true, 0, 0, 2_000), Is.False);
+            Assert.That(PvpRoam.NobodyLeftToFight(true, 2, 0, 9_000), Is.False, "an enemy is still there");
+            Assert.That(PvpRoam.NobodyLeftToFight(true, 0, 1, 9_000), Is.False, "a group is still in the fight, out of sight for a moment");
+            Assert.That(PvpRoam.NobodyLeftToFight(false, 0, 0, 9_000), Is.False, "with the player at the wheel a lull is not the end");
             Assert.That(PvpRoam.HasGoneCold(31_000), Is.True);
             Assert.That(PvpRoam.HasGoneCold(12_000), Is.False);
             Assert.That(PvpRoam.ColdAfterSeconds * 1_000, Is.GreaterThan(PvpRoam.FightOverAfterMilliseconds));

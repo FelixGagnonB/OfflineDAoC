@@ -17,6 +17,7 @@ param(
     [switch]$Apply,
     [switch]$SkipTests,
     [switch]$AllowPlayed,
+    [switch]$ClientMayStayOpen,
     [string]$Rollback = ''
 )
 $ErrorActionPreference = 'Stop'
@@ -29,7 +30,10 @@ function Assert-Stopped {
     # other way round, so a build goes to the scrim copy while the other game is being played. (A process
     # whose folder cannot be read counts as this folder's.)
     $root = (Split-Path $Runtime -Parent).TrimEnd('\') + '\'
-    $held = @(Get-Process CoreServer, game, camelot, connect -ErrorAction SilentlyContinue |
+    # -ClientMayStayOpen: only the server counts (a game client holds none of the six files; it is disconnected
+    # while its server is down, and its player logs in again).
+    $names = if ($ClientMayStayOpen) { @('CoreServer') } else { @('CoreServer', 'game', 'camelot', 'connect') }
+    $held = @(Get-Process $names -ErrorAction SilentlyContinue |
         Where-Object { -not $_.Path -or $_.Path.StartsWith($root, [StringComparison]::OrdinalIgnoreCase) })
     if ($held.Count -gt 0) {
         throw "Close the server and the game client of $root first ($(($held | ForEach-Object { $_.Name + ' ' + $_.Id }) -join ', '))."
