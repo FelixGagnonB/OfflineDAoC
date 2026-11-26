@@ -203,6 +203,9 @@ Healer, then the Skald. `/stick` to it.
 - In group chat it says "Stick, moving out: mid road." when it sets off, "Waiting for you,
   <name>." when you are more than 1,500 units behind (it goes on when you are within 800), and
   "Resting here." after a fight. It waits thirty seconds after the group has stood up.
+- It keeps your pace: the group runs no faster than you can at that moment (after a fight,
+  until the speed song is on you again), and a little slower while you are more than 300 units
+  behind the driver, so that you come up.
 - Your calls hold as ever, and an enemy you strike or call is the group's. It stays by you
   when you are down. It never takes the group off the field: that is yours (`/8v8 call die`,
   `/release`).
