@@ -1193,6 +1193,76 @@ namespace DOL.AI.Brain
 
         private GameNPC _pvpStaffedPet;
 
+        /// <summary>Until when this bot is at an enemy pet with its staff: its group's positioning leaves it where it is (PvpSquad.StandOff).</summary>
+        public long PvpStaffsUntil { get; private set; }
+
+        /// <summary>
+        /// Whether a healer or caster turns on an enemy pet that is on it, before anything else:
+        /// the pet is grey to it (it falls to a blow or two), it is in reach, and no enemy
+        /// fighter is on the bot (then the pet is the least of its troubles). The owner, on its
+        /// Cleric, 2026-11-26: "Caster are allowed to staff druid grey pet. I one shot them with
+        /// my auto-attack, instead of running around doing nothing". A bot hit a pet only when it
+        /// had found nothing to cast, was being kept from casting at that moment and stood still
+        /// (<see cref="PvpStaffThePet"/>), and one that heals never came to that rule at all: a
+        /// Druid's lesser nature spirit kept a caster from casting for as long as it lived.
+        /// </summary>
+        public static bool StaffsAGreyPet(bool isFighter, bool petIsGrey, bool petInReach, bool anEnemyFighterIsOnIt) =>
+            !isFighter && petIsGrey && petInReach && !anEnemyFighterIsOnIt;
+
+        /// <summary>
+        /// Grey by its own level, not by the level it is taken to have: a pet counts as its owner's level where the game
+        /// asks how dangerous it is (GameNPC.EffectiveLevel), so to that question a Druid's spirit of level 12 is no more
+        /// grey to a bot of level 50 than its Druid is. In the first evening of bots with the rule no pet was hit by it.
+        /// </summary>
+        private bool PvpPetIsGrey(GameNPC pet) => (ConColor)GameObject.GetConLevel(Body.Level, pet.Level) <= ConColor.GREY;
+
+        /// <summary>The grey pet of an enemy that is on this bot is hit until it is down (<see cref="StaffsAGreyPet"/>). True when the turn is taken.</summary>
+        private bool TryPvpStaffAGreyPet()
+        {
+            if (BotBody?.IsPvpBot != true || PvpEnemies == null || BotBody.PvpBuild == null || !Body.IsAlive)
+                return false;
+            // (The one it was at is down, or has turned to somebody else: back to its work.)
+            if (_pvpStaffedPet != null && (!_pvpStaffedPet.IsAlive || _pvpStaffedPet.TargetObject != Body))
+            {
+                if (Body.TargetObject == _pvpStaffedPet && Body.attackComponent.AttackState)
+                    Body.StopAttack();
+                _pvpStaffedPet = null;
+                PvpStaffsUntil = 0;
+            }
+            if (!PvpWeights.Of(BotBody).StaffThePetOnMe || Body.IsIncapacitated || Body.IsCasting || Body.castingComponent?.HasPendingSkillRequests == true)
+                return false;
+            bool fighter = PvpMember.ArchetypeOf(BotBody) == PvpBuffArchetype.Melee;
+            if (fighter)
+                return false;
+            GameNPC pet = Body.GetNPCsInRadius((ushort)(Body.MeleeAttackRange + 100))
+                .Where(npc => npc.IsAlive && !npc.IsMezzed && npc.TargetObject == Body && npc.Brain is IControlledBrain owned &&
+                              owned.GetLivingOwner() is { } owner && PvpEnemies.Contains(owner) && PvpPetIsGrey(npc))
+                .OrderBy(npc => npc.HealthPercent).FirstOrDefault();
+            bool fighterOnIt = PvpEnemies.Any(enemy => enemy.IsAlive && !enemy.IsMezzed && enemy.TargetObject == Body &&
+                PvpMember.ArchetypeOf(enemy) == PvpBuffArchetype.Melee && enemy.IsWithinRadius(Body, 400));
+            if (!StaffsAGreyPet(fighter, pet != null, pet != null, fighterOnIt))
+                return false;
+            if (Body.IsMoving)
+            {
+                Body.StopFollowing();
+                Body.StopMovingOnPath();
+                Body.StopMoving();
+            }
+            if (!Body.attackComponent.AttackState || Body.TargetObject != pet)
+            {
+                Body.TargetObject = pet;
+                SwitchToUsableMeleeWeapon();
+                Body.StartAttack(pet);
+            }
+            PvpStaffsUntil = GameLoop.GameLoopTime + 2_500;
+            if (_pvpStaffedPet != pet)
+            {
+                _pvpStaffedPet = pet;
+                PvpRecorder.Decision(BotBody, new { kind = "Staff", d = pet.Name, score = 0, grey = true }, [], null);
+            }
+            return true;
+        }
+
         /// <summary>
         /// A healer or caster with nothing it can cast, because an enemy pet is hitting it, hits
         /// the pet with its staff (<see cref="PvpWeights.StaffThePetOnMe"/>). True while it does.

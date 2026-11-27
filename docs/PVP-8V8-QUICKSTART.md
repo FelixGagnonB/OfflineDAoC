@@ -212,7 +212,12 @@ Healer, then the Skald. `/stick` to it.
   4,000 units ahead, less behind (`"PlayerGroupSeesWithin"` under `"Real"` in
   `runtime\server\pvp-weights.json`), and that is where they call "INC!". It does not go
   back to one of the last three points it was at while another way leads on, and to its
-  resting place the group walks as one, behind it.
+  resting place the group walks as one, behind it. It takes no way that passes a fight of
+  other groups while another way leads on.
+- A group of yours with three casters or more (Albion's main one) plays from its back line:
+  it does not push by itself, and its Armsman and Minstrel stay within reach of your healers
+  and casters and take whoever comes too far. `/8v8 call push` sends them in all the same.
+  (`"CasterGroupFrom": 0` under `"Order"` in `runtime\server\pvp-weights.json` turns it off.)
 - In group chat it says "Stick, moving out: mid road." when it sets off, "Waiting for you,
   <name>." when you are more than 1,500 units behind (it goes on when you are within 800), and
   "Resting here." after a fight. It waits thirty seconds after the group has stood up.

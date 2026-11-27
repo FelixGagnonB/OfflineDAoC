@@ -908,6 +908,9 @@ namespace DOL.GS
             // A resistance buff for the whole group still to come from this member.
             if (bot.Brain is BotBrain { } brain && brain.PvpHasGroupResistToCast())
                 return true;
+            // A commander or one of its subordinates still to be called (a Bonedancer's four).
+            if (bot.Brain is BotBrain { } servants && servants.PvpHasPetToSummon())
+                return true;
             return _lastNewBuffTick.TryGetValue(bot, out long last) && now - last < QuietSeconds * 1000;
         }
 
@@ -932,8 +935,9 @@ namespace DOL.GS
                 foreach ((GameBot bot, Vector3 place) in start)
                 {
                     bot.StopFollowing();
-                    bot.MoveTo(bot.CurrentRegionID, (int)Math.Round(place.X), (int)Math.Round(place.Y), (int)Math.Round(place.Z),
-                        bot.GetHeading(new Point2D(_b.Home.X, _b.Home.Y)));
+                    // (In the world, as PvpTeam.FormUp: its servants stay its own.)
+                    bot.MoveInRegion(bot.CurrentRegionID, (int)Math.Round(place.X), (int)Math.Round(place.Y), (int)Math.Round(place.Z),
+                        bot.GetHeading(new Point2D(_b.Home.X, _b.Home.Y)), true);
                     if (bot.Brain is BotBrain brain)
                     {
                         brain.PvpSpreadOut = true;

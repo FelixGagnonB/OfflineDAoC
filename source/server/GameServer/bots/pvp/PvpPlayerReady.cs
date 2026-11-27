@@ -50,10 +50,22 @@ namespace DOL.GS
             return own >= 0 ? own : builds.Count - 1;
         }
 
-        /// <summary>A build by its name, or the first build of a class by the class's name ("cleric").</summary>
-        public static PvpBuild Find(eRealm realm, string asked) =>
-            BuildsFor(realm).FirstOrDefault(build => string.Equals(build.Id, asked, StringComparison.OrdinalIgnoreCase)) ??
-            BuildsFor(realm).FirstOrDefault(build => string.Equals(build.Class.ToString(), asked, StringComparison.OrdinalIgnoreCase));
+        /// <summary>The short names players have for classes: "/8v8 ready bd" (the owner, 2026-11-26: "there's no /8v8 ready bd").</summary>
+        public static readonly IReadOnlyDictionary<string, string> ShortNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["bd"] = "Bonedancer", ["sm"] = "Spiritmaster", ["rm"] = "Runemaster", ["zerk"] = "Berserker", ["shammy"] = "Shaman",
+            ["bm"] = "Blademaster", ["eld"] = "Eldritch", ["chanter"] = "Enchanter", ["ment"] = "Mentalist", ["champ"] = "Champion",
+            ["sorc"] = "Sorcerer", ["theu"] = "Theurgist", ["cab"] = "Cabalist", ["arms"] = "Armsman", ["pally"] = "Paladin", ["mins"] = "Minstrel",
+        };
+
+        /// <summary>A build by its name, or the first build of a class by the class's name ("cleric") or its short name ("bd").</summary>
+        public static PvpBuild Find(eRealm realm, string asked)
+        {
+            if (asked != null && ShortNames.TryGetValue(asked, out string full))
+                asked = full;
+            return BuildsFor(realm).FirstOrDefault(build => string.Equals(build.Id, asked, StringComparison.OrdinalIgnoreCase)) ??
+                   BuildsFor(realm).FirstOrDefault(build => string.Equals(build.Class.ToString(), asked, StringComparison.OrdinalIgnoreCase));
+        }
 
         /// <summary>The realm points a realm level stands for (rank 5 is level 40), and 0 below rank 1 level 1.</summary>
         public static long RealmPointsFor(int realmLevel) =>

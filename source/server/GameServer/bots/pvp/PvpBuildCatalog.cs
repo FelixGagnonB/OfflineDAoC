@@ -92,6 +92,13 @@ namespace DOL.GS
                 L(Specs.Hammer, 50), L(Specs.Shields, 42), L(Specs.Parry, 39)),
             Caster("spiritmaster-dark", eCharacterClass.Spiritmaster, eSpecType.DarkSpirit,
                 L(Specs.Darkness, 47), L(Specs.Suppression, 26), L(Specs.Summoning, 5)),
+            // Suppression for the lifedrain that needs no cast (four seconds between two, the strongest at 47), the
+            // healing servants and the absorption buff for a fighter (46); Darkness to 26 for the body resistance
+            // debuff that needs no cast; the commander is of the base line. 1,491 of a caster's 1,494 points. The
+            // owner, 2026-11-26, asked which spec for this server, and who it replaces in Midgard's group: "either
+            // berserker or savage. probably berserker" (the group mid-bd, below).
+            Caster("bonedancer-supp", eCharacterClass.Bonedancer, eSpecType.SuppBone,
+                L(Specs.Suppression, 47), L(Specs.Darkness, 26), L(Specs.BoneArmy, 5)),
 
             // ---- Hibernia
             Melee("buffbot-druid", eCharacterClass.Druid, eSpecType.NurtureDruid, eObjectType.Blunt, eObjectType.GenericItem, false,
@@ -159,6 +166,9 @@ namespace DOL.GS
         [
             new("hib-2bard", eRealm.Hibernia,
                 ["druid-regrowth", "druid-nurture", "bard", "bard", "hero", "blademaster", "blademaster", "eldritch-light"]),
+            // mid-bd, 2026-11-26: Midgard's main group with a Suppression Bonedancer in the Berserker's place.
+            new("mid-bd", eRealm.Midgard,
+                ["healer-pac", "healer-mend", "shaman-aug", "skald", "runemaster-rune", "bonedancer-supp", "savage", "warrior"]),
         ];
 
         private static readonly Dictionary<string, PvpBuild> _byId =
@@ -186,6 +196,8 @@ namespace DOL.GS
             eCharacterClass.Healer => eRace.Dwarf,
             // The Runemaster: not a Norseman; a Kobold (dexterity and quickness 70).
             eCharacterClass.Runemaster => eRace.Kobold,
+            // The Bonedancer: Kobold, Troll or Valkyn; the Kobold as for the Runemaster.
+            eCharacterClass.Bonedancer => eRace.Kobold,
             eCharacterClass.Spiritmaster => eRace.Norseman,
             eCharacterClass.Shaman => eRace.Kobold,
             eCharacterClass.Skald or eCharacterClass.Savage or eCharacterClass.Berserker or eCharacterClass.Warrior => eRace.Troll,

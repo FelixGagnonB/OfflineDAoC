@@ -50,6 +50,42 @@ namespace DOL.GS
         /// <summary>For each member the group has alive more than the enemy (less than, when negative).</summary>
         public int PushPerMemberAhead { get; set; } = 10;
 
+        /// <summary>
+        /// A group with this many casters or more plays from its back line (0: none does): it
+        /// does not push, and in Engage as under Extend its fighters turn on whoever is on its
+        /// healers and casters and otherwise keep to their reach (<see cref="ExtendFightersStayWithin"/>):
+        /// the enemy that comes too far is theirs, and the rest is its casters'. Of the groups of
+        /// 2026-11-26 that is Albion's main one (Sorcerer, Theurgist, Cabalist). The owner, on its
+        /// Cleric in that group: "i feel like albion fighter / minstrel are pushing way too hard on
+        /// contact. we are mostly caster, we probably focus on extend/kite and kill overextending.
+        /// i'm mostly always out of range to heal either". In its evening of eight fights the
+        /// group was under its own Push for 42% of its fighting time, and its Armsman and its
+        /// Minstrel were more than 2,000 units from their player for a fifth of theirs (the
+        /// Armsman a median 1,849 in the first fifteen seconds of a fight).
+        /// </summary>
+        public int CasterGroupFrom { get; set; } = 3;
+
+        /// <summary>
+        /// Only a group with a player in it plays from its back line; a group of bots pushes as before. Measured in 24
+        /// matches of bots in lanes, 2026-11-26 (Albion's main group against Midgard's and Hibernia's, half of them with
+        /// the rule): its Armsman and Minstrel stood a mean 691 and 641 units from the middle of their healers and
+        /// casters where they had stood 1,262 and 1,186, and were beyond 2,000 for 1% of their time where it had been 9
+        /// and 7%: what was asked. And the group won 7 of 12 where without the rule it won 11 of 12 (32 of 36 with the
+        /// twenty-four of a batch before it), lost 4.0 members a match for 1.3, its Clerics one a match for a quarter of
+        /// one, and its matches took 292 seconds for 216: among bots, whose healers go with their fighters, the push is
+        /// what wins. A player that heals does not go with them. So the rule is for the player's group, and what it does
+        /// there is for the owner to say.
+        /// </summary>
+        public bool CasterGroupOnlyWithAPlayer { get; set; } = true;
+
+        /// <summary>See <see cref="CasterGroupFrom"/> and <see cref="CasterGroupOnlyWithAPlayer"/>.</summary>
+        public bool PlaysFromItsBackLine(int casters, bool hasAPlayer = true) =>
+            CasterGroupFrom > 0 && casters >= CasterGroupFrom && (hasAPlayer || !CasterGroupOnlyWithAPlayer);
+
+        /// <summary>The order of a group that plays from its back line: never Push.</summary>
+        public static PvpOrder WithoutPush(PvpOrder order, bool playsFromItsBackLine) =>
+            playsFromItsBackLine && order == PvpOrder.Push ? PvpOrder.Engage : order;
+
         public int ExtendBase { get; set; } = -45;
         /// <summary>Times the share of the group's own healers that are alive but cannot heal. Dead healers do not count: there is nobody left to protect.</summary>
         public int ExtendPerOwnHealerBusy { get; set; } = 60;

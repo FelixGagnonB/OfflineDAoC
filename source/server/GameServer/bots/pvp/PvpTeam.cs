@@ -69,8 +69,12 @@ namespace DOL.GS
             Dictionary<GameBot, Vector3> places = SpreadPlaces(Bots, new Vector3(front.X, front.Y, (float)Bots.Average(bot => bot.Z)));
             if (places == null)
                 return;
+            // Put there where it stands in the world (MoveInRegion), not taken out of it and put back (MoveTo): that lets
+            // go of its servants. A Bonedancer of bots called its commander and its three before every match of a batch,
+            // 35 to 60 seconds before the first blow, and all four again from the first blow on: 24 seconds of casting,
+            // and under 30 points of power for 57 to 79% of its fights against Albion (2026-11-26).
             foreach ((GameBot bot, Vector3 place) in places)
-                bot.MoveTo(bot.CurrentRegionID, (int)Math.Round(place.X), (int)Math.Round(place.Y), (int)Math.Round(place.Z), bot.GetHeading(new Point2D(enemySpawn.X, enemySpawn.Y)));
+                bot.MoveInRegion(bot.CurrentRegionID, (int)Math.Round(place.X), (int)Math.Round(place.Y), (int)Math.Round(place.Z), bot.GetHeading(new Point2D(enemySpawn.X, enemySpawn.Y)), true);
         }
 
         /// <summary>

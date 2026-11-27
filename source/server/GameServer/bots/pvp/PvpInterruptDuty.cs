@@ -41,6 +41,7 @@ namespace DOL.GS
             ["Enchanter"] = "Spells",
             ["Wizard"] = "Spells",
             ["Spiritmaster"] = "Spells",
+            ["Bonedancer"] = "Spells",
             ["Mentalist"] = "Spells",
         };
 

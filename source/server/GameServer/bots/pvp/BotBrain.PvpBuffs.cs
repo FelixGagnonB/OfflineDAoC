@@ -142,6 +142,25 @@ namespace DOL.AI.Brain
             return false;
         }
 
+        /// <summary>
+        /// True while this bot has a servant still to call before a fight: a commander it does not
+        /// have, or fewer subordinates than its commander leads, and the spell for it. The group
+        /// is not ready. A Bonedancer of bots, in its first matches (2026-11-26), finished calling
+        /// its commander in the second its group met the enemy and its three subordinates 7, 21
+        /// and 34 seconds into the fight: 24 seconds of casting, and its power at a quarter after
+        /// a minute.
+        /// </summary>
+        public bool PvpHasPetToSummon()
+        {
+            if (BotBody?.IsPvpBot != true || !Body.IsAlive || Body.Spells == null)
+                return false;
+            bool Has(eSpellType type) => Body.Spells.Cast<Spell>().Any(spell => spell != null && spell.SpellType == type && spell.Level <= Body.Level);
+            if (Body.ControlledBrain == null)
+                return Has(eSpellType.SummonCommander);
+            IControlledBrain[] subordinates = Body.ControlledBrain.Body?.ControlledNpcList;
+            return subordinates is { Length: > 0 } && subordinates.Any(servant => servant == null) && Has(eSpellType.SummonMinion);
+        }
+
         private bool PvpIsHealer() => BotBody?.CharacterClass != null &&
             PvpBuffPlan.ArchetypeOf((eCharacterClass)BotBody.CharacterClass.ID) == PvpBuffArchetype.Healer;
 
