@@ -3873,6 +3873,90 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [x] **M13.53** (M) A Bonedancer for Midgard. *Built 2026-11-26; unit-tested; batches of matches in lanes, see
+  RESULT; installed (`v0.1.11`); not in the groups of an evening; not played by the owner.* The owner: "Is the bonedancer class usable by a
+  bot?", then "Which bonedancer spec would you recommend for this server?", and of whom it replaces, "either
+  berserker or savage. probably berserker". The build `bonedancer-supp` (47 Suppression, 26 Darkness, 5 Bone Army:
+  the lifedrain that needs no cast, 123 damage every four seconds with 80% of it back as health, the healing
+  servants, the commander of the base line), a Kobold; the group `mid-bd`, Midgard's main one with it in the
+  Berserker's place (a second group to pick in the /8v8 window; no guild of an evening has it); the Spiritmaster's
+  order of realm abilities; interrupt duty by spells; its commander is sent where a caster's pet is
+  (`PvpSquad`, `castersPet`). `/8v8 ready bd` (and `bonedancer`, `bonedancer-supp`) on a character of Midgard:
+  short names for classes are new (`PvpPlayerReady.ShortNames`). A bot plays it with no rule of its own: it calls
+  its commander and its three subordinates (two that heal, a sentry), uses the lifedrain, its nuke and its snare
+  nuke, and its servants heal 30 to 43 times a match. Two faults found in its first matches. (1) It called its
+  servants in the fight: the group now waits for a member that has one still to call (`BotBrain.PvpHasPetToSummon`;
+  the ready check of a scrim, and half a minute more of the buffing of an evening). (2) At the start of every match
+  of a scrim the bots were put in their rows with `MoveTo`, which takes a bot out of the world and lets go of its
+  servants: it called all four again from the first blow on and was under 30 points of power for 57 to 79% of its
+  fights against Albion. `PvpTeam.FormUp` and `PvpScrim.TakePlaces` put them there in the world now
+  (`MoveInRegion`), which holds for a Druid's and an Enchanter's pet in a scrim too. Not looked at: its two
+  instants that weaken (the debuff of body resistance is cast only by a class whose own damage it helps, as for
+  the Cabalist), the absorption buff for a fighter (a buff on others is the buffbot's before a fight), its servants
+  under an area spell or a mez, four more things to move and to send to a client for each Bonedancer.
+  RESULT, 20 matches of bots in lanes at realm rank 1 level 0, five a pairing, with both faults mended: the
+  Bonedancer called no servant in a fight; it cast its lifedrain 9 times a match and did 3,200 to 3,300 damage and
+  its servants 1,050 to 1,100 (the Berserker in the main group's matches 4,045 and 2,679); it was still under 30
+  points of power for 47 and 55% of its time alive (what it casts costs it its pool in half a fight; it has no
+  ability that gives power back at that rank). `mid-bd` won 4 of 5 against Hibernia's main group and 1 of 5 against
+  Albion's, `mid-main` 2 of 5 and 0 of 5 in the same batch: five matches a pairing say little (a batch of the same
+  build against itself gave 9 and 12 of 12), and nothing says the group is worse for it.
+- [x] **M13.52** (S) A group of casters plays from its back line, with a player in it. *Built 2026-11-26; unit-tested;
+  a batch of 24 matches of bots; installed (`v0.1.11`); only the player's group has it, and that no match of bots can
+  show: not seen by the owner.* The owner, on
+  its Cleric in Albion's main group: "i feel like albion fighter / minstrel are pushing way too hard on contact.
+  we are mostly caster, we probably focus on extend/kite and kill overextending. i'm mostly always out of range to
+  heal either". In its evening of eight fights the group was under its own Push for 42% of its fighting time, and
+  its Armsman and its Minstrel were more than 2,000 units from their player for a fifth of theirs. The rule
+  (`PvpOrderWeights.CasterGroupFrom`, 3 casters: of the groups there are, Albion's main one): no Push of its own,
+  and in Engage as under Extend its Armsman and Minstrel turn on whoever is on its healers and casters and
+  otherwise take only an enemy within the reach of their back line (M13.43), the Minstrel leaving its interrupt
+  duty at the enemy's healers for it. Measured among bots, 24 matches in lanes against Midgard's and Hibernia's
+  main groups, half with the rule (`pvp_batch.py --versus`, `albstyle.py` in the session's scratchpad): the Armsman
+  a mean 691 units from the middle of its healers and casters for 1,262, beyond 2,000 for 1.2% of its time for
+  9.2%; the Minstrel 641 for 1,186; and 7 of 12 won for 11 of 12 (2 of 6 against Hibernia for 5 of 6), 4.0 deaths
+  a match for 1.3, a Cleric dead once a match for a quarter of once, 292 seconds a match for 216. (A batch run by
+  mistake on a build without the rule, the same on both sides: 9 of 12 and 12 of 12. Twelve matches say little, and
+  Albion's group of bots wins nine in ten in lanes as it is.) Among bots, whose healers go with their fighters, the
+  push is what wins; a player that heals stays back. So the rule is for a group with a player in it
+  (`CasterGroupOnlyWithAPlayer`), a group of bots pushes as before, and the owner's calls stand over it
+  (`/8v8 call push`). What it does for the owner's group is for the owner to say.
+- [x] **M13.51** (S) A grey pet on a healer or caster. *Built 2026-11-26; unit-tested; an evening of bots of 12
+  minutes; installed (`v0.1.11`); not seen by the owner.* The owner, on its Cleric: "Caster are allowed to staff druid grey pet. I one shot them
+  with my auto-attack, instead of running around doing nothing". A bot hit a pet that was on it only when it had
+  found nothing to cast, was kept from casting at that moment and stood still (`PvpStaffThePet`), and one that
+  heals never came to that rule. Now a healer or caster with a pet of the enemy on it that is grey to it, in reach,
+  and no enemy fighter on it, stops and hits it until it is down, before anything else in its turn
+  (`BotBrain.StaffsAGreyPet`), and its group's positioning leaves it where it stands meanwhile. Not a pet of its own
+  level (a Theurgist's). In a first evening of bots with it no pet was hit by the rule: grey was asked of the game,
+  to which a pet is of its owner's level (`GameNPC.EffectiveLevel`); it is asked of the pet's own level now
+  (`PvpPetIsGrey`; a Druid's lesser spirit is of level 12 at the most). In the evening after that: 65 pets taken by
+  the rule in 12 minutes (19 by Clerics, 16 by Shamans, 8 each by Runemasters and Healers; lesser nature spirits,
+  lynx, wolf and bear youths), beside 101 by the old rule.
+- [x] **M13.50** (S) The middle of two fights is no fight. *Built 2026-11-26; unit-tested with the positions of the
+  owner's session; evenings of bots passed with it and show nothing of it by themselves; installed (`v0.1.11`); not
+  seen by the owner.* The owner, behind its Sorcerer: "it's driving back and fort the
+  same few units in middle agreamon". Its group had turned away from a fight at the north-west field and still left
+  alone another at the south-east field, 9,400 and 9,700 units from it on either side. The way round a fight it has
+  left alone (`AroundAFight`) was asked for the middle of all such fights together: the middle of the island, 1,950
+  units from the group, and for forty seconds it went round a fight that was not there. Each fight by itself now,
+  the nearest that its road passes first (`PvpRoam.MiddleOf`).
+- [x] **M13.49** (S) Not along a way that passes a fight. *Built 2026-11-26; unit-tested; evenings of bots passed
+  with it, and what it does there is not measured; installed (`v0.1.11`); not seen by the owner.* The owner: "There's an albion team fighting another midgard group and we ran in their fight twice in a
+  row". Its group had come on that fight, left them to it and turned away; at the point it had left, five seconds
+  later, the way to the middle was the only one that was neither the way back nor one of its last three points
+  (M13.46), and the fight was at the middle: it passed 522 units from it, and 887 on its next leg. The choice of
+  the next point never looked at where fights are. Now a team takes no way that passes within 4,000 units of a
+  fight that is not its own (of two other groups, or one it has left alone) while another way leads on, and the way
+  back or a point it has just been at before a way through a fight (`PvpRoam.NextPoint`, `LegPassesAFight`). Left as
+  it was: a team already on a leg when a fight begins on it turns away once and goes round it for 75 seconds, then
+  walks its road. What it costs: in an evening of 36 groups of 20 minutes with it, 59 of 232 legs led to one of the
+  last three points a team had left (25%, as before M13.46; 9% in the evening with M13.46 and without this): with
+  fights all over a zone the way back is often the only one that passes none. Not counted for the 8v8 zone by
+  itself, where six groups walk. Nor is there a count that shows a team passing fights less: the share of a team's
+  seconds on the road within 2,000 units of a fight that is not its own was 1.4 and 2.6% in two evenings before and
+  3.5 and 6.7% in two after, and those seconds are mostly of teams that stand by a fight to join it or to wait for
+  it, in other zones each time.
 - [x] **M13.48** (S) To its resting place as one. *Built 2026-11-26; unit tests pass; an evening of bots of 22 minutes; installed (`v0.1.10`); not seen by the owner.* The owner, after a
   fight on Agramon: "Looks like have team are moving somewhere and a bard was waiting for me (I was stuck to him)
   then he started moving as druid started timers". In its recording: eight seconds after the fight its group
@@ -3887,7 +3971,10 @@ kept; a way for a dead player to tell the group "just die".
   "rests", the two living members farthest apart, second by second): a median of 1,888 and 1,781 units in the two
   evenings before, 691 after; nine tenths within 2,848 and 3,385 before, 2,588 after; the most 6,022 and 6,894
   before, 3,179 after. The middle is much closer; one walk in ten still has two members 2,600 units apart (one
-  that was far off when the walk began, or is casting).
+  that was far off when the walk began, or is casting). (That count went on for a team that was attacked on its
+  way and never rested. Counted for 60 seconds at the most and until its next fight, `walkrest.py`: a median of
+  1,912 and 1,943 units in two evenings before, nine tenths within 4,043 and 3,990; 526, 582 and 543 in three
+  evenings after, nine tenths within 1,022, 1,273 and 1,179.)
 - [x] **M13.47** (S) The lake of Agramon. *The point moved 2026-11-26, see DONE; built; unit tests pass; installed (`v0.1.10`); not seen by the owner. In the evening of bots of ten minutes on that build no group went to the point: that it is dry and can be walked to is the mesh's answer, not yet a bot's walk.* The owner: "could we change the navmesh to
   not make us run into the lake ? It's kind pointless". The mesh need not be changed: it marks water
   (`EDtPolyFlags.Swim`, which is how a bot is known to swim, `PvpWater`). From the day's recordings (`water.py`

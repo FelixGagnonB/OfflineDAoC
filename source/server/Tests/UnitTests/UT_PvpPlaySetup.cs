@@ -76,7 +76,16 @@ namespace DOL.UnitTests
             Assert.That(setup.After("hib-main", eRealm.Hibernia).Own, Is.Null);
             // Another realm's player cannot pick it, and a realm with one group has no such line.
             Assert.That(Pvp8v8Setup.DefaultFor(eRealm.Midgard).After("hib-2bard", eRealm.Midgard).Own, Is.Null);
-            Assert.That(Pvp8v8Setup.DefaultFor(eRealm.Midgard).Text(eRealm.Midgard), Does.Not.Contain("Your group"));
+            Assert.That(Pvp8v8Setup.DefaultFor(eRealm.Albion).Text(eRealm.Albion), Does.Not.Contain("Your group"));
+            // Midgard has a second group since 2026-11-26: the main one with a Bonedancer in the Berserker's place.
+            Assert.That(Pvp8v8Setup.DefaultFor(eRealm.Midgard).Text(eRealm.Midgard), Does.Contain("<mid-main>").And.Contain("[mid-bd]"));
+            Assert.That(PvpBuildCatalog.FindGroup("mid-bd").BuildIds, Does.Contain("bonedancer-supp").And.Not.Contain("berserker"));
+            // "/8v8 ready bd", "/8v8 ready bonedancer" and the build's own name all give it, to a player of Midgard only.
+            Assert.That(PvpPlayerReady.Find(eRealm.Midgard, "bd")?.Id, Is.EqualTo("bonedancer-supp"));
+            Assert.That(PvpPlayerReady.Find(eRealm.Midgard, "Bonedancer")?.Id, Is.EqualTo("bonedancer-supp"));
+            Assert.That(PvpPlayerReady.Find(eRealm.Midgard, "bonedancer-supp")?.Id, Is.EqualTo("bonedancer-supp"));
+            Assert.That(PvpPlayerReady.Find(eRealm.Hibernia, "bd"), Is.Null);
+            Assert.That(PvpPlayerReady.Find(eRealm.Midgard, "zerk")?.Id, Is.EqualTo("berserker"));
         }
 
         [TestCase(eRealm.Albion, "alb-main")]

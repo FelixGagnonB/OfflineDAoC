@@ -301,6 +301,11 @@ namespace DOL.GS
                 ("RagingPower", 1), ("EmptyMind", 1), ("MasteryOfMagery", 2), ("WildPower", 2), ("Serenity", 2), ("Toughness", 2),
                 ("MasteryOfMagery", 3), ("EmptyMind", 2), ("AugCon", 2), ("AugDex", 2), ("Toughness", 3), ("Serenity", 3), ("WildPower", 3),
                 ("AugAcuity", 4), ("WildPower", 4), ("MasteryOfMagery", 4)),
+            // Bonedancer -- the Spiritmaster's order (mid-bd, 2026-11-26)
+            [eCharacterClass.Bonedancer] = Order(("Purge", 1), ("Tireless", 1), ("MCL", 2), ("AugAcuity", 3), ("MasteryOfConcentration", 1),
+                ("RagingPower", 1), ("EmptyMind", 1), ("MasteryOfMagery", 2), ("WildPower", 2), ("Serenity", 2), ("Toughness", 2),
+                ("MasteryOfMagery", 3), ("EmptyMind", 2), ("AugCon", 2), ("AugDex", 2), ("Toughness", 3), ("Serenity", 3), ("WildPower", 3),
+                ("AugAcuity", 4), ("WildPower", 4), ("MasteryOfMagery", 4)),
         };
         // </orders>
 

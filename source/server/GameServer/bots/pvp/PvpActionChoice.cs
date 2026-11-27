@@ -122,6 +122,8 @@ namespace DOL.GS
             ["Wizard"] = new() { ["Damage"] = 60 },
             ["Mentalist"] = new() { ["Damage"] = 60 },
             ["Spiritmaster"] = new() { ["Damage"] = 60 },
+            // The Bonedancer: its lifedrain that needs no cast, and its root of the base line on a fighter that follows.
+            ["Bonedancer"] = new() { ["Damage"] = 60, ["Root"] = 30, ["Debuff"] = 45 },
         };
 
         /// <summary>

@@ -94,6 +94,68 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void AGroupOfCastersPlaysFromItsBackLine()
+        {
+            var weights = new PvpOrderWeights();
+            Assert.That(weights.PlaysFromItsBackLine(3), Is.True, "Albion's main group: Sorcerer, Theurgist, Cabalist");
+            Assert.That(weights.PlaysFromItsBackLine(2), Is.False, "Hibernia's: Eldritch and Enchanter beside three fighters");
+            Assert.That(weights.PlaysFromItsBackLine(1), Is.False, "Midgard's: one Runemaster");
+            Assert.That(new PvpOrderWeights { CasterGroupFrom = 0 }.PlaysFromItsBackLine(5), Is.False, "the rule is off");
+            Assert.That(weights.PlaysFromItsBackLine(3, hasAPlayer: false), Is.False, "a group of bots pushes as before: among bots that is what wins");
+            Assert.That(new PvpOrderWeights { CasterGroupOnlyWithAPlayer = false }.PlaysFromItsBackLine(3, hasAPlayer: false), Is.True);
+            Assert.That(PvpOrderWeights.WithoutPush(PvpOrder.Push, true), Is.EqualTo(PvpOrder.Engage), "it does not push");
+            Assert.That(PvpOrderWeights.WithoutPush(PvpOrder.Push, false), Is.EqualTo(PvpOrder.Push));
+            Assert.That(PvpOrderWeights.WithoutPush(PvpOrder.Extend, true), Is.EqualTo(PvpOrder.Extend));
+            Assert.That(PvpOrderWeights.WithoutPush(PvpOrder.Regroup, true), Is.EqualTo(PvpOrder.Regroup));
+        }
+
+        [Test]
+        public void TheMiddleOfTwoFightsIsNoFight()
+        {
+            // The owner's group near the middle of Agramon, on its way back to the south-west field, with a fight left alone
+            // at the north-west field and another at the south-east field.
+            (double X, double Y) group = (523168, 467144), southWestField = (517288, 472752);
+            (double X, double Y) northWestFight = PvpRoam.MiddleOf([(518702, 458496), (518710, 459396)]);
+            (double X, double Y) southEastFight = PvpRoam.MiddleOf([(530809, 472711), (530312, 473191)]);
+            int side = 0;
+            Assert.That(PvpRoam.AroundAFight(group, southWestField, northWestFight, ref side), Is.Null, "its road does not pass that fight");
+            Assert.That(PvpRoam.AroundAFight(group, southWestField, southEastFight, ref side), Is.Null, "nor that one");
+            // Their middle is 1,950 units from the group: taken for a fight, the group went round it.
+            (double X, double Y) middle = PvpRoam.MiddleOf([northWestFight, southEastFight]);
+            Assert.That(PvpRoam.AroundAFight(group, southWestField, middle, ref side), Is.Not.Null);
+        }
+
+        [Test]
+        public void AHealerOrCasterHitsAGreyPetThatIsOnIt()
+        {
+            Assert.That(DOL.AI.Brain.BotBrain.StaffsAGreyPet(false, true, true, false), Is.True, "a Druid's lesser spirit on a Cleric: one blow");
+            Assert.That(DOL.AI.Brain.BotBrain.StaffsAGreyPet(false, false, true, false), Is.False, "a pet of its own level is not fenced with");
+            Assert.That(DOL.AI.Brain.BotBrain.StaffsAGreyPet(false, true, true, true), Is.False, "with an enemy fighter on it the pet is the least of its troubles");
+            Assert.That(DOL.AI.Brain.BotBrain.StaffsAGreyPet(true, true, true, false), Is.False, "a fighter has its own targets");
+            Assert.That(DOL.AI.Brain.BotBrain.StaffsAGreyPet(false, true, false, false), Is.False);
+        }
+
+        [Test]
+        public void ATeamDoesNotTakeAWayThatPassesAFightThatIsNotItsOwn()
+        {
+            PvpRoamMap map = PvpRoamZones.Agramon;
+            (int X, int Y) farNorthWest = (514288, 451752), westField = (510288, 465752), northWestField = (517288, 458752),
+                middle = (524288, 465752), northEastField = (531288, 458752);
+            // The owner's group at the north-west field, turned away from a fight on its way to the north-east field, the
+            // west field and the far north-west among its last three points, and the fight at the middle.
+            (double X, double Y)[] fights = [(523800, 465500)];
+            Assert.That(PvpRoam.LegPassesAFight(northWestField, middle, fights), Is.True);
+            Assert.That(PvpRoam.LegPassesAFight(northWestField, westField, fights), Is.False);
+            for (int roll = 0; roll < 20; roll++)
+                Assert.That(PvpRoam.NextPoint(map, northWestField, northEastField, 0, roll, [westField, farNorthWest, northWestField], fights),
+                    Is.Not.EqualTo(middle), "back to a point it has been at before a way through a fight");
+            // Without a fight the middle is where it goes: the only way that is neither back nor a point it has just been at.
+            Assert.That(PvpRoam.NextPoint(map, northWestField, northEastField, 0, 0, [westField, farNorthWest, northWestField]), Is.EqualTo(middle));
+            // Where every way passes the fight, it takes one all the same.
+            Assert.That(map.From(middle), Does.Contain(PvpRoam.NextPoint(map, middle, null, 0, 0, null, fights)));
+        }
+
+        [Test]
         public void AGroupRestsForItsTimersSoThatNoneRunsOutInAFight()
         {
             // After a fight, hurt or not: a timer that is half run is cast again before the next one.

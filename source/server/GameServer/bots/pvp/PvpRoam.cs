@@ -488,6 +488,13 @@ namespace DOL.GS
         public static int EightZoneGuilds(int guildsOfTheRealm, int atTheMost, bool thePlayersGroupIsOfThisRealm) =>
             Math.Max(0, EightZoneGroups(guildsOfTheRealm + (thePlayersGroupIsOfThisRealm ? 1 : 0), atTheMost) - (thePlayersGroupIsOfThisRealm ? 1 : 0));
 
+        /// <summary>The middle of the groups of one fight.</summary>
+        public static (double X, double Y) MiddleOf(IEnumerable<(double X, double Y)> centres)
+        {
+            List<(double X, double Y)> all = centres.ToList();
+            return all.Count == 0 ? (0, 0) : (all.Average(centre => centre.X), all.Average(centre => centre.Y));
+        }
+
         /// <summary>A team's timers are looked at every tenth second, each team in a second of its own: the look reads every member's spells and effects.</summary>
         private static bool LooksAtItsTimers(PvpRoamTeam team, long now) => (now / 1_000 + team.Index) % 10 == 0;
 
@@ -672,12 +679,24 @@ namespace DOL.GS
         /// came from ? ... we just did a yoyo between 2 locations". In four and a half minutes it had been at the same
         /// three points of the north-west four times each, turned away from a fight to the east three times.
         /// </param>
+        /// <param name="fights">
+        /// Where fights are on that are not this team's (<see cref="LegPassesAFight"/>): no way that passes one of
+        /// them, while another way leads on, and the way back before a way through a fight. The owner, behind its
+        /// Sorcerer on Agramon, 2026-11-26: "There's an albion team fighting another midgard group and we ran in their
+        /// fight twice in a row". Its group had come on that fight, left them to it and turned away; five seconds
+        /// later, at the point it had left, the way to the middle was the only one that was neither the way back nor
+        /// one of its last three points, and the fight was at the middle: it passed 522 units from it, and 887 on its
+        /// next leg.
+        /// </param>
         public static (int X, int Y) NextPoint(PvpRoamMap map, (int X, int Y) at, (int X, int Y)? cameFrom, int leaning, int roll,
-            IReadOnlyCollection<(int X, int Y)> lately = null)
+            IReadOnlyCollection<(int X, int Y)> lately = null, IReadOnlyCollection<(double X, double Y)> fights = null)
         {
             List<(int X, int Y)> choices = map.From(at);
             if (choices.Count == 0)
                 return at;
+            // (Before the way back is taken out: back is better than through a fight.)
+            if (fights is { Count: > 0 } && choices.Any(point => !LegPassesAFight(at, point, fights)))
+                choices.RemoveAll(point => LegPassesAFight(at, point, fights));
             if (cameFrom is { } back && choices.Count > 1)
                 choices.Remove(back);
             if (lately != null && choices.Any(point => !lately.Contains(point)))
@@ -837,6 +856,20 @@ namespace DOL.GS
 
         /// <summary>How many of the points it was at last a team does not go back to while another way leads on (<see cref="NextPoint"/>).</summary>
         public const int RemembersPoints = 3;
+
+        /// <summary>Whether the straight way from a point to the next passes within <see cref="PassesAFightAt"/> of a fight.</summary>
+        public static bool LegPassesAFight((int X, int Y) from, (int X, int Y) to, IReadOnlyCollection<(double X, double Y)> fights)
+        {
+            double dx = to.X - from.X, dy = to.Y - from.Y, length = dx * dx + dy * dy;
+            foreach ((double x, double y) in fights)
+            {
+                double along = length <= 0 ? 0 : Math.Clamp(((x - from.X) * dx + (y - from.Y) * dy) / length, 0, 1);
+                double nearX = from.X + along * dx, nearY = from.Y + along * dy;
+                if (Math.Sqrt((x - nearX) * (x - nearX) + (y - nearY) * (y - nearY)) < PassesAFightAt)
+                    return true;
+            }
+            return false;
+        }
 
         /// <summary>The point a way leads to from <paramref name="at"/> that is nearest to a place: where a team that comes looking goes next.</summary>
         public static (int X, int Y) PointToward(PvpRoamMap map, (int X, int Y) at, (double X, double Y) place)
@@ -2615,7 +2648,9 @@ namespace DOL.GS
                     if (bot.IsAlive && !bot.IsCasting && bot.MaxMana > 0 && bot.ManaPercent < 40)
                         bot.Mana = bot.MaxMana;
                 }
-                if (now >= team.LeavesAt)
+                // (Half a minute more for a member that still has a servant to call: a Bonedancer's commander and its three.)
+                if (now >= team.LeavesAt && (now >= team.LeavesAt + 30_000 ||
+                        !team.Team.Bots.Any(bot => bot.IsAlive && bot.Brain is BotBrain servants && servants.PvpHasPetToSummon())))
                 {
                     foreach (GameBot bot in team.Team.Bots.Where(bot => bot.IsAlive))
                         (bot.Health, bot.Mana, bot.Endurance) = (bot.MaxHealth, bot.MaxMana, bot.MaxEndurance);
@@ -2867,12 +2902,21 @@ namespace DOL.GS
                     if (team.GaveUpWaiting && leftAFightNear && enemies.Count == 0 && team.Team.Route is { Length: > 0 } road &&
                         now - team.GaveUpAt < GoesRoundForSeconds * 1_000L)
                     {
+                        // Each fight by itself, the nearest that its road passes first: the middle of two fights is no fight.
+                        // (The owner, behind its Sorcerer on Agramon, 2026-11-26: "it's driving back and fort the same few units
+                        // in middle agreamon". It had left alone a fight at the north-west field and one at the south-east
+                        // field, 9,400 and 9,700 units from it on either side; their middle was the middle of the island,
+                        // 1,950 units from the group, and for forty seconds it went round a fight that was not there.)
+                        (double tx, double ty) = team.Centre();
                         List<(double X, double Y)> left = team.Draws.Where(draw => !draw.Value && draw.Key.Alive > 0 && Near(team, draw.Key, 12_000))
-                            .SelectMany(draw => draw.Key.Fighting.Where(other => other.Alive > 0).Append(draw.Key)).Distinct().Select(other => other.Centre()).ToList();
-                        if (left.Count > 0)
+                            .Select(draw => MiddleOf(draw.Key.Fighting.Where(other => other.Alive > 0).Append(draw.Key).Select(other => other.Centre())))
+                            .OrderBy(fight => Math.Pow(fight.X - tx, 2) + Math.Pow(fight.Y - ty, 2)).ToList();
+                        (int X, int Y) next = road[team.Team.Waypoint % road.Length];
+                        foreach ((double X, double Y) fight in left)
                         {
-                            (int X, int Y) next = road[team.Team.Waypoint % road.Length];
-                            round = AroundAFight(team.Centre(), (next.X, next.Y), (left.Average(centre => centre.X), left.Average(centre => centre.Y)), ref team.AroundSide);
+                            round = AroundAFight((tx, ty), (next.X, next.Y), fight, ref team.AroundSide);
+                            if (round != null)
+                                break;
                         }
                     }
                     team.Team.March(enemies, team.Start.Point, null, null, team.ContactTick,
@@ -3137,7 +3181,11 @@ namespace DOL.GS
             team.Lately.Add(at);
             while (team.Lately.Count > RemembersPoints)
                 team.Lately.RemoveAt(0);
-            (int X, int Y) next = NextPoint(team.Map, at, team.CameFrom, leaning, Random.Shared.Next(), team.Lately);
+            // (And not along a way that passes a fight that is not its own: of two other groups, or one it has left alone.)
+            List<(double X, double Y)> fights = teams.Where(other => other != team && other.Map == team.Map && other.Alive > 0 && !other.Reforming &&
+                    other.Fighting.Any(fought => fought.Alive > 0) && !team.Fighting.Contains(other) && team.Claim != other)
+                .Select(other => other.Centre()).ToList();
+            (int X, int Y) next = NextPoint(team.Map, at, team.CameFrom, leaning, Random.Shared.Next(), team.Lately, fights);
             // A team that hunts packs goes toward the nearest groups of an enemy realm that walk together in its zone
             // (the realm's chat says where they are), and that nobody is fighting yet.
             PvpRoamTeam prey = team.Profile is { HuntsPacks: true }

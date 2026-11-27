@@ -1261,6 +1261,9 @@ namespace DOL.AI.Brain
             // "/8v8 call rest", and a team of bots between two fights: buffs, then rest.
             if (TryPvpRest())
                 return;
+            // A grey pet of the enemy on a healer or caster: hit until it is down, before anything else.
+            if (TryPvpStaffAGreyPet())
+                return;
 
             CompanionPvpEngagement.Observe(BotBody);
             // Goal 11: a /raid 40 or /raid 80 on a keep siege works its squad job (rams, engines) on its own.

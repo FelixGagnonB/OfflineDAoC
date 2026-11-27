@@ -673,6 +673,10 @@ namespace DOL.GS
             .Select(spell => spell.Range).DefaultIfEmpty(0).Max();
         // Free enemy fighters in melee on the group's healers and casters.
         private List<GameLiving> _pursuers = [];
+        /// <summary>A group of casters: its fighters keep to its back line in Engage as under Extend, and it does not push (PvpOrderWeights.CasterGroupFrom).</summary>
+        public bool PlaysFromItsBackLine => PvpWeights.Of(_members.FirstOrDefault()).Order.PlaysFromItsBackLine(
+            _allies.Count(member => PvpMember.ArchetypeOf(member) == PvpBuffArchetype.Caster), _allies.Any(member => member is GamePlayer));
+
         // Since when each enemy fighter has been on the group's healers and casters.
         private readonly Dictionary<GameLiving, long> _onBackLineSince = new();
         // When each was last on them (PvpOrders.PursuerForMilliseconds).
@@ -738,6 +742,8 @@ namespace DOL.GS
                     _members.Where(member => member.IsAlive && PvpMember.RoleOf(member) == PvpRole.Heal).Select(member => new Vector2(member.X, member.Y)).ToList());
                 order = PvpOrders.Choose(Own, Theirs, _pursuers.Select(enemy => enemy.TargetObject).Distinct().Count(),
                     Order == PvpOrder.Hold ? PvpOrder.Engage : Order, (now - _orderSince) / 1000.0, weights.Order, far);
+                // A group of casters does not push (PvpOrderWeights.CasterGroupFrom).
+                order = PvpOrderWeights.WithoutPush(order, PlaysFromItsBackLine);
             }
             else if (!_holdOver && known.Count > 0)
             {
@@ -1371,6 +1377,7 @@ namespace DOL.GS
             foreach (GameLiving gone in _pursuerAt.Where(seen => !seen.Key.IsAlive || assignedAt - seen.Value > PvpOrders.PursuerForMilliseconds).Select(seen => seen.Key).ToList())
                 _pursuerAt.Remove(gone);
             List<GameLiving> lately = _pursuers.Concat(_pursuerAt.Keys.Where(enemy => !_pursuers.Contains(enemy) && alive.Contains(enemy) && !enemy.IsMezzed)).ToList();
+            bool backLineGroup = PlaysFromItsBackLine;
             Dictionary<GameBot, GameLiving> duty = InterruptDuty(team, alive, target);
             // The enemies a healer's pet has been sent at this turn: two Druids, two enemies.
             var petsOn = new HashSet<GameLiving>();
@@ -1462,7 +1469,17 @@ namespace DOL.GS
                 if (MopsUp && mine != null && bot.IsAlive && IsFighter(bot))
                     aim = mine;
                 // (An enemy that was on them a moment ago is still one to turn on: lately.)
-                if (!calledOnto && Order == PvpOrder.Extend && lately.Count > 0 && role == PvpRole.Assist && onDuty == null && bot.IsAlive &&
+                // (A group of casters does both in Engage too: PvpOrderWeights.CasterGroupFrom. Its Minstrel leaves its
+                // interrupt duty for it: that is at the enemy's healers, far from its own.)
+                bool byItsBackLine = Order == PvpOrder.Extend || backLineGroup && Order == PvpOrder.Engage;
+                if (backLineGroup && byItsBackLine && means == PvpInterruptMeans.Melee && !calledOnto && IsFighter(bot))
+                {
+                    onDuty = null;
+                    brain.PvpDutyTarget = null;
+                    if (aim != null && aim != mine)
+                        aim = mine != null && PvpRoles.JoinsKill(role, mine.HealthPercent) ? mine : null;
+                }
+                if (!calledOnto && byItsBackLine && lately.Count > 0 && role == PvpRole.Assist && onDuty == null && bot.IsAlive &&
                     IsFighter(bot) && PvpWeights.Of(bot).Order.ExtendFightersTurnOnPursuers)
                 {
                     // It stays on the one it has, and two fighters take two different ones (PvpOrders.ChoosePursuer).
@@ -1478,7 +1495,7 @@ namespace DOL.GS
                 // Under Regroup every fighter that is far comes back, the ones with interrupt duty too.
                 int stayWithin = PvpWeights.Of(bot).Order.ExtendFightersStayWithin;
                 float fromHome = home is { } middle ? Vector2.Distance(new Vector2(bot.X, bot.Y), new Vector2(middle.X, middle.Y)) : 0;
-                bool keepsToItsBackLine = home != null && Order == PvpOrder.Extend && !Kiting && lately.Count == 0 && stayWithin > 0 && onDuty == null &&
+                bool keepsToItsBackLine = home != null && byItsBackLine && !Kiting && lately.Count == 0 && stayWithin > 0 && onDuty == null &&
                     role == PvpRole.Assist && bot.IsAlive && IsFighter(bot) && !calledOnto && !MopsUp;
                 if (keepsToItsBackLine)
                 {
@@ -1568,7 +1585,7 @@ namespace DOL.GS
                 // a turn it took itself.) Never left on an enemy that has since been mezzed.
                 // A healer's pet (a Druid's) keeps an enemy healer or caster from casting
                 // (PvpInterruptWeights.HealersPetsInterrupt): it had no orders and defended its owner.
-                bool castersPet = PvpMember.ClassOf(bot) is eCharacterClass.Cabalist or eCharacterClass.Enchanter or eCharacterClass.Spiritmaster;
+                bool castersPet = PvpMember.ClassOf(bot) is eCharacterClass.Cabalist or eCharacterClass.Enchanter or eCharacterClass.Spiritmaster or eCharacterClass.Bonedancer;
                 bool healersPet = !castersPet && role == PvpRole.Heal && PvpWeights.Of(bot).Interrupt.HealersPetsInterrupt;
                 if (FightStarted && bot.IsAlive && (castersPet || healersPet) &&
                     bot.ControlledBrain is ControlledMobBrain { Body: { IsAlive: true } } pet)
@@ -2121,6 +2138,9 @@ namespace DOL.GS
                 }
                 // Gathered against enemy pets (ClearPets): it stays, unless an enemy fighter is on it.
                 if (Gathering.Contains(bot) && !hunted)
+                    continue;
+                // At a grey pet with its staff (BotBrain.StaffsAGreyPet): it stays until the pet is down.
+                if (now < brain.PvpStaffsUntil && !hunted)
                     continue;
                 // After a step it works from its new place for a while; one running from held fighters does not wait.
                 // (The wait counts from its arrival: PvpPositionWeights.StepWaitCountsFromArrival.)
