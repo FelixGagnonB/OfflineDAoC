@@ -3873,6 +3873,25 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [ ] **M13.59** (S) The blow at a pet is struck. *Found 2026-11-27 in the owner's fight; built; unit-tested (the
+  rule); an evening of bots on the scrim copy, see RESULT; installed (`v0.1.15`); not seen by the owner.* The
+  owner, on its Cleric: "I am not sure the rule to attack pet when caster are unable to cast worked. One of our
+  caster had a druid grey pet and I just ran to it and auto-attack it". Its recording: a Druid's lynx youth went
+  from one of its casters to the next; all three took the decision to hit it (M13.51); one struck one blow, its
+  Sorcerer stood beside it for 5 seconds and its Theurgist for 16 with the lynx as their target, and struck none,
+  until the owner killed it. Every swing of a bot first asks its brain for a spell and is called off when the
+  brain says its turn is taken (`NpcAttackAction.PrepareMeleeAttack`), and a bot that staffs a pet says exactly
+  that: its swing was called off each time and begun again at its next thought. Only a blow begun before the
+  pet's first hit had landed went through. In 33 minutes of that evening, all groups: of 231 decisions to hit a
+  grey pet 49 were followed by a blow, and of 261 to hit a pet that is not grey (the rule of 2026-11-19), none.
+  The counts of M13.51 ("65 pets taken by the rule") were of decisions, not of blows. Now the swing of an 8v8
+  bot that is at a pet with its staff, the pet alive and still on it, does not ask
+  (`BotBrain.StrikesBeforeItChoosesASpell`); gamebots and the companions of the game as it was are as before.
+  RESULT: 8 minutes, 12 groups a realm, 0 faults, the game loop at 98% of its rate: 12 of 14 decisions to hit a
+  grey pet were followed by a blow within ten seconds (all 12 did damage), and 34 of 37 on a pet that is not
+  grey (56 blows hit, 9 missed). A healer that hits a grey pet does not heal until the pet is down or has turned
+  away, as M13.51 has it; before, its heals came through the swing that was called off. How that plays is not
+  known.
 - [ ] **M13.58** (S) More points and legs in the nine frontier zones, and four groups a realm in the 8v8 zone.
   *Built 2026-11-27; unit-tested; one evening of bots on the scrim copy, see RESULT; the maps drawn on the client's
   zone maps and two of them looked at (Pennine, Jamtland); installed (`v0.1.14`); not played.* The owner, with the
@@ -4053,7 +4072,8 @@ kept; a way for a dead player to tell the group "just die".
   to which a pet is of its owner's level (`GameNPC.EffectiveLevel`); it is asked of the pet's own level now
   (`PvpPetIsGrey`; a Druid's lesser spirit is of level 12 at the most). In the evening after that: 65 pets taken by
   the rule in 12 minutes (19 by Clerics, 16 by Shamans, 8 each by Runemasters and Healers; lesser nature spirits,
-  lynx, wolf and bear youths), beside 101 by the old rule.
+  lynx, wolf and bear youths), beside 101 by the old rule. (Those were decisions, not blows: most of the blows
+  were called off until `v0.1.15`, see M13.59.)
 - [x] **M13.50** (S) The middle of two fights is no fight. *Built 2026-11-26; unit-tested with the positions of the
   owner's session; evenings of bots passed with it and show nothing of it by themselves; installed (`v0.1.11`); not
   seen by the owner.* The owner, behind its Sorcerer: "it's driving back and fort the
