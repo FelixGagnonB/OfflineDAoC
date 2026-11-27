@@ -3875,7 +3875,7 @@ kept; a way for a dead player to tell the group "just die".
   than `/8v8 go`, which stays.
 - [ ] **M13.58** (S) More points and legs in the nine frontier zones, and four groups a realm in the 8v8 zone.
   *Built 2026-11-27; unit-tested; one evening of bots on the scrim copy, see RESULT; the maps drawn on the client's
-  zone maps and two of them looked at (Pennine, Jamtland); not installed yet; not played.* The owner, with the
+  zone maps and two of them looked at (Pennine, Jamtland); installed (`v0.1.14`); not played.* The owner, with the
   pool of M13.56 in the game: "For the 8v8 zone that are in the zone pool, could we make sure the navmesh has many
   legs? Could we try to run a little bit more teams, so roaming before a fight is a little bit shorter? Maybe 3
   to 4 teams per realm?" The nine frontier maps had 7 to 9 points 18,000 and more apart and 9 to 15 legs of
@@ -3894,7 +3894,7 @@ kept; a way for a dead player to tell the group "just die".
   evening with two groups a realm there was taken to set beside it.
 - [ ] **M13.57** (S) With a companion at the wheel the group goes for what its player targets, and no group turns
   back into a dead end. *Built 2026-11-27 from the owner's evening in the Pennine Mountains; unit-tested (the
-  two rules); the evening of bots of M13.58 ran with it; not installed yet; neither has been seen at work with a
+  two rules); the evening of bots of M13.58 ran with it; installed (`v0.1.14`); neither has been seen at work with a
   player.* The owner: "my current group ignored an Albion group that was coming at us. I clicked on the albion
   and also used the engage macro but we just ran away". Its recording: a member of The Pendragon Levy was its
   target for ten seconds at 4,400 to 5,900 units, it called engage three times, and its Bard walked on along its
