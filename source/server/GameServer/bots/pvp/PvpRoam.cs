@@ -159,6 +159,8 @@ namespace DOL.GS
         public readonly HashSet<PvpRoamTeam> ComingSeen = [];
         /// <summary>The player's group with one of its own at the wheel: when it last saw each enemy group (PvpDriver.KnowsOf).</summary>
         public readonly Dictionary<PvpRoamTeam, long> LastSeen = [];
+        /// <summary>The player's group with one of its own at the wheel: when its player last pointed each enemy group out (PvpDriver.GoesForWhatItsPlayerPointsOut).</summary>
+        public readonly Dictionary<PvpRoamTeam, long> PointedOut = [];
         public readonly HashSet<GameLiving> Paid = [];
         public int Wipes, Kills, Deaths, Fights, Joined, LeftAlone;
         public long Earned;
@@ -541,7 +543,13 @@ namespace DOL.GS
         // The 8v8 zone of the evening that is on; null when it has none.
         private static volatile PvpRoamMap _eight;
 
-        /// <summary>How many guilds of a realm are in the 8v8 zone: a third of those that are out, one at the least, and no more than the settings say.</summary>
+        /// <summary>
+        /// How many guilds of a realm are in the 8v8 zone: a third of those that are out, one at the least, and no more
+        /// than the settings say (PvpRealWeights.EightZoneGroups: two until 2026-11-27, four since). The owner, that day,
+        /// with twelve groups a realm of which two were in the 8v8 zone: "Could we try to run a little bit more teams, so
+        /// roaming before a fight is a little bit shorter? Maybe 3 to 4 teams per realm?" Three of nine to eleven, four of
+        /// twelve and more.
+        /// </summary>
         public static int EightZoneGroups(int guildsOfTheRealm, int atTheMost) =>
             guildsOfTheRealm <= 0 ? 0 : Math.Clamp(guildsOfTheRealm / 3, 1, Math.Max(1, atTheMost));
 
@@ -1634,6 +1642,7 @@ namespace DOL.GS
             team.Draws.Clear();
             team.ComingSeen.Clear();
             team.LastSeen.Clear();
+            team.PointedOut.Clear();
             team.Waiting = false;
             (team.Absent, team.State, team.StateSince, team.ContactTick, team.DeadSince) = (true, "Absent", now, 0, 0);
             PvpRecorder.Regroup(_recording, team.Name, [team.Leader]);
@@ -2452,6 +2461,9 @@ namespace DOL.GS
             team.Fighting.RemoveWhere(other => other.Alive == 0 || !Near(team, other, 6_000) ||
                                                HasGoneCold(now - Math.Max(team.LastCombatTick, other.LastCombatTick)));
             team.ComingSeen.RemoveWhere(other => other.Alive == 0 || team.Fighting.Count == 0 || !Near(team, other, 9_000));
+            foreach (PvpRoamTeam gone in team.PointedOut.Where(pointed => !driven || !others.Contains(pointed.Key) ||
+                         !PvpDriver.GoesForWhatItsPlayerPointsOut((now - pointed.Value) / 1000.0)).Select(pointed => pointed.Key).ToList())
+                team.PointedOut.Remove(gone);
             foreach (PvpRoamTeam other in others)
             {
                 // This enemy team is already in a fight, with this team's realm-mate or with a team of the
@@ -2559,7 +2571,17 @@ namespace DOL.GS
                     return false;
                 // (With a companion at the wheel what the player strikes or calls is the group's all the same; the rest is the driver's.)
                 if (team.Leader != null && (wheel != null || Picks(other)))
+                {
+                    // (With a companion at the wheel the group goes for it whether its seven see it or not, and knows of it for
+                    // a moment after its player has looked away: PvpDriver.GoesForWhatItsPlayerPointsOut.)
+                    if (driven && Picks(other))
+                    {
+                        if (!team.PointedOut.ContainsKey(other))
+                            Say($"{team.Name} goes for {other.Name}: its player points it out", new { what = "pointed", team = team.Name, other = other.Name });
+                        team.PointedOut[other] = team.LastSeen[other] = now;
+                    }
                     return PlayerTakesItOn(team.Fighting.Contains(other), attacks, Picks(other));
+                }
                 // With a companion at the wheel the group does not go for a fight without its player: one it is not in, and
                 // that is not on it, is left while its player is behind or down (PvpDriver.GoesForAFight).
                 if (driven && !team.Fighting.Contains(other) && !attacks && !playerIsWithIt)
@@ -2999,7 +3021,8 @@ namespace DOL.GS
                         }
                     }
                     team.Team.March(enemies, team.Start.Point, null, null, team.ContactTick,
-                        FightItJoined(foes.Select(other => (other.Centre(), team.Draws.TryGetValue(other, out bool joins) && joins)), team.Centre()) ?? round);
+                        FightItJoined(foes.Select(other => (other.Centre(), team.Draws.TryGetValue(other, out bool joins) && joins)), team.Centre()) ?? round,
+                        driven ? foes.Where(team.PointedOut.ContainsKey).SelectMany(other => other.Team.Members).Where(member => member.IsAlive).ToList() : null);
                 }
             }
             if (enemies.Count > 0)
@@ -3219,6 +3242,16 @@ namespace DOL.GS
         }
 
         /// <summary>
+        /// Whether a group turns back to the point it came from, away from a fight it leaves alone: not into a dead end, a
+        /// point with no way out but the leg it is on. It goes round the fight then. The owner, 2026-11-27, in the Pennine
+        /// Mountains: "Is ther a reason why my group stays in the north? We don't go to middle nor south". Its Bard had
+        /// walked to the north field, whose one leg goes to the middle, where a group of its realm fought; three times
+        /// in four minutes it came back down that leg, turned away from the fight 8,000 to 9,000 units off and walked
+        /// back up to the north field.
+        /// </summary>
+        public static bool TurnsBack(bool hasAPointBehindIt, int waysOutOfThatPoint) => hasAPointBehindIt && waysOutOfThatPoint > 1;
+
+        /// <summary>
         /// A guild that walks on its own turns back to the point it came from, when it has one
         /// (before its first point it has none, and waits as a team of the roam does). In the
         /// first evening of bots (2026-11-22) three of the six teams that do not add stood
@@ -3227,7 +3260,8 @@ namespace DOL.GS
         /// </summary>
         private static bool TurnsAway(PvpRoamTeam team)
         {
-            if (team.Entry == null || team.CameFrom is not { } back || team.Team.Route is not { Length: 1 } route)
+            if (team.Entry == null || team.CameFrom is not { } back || team.Team.Route is not { Length: 1 } route ||
+                !TurnsBack(true, team.Map.Ways?.Count(way => way.A == back || way.B == back) ?? 0))
                 return false;
             (team.Team.Route, team.CameFrom, team.Team.Waypoint, team.ArrivedAt) = ([back], route[0], 0, 0);
             return true;

@@ -265,6 +265,10 @@ start there; `/8v8 who` lists it as "8v8 only".
   again (two minutes at the most), and start nothing hurt themselves. A bad or a casual group
   attacks as it finds you.
 - You are held to none of it by the game: your companions go for what you attack or call.
+- With a companion at the wheel (`/8v8 drive on`), click an enemy within 6,500 units and the group
+  turns and goes for that group, whether your companions have seen it or not (since `v0.1.14`).
+- A third of your realm's groups are in the 8v8 zone, four at the most (two before `v0.1.14`):
+  with twelve groups a realm that is four, yours among them.
 
 Which zone it is, how many guilds are in it and how long a group is left to rest are settings
 (`EightZone`, `EightZoneGroups`, `EightZoneRestSeconds`; see the handover page). Thidranki has

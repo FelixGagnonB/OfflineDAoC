@@ -146,7 +146,7 @@ namespace DOL.GS
         /// clean zone of that evening a group that adds came into two of its three fights.
         /// </summary>
         public bool CleanZonesHaveNoAdds { get; set; } = true;
-        public int EightZoneGroups { get; set; } = 2;
+        public int EightZoneGroups { get; set; } = 4;
         public int EightZoneRestSeconds { get; set; } = 120;
 
         /// <summary>Whether a team of bots rests now: a member is low, and nobody is near to fight.</summary>

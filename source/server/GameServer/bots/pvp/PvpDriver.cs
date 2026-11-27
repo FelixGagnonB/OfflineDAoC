@@ -91,6 +91,19 @@ namespace DOL.GS
             fightingIt || itAttacks || secondsSinceItSawIt is { } ago && ago <= RemembersForSeconds;
 
         /// <summary>
+        /// An enemy group its player points out is the group's to go for, whether one of its seven sees it or not: the
+        /// player has a member of it as its target within the range the group forms up at (PvpRoam.PlayerPicks), or had
+        /// a moment ago (<see cref="RemembersForSeconds"/>). The driver marched only on what its seven saw, and a bot that
+        /// walks sees less far beside and behind it than ahead. The owner, 2026-11-27, in the Pennine Mountains: "my
+        /// current group ignored an Albion group that was coming at us. I clicked on the albion and also used the engage
+        /// macro but we just ran away". In its recording it had a member of that group as its target for ten seconds,
+        /// 4,400 to 5,900 units off, and called engage three times; its Bard walked on along its leg.
+        /// </summary>
+        /// <param name="secondsSinceItPointedItOut">Null: its player has not pointed that group out.</param>
+        public static bool GoesForWhatItsPlayerPointsOut(double? secondsSinceItPointedItOut) =>
+            secondsSinceItPointedItOut is { } ago && ago <= RemembersForSeconds;
+
+        /// <summary>
         /// The pace of a group one of its own drives: no faster than its player can run right now, and a little slower
         /// while its player is behind, so that it comes up. 0: its own speed. The owner, 2026-11-26: "make sticking to the
         /// driving bot a smoother experience". In its last session the group set off to rest after a fight at 490 units a

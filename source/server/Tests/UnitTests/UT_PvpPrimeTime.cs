@@ -121,6 +121,17 @@ namespace DOL.UnitTests
             Assert.That(PvpRoam.EveningZones(PvpRoam.Emain, 8, new Random(1), null), Does.Not.Contain(PvpRoam.Thidranki), "no 8v8 zone named");
             // A third of a realm's guilds, two at the most as it is set, one at the least.
             Assert.That(PvpRoam.EightZoneGroups(8, 2), Is.EqualTo(2));
+            // (Four at the most since 2026-11-27: three of nine to eleven, four of twelve.)
+            Assert.That(new PvpRealWeights().EightZoneGroups, Is.EqualTo(4));
+            Assert.That(PvpRoam.EightZoneGroups(8, 4), Is.EqualTo(2));
+            Assert.That(PvpRoam.EightZoneGroups(9, 4), Is.EqualTo(3));
+            Assert.That(PvpRoam.EightZoneGroups(11, 4), Is.EqualTo(3));
+            Assert.That(PvpRoam.EightZoneGroups(20, 4), Is.EqualTo(4));
+            Assert.That(PvpRoam.EightZoneGuilds(12, 4, true), Is.EqualTo(3), "twelve guilds and the player's group: three guilds there, and the player's");
+            // A group does not turn back from a fight into a dead end.
+            Assert.That(PvpRoam.TurnsBack(true, 3), Is.True);
+            Assert.That(PvpRoam.TurnsBack(true, 1), Is.False, "the point behind it has no way out but this leg");
+            Assert.That(PvpRoam.TurnsBack(false, 0), Is.False, "before its first point");
             Assert.That(PvpRoam.EightZoneGroups(7, 2), Is.EqualTo(2));
             Assert.That(PvpRoam.EightZoneGroups(4, 2), Is.EqualTo(1));
             Assert.That(PvpRoam.EightZoneGroups(2, 2), Is.EqualTo(1));
@@ -891,11 +902,16 @@ namespace DOL.UnitTests
                 // The realm of the zone is in front of one of its keeps; the two others have none there.
                 Assert.That(zone.Starts.Where(start => start.AtKeep).Select(start => start.Realm), Is.EqualTo(new[] { home[zone.Region] }), zone.Name);
                 List<(int X, int Y)> points = zone.Places.Select(place => place.Point).ToList();
-                Assert.That(points, Has.Count.InRange(5, 9), zone.Name);
+                // (Seven to nine points and nine to fifteen legs at first; more of both since they are ground for the 8v8 zone: M13.58.)
+                Assert.That(points, Has.Count.InRange(13, 14), zone.Name);
+                Assert.That(zone.Ways, Has.Count.InRange(24, 38), zone.Name);
+                Assert.That(zone.Places.Select(place => place.Name).Distinct().Count(), Is.EqualTo(points.Count), zone.Name + ": each point has a name of its own");
+                // A point with one leg only is one a group can but walk back from: two a zone at the most.
+                Assert.That(points.Count(point => zone.From(point).Count == 1), Is.LessThanOrEqualTo(2), zone.Name);
                 Assert.That(zone.Quiet, Has.Count.EqualTo(1), zone.Name);
                 Assert.That(points, Does.Contain(zone.Quiet[0]), zone.Name);
                 foreach (((int X, int Y) a, (int X, int Y) b) in zone.Ways)
-                    Assert.That(Math.Sqrt(Math.Pow(a.X - b.X, 2) + Math.Pow(a.Y - b.Y, 2)), Is.InRange(10_000, 27_000), $"{zone.Name} {a} {b}");
+                    Assert.That(Math.Sqrt(Math.Pow(a.X - b.X, 2) + Math.Pow(a.Y - b.Y, 2)), Is.InRange(9_800, 27_000), $"{zone.Name} {a} {b}");
                 // Every point can be walked to from every other.
                 var reached = new HashSet<(int X, int Y)> { points[0] };
                 for (int round = 0; round < points.Count; round++)
@@ -908,6 +924,7 @@ namespace DOL.UnitTests
                 PvpRoamStart keep = zone.Starts.First(start => start.AtKeep);
                 Assert.That(zone.PlaceOf(keep.Point.X, keep.Point.Y), Is.EqualTo($"the {PvpRoam.Short(keep.Realm, false)} keep"), zone.Name);
             }
+            Assert.That(PvpRoamZones.All.Sum(zone => zone.Places.Count(place => zone.From(place.Point).Count == 1)), Is.EqualTo(4), "Bolg, Jamtland's south field and Glenlock, Snowdonia's south-east field");
             Assert.That(PvpRoam.Emain.Crowd, Is.EqualTo(PvpZoneCrowd.Crowded));
             Assert.That(PvpRoam.OdinsGate.Crowd, Is.EqualTo(PvpZoneCrowd.Mixed));
             Assert.That(PvpRoam.HadriansWall.Crowd, Is.EqualTo(PvpZoneCrowd.Mixed));

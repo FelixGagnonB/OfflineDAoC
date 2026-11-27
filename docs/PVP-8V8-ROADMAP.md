@@ -3873,6 +3873,40 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [ ] **M13.58** (S) More points and legs in the nine frontier zones, and four groups a realm in the 8v8 zone.
+  *Built 2026-11-27; unit-tested; one evening of bots on the scrim copy, see RESULT; the maps drawn on the client's
+  zone maps and two of them looked at (Pennine, Jamtland); installed (`v0.1.14`); not played.* The owner, with the
+  pool of M13.56 in the game: "For the 8v8 zone that are in the zone pool, could we make sure the navmesh has many
+  legs? Could we try to run a little bit more teams, so roaming before a fight is a little bit shorter? Maybe 3
+  to 4 teams per realm?" The nine frontier maps had 7 to 9 points 18,000 and more apart and 9 to 15 legs of
+  18,000 to 22,000 units on average (Agramon: 10 points, 18 legs, 11,600), and six of the nine had one to three
+  points with one leg only. `source/tools/pvp_map_more.py` keeps a zone's points, legs and starts and adds points
+  9,800 and more apart and legs up to 22,500 long whose way on foot is within 13% of the straight line, away
+  from keeps and from where a realm comes in, none through water: 13 or 14 points and 24 to 38 legs a zone now,
+  16,000 to 17,400 on average. Four points still have one leg (Bolg in Breifine, the south field and Glenlock in
+  Jamtland, by its lakes, the south-east field of Snowdonia); nine legs of the first maps touch water and stay.
+  The 8v8 zone has a third of a realm's groups, four at the most where it was two
+  (`PvpRealWeights.EightZoneGroups`): four of twelve, the player's own among its realm's, so the other zones of an
+  evening of twelve share eight groups a realm where they had ten. RESULT: 8 minutes, 12 groups a realm, zones
+  Emain Macha, Hadrian's Wall, Uppland and Jamtland as the 8v8 zone with 12 groups in it; 0 faults, the game
+  loop at 97% of its rate; in Jamtland 21 of its 24 legs were walked, 7 of the 12 groups had a fight, the first
+  101 to 270 seconds after setting off (173 in the middle), never two groups on one. No count of the same
+  evening with two groups a realm there was taken to set beside it.
+- [ ] **M13.57** (S) With a companion at the wheel the group goes for what its player targets, and no group turns
+  back into a dead end. *Built 2026-11-27 from the owner's evening in the Pennine Mountains; unit-tested (the
+  two rules); the evening of bots of M13.58 ran with it; installed (`v0.1.14`); neither has been seen at work with a
+  player.* The owner: "my current group ignored an Albion group that was coming at us. I clicked on the albion
+  and also used the engage macro but we just ran away". Its recording: a member of The Pendragon Levy was its
+  target for ten seconds at 4,400 to 5,900 units, it called engage three times, and its Bard walked on along its
+  leg. With a companion at the wheel the group marched only on enemies one of its seven saw, and a bot that walks
+  sees less far beside and behind it. Now an enemy group the player has a member of as its target within 6,500
+  units is the group's to go for, seen by the seven or not, and for 20 seconds after the player looks away
+  (`PvpDriver.GoesForWhatItsPlayerPointsOut`; the recording says "goes for ...: its player points it out"). And:
+  "Is ther a reason why my group stays in the north? We don't go to middle nor south". Its Bard had walked to the
+  north field, whose one leg went to the middle, where a group of its realm fought; three times in four minutes
+  it came down that leg, turned away from the fight and walked back up. A group, the player's or a guild of
+  bots, no longer turns back to a point that has no other way out: it goes round the fight (`PvpRoam.TurnsBack`).
+  The maps of M13.58 leave four such points in nine zones.
 - [ ] **M13.56** (S) A pool of zones for the 8v8 zone, one drawn for each evening. *Built 2026-11-27; unit-tested;
   evenings of bots on the scrim copy, see RESULT; installed (`v0.1.13`, with the pool of ten in the game's
   `pvp-weights.json`); a player's own evening with it (the draw kept from its last evening, the line that says which zone,
