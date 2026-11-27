@@ -272,7 +272,8 @@ water in it. The game's data has no diving there (you swim on top, as in a front
 need no potion), but whether the water gets in the way of a fight is not known until it is
 played: if it does, `"EightZone": "collory"` (or any zone's word) moves the 8v8 zone.
 
-**A pool of zones** (written 2026-11-27, not in an installed version yet). Name several, with
+**A pool of zones** (since `v0.1.13`; in the game you play it is Agramon and the nine clean
+frontier zones). Name several, with
 commas between, and each evening has one of them, never the one of your evening before:
 `"EightZone": "agramon, collory, snowdonia"`. Any zone of `/8v8 go` can be named but Emain Macha,
 Odin's Gate and Hadrian's Wall, which stay the busy zones.

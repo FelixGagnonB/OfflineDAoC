@@ -3874,8 +3874,8 @@ kept; a way for a dead player to tell the group "just die".
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
 - [ ] **M13.56** (S) A pool of zones for the 8v8 zone, one drawn for each evening. *Built 2026-11-27; unit-tested;
-  evenings of bots on the scrim copy, see RESULT; NOT installed in the game that is played yet (its server was
-  running); a player's own evening with it (the draw kept from its last evening, the line that says which zone,
+  evenings of bots on the scrim copy, see RESULT; installed (`v0.1.13`, with the pool of ten in the game's
+  `pvp-weights.json`); a player's own evening with it (the draw kept from its last evening, the line that says which zone,
   `/8v8 go 8v8`, logging in on Agramon when it is not the 8v8 zone) not tried: for the owner.* RESULT: 3,583 unit
   tests; an evening of twelve groups a realm for six minutes with the pool of ten (`scrim_test.py`): 0 faults,
   17 fights, in its zone where nobody adds no team with two enemy groups on it; then eleven evenings begun one
