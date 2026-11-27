@@ -320,6 +320,30 @@ namespace DOL.GS
                     };
                 }
 
+                // alchemist [Realm=1]: puts the player's alchemist (PvpPotionSeller) beside a buffbot that is in the world (or
+                // beside any bot of the arena), says what it is and has, and takes it out again. For a test without a
+                // player: spawn-group first.
+                case "alchemist":
+                {
+                    eRealm realm = (eRealm)byte.Parse(Arg("Realm") ?? "1");
+                    GameBot buffbot = PvpArena.Members.LastOrDefault(bot => bot.IsPvpBuffbot) ?? PvpArena.Members.LastOrDefault();
+                    if (buffbot == null)
+                        return new { Buffbot = false, InTheArena = PvpArena.Members.Count };
+                    PvpPotionSeller seller = PvpPotionSeller.SpawnBeside(buffbot, realm);
+                    if (seller == null)
+                        return new { Buffbot = true, Seller = false };
+                    var has = seller.TradeItems.GetAllItems().Values.Cast<DOL.Database.DbItemTemplate>()
+                        .Select(item => new { item.Id_nb, item.Name, item.Price, item.MaxCharges, item.CanUseEvery, item.Realm }).ToList();
+                    var answer = new
+                    {
+                        Buffbot = buffbot.IsPvpBuffbot, Beside = buffbot.Name, Seller = true, seller.Name, seller.GuildName, seller.Model, seller.X, seller.Y, seller.Z, BuffbotZ = buffbot.Z,
+                        Region = seller.CurrentRegionID, InWorld = seller.ObjectState == GameObject.eObjectState.Active,
+                        Dressed = seller.Inventory?.VisibleItems.Count ?? 0, Has = has,
+                    };
+                    PvpPotionSeller.RemoveWith(buffbot);
+                    return new { answer, GoneAgain = seller.ObjectState != GameObject.eObjectState.Active };
+                }
+
                 case "way-out":
                 {
                     ushort regionId = ushort.Parse(Arg("Region") ?? "200");

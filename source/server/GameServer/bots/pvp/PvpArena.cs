@@ -187,6 +187,9 @@ namespace DOL.GS
                 PvpRoster.Save(AppContext.BaseDirectory, player.InternalID, roster);
             GameBot buffbot = SpawnBuffbot(player.Realm, spawned.Cast<GameLiving>().Prepend(player).ToList(), player.CurrentRegionID, centre);
             all?.Add(buffbot);
+            // The player's alchemist stands beside it and goes with it (PvpPotionSeller). The group plays without one that fails.
+            try { PvpPotionSeller.SpawnBeside(buffbot, player.Realm); }
+            catch (Exception) { }
             return spawned;
         }
 
@@ -257,6 +260,7 @@ namespace DOL.GS
             List<GameBot> all;
             lock (Bots)
                 all = Bots.ToList();
+            PvpPotionSeller.RemoveAll();
             return Remove(all);
         }
 
@@ -344,6 +348,8 @@ namespace DOL.GS
             {
                 try
                 {
+                    if (bot.IsPvpBuffbot)
+                        PvpPotionSeller.RemoveWith(bot);
                     bot.Group?.RemoveMember(bot);
                     if (bot.ObjectState != GameObject.eObjectState.Deleted)
                     {

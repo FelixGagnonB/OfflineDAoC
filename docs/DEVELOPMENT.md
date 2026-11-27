@@ -196,7 +196,7 @@ older than the last "just disconnected".
 
 | Tool | What it does |
 |---|---|
-| `pvp_batch.py` | Runs series of scrims side by side, unattended; `--versus` compares two sets of weights inside the same matches |
+| `pvp_batch.py` | Runs series of scrims side by side, unattended; `--versus` compares two sets of weights inside the same matches; `--test` runs it on the test ports, beside the game that is played |
 | `pvp_versus.py` | What each set of weights did in a comparison batch |
 | `pvp_analyze.py`, `pvp_report.py`, `pvp_insight.py` | Counts over a folder of recorded matches |
 | `pvp_referee.py` | Where every bot's time went, and soft rules a competent group keeps, PASS or FAIL |
