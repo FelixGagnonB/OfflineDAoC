@@ -3159,6 +3159,13 @@ namespace DOL.GS
                 return; // A saved lifetime build is not a maintenance-time respec opportunity.
             if (CharacterClass?.ID != (int)eCharacterClass.Bonedancer || BotSpec == null)
                 return;
+            // An 8v8 bot has the build of its catalog (PvpBuildCatalog: 47 Suppression, 26 Darkness, 5 Bone Army) and keeps
+            // it. Until 2026-11-27 it was given this plan instead: 50 Suppression and about 20 in Darkness or Bone Army,
+            // whichever the roll gave. So it called the Bonemender of 48 and wore the Bone Husk of 50, which a player of
+            // its spec has not, and with Bone Army for a second line its only snare nuke was the one of level 1 (5.8
+            // casts a match in 18 matches of 2026-11-26).
+            if (PvpBuild != null)
+                return;
 
             bool alreadyFocused = BotSpec.SpecLines.Count == 2 &&
                 BotSpec.SpecLines.Any(line => line.levelRatio >= 1.0f && line.SpecCap >= 50) &&

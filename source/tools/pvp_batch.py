@@ -4,7 +4,12 @@
                         [Matches=4] [Copies=1] [RealmRank=1] [Limit=300]
                         [BrainA=squad] [BrainB=squad] [Vary=0] [Spread=40]
                         [--game D:\\OfflineDAoC-scrim] [--weights file.json] [--versus old.json|builtin]
-                        [--out report.txt]
+                        [--out report.txt] [--test]
+
+--test starts the scrim server on the test ports (10310, and 10410 for UDP; scrim_server.py
+start --test): the batch then runs beside the game that is played, which keeps port 10300.
+Without it the scrim server takes port 10300, and a launcher opened meanwhile talks to it
+(the owner, 2026-11-26: "Your password is incorrect.").
 
 Each pairing gets its own lane of the arena and all lanes fight at once (docs/PVP-8V8-ROADMAP.md,
 M2.5); Copies=2 gives each pairing two lanes. There are six lanes, the first four on level
@@ -71,6 +76,7 @@ def server_memory():
 def main(argv):
     options = dict(DEFAULTS)
     game, weights, out, versus = r"D:\OfflineDAoC-scrim", None, None, None
+    test_ports = False
     given = set()
     rest = argv[1:]
     while rest:
@@ -86,6 +92,8 @@ def main(argv):
             out = rest.pop(0)
         elif item == "--versus":
             versus = rest.pop(0)
+        elif item == "--test":
+            test_ports = True
         elif "=" in item and item.split("=", 1)[0] in DEFAULTS:
             key, value = item.split("=", 1)
             options[key] = value
@@ -124,7 +132,7 @@ def main(argv):
     elif os.path.isfile(old):
         os.replace(old, os.path.join(runtime, "server", "pvp-weights-old.unused.json"))
 
-    up = tool("scrim_server.py", "start", game)
+    up = tool("scrim_server.py", "start", game, *(["--test"] if test_ports else []))
     print(up.stdout.strip() or up.stderr.strip(), flush=True)
     if up.returncode != 0:
         return 1

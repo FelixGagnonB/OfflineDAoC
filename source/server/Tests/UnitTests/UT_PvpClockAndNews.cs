@@ -94,19 +94,23 @@ namespace DOL.UnitTests
         }
 
         [Test]
-        public void AGroupOfCastersPlaysFromItsBackLine()
+        public void TheAlchemistHasThePotionsOfThePlayersRealm()
         {
-            var weights = new PvpOrderWeights();
-            Assert.That(weights.PlaysFromItsBackLine(3), Is.True, "Albion's main group: Sorcerer, Theurgist, Cabalist");
-            Assert.That(weights.PlaysFromItsBackLine(2), Is.False, "Hibernia's: Eldritch and Enchanter beside three fighters");
-            Assert.That(weights.PlaysFromItsBackLine(1), Is.False, "Midgard's: one Runemaster");
-            Assert.That(new PvpOrderWeights { CasterGroupFrom = 0 }.PlaysFromItsBackLine(5), Is.False, "the rule is off");
-            Assert.That(weights.PlaysFromItsBackLine(3, hasAPlayer: false), Is.False, "a group of bots pushes as before: among bots that is what wins");
-            Assert.That(new PvpOrderWeights { CasterGroupOnlyWithAPlayer = false }.PlaysFromItsBackLine(3, hasAPlayer: false), Is.True);
-            Assert.That(PvpOrderWeights.WithoutPush(PvpOrder.Push, true), Is.EqualTo(PvpOrder.Engage), "it does not push");
-            Assert.That(PvpOrderWeights.WithoutPush(PvpOrder.Push, false), Is.EqualTo(PvpOrder.Push));
-            Assert.That(PvpOrderWeights.WithoutPush(PvpOrder.Extend, true), Is.EqualTo(PvpOrder.Extend));
-            Assert.That(PvpOrderWeights.WithoutPush(PvpOrder.Regroup, true), Is.EqualTo(PvpOrder.Regroup));
+            // The owner, 2026-11-27: "elixir of Instant power, draught of replenishment", and "the equivalent for endurance".
+            Assert.That(PvpPotionSeller.ItemsFor(eRealm.Albion), Is.EqualTo(new[]
+                { "Elixir_of_Instant_Power", "Strong_Draught_of_Replenishment", "Elixir_of_Instant_Endurance", "Strong_Draught_of_Invigoration" }));
+            // Midgard's and Hibernia's potions are items of their own.
+            Assert.That(PvpPotionSeller.ItemsFor(eRealm.Midgard), Is.All.EndsWith("2"));
+            Assert.That(PvpPotionSeller.ItemsFor(eRealm.Hibernia), Is.All.EndsWith("3"));
+            Assert.That(PvpPotionSeller.ItemsFor(eRealm.Midgard), Has.Count.EqualTo(4));
+            Assert.That(new[] { eRealm.Albion, eRealm.Midgard, eRealm.Hibernia }.Select(realm => PvpPotionSeller.LooksFor(realm).Model).Distinct().Count(), Is.EqualTo(3));
+
+            // It stands on the ground most level with the buffbot's: not on the ledge 259 units above it (Agramon, first test).
+            Assert.That(PvpPotionSeller.LevelPlace([9477f, 9230f, null, 9215f, 9100f], 9218), Is.EqualTo(3));
+            Assert.That(PvpPotionSeller.LevelPlace([9218f, 9218f], 9218), Is.EqualTo(0), "the first of two that are as level");
+            // No level ground around it: none, and it stands on the buffbot's spot.
+            Assert.That(PvpPotionSeller.LevelPlace([9477f, null, 9100f], 9218), Is.EqualTo(-1));
+            Assert.That(PvpPotionSeller.LevelPlace([], 9218), Is.EqualTo(-1));
         }
 
         [Test]

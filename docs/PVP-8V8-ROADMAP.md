@@ -3873,6 +3873,47 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [x] **M13.55** (S) The Bonedancer bot plays the build of its catalog. *Built 2026-11-27; 16 matches in lanes;
+  installed (`v0.1.12`).*
+  The owner, playing a Bonedancer of `/8v8 ready bd`: "if I have the bone command and 2 healing pet (Summon
+  bonehealer), I canot summon another one", and "which spell is the bot using ?" The first is the game's rule: a
+  commander's subordinates may be of 75 levels together (`SummonMinionHandler`), a Bonehealer is of 31, and only the
+  Bone Master of 45 has three places. The second showed a fault: in 18 matches the bot called the Bonemender (a
+  spell of 48 Suppression) and wore Bone Husk (50) with 47 trained, cast two spells of 17 and 19 Bone Army with 5
+  trained, and its snare nuke was the one of level 1 5.8 times a match and never the one of 23. A routine of the
+  gamebots (`GameBot.EnsureBonedancerFocusedSpecPlan`, called from `AutonomousPetSupport` on a Bonedancer's every
+  turn with its pets) took its build for an old one and trained it anew: 50 Suppression and about 20 in Darkness or
+  Bone Army, whichever a roll gave. An 8v8 bot keeps its build now (`PvpBuild != null`). What M13.53 counted of
+  `mid-bd` was counted with the wrong build. RESULT, 16 matches in lanes with the build it should have
+  (`pvp_batch.py --test`, new: on the test ports, beside the game that is played): `mid-bd` 3 of 4 against Hibernia's
+  main group and 0 of 4 against Albion's, `mid-main` 1 of 4 and 0 of 4: as before, and as little. The bot calls the
+  Bone Master, then Bone Guard, Bonepatcher and Bone Sentry (37, 18 and 20: 75), casts the lifedrain 9.6 times a
+  match, the body debuff without a cast 6.5 (it had none before), Obsidian Strike 5.5, and is under 30 of power
+  for 53% of its fighting. Open: the Bone Guard and the Bone Sentry are both servants that buff (haste for its
+  group, a damage shield for its servants; `BdBufferBrain`), one would do, and a second healer in the other's
+  place (Boneknitter, Bonefixer and a Patroller make 73) is not tried; the choice is the gamebots'
+  (`AutonomousPetSupport.ChooseBonedancerMinion`).
+- [x] **M13.54** (S) An alchemist beside the buffbot. *Built 2026-11-27; unit-tested; put in the world on the scrim
+  copy without a player, see below; installed (`v0.1.12`); buying and drinking not tried: for the owner.* The owner, on its Cleric ("i'm always oop"): "Is alchemist tradeskill available on this build ? If yes, do
+  they have a power mana potion", and then "Would it be hard to create an npc, that spawn beside buffbot when we /8v8
+  go <area> or /release which would sell elixir of Instant power, draught of replenishment? Does alchemist also have
+  the equivalent for endurance ?" The game's data has the recipes of Alchemy (1,038; the power elixirs at 408 to
+  1,000 of the skill, which a character from `/8v8 ready` has none of) and potion merchants in Cathal Valley and the
+  tutorial only, with the lesser draughts. So an "Alchemist" 120 units from the buffbot of the player's group,
+  wherever that group is put in the world (`PvpPotionSeller`, from `PvpArena.SpawnCompanions`; it goes when the
+  buffbot does), with four potions of the player's realm that cost nothing: Elixir of Instant Power (99 power at
+  once, 10 charges, every 180 seconds), Strong Draught of Replenishment (power regeneration 4 for 20 minutes),
+  Elixir of Instant Endurance (40 endurance at once, every 180 seconds), Strong Draught of Invigoration (endurance
+  regeneration 4 for 20 minutes). Its list is made in the server's memory: no row of the database is added. It
+  stands on the ground most level with the buffbot's of eight places around it, and on the buffbot's own spot
+  where none is within 60 units of height (on a slope of Agramon the first one stood 259 units above its bot:
+  `LevelPlace`). Tested without a player (request `alchemist` of the control channel, after `spawn-group`): in the
+  world, dressed, the four potions of each of the three realms at a price of 0, and gone again when asked. Not
+  tested: a player buying one and drinking it. Open: the bots do not drink, so the player's healer has more power
+  than theirs; asked of the owner, not answered. Seen in passing and not understood: a group of bots put in the
+  world by `spawn-group` had no buffbot in the arena's list a second later (`PvpArena.Members`), though
+  `SpawnGroup` puts one there; the alchemist does not depend on it (it leaves with the buffbot when
+  `PvpArena.Remove` takes that, and one whose buffbot is gone is taken out at the next one's arrival).
 - [x] **M13.53** (M) A Bonedancer for Midgard. *Built 2026-11-26; unit-tested; batches of matches in lanes, see
   RESULT; installed (`v0.1.11`); not in the groups of an evening; not played by the owner.* The owner: "Is the bonedancer class usable by a
   bot?", then "Which bonedancer spec would you recommend for this server?", and of whom it replaces, "either
@@ -3902,8 +3943,22 @@ kept; a way for a dead player to tell the group "just die".
   Albion's, `mid-main` 2 of 5 and 0 of 5 in the same batch: five matches a pairing say little (a batch of the same
   build against itself gave 9 and 12 of 12), and nothing says the group is worse for it.
 - [x] **M13.52** (S) A group of casters plays from its back line, with a player in it. *Built 2026-11-26; unit-tested;
-  a batch of 24 matches of bots; installed (`v0.1.11`); only the player's group has it, and that no match of bots can
-  show: not seen by the owner.* The owner, on
+  a batch of 24 matches of bots; installed (`v0.1.11`); **taken out again 2026-11-27, on the owner's word, before it
+  was played** (`v0.1.12`; in the game of `v0.1.11` it is off by `"CasterGroupFrom": 0` in `pvp-weights.json`).*
+  The owner, told of the count below: "if they are now losing more fights than before, I am not sure about the
+  behaviour. How does it play vs midgard? They are 4 troll rushing on your on initial contact. Does the cleric puhs
+  with the minstrel and armsman ?", and then "you can remove the albion rule that I though would help". Against
+  Midgard alone, the twelve matches of that batch (`contact.py` in the session's scratchpad): without the rule 6 of
+  6 won with every member of Midgard dead, 0.3 deaths a match, 216 seconds; with it 5 of 6, every one on the limit
+  of five minutes with three to six of Midgard alive, 2.7 deaths a match (the Theurgist 1.3). Between the 15th and
+  the 45th second Midgard's four fighters put 69% of their blows on Albion's casters with the rule and 22% without
+  (58% on its Armsman, Paladin and Minstrel, which had gone to meet them), and Albion's fighters 3% of theirs on
+  Midgard's healers for 49%: 0.5 of Midgard's two Healers and its Shaman dead a match for 3.0. And yes, a Cleric
+  of bots goes with its fighters: 1,200 units forward in the first 45 seconds and 1,600 after, 1,200 to 1,500
+  behind them, out of the reach of its heals for 5 to 14% of its time. So what the owner saw (fighters beyond
+  2,000 units a fifth of the time) is the group pushing and its player staying: for the player to go with it, or
+  for a rule that keeps the fighters within the reach of the player's heals, which was offered and not asked for.
+  What follows is the rule as it was built. The owner, on
   its Cleric in Albion's main group: "i feel like albion fighter / minstrel are pushing way too hard on contact.
   we are mostly caster, we probably focus on extend/kite and kill overextending. i'm mostly always out of range to
   heal either". In its evening of eight fights the group was under its own Push for 42% of its fighting time, and

@@ -108,8 +108,17 @@ Repeating a call only renews it. A retreat is ended by any other call.
   takes you back with them. Your companions spend
   theirs by themselves, in the orders of
   [PVP-8V8-REALM-ABILITIES.md](PVP-8V8-REALM-ABILITIES.md).
+- **Take potions.** An Alchemist stands beside your buffbot, wherever your group is put in the
+  world (at its start, after a release, after `/8v8 go`). Right-click it: Elixir of Instant
+  Power (99 power at once, every three minutes, ten charges), Strong Draught of Replenishment
+  (power comes back faster for twenty minutes), Elixir of Instant Endurance and Strong Draught
+  of Invigoration, the same two for endurance. They cost nothing. Drag one from your backpack
+  to a quickbar button to drink it. The bots have none.
 - **Change your own build or class.** `/8v8 ready <build> confirm`, out of combat: your evening
-  is ended for the change and a new one begins when it is done.
+  is ended for the change and a new one begins when it is done. (`/8v8 ready bd confirm` for
+  Midgard's Bonedancer. Its commander holds servants of 75 levels together, and only the one of
+  Summon Bone Master has three places: two Bonehealers, of 31 each, leave room for no third;
+  a Bonehealer and two Bonefixers, or a Bonehealer, a Bonefixer and a Bonejinxer, make 75.)
 - **Change your group.** `/8v8 guild lineup <name>`, from the next evening. Your own class
   takes its place in the line-up.
 - **Look at a fight afterwards.** Double-click `source\tools\review_my_fights.cmd`: see
@@ -214,10 +223,6 @@ Healer, then the Skald. `/stick` to it.
   back to one of the last three points it was at while another way leads on, and to its
   resting place the group walks as one, behind it. It takes no way that passes a fight of
   other groups while another way leads on.
-- A group of yours with three casters or more (Albion's main one) plays from its back line:
-  it does not push by itself, and its Armsman and Minstrel stay within reach of your healers
-  and casters and take whoever comes too far. `/8v8 call push` sends them in all the same.
-  (`"CasterGroupFrom": 0` under `"Order"` in `runtime\server\pvp-weights.json` turns it off.)
 - In group chat it says "Stick, moving out: mid road." when it sets off, "Waiting for you,
   <name>." when you are more than 1,500 units behind (it goes on when you are within 800), and
   "Resting here." after a fight. It waits thirty seconds after the group has stood up.
