@@ -437,7 +437,9 @@ namespace DOL.GS.Commands
                 case "go":
                     try
                     {
-                        PvpRoam.GoTo(player, args.Skip(2).Select(PvpRoam.MapFor).FirstOrDefault(map => map != null), Say);
+                        // "/8v8 go 8v8": to the 8v8 zone of the evening, whichever zone that is tonight (PvpRoam.EightZonePool).
+                        PvpRoam.GoTo(player, args.Skip(2).Select(word => PvpRoam.IsEightWord(word) ? PvpRoam.EightTonight : PvpRoam.MapFor(word))
+                            .FirstOrDefault(map => map != null), Say);
                     }
                     catch (System.Exception exception)
                     {

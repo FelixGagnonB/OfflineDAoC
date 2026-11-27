@@ -130,7 +130,9 @@ namespace DOL.GS
         /// The 8v8 zone (PvpRoam.EightZone, M13.15): one zone of every evening where nobody adds.
         /// The owner, 2026-11-25: "Could we build a zone for dedicated 8v8 without adds? ... use
         /// an unuse zone and make it a dedicated 8v8 only zone". Which zone it is, by the word
-        /// that names it ("thid", "collory", ...; empty: there is none); how many guilds of each
+        /// that names it ("thid", "collory", ...; empty: there is none), or several with commas
+        /// between ("agramon, collory, thid"), and then each evening has one of them, not the one
+        /// of the evening before (PvpRoam.EightZonePool, M13.56); how many guilds of each
         /// realm are in it at the most (a third of the realm's, and one at the least); and for
         /// how long after its fight a group that is not whole again is left alone by the kinds
         /// of group that wait (PvpRoam.WaitsForARestedGroup).

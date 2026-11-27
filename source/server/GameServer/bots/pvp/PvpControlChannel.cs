@@ -235,7 +235,9 @@ namespace DOL.GS
                     // (PvpRoam.ZonesTonight, M11.8); Zones=odin,hadrian: in those and the map it begins in.
                     List<PvpRoamMap> zones = string.Equals(Arg("Zones"), "all", StringComparison.OrdinalIgnoreCase) ? PvpRoam.Frontiers.ToList()
                         : string.Equals(Arg("Zones"), "tonight", StringComparison.OrdinalIgnoreCase)
-                            ? PvpRoam.EveningZones(PvpRoam.MapFor(Arg("Map")) ?? PvpRoam.Emain, prime, Random.Shared, PvpRoam.EightZone)
+                            ? PvpRoam.EveningZones(PvpRoam.MapFor(Arg("Map")) ?? PvpRoam.Emain, prime, Random.Shared,
+                                // (The 8v8 zone is drawn from its pool as for a player's evening: Eight=collory asks for one of them.)
+                                PvpRoam.DrawEightZone(PvpRoam.MapFor(Arg("Eight")), null, Random.Shared.Next()))
                         : (Arg("Zones") ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                             .Select(PvpRoam.MapFor).Where(zone => zone != null).ToList();
                     return PvpRoam.Start(int.Parse(Arg("Teams") ?? "2"), Arg("Owner") ?? "roam", null, null, PvpRoam.MapFor(Arg("Map")),

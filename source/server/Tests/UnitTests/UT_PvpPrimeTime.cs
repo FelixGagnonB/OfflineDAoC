@@ -166,6 +166,51 @@ namespace DOL.UnitTests
         }
 
         [Test]
+        public void TheEightZoneIsDrawnFromAPool()
+        {
+            // The owner, 2026-11-27: "Would it be hard, to have a 8v8 only map pool and pick one at random and rotate the area?"
+            PvpRoamMap agramon = PvpRoamZones.Agramon, thid = PvpRoam.Thidranki, collory = PvpRoamZones.MountCollory;
+            // The setting names one zone, or several: each once, a word that names none left out, and the three busy zones too
+            // ("I leave leave out of the pool Emain Macha, Odin's and Hadrian's. I would leave them as the busy zone for the chaos").
+            List<PvpRoamMap> pool = PvpRoam.EightZonePool("agramon, odin, thid ,Collory, nowhere, agra, emain, hw");
+            Assert.That(PvpRoam.EightZonePool("emain, odin, hadrian"), Is.Empty);
+            Assert.That(pool, Is.EqualTo(new[] { agramon, thid, collory }));
+            Assert.That(PvpRoam.EightZonePool("thid"), Is.EqualTo(new[] { thid }));
+            Assert.That(PvpRoam.EightZonePool(string.Empty), Is.Empty);
+            Assert.That(PvpRoam.EightZonePool(null), Is.Empty);
+            Assert.That(PvpRoam.EightZoneOf([], null, 3), Is.Null);
+            var first = new HashSet<PvpRoamMap>();
+            var afterAgramon = new HashSet<PvpRoamMap>();
+            for (int roll = 0; roll < 30; roll++)
+            {
+                // One zone named: it is that one every evening, as it was.
+                Assert.That(PvpRoam.EightZoneOf([thid], "thid", roll), Is.SameAs(thid));
+                first.Add(PvpRoam.EightZoneOf(pool, null, roll));
+                afterAgramon.Add(PvpRoam.EightZoneOf(pool, "agramon", roll));
+            }
+            Assert.That(first, Is.EquivalentTo(pool), "any of them for a first evening");
+            Assert.That(afterAgramon, Is.EquivalentTo(new[] { thid, collory }), "not the one of the evening before");
+            Assert.That(PvpRoam.EightZoneOf(pool, "agramon", int.MinValue + 1), Is.Not.Null);
+            // A player that logged off in Agramon when it was the 8v8 zone, and tonight it is Mount Collory: the evening is not
+            // in Agramon alone with every group of three realms. It begins in the frontier, where its last began.
+            Assert.That(PvpRoam.BeginsIn(agramon, collory, pool, PvpRoamZones.Pennine), Is.SameAs(PvpRoamZones.Pennine));
+            Assert.That(PvpRoam.BeginsIn(agramon, collory, pool, null), Is.SameAs(PvpRoam.Emain));
+            Assert.That(PvpRoam.BeginsIn(agramon, collory, pool, collory), Is.SameAs(PvpRoam.Emain), "not in tonight's 8v8 zone");
+            Assert.That(PvpRoam.BeginsIn(agramon, collory, pool, thid), Is.SameAs(PvpRoam.Emain), "nor in a battleground");
+            // Everything else is as it was: in tonight's 8v8 zone, in a frontier zone, in a battleground that is no 8v8 zone.
+            Assert.That(PvpRoam.BeginsIn(agramon, agramon, pool, PvpRoamZones.Pennine), Is.SameAs(agramon));
+            Assert.That(PvpRoam.BeginsIn(collory, agramon, pool, null), Is.SameAs(collory));
+            Assert.That(PvpRoam.BeginsIn(PvpRoam.Emain, agramon, pool, null), Is.SameAs(PvpRoam.Emain));
+            Assert.That(PvpRoam.BeginsIn(thid, agramon, [agramon], null), Is.SameAs(thid));
+            // "/8v8 go 8v8": to tonight's, whichever it is.
+            Assert.That(PvpRoam.IsEightWord("8v8"), Is.True);
+            Assert.That(PvpRoam.IsEightWord("Eight"), Is.True);
+            Assert.That(PvpRoam.IsEightWord("agramon"), Is.False);
+            Assert.That(PvpRoam.IsEightWord(null), Is.False);
+            Assert.That(new PvpPlayerSetting().Eight, Is.Null);
+        }
+
+        [Test]
         public void EveryGuildWearsAnEmblemOfItsOwn()
         {
             // The owner, 2026-11-25: "We all wear the default all green, red, blue. It would be nice if each guild has it's own
