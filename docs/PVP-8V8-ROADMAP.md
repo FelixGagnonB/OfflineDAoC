@@ -3873,6 +3873,38 @@ kept; a way for a dead player to tell the group "just die".
   evening, "Emain Macha (you are here): Albion 3: 2 bad, 1 decent. Midgard 1: 1 casual.
   Hibernia 2: yours, 1 elite." (`PvpRoam.WhoLine`). Not built: a way to change zone other
   than `/8v8 go`, which stays.
+- [ ] **M13.56** (S) A pool of zones for the 8v8 zone, one drawn for each evening. *Built 2026-11-27; unit-tested;
+  evenings of bots on the scrim copy, see RESULT; installed (`v0.1.13`, with the pool of ten in the game's
+  `pvp-weights.json`); a player's own evening with it (the draw kept from its last evening, the line that says which zone,
+  `/8v8 go 8v8`, logging in on Agramon when it is not the 8v8 zone) not tried: for the owner.* RESULT: 3,583 unit
+  tests; an evening of twelve groups a realm for six minutes with the pool of ten (`scrim_test.py`): 0 faults,
+  17 fights, in its zone where nobody adds no team with two enemy groups on it; then eleven evenings begun one
+  after the other on one server: their 8v8 zones Agramon, Forest Sauvage, Cruachan Gorge, Breifine, Mount
+  Collory, Snowdonia, Cruachan Gorge, Forest Sauvage, Yggdra Forest, never one twice running, then Jamtland when
+  it was asked for (`Eight=jamtland`) and a drawn one (Uppland) when Odin's Gate was asked for. The owner: "Would it be
+  hard, to have a 8v8 only map pool and pick one at random and rotate the area?" `EightZone` in `pvp-weights.json`
+  names one zone as before, or several with commas between (`"agramon, collory, thid"`;
+  `PvpRoam.EightZonePool`). As an evening begins one of them is drawn (`DrawEightZone`): the zone asked for when it
+  is of the pool (`/8v8 prime agramon`), otherwise any but the one of the player's last evening
+  (`PvpPlayerSetting.Eight`, kept in `pvp-players.json`), so the ground changes from one evening to the next. A zone
+  of the frontier that is drawn is the 8v8 zone that evening and no ordinary zone of it (`EveningZones`, as before).
+  `/8v8 go 8v8` (or `eight`) takes the group to tonight's, whichever it is, and the evening says which it is as it
+  begins. One case the pool makes: the player logged off in Agramon, and tonight's is another. An evening that
+  begins in Agramon when it is not the 8v8 zone was an evening in Agramon alone, every group of the three realms in
+  it with packs and adds; it begins in the frontier now, where the player's last began (`BeginsIn`), the player is
+  not moved, its seven stand with it, and it is told "You stand in Agramon, which is no zone of this evening. The
+  8v8 zone is Mount Collory tonight: /8v8 go 8v8". With one zone named everything is as it was. Which zones are of
+  the pool, the owner, asked: "I leave leave out of the pool Emain Macha, Odin's and Hadrian's. I would leave them
+  as the busy zone for the chaos. Then we can add whichever. The bots cannot walk from a zone to another so it
+  doesn't really matter." Those three cannot be named for it (`EightZonePool`), and the pool of the game that is
+  played is Agramon and the nine clean zones. Thidranki is left out of it for now (three points, a keep in its
+  middle, water): one word in the setting adds it. Eleven
+  maps are laid out; only Agramon was laid out for this (no keep, no monster, ten points). Thidranki has three
+  points ("it looks like we are running the same triangle" was said of Agramon when it had three), a keep in its
+  middle and water. The nine clean frontier zones have seven to nine points, starts 41,000 to 52,000 apart as
+  Agramon's are, and their keeps and monsters (those at the starts are taken out, the others are not). Not built:
+  a zone that changes while the evening is on (the groups in it would have to be moved when their fights are over,
+  and the player's with them or after them): a day's work on the turn of the evening, not this.
 - [x] **M13.55** (S) The Bonedancer bot plays the build of its catalog. *Built 2026-11-27; 16 matches in lanes;
   installed (`v0.1.12`).*
   The owner, playing a Bonedancer of `/8v8 ready bd`: "if I have the bone command and 2 healing pet (Summon

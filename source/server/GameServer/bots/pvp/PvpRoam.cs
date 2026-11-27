@@ -433,7 +433,8 @@ namespace DOL.GS
         /// <para>
         /// It is Thidranki unless the settings name another (PvpRealWeights.EightZone): the one
         /// ground no evening used, three starts round three points 15,000 apart, so a fight is
-        /// never far. What holds in it, for the groups of bots:
+        /// never far. Where the settings name several it is one of them, drawn as the evening
+        /// begins (<see cref="EightZonePool"/>, M13.56). What holds in it, for the groups of bots:
         /// </para>
         /// <para>
         /// Nobody walks with anybody: no packs, no group beside another. Nobody joins a fight
@@ -449,7 +450,73 @@ namespace DOL.GS
         /// what the player attacks or calls, there as everywhere.
         /// </para>
         /// </summary>
-        public static PvpRoamMap EightZone => MapFor(PvpWeights.Current.Real.EightZone) is { } named && CanBeWalked(named) ? named : null;
+        public static PvpRoamMap EightZone
+        {
+            get
+            {
+                List<PvpRoamMap> pool = EightZonePool(PvpWeights.Current.Real.EightZone).Where(CanBeWalked).ToList();
+                // The one drawn for the evening (DrawEightZone) while the settings still name it; the first they name otherwise.
+                return _drawn is { } drawn && pool.Contains(drawn) ? drawn : pool.FirstOrDefault();
+            }
+        }
+
+        /// <summary>
+        /// The zones the 8v8 zone of an evening is drawn from (M13.56): the setting names one zone
+        /// or several, with commas between ("agramon, collory, thid"). The owner, 2026-11-27:
+        /// "Would it be hard, to have a 8v8 only map pool and pick one at random and rotate the
+        /// area?" Each once, in the order they are written; a word that names no map is left
+        /// out, and so are the three zones a realm ported to. The owner, the same day: "I leave
+        /// leave out of the pool Emain Macha, Odin's and Hadrian's. I would leave them as the
+        /// busy zone for the chaos. Then we can add whichever."
+        /// </summary>
+        public static List<PvpRoamMap> EightZonePool(string setting) =>
+            (setting ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(MapFor).Where(map => map != null && map != Emain && map != OdinsGate && map != HadriansWall).Distinct().ToList();
+
+        /// <summary>
+        /// Which zone of the pool an evening has: any of them, but not the one of the last
+        /// evening while there is another, so the ground changes from one evening to the next.
+        /// Null for an empty pool.
+        /// </summary>
+        public static PvpRoamMap EightZoneOf(IReadOnlyList<PvpRoamMap> pool, string last, int roll)
+        {
+            List<PvpRoamMap> left = pool.Count > 1 ? pool.Where(map => map.Id != last).ToList() : pool.ToList();
+            return left.Count == 0 ? null : left[Math.Abs(roll % left.Count)];
+        }
+
+        // The 8v8 zone drawn for the evening that begins or is on; null until one is drawn.
+        private static volatile PvpRoamMap _drawn;
+
+        /// <summary>
+        /// Draws the 8v8 zone of the evening that begins. A zone of the pool that was asked for
+        /// (<c>/8v8 prime agramon</c>) is it; otherwise <see cref="EightZoneOf"/>.
+        /// </summary>
+        /// <param name="last">The 8v8 zone of the player's last evening (PvpPlayerSetting.Eight); null: the one drawn last since the server started.</param>
+        public static PvpRoamMap DrawEightZone(PvpRoamMap asked, string last, int roll)
+        {
+            List<PvpRoamMap> pool = EightZonePool(PvpWeights.Current.Real.EightZone).Where(CanBeWalked).ToList();
+            PvpRoamMap drawn = asked != null && pool.Contains(asked) ? asked : EightZoneOf(pool, last ?? _drawn?.Id, roll);
+            _drawn = drawn;
+            return drawn;
+        }
+
+        /// <summary>
+        /// Where an evening begins whose player stands in a zone. As ever in that zone, but for
+        /// one case the pool makes: ground that can be the 8v8 zone, is not tonight's, and is no
+        /// frontier zone either (Agramon, where the player logged off on the evening it was the
+        /// 8v8 zone). An evening in that ground alone would have every group of the three realms
+        /// in it, with packs and adds. It begins in the frontier then, where the player's last
+        /// began, or in Emain Macha; the player is not moved, and is told where the 8v8 zone is.
+        /// </summary>
+        public static PvpRoamMap BeginsIn(PvpRoamMap stands, PvpRoamMap eight, IReadOnlyList<PvpRoamMap> pool, PvpRoamMap lastBegan) =>
+            stands == eight || Frontiers.Contains(stands) || !pool.Contains(stands) ? stands
+                : lastBegan != null && lastBegan != eight && Frontiers.Contains(lastBegan) ? lastBegan : Emain;
+
+        /// <summary>The 8v8 zone of the evening that is on; null when it has none.</summary>
+        public static PvpRoamMap EightTonight => _eight;
+
+        /// <summary>The words that stand for the 8v8 zone of the evening in <c>/8v8 go</c>, whichever zone that is tonight.</summary>
+        public static bool IsEightWord(string word) => (word ?? string.Empty).Trim().ToLowerInvariant() is "8v8" or "eight";
 
         /// <summary>
         /// Whether the server has a navmesh for a map's ground (Agramon has none as the game is
@@ -1695,16 +1762,24 @@ namespace DOL.GS
                         // (The settings are read again here, before the zones are chosen: read only as the evening started, a
                         // zone named for the 8v8 zone in pvp-weights.json was not in the evening's zones.)
                         PvpWeights.Reload(AppContext.BaseDirectory);
-                        PvpRoamMap eight = EightZone;
+                        // The 8v8 zone of this evening, drawn from its pool (M13.56): the zone the player asked for when it is one of
+                        // them (/8v8 prime agramon), and otherwise any but the one of its last evening.
+                        PvpPlayerSetting before = PvpPlayerSettings.Get(AppContext.BaseDirectory, player.InternalID);
+                        PvpRoamMap eight = DrawEightZone(stay ? null : map, before.Eight, Random.Shared.Next());
+                        // (A player that stands in the 8v8 zone of another evening: BeginsIn.)
+                        PvpRoamMap stands = map;
+                        if (!oneZone)
+                            map = BeginsIn(map, eight, EightZonePool(PvpWeights.Current.Real.EightZone), before.Zone == null ? null : MapFor(before.Zone));
+                        PvpRoamMap elsewhere = stands != map ? stands : null;
                         PvpPlayerSettings.Set(AppContext.BaseDirectory, player.InternalID,
-                            kept => kept with { Lineup = own?.Id, Zone = map == eight && !oneZone ? kept.Zone : map.Id, Groups = prime });
+                            kept => kept with { Lineup = own?.Id, Zone = map == eight && !oneZone ? kept.Zone : map.Id, Groups = prime, Eight = eight?.Id ?? kept.Eight });
                         // Over some of the frontiers and the 8v8 zone (EveningZones), unless one zone or all of them were asked for; another battleground is always one zone.
                         List<PvpRoamMap> zones = oneZone || !Frontiers.Contains(map) && map != eight ? null
                             : everyZone ? Frontiers.Append(eight).Where(zone => zone != null).Distinct().ToList()
                             : EveningZones(map, prime, Random.Shared, eight);
                         Start(2, player.InternalID, player, own, map, null, PvpTeamPool.Tonight(pool, prime, Random.Shared, player.Realm), PvpTeamPool.World, zones);
                         bool away = _teams.FirstOrDefault(team => team.Leader == player) is { Absent: true };
-                        say($"Prime time{(zones is { Count: > 1 } ? " in " + string.Join(", ", zones.Select(zone => zone.Name)) + (away ? string.Empty : "; you are in " + map.Name) : " in " + map.Name)}: " +
+                        say($"Prime time{(zones is { Count: > 1 } ? " in " + string.Join(", ", zones.Select(zone => zone.Name)) + (away || elsewhere != null ? string.Empty : "; you are in " + map.Name) : " in " + map.Name)}: " +
                             $"{prime} groups of each realm are out, yours one of them, the others guilds of every kind. " +
                             "Some walk in packs, some add, some do neither. Kills earn realm points that are kept" +
                             (away ? $". You are not in the frontier: your companions join you there. /8v8 go {map.Id} takes you to your realm's start in {map.Name}, or walk in. "
@@ -1716,7 +1791,11 @@ namespace DOL.GS
                             say($"An evening to try things: your seven are at realm rank {PvpRealmPoints.RankName(trial)} and your group earns nothing. " +
                                 "Your next real fight or evening puts you back at what you have earned.");
                         if (_maps.Count > 1)
-                            say(ZonesLine(_maps, map, _eight));
+                            say(ZonesLine(_maps, elsewhere != null ? null : map, _eight));
+                        // Which zone the 8v8 zone is tonight, where it is not the same every evening.
+                        if (_eight is { } tonight && (elsewhere != null || EightZonePool(PvpWeights.Current.Real.EightZone).Count > 1))
+                            say((elsewhere != null ? $"You stand in {elsewhere.Name}, which is no zone of this evening. " : string.Empty) +
+                                $"The 8v8 zone is {tonight.Name} tonight: /8v8 go 8v8 takes you and your group there.");
                         return;
                     }
                     Start(2, player.InternalID, player, own, map);

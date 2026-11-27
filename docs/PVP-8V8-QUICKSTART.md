@@ -272,6 +272,18 @@ water in it. The game's data has no diving there (you swim on top, as in a front
 need no potion), but whether the water gets in the way of a fight is not known until it is
 played: if it does, `"EightZone": "collory"` (or any zone's word) moves the 8v8 zone.
 
+**A pool of zones** (since `v0.1.13`; in the game you play it is Agramon and the nine clean
+frontier zones). Name several, with
+commas between, and each evening has one of them, never the one of your evening before:
+`"EightZone": "agramon, collory, snowdonia"`. Any zone of `/8v8 go` can be named but Emain Macha,
+Odin's Gate and Hadrian's Wall, which stay the busy zones.
+The evening says which it is as it begins ("The 8v8 zone is Mount Collory tonight"), and
+`/8v8 go 8v8` takes you and your group there whichever it is: a macro with that line needs no
+change from one evening to the next. `/8v8 prime agramon` asks for one of the pool by name.
+If you log in standing in Agramon on an evening whose 8v8 zone is another, you are told so and
+are not moved: `/8v8 go 8v8`. Only Agramon was laid out for this; the frontier zones have their
+keeps and monsters, and Thidranki has three points and a keep in its middle.
+
 ## The kinds of guild you meet
 
 | Kind | How you know it |
