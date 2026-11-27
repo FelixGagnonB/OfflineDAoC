@@ -196,6 +196,11 @@ namespace DOL.UnitTests
         public void AGroupItsCompanionDrivesGoesOnlyForAGroupItSees()
         {
             Assert.That(PvpDriver.KnowsOf(false, false, null), Is.False, "9,000 units off behind a hill: it does not know of it");
+            // What its player points out is the group's, seen by its seven or not, and for a moment after.
+            Assert.That(PvpDriver.GoesForWhatItsPlayerPointsOut(null), Is.False);
+            Assert.That(PvpDriver.GoesForWhatItsPlayerPointsOut(0), Is.True, "its player has it as its target");
+            Assert.That(PvpDriver.GoesForWhatItsPlayerPointsOut(PvpDriver.RemembersForSeconds), Is.True);
+            Assert.That(PvpDriver.GoesForWhatItsPlayerPointsOut(PvpDriver.RemembersForSeconds + 1), Is.False, "its player looked away a while ago");
             Assert.That(PvpDriver.KnowsOf(false, false, 0), Is.True, "one of its seven sees it");
             Assert.That(PvpDriver.KnowsOf(false, false, PvpDriver.RemembersForSeconds), Is.True, "gone behind a hill a moment ago");
             Assert.That(PvpDriver.KnowsOf(false, false, PvpDriver.RemembersForSeconds + 1), Is.False);

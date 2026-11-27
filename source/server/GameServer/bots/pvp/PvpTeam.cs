@@ -170,10 +170,12 @@ namespace DOL.GS
         /// <param name="roam">Set in the open basin: the group goes from point to point by this draw.</param>
         /// <param name="contactTick">When the first blow of the fight fell; 0 before it.</param>
         /// <param name="toward">Where it goes while it sees no enemy, instead of on along its route: the fight it has said it joins (PvpRoam.FightItJoined).</param>
+        /// <param name="pointedOut">Enemies it goes for though none of its bots sees them: those its player has pointed out (PvpDriver.GoesForWhatItsPlayerPointsOut).</param>
         // Where the group was last marched to with no enemy in sight (null: it had one in sight, or has not marched yet).
         private Vector3? _marchedTo;
 
-        public void March(IReadOnlyList<GameLiving> enemies, (int X, int Y) far, PvpArenaBox arena, Random roam, long contactTick, (int X, int Y)? toward = null)
+        public void March(IReadOnlyList<GameLiving> enemies, (int X, int Y) far, PvpArenaBox arena, Random roam, long contactTick, (int X, int Y)? toward = null,
+            IReadOnlyList<GameLiving> pointedOut = null)
         {
             List<GameBot> members = Bots.Where(bot => bot.IsAlive).ToList();
             if (members.Count == 0)
@@ -192,7 +194,8 @@ namespace DOL.GS
             bool basin = Route != null || arena == PvpArenaBox.EmainSouthEast;
             int spot = basin ? PvpFormation.FormRange : SpotRange;
             PvpWeights sight = PvpWeights.Of(members[0]);
-            List<GameLiving> seen = enemies.Where(enemy => enemy.IsAlive && members.Any(bot => PvpSight.Sees(bot, enemy, spot, sight))).ToList();
+            List<GameLiving> seen = enemies.Where(enemy => enemy.IsAlive &&
+                (pointedOut?.Contains(enemy) == true || members.Any(bot => PvpSight.Sees(bot, enemy, spot, sight)))).ToList();
             Vector3 goal;
             Dictionary<GameBot, Vector3> places = null;
             if (seen.Count > 0)

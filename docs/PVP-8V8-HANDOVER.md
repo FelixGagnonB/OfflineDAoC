@@ -104,7 +104,7 @@ built. The ones you are most likely to want, with what is built in:
         "RealmPointRate": 5,
         "EnemyKeepsUp": true,
         "EightZone": "thid",
-        "EightZoneGroups": 2,
+        "EightZoneGroups": 4,
         "EightZoneRestSeconds": 120,
         "CleanZonesHaveNoAdds": true
       },
@@ -122,7 +122,7 @@ realm points a kill is worth. `EnemyKeepsUp`: no enemy fights below your group's
 `EightZone`: the zone where nobody adds, by the word `/8v8 go` takes (`""`: none; `"agramon"` needs
 `zone163.nav` in `runtime\server\navmesh`, which the game does not ship: see the roadmap, M13.27; since `v0.1.13` several words with commas between, `"agramon, collory"`, make a pool of
 which each evening has one, not the one of the evening before: M13.56); `EightZoneGroups`:
-guilds of each realm in it at the most; `EightZoneRestSeconds`: how long a group that has just
+guilds of each realm in it at the most (a third of the realm's; 4 since `v0.1.14`, 2 before); `EightZoneRestSeconds`: how long a group that has just
 fought is left alone there. Restart the server after a change. Not in that file (they are in the code): the size of a pack
 (`PvpTeamPool.PackMost`, 3), what each kind is like (`PvpPrimeTime.cs`, `PvpStyles.cs`), the five
 levels of play (`PvpNotice.cs`).
