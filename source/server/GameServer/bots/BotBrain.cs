@@ -3986,6 +3986,11 @@ namespace DOL.AI.Brain
             if (Body == null || Body.Spells == null || Body.Spells.Count <= 0)
                 return false;
 
+            // 8v8 only: a healer or caster at an enemy pet with its staff strikes the blow it has begun. Asked here by the
+            // swing itself, the rotation answered that its turn was taken (it staffs the pet), which called the swing off.
+            if (type == eCheckSpellType.Offensive && PvpStrikesThePet())
+                return false;
+
             // CastSpell starts an asynchronous cast/animation. Re-entering
             // this selector on every AI pulse while that cast is still active
             // makes Wizards, Necromancers and other ranged casters repeatedly

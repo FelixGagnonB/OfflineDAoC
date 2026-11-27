@@ -137,6 +137,11 @@ namespace DOL.UnitTests
             Assert.That(DOL.AI.Brain.BotBrain.StaffsAGreyPet(false, true, true, true), Is.False, "with an enemy fighter on it the pet is the least of its troubles");
             Assert.That(DOL.AI.Brain.BotBrain.StaffsAGreyPet(true, true, true, false), Is.False, "a fighter has its own targets");
             Assert.That(DOL.AI.Brain.BotBrain.StaffsAGreyPet(false, true, false, false), Is.False);
+            // The blow it has begun at the pet is struck: the swing does not ask its brain for a spell first.
+            Assert.That(DOL.AI.Brain.BotBrain.StrikesBeforeItChoosesASpell(true, true, false), Is.True);
+            Assert.That(DOL.AI.Brain.BotBrain.StrikesBeforeItChoosesASpell(false, true, false), Is.False, "it swings at somebody else, or at nobody");
+            Assert.That(DOL.AI.Brain.BotBrain.StrikesBeforeItChoosesASpell(true, false, false), Is.False, "the pet is down, or has turned to somebody else");
+            Assert.That(DOL.AI.Brain.BotBrain.StrikesBeforeItChoosesASpell(true, true, true), Is.False, "a cast it has begun comes first");
         }
 
         [Test]

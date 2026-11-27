@@ -1197,6 +1197,27 @@ namespace DOL.AI.Brain
         public long PvpStaffsUntil { get; private set; }
 
         /// <summary>
+        /// Whether the blow a bot is about to strike is struck before its brain is asked for a spell: it is at an enemy
+        /// pet with its staff, the pet is alive and still on it, and it is not casting. Every swing of a bot first asks
+        /// its brain for a spell and is called off when the brain says its turn is taken
+        /// (NpcAttackAction.PrepareMeleeAttack), and a bot that staffs a pet says exactly that
+        /// (<see cref="PvpStaffThePet"/>): its swing was called off, each time, and begun again at its next thought. The
+        /// owner, 2026-11-27, on its Cleric: "I am not sure the rule to attack pet when caster are unable to cast
+        /// worked. One of our caster had a druid grey pet and I just ran to it and auto-attack it". In its recording
+        /// that Theurgist had the lynx as its target for 16 seconds, stood still and struck no blow. In 33 minutes of
+        /// that evening, all groups: of 231 decisions to hit a grey pet 49 were followed by a blow (taken before the
+        /// pet's first hit had landed: the bot was not kept from casting yet, so its brain did not say it staffed), and
+        /// of the 261 to hit a pet that is not grey, none.
+        /// </summary>
+        public static bool StrikesBeforeItChoosesASpell(bool atAPetWithItsStaff, bool petIsAliveAndOnIt, bool casting) =>
+            atAPetWithItsStaff && petIsAliveAndOnIt && !casting;
+
+        /// <summary>True while the next blow of this bot at the pet it staffs goes ahead (<see cref="StrikesBeforeItChoosesASpell"/>).</summary>
+        private bool PvpStrikesThePet() => BotBody?.IsPvpBot == true && _pvpStaffedPet is { } pet &&
+            StrikesBeforeItChoosesASpell(Body.TargetObject == pet && Body.attackComponent.AttackState, pet.IsAlive && pet.TargetObject == Body,
+                Body.IsCasting || Body.castingComponent?.HasPendingSkillRequests == true);
+
+        /// <summary>
         /// Whether a healer or caster turns on an enemy pet that is on it, before anything else:
         /// the pet is grey to it (it falls to a blow or two), it is in reach, and no enemy
         /// fighter is on the bot (then the pet is the least of its troubles). The owner, on its
